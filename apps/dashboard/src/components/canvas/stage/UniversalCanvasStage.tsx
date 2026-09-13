@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { cn, getMediaUrl } from '@/lib/utils';
 import { TransformGizmo } from '@/components/canvas/TransformGizmo';
 import { NleLayerTransform, NleLayerObject } from '@/types/nle';
@@ -7,8 +7,23 @@ import { SubtitleConfig } from '@/types/subtitle';
 import { VideoFilterConfig } from '../forms/FilterFxInspectorForm';
 import { CommentCardConfig } from '../forms/CommentCardInspectorForm';
 import { VideoFitMode } from '../forms/VideoCropInspectorForm';
-import { FileVideo, ThumbsUp, MessageCircle } from 'lucide-react';
+import { FileVideo, ThumbsUp, MessageCircle, ArrowLeft, Menu, Share2, Sparkles } from 'lucide-react';
 import { MemeAvatar } from '@/components/memeAssets';
+import {
+  SsulHeaderFloatingInspector,
+  PostTitleFloatingInspector,
+  MetadataFloatingInspector,
+  DividerFloatingInspector,
+  SsulSubtitleFloatingInspector,
+  BadgeTagFloatingInspector,
+  JabHookFloatingInspector,
+  GunlimboHookBandFloatingInspector,
+  InstaProfileFloatingInspector,
+  SourceCreditFloatingInspector,
+  TopBottomBarFloatingInspector,
+  CommentCardFloatingInspector,
+  VideoCropFloatingInspector,
+} from '../floating';
 
 export interface UniversalCanvasStageProps {
   aspectRatio: '9:16' | '16:9' | '1:1';
@@ -18,6 +33,9 @@ export interface UniversalCanvasStageProps {
   selectedLayerId: string | null;
   setSelectedLayerId: (id: string | null) => void;
   setActiveInspectorTab: (tab: any) => void;
+  activeFloatingInspector?: string;
+  setActiveFloatingInspector?: (inspector: string) => void;
+  currentBrandChannelName?: string;
 
   // Video
   videoFitMode: VideoFitMode;
@@ -125,6 +143,7 @@ export interface UniversalCanvasStageProps {
   subtitleUseBox?: boolean;
   subtitleBoxColor?: string;
   subtitleBorderRadius?: number;
+  subtitleMaxChars?: number;
   selectedHighlightColor?: string;
 
   // Bottom Source
@@ -162,7 +181,6 @@ export interface UniversalCanvasStageProps {
   topBarZIndex?: number;
   bottomBarZIndex?: number;
   setTopTitleYPct?: (y: number) => void;
-  setSubtitleYPercent?: (y: number) => void;
   setBottomSourceBottomPct?: (pct: number) => void;
   setVideoFocusXPct?: (x: number) => void;
   setVideoFocusYPct?: (y: number) => void;
@@ -481,6 +499,93 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
   const activeSub = layers.find(l => l.type === 'subtitle' && l.visible && currentTimeMs >= l.startMs && currentTimeMs <= l.endMs);
   const subtitleLayers = layers.filter(l => l.type === 'subtitle');
   const activeSplitLimit = aspectRatio === '16:9' ? 24 : ((subtitleConfig as any)?.splitLimit || 14);
+  const [internalActiveFloating, setInternalActiveFloating] = useState<string>('none');
+  const activeFloating = props.activeFloatingInspector !== undefined ? props.activeFloatingInspector : internalActiveFloating;
+  const setActiveFloating = props.setActiveFloatingInspector || setInternalActiveFloating;
+  const currentBrandChannelName = props.currentBrandChannelName || '썰방 TV';
+
+  // 📜 썰형 5대 객체 (헤더바, 대제목, 메타데이터, 구분선, 자막본문) 설정 단일 진실 공급원
+  const ssulHeader = {
+    enabled: ssulConfig?.ssulHeader?.enabled ?? true,
+    bgColor: ssulConfig?.ssulHeader?.bgColor || '#FFFFFF',
+    heightMultiplier: ssulConfig?.ssulHeader?.heightMultiplier ?? 1.0,
+    text: ssulConfig?.ssulHeader?.text || ssulConfig?.channelName || currentBrandChannelName,
+    textColor: ssulConfig?.ssulHeader?.textColor || '#18181B',
+    font: ssulConfig?.ssulHeader?.font || 'Pretendard',
+    fontSizeMultiplier: ssulConfig?.ssulHeader?.fontSizeMultiplier ?? 1.0,
+    bold: ssulConfig?.ssulHeader?.bold ?? true,
+    italic: ssulConfig?.ssulHeader?.italic ?? false,
+    leftIcon: ssulConfig?.ssulHeader?.leftIcon || 'arrow_back',
+    rightIcon: ssulConfig?.ssulHeader?.rightIcon || 'menu',
+  };
+
+  const postTitleConfig = {
+    text: ssulConfig?.postTitle?.text || topTitleText || '오늘자 역대급 레전드 실화 썰 푼다',
+    color: ssulConfig?.postTitle?.color || '#111827',
+    font: ssulConfig?.postTitle?.font || titleFontFamily || 'Pretendard',
+    fontSizeMultiplier: ssulConfig?.postTitle?.fontSizeMultiplier ?? 1.0,
+    align: (ssulConfig?.postTitle?.align as 'left' | 'center' | 'right') || 'left',
+    bold: ssulConfig?.postTitle?.bold ?? true,
+    italic: ssulConfig?.postTitle?.italic ?? false,
+    strokeEnabled: ssulConfig?.postTitle?.strokeEnabled ?? false,
+    strokeColor: ssulConfig?.postTitle?.strokeColor || '#000000',
+    strokeWidth: ssulConfig?.postTitle?.strokeWidth ?? 2,
+    shadowEnabled: ssulConfig?.postTitle?.shadowEnabled ?? false,
+    shadowColor: ssulConfig?.postTitle?.shadowColor || 'rgba(0,0,0,0.5)',
+    shadowBlur: ssulConfig?.postTitle?.shadowBlur ?? 4,
+    offsetX: ssulConfig?.postTitle?.offsetX ?? 0,
+    offsetY: ssulConfig?.postTitle?.offsetY ?? 0,
+    letterSpacing: ssulConfig?.postTitle?.letterSpacing ?? -0.5,
+    lineHeight: ssulConfig?.postTitle?.lineHeight ?? 1.3,
+  };
+
+  const metadataConfig = {
+    showAuthor: ssulConfig?.metadata?.showAuthor ?? true,
+    authorText: ssulConfig?.metadata?.authorText || ssulConfig?.author || '익명의 직장인',
+    showTime: ssulConfig?.metadata?.showTime ?? true,
+    timeText: ssulConfig?.metadata?.timeText || ssulConfig?.timeText || '방금 전',
+    showViews: ssulConfig?.metadata?.showViews ?? true,
+    viewsText: ssulConfig?.metadata?.viewsText || ssulConfig?.viewsText || '조회 1.2만 · 추천 420',
+    separator: (ssulConfig?.metadata?.separator as 'dot' | 'bar' | 'slash') || 'dot',
+    color: ssulConfig?.metadata?.color || '#6B7280',
+    font: ssulConfig?.metadata?.font || 'Pretendard',
+    fontSizeMultiplier: ssulConfig?.metadata?.fontSizeMultiplier ?? 1.0,
+    bold: ssulConfig?.metadata?.bold ?? false,
+    offsetX: ssulConfig?.metadata?.offsetX ?? 0,
+    offsetY: ssulConfig?.metadata?.offsetY ?? 0,
+  };
+
+  const dividerConfig = {
+    enabled: ssulConfig?.divider?.enabled ?? true,
+    style: (ssulConfig?.divider?.style as 'solid' | 'dashed' | 'dotted') || 'solid',
+    thickness: ssulConfig?.divider?.thickness ?? 1,
+    widthPercent: ssulConfig?.divider?.widthPercent ?? 100,
+    color: ssulConfig?.divider?.color || '#E5E7EB',
+    opacity: ssulConfig?.divider?.opacity ?? 100,
+    offsetY: ssulConfig?.divider?.offsetY ?? 0,
+  };
+
+  const ssulSubtitleConfig = {
+    font: ssulConfig?.ssulSubtitle?.font || subtitleConfig?.font || 'Pretendard',
+    color: ssulConfig?.ssulSubtitle?.color || '#1F2937',
+    fontSizeMultiplier: ssulConfig?.ssulSubtitle?.fontSizeMultiplier ?? 1.0,
+    align: (ssulConfig?.ssulSubtitle?.align as 'left' | 'center' | 'right') || 'left',
+    bold: ssulConfig?.ssulSubtitle?.bold ?? true,
+    italic: ssulConfig?.ssulSubtitle?.italic ?? false,
+    lineHeightMultiplier: ssulConfig?.ssulSubtitle?.lineHeightMultiplier ?? 1.6,
+    letterSpacingPx: ssulConfig?.ssulSubtitle?.letterSpacingPx ?? 0,
+    marginTopPx: ssulConfig?.ssulSubtitle?.marginTopPx ?? 10,
+    strokeEnabled: ssulConfig?.ssulSubtitle?.strokeEnabled ?? false,
+    strokeColor: ssulConfig?.ssulSubtitle?.strokeColor || '#000000',
+    strokeWidth: ssulConfig?.ssulSubtitle?.strokeWidth ?? 2,
+    shadowEnabled: ssulConfig?.ssulSubtitle?.shadowEnabled ?? false,
+    shadowColor: ssulConfig?.ssulSubtitle?.shadowColor || 'rgba(0,0,0,0.3)',
+    shadowBlur: ssulConfig?.ssulSubtitle?.shadowBlur ?? 4,
+    boxEnabled: ssulConfig?.ssulSubtitle?.boxEnabled ?? false,
+    boxColor: ssulConfig?.ssulSubtitle?.boxColor || '#F3F4F6',
+    boxRadius: ssulConfig?.ssulSubtitle?.boxRadius ?? 4,
+  };
+
   const aspectScale = aspectRatio === '9:16' ? 1.0 : aspectRatio === '1:1' ? 0.9 : 0.75;
 
   return (
@@ -503,6 +608,10 @@ className={cn(
                   setSelectedLayerId('layer_video');
                   if (layoutTemplateMode !== 'instagram') setActiveInspectorTab('videoCrop');
                   else setActiveInspectorTab('template');
+                }}
+                onDoubleClick={(e) => {
+                  e.stopPropagation();
+                  setActiveFloating('videoCrop');
                 }}
                 className={cn(
                   "absolute overflow-hidden flex items-center justify-center transition-all cursor-pointer",
@@ -832,6 +941,10 @@ className={cn(
                         setSelectedLayerId('layer_gunlimbo_title');
                         setActiveInspectorTab('template');
                       }}
+                      onDoubleClick={(e) => {
+                        e.stopPropagation();
+                        setActiveFloating('postTitle');
+                      }}
                       className={cn(
                         "absolute top-0 left-0 right-0 h-[24%] bg-black select-none flex flex-col items-center justify-center px-4 transition-all cursor-pointer",
                         selectedLayerId === 'layer_gunlimbo_title' && "ring-1 ring-amber-400"
@@ -840,7 +953,7 @@ className={cn(
                         zIndex: 25,
                         borderBottom: gunlimboConfig.showGuidelines ? '1.5px dashed rgba(161, 161, 170, 0.75)' : 'none',
                       }}
-                      title="클릭하여 상단 대제목 설정"
+                      title="클릭하여 상단 대제목 설정 (더블클릭: 팝업)"
                     >
                       <div className="flex flex-col items-center text-center leading-tight">
                         <span
@@ -875,6 +988,10 @@ className={cn(
                       onClick={() => {
                         setSelectedLayerId('layer_gunlimbo_hook');
                         setActiveInspectorTab('template');
+                      }}
+                      onDoubleClick={(e) => {
+                        e.stopPropagation();
+                        setActiveFloating('gunlimboHook');
                       }}
                       className={cn(
                         "absolute left-0 right-0 w-full flex items-center justify-center transition-all cursor-pointer shadow-lg",
@@ -931,7 +1048,13 @@ className={cn(
                   }}
                   onChange={(newT) => setProfileTransform(newT)}
                 >
-                  <div className="flex items-center gap-2.5 cursor-pointer select-none group">
+                  <div
+                    onDoubleClick={(e) => {
+                      e.stopPropagation();
+                      setActiveFloating('instaProfile');
+                    }}
+                    className="flex items-center gap-2.5 cursor-pointer select-none group"
+                  >
                     <div className="w-11 h-11 rounded-full border-2 border-blue-600 overflow-hidden bg-white shadow-xs shrink-0 flex items-center justify-center">
                       <img
                         src={instaConfig.profileAvatarUrl || "https://api.dicebear.com/9.x/lorelei/svg?seed=user_avatar_blue"}
@@ -958,20 +1081,180 @@ className={cn(
                 </TransformGizmo>
               )}
 
-              {/* 📜 [썰형] 상단 커뮤니티 게시글 헤더 (블라인드 / 네이트판 / 추천수) */}
+              {/* 📜 [썰형] 픽셀링 규격 100% 동일 복제: 화이트 커뮤니티 포스트 카드 (헤더바 + 대제목 + 메타데이터 + 구분선 + 자막본문) */}
               {layoutTemplateMode === 'ssul' && (
-                <div className="absolute top-3 left-3 right-3 z-40 bg-neutral-900/90 backdrop-blur-md border border-emerald-500/30 rounded-md p-2 shadow-lg select-none">
-                  <div className="flex items-center justify-between text-[10px] mb-1">
-                    <div className="flex items-center gap-1.5">
-                      <span className="bg-emerald-600 text-white font-black px-1.5 py-0.2 rounded-2xs text-[9px] uppercase">
-                        {ssulConfig.communityType.toUpperCase()}
-                      </span>
-                      <span className="text-white font-bold">{ssulConfig.author}</span>
-                      <span className="text-neutral-400 text-[9px]">{ssulConfig.timeText}</span>
+                <div
+                  className="absolute z-35 flex flex-col transition-all select-none"
+                  style={{
+                    top: '6%',
+                    left: '5%',
+                    right: '5%',
+                    maxHeight: '62%',
+                    backgroundColor: ssulConfig?.cardBgColor || '#FFFFFF',
+                    borderRadius: `${ssulConfig?.cardRadius ?? 14}px`,
+                    boxShadow: '0 20px 50px rgba(0,0,0,0.4), 0 0 0 1px rgba(0,0,0,0.06)',
+                    overflow: 'hidden',
+                  }}
+                >
+                  {/* 1. 헤더바 (Header Bar) */}
+                  {ssulHeader.enabled && (
+                    <div
+                      onDoubleClick={(e) => {
+                        e.stopPropagation();
+                        setActiveFloating('ssulHeader');
+                      }}
+                      className="px-3.5 py-2 flex items-center justify-between border-b border-zinc-200 dark:border-zinc-700/60 cursor-pointer hover:bg-black/[0.02] transition-colors"
+                      style={{
+                        backgroundColor: ssulHeader.bgColor || '#FFFFFF',
+                        minHeight: `${Math.round(36 * (ssulHeader.heightMultiplier || 1.0))}px`,
+                      }}
+                      title="더블클릭하여 헤더 바 속성 편집"
+                    >
+                      <div className="flex items-center gap-2">
+                        {ssulHeader.leftIcon === 'arrow_back' && <ArrowLeft className="w-4 h-4 text-zinc-700 dark:text-zinc-300" />}
+                        {ssulHeader.leftIcon === 'home' && <Sparkles className="w-4 h-4 text-amber-500" />}
+                        <span
+                          style={{
+                            color: ssulHeader.textColor || '#18181B',
+                            fontFamily: ssulHeader.font || 'Pretendard',
+                            fontSize: `${Math.round(13 * (ssulHeader.fontSizeMultiplier || 1.0))}px`,
+                            fontWeight: ssulHeader.bold ? 700 : 500,
+                            fontStyle: ssulHeader.italic ? 'italic' : 'normal',
+                          }}
+                        >
+                          {ssulHeader.text || currentBrandChannelName}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {ssulHeader.rightIcon === 'menu' && <Menu className="w-4 h-4 text-zinc-500" />}
+                        {ssulHeader.rightIcon === 'share' && <Share2 className="w-4 h-4 text-zinc-500" />}
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2 text-[9px] text-neutral-400">
-                      <span>{ssulConfig.viewsText}</span>
-                      <span className="text-emerald-400 font-bold">{ssulConfig.upvotesText}</span>
+                  )}
+
+                  {/* 포스트 본체 내부 패딩 영역 */}
+                  <div className="p-3.5 flex flex-col flex-1 overflow-hidden">
+                    {/* 2. 게시글 제목 (Post Title) */}
+                    <div
+                      onDoubleClick={(e) => {
+                        e.stopPropagation();
+                        setActiveFloating('postTitle');
+                      }}
+                      className="cursor-pointer hover:bg-black/[0.02] rounded p-1 -m-1 transition-colors"
+                      style={{
+                        textAlign: postTitleConfig.align || 'left',
+                        transform: `translate(${postTitleConfig.offsetX || 0}px, ${postTitleConfig.offsetY || 0}px)`,
+                      }}
+                      title="더블클릭하여 게시글 제목 속성 편집"
+                    >
+                      <h2
+                        style={{
+                          color: postTitleConfig.color || '#111827',
+                          fontFamily: postTitleConfig.font || 'Pretendard',
+                          fontSize: `${Math.round(20 * (postTitleConfig.fontSizeMultiplier || 1.0) * aspectScale)}px`,
+                          fontWeight: postTitleConfig.bold ? 800 : 600,
+                          fontStyle: postTitleConfig.italic ? 'italic' : 'normal',
+                          letterSpacing: `${postTitleConfig.letterSpacing || -0.5}px`,
+                          lineHeight: postTitleConfig.lineHeight || 1.3,
+                          WebkitTextStroke: postTitleConfig.strokeEnabled ? `${postTitleConfig.strokeWidth}px ${postTitleConfig.strokeColor}` : 'none',
+                          textShadow: postTitleConfig.shadowEnabled ? `0 2px ${postTitleConfig.shadowBlur}px ${postTitleConfig.shadowColor}` : 'none',
+                        }}
+                        className="tracking-tight whitespace-pre-line break-keep"
+                      >
+                        {postTitleConfig.text || topTitleText || '오늘자 레전드 썰 풀어본다'}
+                      </h2>
+                    </div>
+
+                    {/* 3. 메타데이터 (Metadata) */}
+                    <div
+                      onDoubleClick={(e) => {
+                        e.stopPropagation();
+                        setActiveFloating('metadata');
+                      }}
+                      className="flex items-center gap-1.5 mt-2 text-xs cursor-pointer hover:bg-black/[0.02] rounded px-1 -mx-1 py-0.5 transition-colors"
+                      style={{
+                        color: metadataConfig.color || '#6B7280',
+                        fontFamily: metadataConfig.font || 'Pretendard',
+                        fontSize: `${Math.round(11 * (metadataConfig.fontSizeMultiplier || 1.0))}px`,
+                        fontWeight: metadataConfig.bold ? 700 : 400,
+                        transform: `translate(${metadataConfig.offsetX || 0}px, ${metadataConfig.offsetY || 0}px)`,
+                      }}
+                      title="더블클릭하여 메타데이터 속성 편집"
+                    >
+                      {metadataConfig.showAuthor && (
+                        <span className="font-semibold text-zinc-800 dark:text-zinc-200">{metadataConfig.authorText || '익명'}</span>
+                      )}
+                      {metadataConfig.showAuthor && (metadataConfig.showTime || metadataConfig.showViews) && (
+                        <span className="opacity-40">{metadataConfig.separator === 'slash' ? '/' : metadataConfig.separator === 'bar' ? '|' : '·'}</span>
+                      )}
+                      {metadataConfig.showTime && (
+                        <span>{metadataConfig.timeText || '방금 전'}</span>
+                      )}
+                      {metadataConfig.showTime && metadataConfig.showViews && (
+                        <span className="opacity-40">{metadataConfig.separator === 'slash' ? '/' : metadataConfig.separator === 'bar' ? '|' : '·'}</span>
+                      )}
+                      {metadataConfig.showViews && (
+                        <span>{metadataConfig.viewsText || '조회 1.2만'}</span>
+                      )}
+                    </div>
+
+                    {/* 4. 구분선 (Divider) */}
+                    {dividerConfig.enabled && (
+                      <div
+                        onDoubleClick={(e) => {
+                          e.stopPropagation();
+                          setActiveFloating('divider');
+                        }}
+                        className="my-2.5 flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity"
+                        style={{
+                          transform: `translateY(${dividerConfig.offsetY || 0}px)`,
+                        }}
+                        title="더블클릭하여 구분선 속성 편집"
+                      >
+                        <div
+                          style={{
+                            width: `${dividerConfig.widthPercent || 100}%`,
+                            borderTopWidth: `${dividerConfig.thickness || 1}px`,
+                            borderTopStyle: dividerConfig.style || 'solid',
+                            borderTopColor: dividerConfig.color || '#E5E7EB',
+                            opacity: (dividerConfig.opacity ?? 100) / 100,
+                          }}
+                        />
+                      </div>
+                    )}
+
+                    {/* 5. 자막 본문 (Subtitle Body) */}
+                    <div
+                      onDoubleClick={(e) => {
+                        e.stopPropagation();
+                        setActiveFloating('ssulSubtitle');
+                      }}
+                      className="flex-1 cursor-pointer hover:bg-black/[0.02] rounded p-1 -m-1 transition-colors overflow-hidden"
+                      style={{
+                        marginTop: `${ssulSubtitleConfig.marginTopPx ?? 10}px`,
+                        textAlign: ssulSubtitleConfig.align || 'left',
+                      }}
+                      title="더블클릭하여 자막 본문 속성 편집"
+                    >
+                      <p
+                        style={{
+                          color: ssulSubtitleConfig.color || '#1F2937',
+                          fontFamily: ssulSubtitleConfig.font || 'Pretendard',
+                          fontSize: `${Math.round(15 * (ssulSubtitleConfig.fontSizeMultiplier || 1.0) * aspectScale)}px`,
+                          fontWeight: ssulSubtitleConfig.bold ? 700 : 500,
+                          fontStyle: ssulSubtitleConfig.italic ? 'italic' : 'normal',
+                          lineHeight: ssulSubtitleConfig.lineHeightMultiplier || 1.6,
+                          letterSpacing: `${ssulSubtitleConfig.letterSpacingPx || 0}px`,
+                          backgroundColor: ssulSubtitleConfig.boxEnabled ? ssulSubtitleConfig.boxColor : 'transparent',
+                          borderRadius: ssulSubtitleConfig.boxEnabled ? `${ssulSubtitleConfig.boxRadius}px` : 0,
+                          padding: ssulSubtitleConfig.boxEnabled ? '6px 10px' : '0',
+                          WebkitTextStroke: ssulSubtitleConfig.strokeEnabled ? `${ssulSubtitleConfig.strokeWidth}px ${ssulSubtitleConfig.strokeColor}` : 'none',
+                          textShadow: ssulSubtitleConfig.shadowEnabled ? `0 2px ${ssulSubtitleConfig.shadowBlur}px ${ssulSubtitleConfig.shadowColor}` : 'none',
+                        }}
+                        className="whitespace-pre-line break-keep"
+                      >
+                        {activeSub?.data || currentSubtitleText || '여기에 썰형 자막 본문이 실시간 동기화되어 표시됩니다.'}
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -981,6 +1264,10 @@ className={cn(
               {hasTopBarBg && (
                 <div
                   onClick={() => { setSelectedLayerId('layer_top_bar'); setActiveInspectorTab('titleSource'); }}
+                  onDoubleClick={(e) => {
+                    e.stopPropagation();
+                    setActiveFloating('topBottomBar');
+                  }}
                   className="absolute top-0 left-0 right-0 transition-all cursor-pointer"
                   style={{
                     height: `${topBarHeightPct}%`,
@@ -988,7 +1275,7 @@ className={cn(
                     opacity: topBarOpacity,
                     zIndex: topBarZIndex,
                   }}
-                  title="클릭하여 상단 배경 바 설정"
+                  title="클릭하여 상단 배경 바 설정 (더블클릭: 팝업)"
                 />
               )}
 
@@ -1011,6 +1298,10 @@ className={cn(
                   }}
                 >
                   <div
+                    onDoubleClick={(e) => {
+                      e.stopPropagation();
+                      setActiveFloating('postTitle');
+                    }}
                     className={cn(
                       "flex flex-col select-none cursor-move transition-all",
                       layoutTemplateMode === 'instagram' ? "items-start text-left" : "items-center text-center"
@@ -1045,8 +1336,13 @@ className={cn(
                         {/* 상단 뱃지 */}
                         {hasTitleBadge && titleBadgeText && (
                           <span
-                            className="text-white text-[8px] font-black px-1.5 py-0.2 uppercase tracking-wider mb-1 rounded-[1px] shadow-sm"
+                            onDoubleClick={(e) => {
+                              e.stopPropagation();
+                              setActiveFloating('badgeTag');
+                            }}
+                            className="text-white text-[8px] font-black px-1.5 py-0.2 uppercase tracking-wider mb-1 rounded-[1px] shadow-sm cursor-pointer hover:opacity-90"
                             style={{ backgroundColor: titleBadgeColor }}
+                            title="더블클릭하여 뱃지 속성 편집"
                           >
                             {titleBadgeText}
                           </span>
@@ -1119,6 +1415,10 @@ className={cn(
                     }}
                   >
                     <div
+                      onDoubleClick={(e) => {
+                        e.stopPropagation();
+                        setActiveFloating('jabHook');
+                      }}
                       className="font-black px-3 py-1.5 flex items-center justify-center whitespace-nowrap cursor-move transition-all"
                       style={{
                         backgroundColor: jabBgEnabled ? jabBgColor : 'transparent',
@@ -1274,6 +1574,10 @@ className={cn(
                   }}
                 >
                   <div
+                    onDoubleClick={(e) => {
+                      e.stopPropagation();
+                      setActiveFloating('sourceCredit');
+                    }}
                     className="select-none text-center whitespace-nowrap px-2 cursor-move"
                     style={{
                       backgroundColor: bottomSourceBg ? 'rgba(0,0,0,0.7)' : 'transparent',
@@ -1301,6 +1605,10 @@ className={cn(
               {hasBottomBarBg && (
                 <div
                   onClick={() => { setSelectedLayerId('layer_bottom_bar'); setActiveInspectorTab('titleSource'); }}
+                  onDoubleClick={(e) => {
+                    e.stopPropagation();
+                    setActiveFloating('topBottomBar');
+                  }}
                   className="absolute bottom-0 left-0 right-0 transition-all cursor-pointer"
                   style={{
                     height: `${bottomBarHeightPct}%`,
@@ -1309,7 +1617,7 @@ className={cn(
                     borderRadius: bottomBarRadius ? `${bottomBarRadius}px` : undefined,
                     zIndex: bottomBarZIndex,
                   }}
-                  title="클릭하여 하단 배경 바 설정"
+                  title="클릭하여 하단 배경 바 설정 (더블클릭: 팝업)"
                 />
               )}
 
@@ -1343,6 +1651,10 @@ className={cn(
                   onChange={(newT) => setCommentTransform?.(newT)}
                 >
                   <div
+                    onDoubleClick={(e) => {
+                      e.stopPropagation();
+                      setActiveFloating('commentCard');
+                    }}
                     className={cn(
                       "p-3 transition-all cursor-move select-none min-w-[200px] max-w-[88%] w-fit inline-block",
                       (commentCard.theme === 'insta' || layoutTemplateMode === 'instagram')
@@ -1456,6 +1768,451 @@ className={cn(
                     </>
                   )}
                 </div>
+              )}
+
+              {/* ── 🌟 인-캔버스 객체 지향 플로팅 프로퍼티 인스펙터 (Pixeling 규격 100% 동일 복제) ── */}
+              {activeFloating === 'ssulHeader' && (
+                <SsulHeaderFloatingInspector
+                  isOpen={true}
+                  onClose={() => setActiveFloating('none')}
+                  config={ssulHeader}
+                  onChange={(patch) => {
+                    props.setSsulConfig?.((prev: any) => ({
+                      ...prev,
+                      ssulHeader: { ...ssulHeader, ...patch },
+                    }));
+                  }}
+                  onReset={() => {
+                    props.setSsulConfig?.((prev: any) => ({
+                      ...prev,
+                      ssulHeader: {
+                        enabled: true,
+                        bgColor: '#FFFFFF',
+                        heightMultiplier: 1.0,
+                        text: currentBrandChannelName,
+                        textColor: '#18181B',
+                        font: 'Pretendard',
+                        fontSizeMultiplier: 1.0,
+                        bold: true,
+                        italic: false,
+                        leftIcon: 'arrow_back',
+                        rightIcon: 'menu',
+                      },
+                    }));
+                  }}
+                  defaultChannelName={currentBrandChannelName}
+                />
+              )}
+
+              {activeFloating === 'postTitle' && (
+                <PostTitleFloatingInspector
+                  isOpen={true}
+                  onClose={() => setActiveFloating('none')}
+                  config={postTitleConfig}
+                  onChange={(patch) => {
+                    if (layoutTemplateMode === 'ssul') {
+                      props.setSsulConfig?.((prev: any) => ({
+                        ...prev,
+                        postTitle: { ...postTitleConfig, ...patch },
+                      }));
+                    }
+                    if (patch.text !== undefined && props.setTopTitleText) {
+                      props.setTopTitleText(patch.text);
+                    }
+                  }}
+                  onReset={() => {
+                    if (layoutTemplateMode === 'ssul') {
+                      props.setSsulConfig?.((prev: any) => ({
+                        ...prev,
+                        postTitle: {
+                          text: '오늘자 역대급 레전드 실화 썰 푼다',
+                          color: '#111827',
+                          font: 'Pretendard',
+                          fontSizeMultiplier: 1.0,
+                          align: 'left',
+                          bold: true,
+                          italic: false,
+                          strokeEnabled: false,
+                          strokeColor: '#000000',
+                          strokeWidth: 2,
+                          shadowEnabled: false,
+                          shadowColor: 'rgba(0,0,0,0.5)',
+                          shadowBlur: 4,
+                          offsetX: 0,
+                          offsetY: 0,
+                          letterSpacing: -0.5,
+                          lineHeight: 1.3,
+                        },
+                      }));
+                    }
+                  }}
+                />
+              )}
+
+              {activeFloating === 'metadata' && (
+                <MetadataFloatingInspector
+                  isOpen={true}
+                  onClose={() => setActiveFloating('none')}
+                  config={metadataConfig}
+                  onChange={(patch) => {
+                    props.setSsulConfig?.((prev: any) => ({
+                      ...prev,
+                      metadata: { ...metadataConfig, ...patch },
+                    }));
+                  }}
+                  onReset={() => {
+                    props.setSsulConfig?.((prev: any) => ({
+                      ...prev,
+                      metadata: {
+                        showAuthor: true,
+                        authorText: '익명',
+                        showTime: true,
+                        timeText: '방금 전',
+                        showViews: true,
+                        viewsText: '조회 1.2만 · 추천 420',
+                        separator: 'dot',
+                        color: '#6B7280',
+                        font: 'Pretendard',
+                        fontSizeMultiplier: 1.0,
+                        bold: false,
+                        offsetX: 0,
+                        offsetY: 0,
+                      },
+                    }));
+                  }}
+                />
+              )}
+
+              {activeFloating === 'divider' && (
+                <DividerFloatingInspector
+                  isOpen={true}
+                  onClose={() => setActiveFloating('none')}
+                  config={dividerConfig}
+                  onChange={(patch) => {
+                    props.setSsulConfig?.((prev: any) => ({
+                      ...prev,
+                      divider: { ...dividerConfig, ...patch },
+                    }));
+                  }}
+                  onReset={() => {
+                    props.setSsulConfig?.((prev: any) => ({
+                      ...prev,
+                      divider: {
+                        enabled: true,
+                        style: 'solid',
+                        thickness: 1,
+                        widthPercent: 100,
+                        color: '#E5E7EB',
+                        opacity: 100,
+                        offsetY: 0,
+                      },
+                    }));
+                  }}
+                />
+              )}
+
+              {activeFloating === 'ssulSubtitle' && (
+                <SsulSubtitleFloatingInspector
+                  isOpen={true}
+                  onClose={() => setActiveFloating('none')}
+                  config={ssulSubtitleConfig}
+                  onChange={(patch) => {
+                    props.setSsulConfig?.((prev: any) => ({
+                      ...prev,
+                      ssulSubtitle: { ...ssulSubtitleConfig, ...patch },
+                    }));
+                  }}
+                  onReset={() => {
+                    props.setSsulConfig?.((prev: any) => ({
+                      ...prev,
+                      ssulSubtitle: {
+                        font: 'Pretendard',
+                        color: '#1F2937',
+                        fontSizeMultiplier: 1.0,
+                        align: 'left',
+                        bold: true,
+                        italic: false,
+                        lineHeightMultiplier: 1.6,
+                        letterSpacingPx: 0,
+                        marginTopPx: 10,
+                        strokeEnabled: false,
+                        strokeColor: '#000000',
+                        strokeWidth: 2,
+                        shadowEnabled: false,
+                        shadowColor: 'rgba(0,0,0,0.3)',
+                        shadowBlur: 4,
+                        boxEnabled: false,
+                        boxColor: '#F3F4F6',
+                        boxRadius: 4,
+                      },
+                    }));
+                  }}
+                />
+              )}
+
+              {activeFloating === 'badgeTag' && (
+                <BadgeTagFloatingInspector
+                  isOpen={true}
+                  onClose={() => setActiveFloating('none')}
+                  config={{
+                    enabled: props.hasTitleBadge ?? true,
+                    text: props.titleBadgeText || 'HOT ISSUE',
+                    bgColor: props.titleBadgeBg || '#EF4444',
+                    textColor: props.titleBadgeColor || '#FFFFFF',
+                    fontSize: 12,
+                    borderRadius: 4,
+                    paddingX: 8,
+                    paddingY: 2,
+                    offsetX: 0,
+                    offsetY: 0,
+                  }}
+                  onChange={(patch) => {
+                    if (patch.text !== undefined && (props as any).setTitleBadgeText) (props as any).setTitleBadgeText(patch.text);
+                    if (patch.bgColor !== undefined && (props as any).setTitleBadgeBg) (props as any).setTitleBadgeBg(patch.bgColor);
+                    if (patch.textColor !== undefined && (props as any).setTitleBadgeColor) (props as any).setTitleBadgeColor(patch.textColor);
+                  }}
+                  onReset={() => {
+                    (props as any).setTitleBadgeText?.('HOT ISSUE');
+                    (props as any).setTitleBadgeBg?.('#EF4444');
+                  }}
+                />
+              )}
+
+              {activeFloating === 'jabHook' && (
+                <JabHookFloatingInspector
+                  isOpen={true}
+                  onClose={() => setActiveFloating('none')}
+                  config={{
+                    enabled: props.hasJab ?? true,
+                    text: props.jabText || '마지막 반전 주의 ㄷㄷ',
+                    tiltDeg: props.jabTiltDeg ?? -3,
+                    fontSize: props.jabFontSize ?? 16,
+                    textColor: props.jabTextColor || '#000000',
+                    font: props.titleFontFamily || 'GmarketSans',
+                    strokeEnabled: props.jabStroke ?? true,
+                    strokeColor: props.jabStrokeColor || '#000000',
+                    strokeWidth: props.jabStrokeWidth ?? 2,
+                    shadowEnabled: props.jabShadow ?? true,
+                    shadowColor: 'rgba(0,0,0,0.8)',
+                    shadowBlur: props.jabShadowBlur ?? 8,
+                    bgEnabled: props.jabBgEnabled ?? true,
+                    bgColor: props.jabBgColor || '#FFE500',
+                    borderRadius: props.jabBorderRadius ?? 4,
+                    offsetX: 0,
+                    offsetY: 0,
+                  }}
+                  onChange={(patch) => {
+                    if (patch.text !== undefined && (props as any).setJabText) (props as any).setJabText(patch.text);
+                    if (patch.tiltDeg !== undefined && (props as any).setJabTiltDeg) (props as any).setJabTiltDeg(patch.tiltDeg);
+                    if (patch.fontSize !== undefined && (props as any).setJabFontSize) (props as any).setJabFontSize(patch.fontSize);
+                    if (patch.textColor !== undefined && (props as any).setJabTextColor) (props as any).setJabTextColor(patch.textColor);
+                    if (patch.bgColor !== undefined && (props as any).setJabBgColor) (props as any).setJabBgColor(patch.bgColor);
+                  }}
+                  onReset={() => {
+                    (props as any).setJabTiltDeg?.(-3);
+                    (props as any).setJabBgColor?.('#FFE500');
+                  }}
+                />
+              )}
+
+              {activeFloating === 'gunlimboHook' && (
+                <GunlimboHookBandFloatingInspector
+                  isOpen={true}
+                  onClose={() => setActiveFloating('none')}
+                  config={{
+                    enabled: true,
+                    bandColor: props.gunlimboConfig?.hookBgColor || '#FFFFFF',
+                    bandHeightPct: 10,
+                    bandYPct: 24,
+                    headlineText: props.gunlimboConfig?.titleLine1 || '경찰도 경악한 범인의 정체',
+                    headlineColor: props.gunlimboConfig?.titleLine1Color || '#FFFFFF',
+                    headlineFontSize: props.gunlimboConfig?.titleFontSize || 34,
+                    headlineFont: props.titleFontFamily || 'Pretendard',
+                    subheadlineText: props.gunlimboConfig?.hookPhrase || '1분 만에 밝혀진 진실',
+                    subheadlineColor: props.gunlimboConfig?.hookTextColor || '#000000',
+                    subheadlineFontSize: props.gunlimboConfig?.hookFontSize || 22,
+                    subheadlineFont: props.titleFontFamily || 'Pretendard',
+                    showBorder: true,
+                    borderColor: '#3F3F46',
+                    borderWidth: 1,
+                  }}
+                  onChange={(patch) => {
+                    props.setGunlimboConfig?.((prev: any) => ({
+                      ...prev,
+                      titleLine1: patch.headlineText !== undefined ? patch.headlineText : prev.titleLine1,
+                      titleLine1Color: patch.headlineColor !== undefined ? patch.headlineColor : prev.titleLine1Color,
+                      titleFontSize: patch.headlineFontSize !== undefined ? patch.headlineFontSize : prev.titleFontSize,
+                      hookPhrase: patch.subheadlineText !== undefined ? patch.subheadlineText : prev.hookPhrase,
+                      hookBgColor: patch.bandColor !== undefined ? patch.bandColor : prev.hookBgColor,
+                      hookTextColor: patch.subheadlineColor !== undefined ? patch.subheadlineColor : prev.hookTextColor,
+                      hookFontSize: patch.subheadlineFontSize !== undefined ? patch.subheadlineFontSize : prev.hookFontSize,
+                    }));
+                  }}
+                  onReset={() => {
+                    props.setGunlimboConfig?.((prev: any) => ({
+                      ...prev,
+                      titleLine1: '충격 실화 사건',
+                      titleLine2: '상상도 못한 결말',
+                      hookPhrase: '1분 만에 밝혀진 진실',
+                      hookBgColor: '#FFFFFF',
+                      hookTextColor: '#000000',
+                    }));
+                  }}
+                />
+              )}
+
+              {activeFloating === 'instaProfile' && (
+                <InstaProfileFloatingInspector
+                  isOpen={true}
+                  onClose={() => setActiveFloating('none')}
+                  config={{
+                    avatarUrl: props.instaConfig?.profileAvatarUrl || '',
+                    nickname: props.instaConfig?.profileName || '사용자명',
+                    handle: props.instaConfig?.profileHandle || '@handle',
+                    isVerified: props.instaConfig?.isVerified ?? true,
+                    timeText: '방금 전 · 원본 오디오',
+                    showFollowBtn: true,
+                    showSoundIcon: true,
+                    textColor: '#18181B',
+                    fontSizeMultiplier: 1.0,
+                    offsetX: 0,
+                    offsetY: 0,
+                  }}
+                  onChange={(patch) => {
+                    props.setInstaConfig?.((prev: any) => ({
+                      ...prev,
+                      profileName: patch.nickname !== undefined ? patch.nickname : prev.profileName,
+                      profileHandle: patch.handle !== undefined ? patch.handle : prev.profileHandle,
+                      profileAvatarUrl: patch.avatarUrl !== undefined ? patch.avatarUrl : prev.profileAvatarUrl,
+                      isVerified: patch.isVerified !== undefined ? patch.isVerified : prev.isVerified,
+                    }));
+                  }}
+                  onReset={() => {
+                    props.setInstaConfig?.((prev: any) => ({
+                      ...prev,
+                      profileName: '유머보따리',
+                      profileHandle: '@humor_box',
+                      isVerified: true,
+                    }));
+                  }}
+                />
+              )}
+
+              {activeFloating === 'sourceCredit' && (
+                <SourceCreditFloatingInspector
+                  isOpen={true}
+                  onClose={() => setActiveFloating('none')}
+                  config={{
+                    enabled: props.hasBottomSource ?? true,
+                    text: props.bottomSourceText || '출처: 유튜브 @채널명',
+                    color: props.bottomSourceColor || '#CBD5E1',
+                    fontSize: props.bottomSourceSizePx || 12,
+                    font: props.titleFontFamily || 'Pretendard',
+                    bgEnabled: props.bottomSourceBg ?? true,
+                    bgColor: 'rgba(0,0,0,0.7)',
+                    borderRadius: props.bottomSourceBorderRadius ?? 4,
+                    strokeEnabled: props.bottomSourceStroke ?? false,
+                    strokeColor: '#000000',
+                    strokeWidth: 1,
+                    shadowEnabled: props.bottomSourceShadow ?? true,
+                    shadowColor: 'rgba(0,0,0,0.9)',
+                    shadowBlur: 4,
+                    offsetX: 0,
+                    offsetY: 0,
+                  }}
+                  onChange={(patch) => {
+                    if (patch.text !== undefined && (props as any).setBottomSourceText) (props as any).setBottomSourceText(patch.text);
+                    if (patch.color !== undefined && (props as any).setBottomSourceColor) (props as any).setBottomSourceColor(patch.color);
+                    if (patch.fontSize !== undefined && (props as any).setBottomSourceSizePx) (props as any).setBottomSourceSizePx(patch.fontSize);
+                  }}
+                  onReset={() => {
+                    (props as any).setBottomSourceText?.('출처: YouTube @ViraLoop 공식 채널');
+                  }}
+                />
+              )}
+
+              {activeFloating === 'topBottomBar' && (
+                <TopBottomBarFloatingInspector
+                  isOpen={true}
+                  onClose={() => setActiveFloating('none')}
+                  config={{
+                    hasTopBarBg: props.hasTopBarBg ?? true,
+                    topBarHeightPct: props.topBarHeightPct ?? 18,
+                    topBarBg: props.topBarBg || '#000000',
+                    topBarOpacity: (props.topBarOpacity ?? 1) * 100,
+                    topBarRadius: props.topBarRadius ?? 0,
+                    hasBottomBarBg: props.hasBottomBarBg ?? true,
+                    bottomBarHeightPct: props.bottomBarHeightPct ?? 6,
+                    bottomBarBg: props.bottomBarBg || '#000000',
+                    bottomBarOpacity: (props.bottomBarOpacity ?? 1) * 100,
+                    bottomBarRadius: props.bottomBarRadius ?? 0,
+                  }}
+                  onChange={(patch) => {
+                    if (patch.hasTopBarBg !== undefined && (props as any).setHasTopBarBg) (props as any).setHasTopBarBg(patch.hasTopBarBg);
+                    if (patch.topBarBg !== undefined && (props as any).setTopBarBg) (props as any).setTopBarBg(patch.topBarBg);
+                    if (patch.topBarHeightPct !== undefined && (props as any).setTopBarHeightPct) (props as any).setTopBarHeightPct(patch.topBarHeightPct);
+                    if (patch.hasBottomBarBg !== undefined && (props as any).setHasBottomBarBg) (props as any).setHasBottomBarBg(patch.hasBottomBarBg);
+                    if (patch.bottomBarBg !== undefined && (props as any).setBottomBarBg) (props as any).setBottomBarBg(patch.bottomBarBg);
+                    if (patch.bottomBarHeightPct !== undefined && (props as any).setBottomBarHeightPct) (props as any).setBottomBarHeightPct(patch.bottomBarHeightPct);
+                  }}
+                  onReset={() => {
+                    (props as any).setTopBarBg?.('#000000');
+                    (props as any).setBottomBarBg?.('#000000');
+                  }}
+                />
+              )}
+
+              {activeFloating === 'commentCard' && (
+                <CommentCardFloatingInspector
+                  isOpen={true}
+                  onClose={() => setActiveFloating('none')}
+                  config={props.commentCard}
+                  onChange={(patch) => {
+                    props.setCommentCard?.((prev: any) => ({ ...prev, ...patch }));
+                  }}
+                  onReset={() => {
+                    props.setCommentCard?.((prev: any) => ({
+                      ...prev,
+                      authorName: '알고리즘의노예',
+                      commentText: '이거 보고 제 인생이 바뀌었습니다 ㄷㄷ',
+                      likesCount: '1.4만',
+                      bgColor: '#FFFFFF',
+                      textColor: '#18181B',
+                    }));
+                  }}
+                />
+              )}
+
+              {activeFloating === 'videoCrop' && (
+                <VideoCropFloatingInspector
+                  isOpen={true}
+                  onClose={() => setActiveFloating('none')}
+                  config={{
+                    fitMode: props.videoFitMode,
+                    blurBg: props.videoBlurBg,
+                    zoomScale: props.videoZoomScale,
+                    focusXPct: props.videoFocusXPct,
+                    focusYPct: props.videoFocusYPct,
+                    rotationDeg: props.videoRotationDeg,
+                    horizontalFlip: props.videoHorizontalFlip,
+                    verticalFlip: props.videoVerticalFlip,
+                  }}
+                  onChange={(patch) => {
+                    if (patch.fitMode !== undefined && (props as any).setVideoFitMode) (props as any).setVideoFitMode(patch.fitMode);
+                    if (patch.blurBg !== undefined && (props as any).setVideoBlurBg) (props as any).setVideoBlurBg(patch.blurBg);
+                    if (patch.zoomScale !== undefined && props.setVideoZoomScale) props.setVideoZoomScale(patch.zoomScale);
+                    if (patch.focusXPct !== undefined && props.setVideoFocusXPct) props.setVideoFocusXPct(patch.focusXPct);
+                    if (patch.focusYPct !== undefined && props.setVideoFocusYPct) props.setVideoFocusYPct(patch.focusYPct);
+                    if (patch.rotationDeg !== undefined && props.setVideoRotationDeg) props.setVideoRotationDeg(patch.rotationDeg);
+                    if (patch.horizontalFlip !== undefined && props.setVideoHorizontalFlip) props.setVideoHorizontalFlip(patch.horizontalFlip);
+                  }}
+                  onReset={() => {
+                    props.setVideoZoomScale?.(100);
+                    props.setVideoFocusXPct?.(50);
+                    props.setVideoFocusYPct?.(50);
+                    props.setVideoRotationDeg?.(0);
+                  }}
+                />
               )}
             </div>
   );
