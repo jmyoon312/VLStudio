@@ -32,6 +32,7 @@ import { SFX_CATALOG, playSynthesizedSfx, SfxItem } from '@/config/sfxCatalog';
 import { proceduralBgmEngine, BGM_PRESETS } from '@/services/proceduralBgmEngine';
 import { MemeAvatar, MEME_EMOTION_PRESETS, MemeType, MemeEmotion } from '@/components/memeAssets';
 import { MASTER_INSPECTOR_GROUPS } from '@/components/canvas/constants/canvasConstants';
+import { UniversalCanvasStage } from '@/components/canvas/stage/UniversalCanvasStage';
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -646,9 +647,9 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
   const [activeLeftTab, setActiveLeftTab] = useState<'script' | 'subtitles' | 'text' | 'layers' | 'audio' | 'media'>('script');
   const [subtitleSearchQuery, setSubtitleSearchQuery] = useState<string>('');
   
-  // 🎛️ 우측 6대 프로 인스펙터 탭 (자막/스타일, 변형, 음성TTS, 전환, 워터마크, 채널DNA)
   const [activeInspectorTab, setActiveInspectorTab] = useState<'template' | 'titleSource' | 'videoCrop' | 'filterFx' | 'commentCard' | 'jabHook' | 'style' | 'tts' | 'channel'>('template');
   const [activeMasterGroup, setActiveMasterGroup] = useState<'layout' | 'text' | 'media' | 'viral'>('layout');
+  const [activeFloatingInspector, setActiveFloatingInspector] = useState<string>('none');
 
   useEffect(() => {
     const group = MASTER_INSPECTOR_GROUPS.find((g) => g.subTabs.some((t) => t.id === activeInspectorTab));
@@ -656,6 +657,25 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
       setActiveMasterGroup(group.id);
     }
   }, [activeInspectorTab]);
+
+  // 플로팅 인스펙터가 열릴 때 해당하는 우측 인스펙터 탭과 마스터 그룹 자동 동기화
+  const handleOpenFloatingInspector = (insp: string) => {
+    setActiveFloatingInspector(insp);
+    if (insp === 'none') return;
+    if (['ssulHeader', 'divider', 'gunlimboHookBand', 'instaProfile', 'topBottomBar'].includes(insp)) {
+      setActiveInspectorTab('template');
+    } else if (['postTitle', 'sourceCredit'].includes(insp)) {
+      setActiveInspectorTab('titleSource');
+    } else if (['jabHook', 'badgeTag'].includes(insp)) {
+      setActiveInspectorTab('jabHook');
+    } else if (insp === 'ssulSubtitle') {
+      setActiveInspectorTab('style');
+    } else if (insp === 'videoCrop') {
+      setActiveInspectorTab('videoCrop');
+    } else if (insp === 'commentCard') {
+      setActiveInspectorTab('commentCard');
+    }
+  };
 
   // 🗣️ 전체 대본 상태
   const [fullScript, setFullScript] = useState<string>(
@@ -4817,13 +4837,13 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
             </div>
           </div>
 
-          {/* 2. 캔버스 스테이지 (6대 독립 레이어 + 비디오 샌드위치/크롭 + 실시간 줌/패닝) */}
+          {/* 2. 캔버스 스테이지 (단일 진실 공급원 UniversalCanvasStage 렌더링 & 13대 플로팅 인스펙터) */}
           <div
             ref={canvasContainerRef}
             className={cn(
               "relative overflow-hidden flex items-center justify-center cursor-default transition-all duration-200",
-              isFullscreen 
-                ? "fixed inset-0 z-[9999] bg-zinc-950/98 p-6" 
+              isFullscreen
+                ? "fixed inset-0 z-[9999] bg-zinc-950/98 p-6"
                 : "flex-1 p-3 bg-zinc-950/95"
             )}
             onMouseDown={(e) => {
@@ -4859,1041 +4879,137 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
             onContextMenu={(e) => {
               if (isPanning) e.preventDefault();
             }}
-            onDoubleClick={() => {
-              setCanvasScale(1.0);
-              setCanvasPan({ x: 0, y: 0 });
-              setCanvasZoom('fit');
-              toast({ title: '화면 맞춤 완료', description: '캔버스 배율 및 위치가 100% 기본 상태로 복구되었습니다.' });
-            }}
           >
-            {/* 🖥️ 전체화면 시 우상단 플로팅 컨트롤 바 */}
-            {isFullscreen && (
-              <div className="absolute top-5 right-5 z-[99999] flex items-center gap-2.5 bg-zinc-900/95 border border-zinc-700/80 rounded-md px-3.5 py-2 shadow-2xl backdrop-blur-md">
-                <span className="text-xs text-zinc-200 font-bold">전체화면 몰입 프리뷰</span>
-                <span className="text-[10px] text-zinc-400 font-mono font-semibold bg-zinc-800 px-2 py-0.5 rounded border border-zinc-700">
-                  {aspectRatio} • {layoutTemplateMode.toUpperCase()}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setIsFullscreen(false)}
-                  className="h-7 px-2.5 text-xs font-bold rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-100 flex items-center gap-1 transition cursor-pointer border border-zinc-700"
-                >
-                  <Minimize2 className="w-3.5 h-3.5" />
-                  <span>닫기 (ESC)</span>
-                </button>
-              </div>
-            )}
-
-            <div
-              className={cn(
-                "canvas-stage-wrapper relative shadow-2xl overflow-visible transition-transform duration-75 flex items-center justify-center select-none rounded-2xl ring-1 ring-zinc-600/50 dark:ring-zinc-700",
-                layoutTemplateMode === 'instagram' ? 'bg-white shadow-[0_25px_60px_-15px_rgba(0,0,0,0.5)]' : 'bg-black border border-zinc-700 dark:border-zinc-800',
-                aspectRatio === '9:16' && "h-full max-h-[96%] aspect-[9/16]",
-                aspectRatio === '16:9' && "w-full max-w-[96%] aspect-[16/9]",
-                aspectRatio === '1:1' && "h-full max-h-[96%] aspect-square"
-              )}
-              style={{
-                backgroundColor: layoutTemplateMode === 'instagram' ? instaConfig.bgColor : undefined,
-                transform: `scale(${canvasScale}) translate(${canvasPan.x}px, ${canvasPan.y}px)`,
-              }}
-            >
-              {/* 🎬 LAYER 0: 비디오 레이어 (인스타 모드: 캔버스 전체 풀뷰포트 vs 일반 모드: 샌드위치/크롭) */}
-              <div
-                onClick={() => {
-                  setSelectedLayerId('layer_video');
-                  if (layoutTemplateMode !== 'instagram') setActiveInspectorTab('videoCrop');
-                  else setActiveInspectorTab('template');
-                }}
-                className={cn(
-                  "absolute overflow-hidden flex items-center justify-center transition-all cursor-pointer",
-                  layoutTemplateMode === 'instagram' ? "bg-transparent" : "bg-black",
-                  selectedLayerId === 'layer_video' && layoutTemplateMode !== 'instagram' && "ring-1 ring-sky-400"
-                )}
-                style={{
-                  top: layoutTemplateMode === 'instagram'
-                    ? 0
-                    : layoutTemplateMode === 'gunlimbo'
-                    ? (currentTimeMs <= (gunlimboConfig.introDurationSec || 2.5) * 1000 ? '34%' : '24%')
-                    : `${Math.max(aspectRatio === '9:16' && videoFitMode === 'sandwich' && hasTopBarBg ? topBarHeightPct : 0, videoCropTopPct)}%`,
-                  height: layoutTemplateMode === 'instagram'
-                    ? '100%'
-                    : undefined,
-                  bottom: layoutTemplateMode === 'instagram'
-                    ? 0
-                    : layoutTemplateMode === 'gunlimbo'
-                    ? '30%'
-                    : `${Math.max(aspectRatio === '9:16' && videoFitMode === 'sandwich' && hasBottomBarBg ? bottomBarHeightPct : 0, videoCropBottomPct)}%`,
-                  left: 0,
-                  right: 0,
-                  zIndex: videoZIndex,
-                  opacity: trackVisibility.v1Video ? 1 : 0,
-                }}
-              >
-                {/* 🌟 여백 가우시안 블러 미러 배경 (CapCut 1순위 인기 연출) */}
-                {videoBlurBg && videoFitMode !== 'fullscreen' && videoLayer?.data && layoutTemplateMode !== 'instagram' && (
-                  <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
-                    <video
-                      src={getMediaUrl(videoLayer.data)}
-                      playsInline
-                      muted
-                      className="w-full h-full object-cover filter blur-[28px] brightness-[0.55] scale-[1.3] pointer-events-none select-none"
-                    />
-                  </div>
-                )}
-
-                <div
-                  className="w-full h-full relative overflow-hidden flex items-center justify-center z-1"
-                  style={{
-                    transform: `translate(${(videoFocusXPct - 50) * 0.8}%, ${(videoFocusYPct - 50) * 0.8}%) scale(${
-                      (videoZoomScale / 100) * (
-                        layoutTemplateMode === 'gunlimbo' && currentTimeMs <= (gunlimboConfig.introDurationSec || 2.5) * 1000
-                          ? 1.0 + ((currentTimeMs / ((gunlimboConfig.introDurationSec || 2.5) * 1000)) * 0.10)
-                          : 1.0
-                      )
-                    }) scaleX(${videoHorizontalFlip ? -1 : 1}) scaleY(${videoVerticalFlip ? -1 : 1}) rotate(${videoRotationDeg}deg)`,
-                    transformOrigin: 'center center',
-                    transition: 'transform 0.05s ease-out',
-                  }}
-                >
-                  {videoLayer?.data ? (
-                    <video
-                      ref={videoRef}
-                      src={getMediaUrl(videoLayer.data)}
-                      playsInline
-                      loop={isLooping}
-                      muted={trackAudioMute.v1Video}
-                      onTimeUpdate={handleTimeUpdate}
-                      onLoadedMetadata={handleLoadedMetadata}
-                      style={{ filter: computeVideoCssFilter(videoFilter) }}
-                      className="w-full h-full object-cover pointer-events-none select-none transition-[filter] duration-150"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex flex-col items-center justify-center text-zinc-500 gap-2 p-4 text-center bg-zinc-900 select-none">
-                      <FileVideo className="w-12 h-12 stroke-[1.2] text-zinc-600 animate-pulse" />
-                      <span className="text-[11px] font-mono text-zinc-400">{currentProjectDisplayName}.mp4</span>
-                      <span className="text-[9px] text-zinc-600">({videoFitMode.toUpperCase()} FIT · ZOOM {videoZoomScale}%)</span>
-                    </div>
-                  )}
-
-                  {/* 🎞️ 시네마틱 35mm 영화 필름 노이즈 / 그레인 오버레이 (SVG 프랙탈 프로시저럴 노이즈) */}
-                  {videoFilter.filmGrain > 0 && (
-                    <div
-                      className="absolute inset-0 pointer-events-none z-10 mix-blend-overlay"
-                      style={{
-                        opacity: (videoFilter.filmGrain / 100) * 0.85,
-                        backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`,
-                        backgroundRepeat: 'repeat',
-                        backgroundSize: '160px 160px',
-                      }}
-                    />
-                  )}
-
-                  {/* 🎬 시네마틱 비네팅 오버레이 */}
-                  {videoFilter.vignette > 0 && (
-                    <div
-                      className="absolute inset-0 pointer-events-none z-10"
-                      style={{
-                        background: `radial-gradient(ellipse at center, transparent 35%, rgba(0,0,0,${(videoFilter.vignette / 100) * 0.88}) 100%)`,
-                      }}
-                    />
-                  )}
-
-                  {/* 📼 레트로 90s VHS 스캔라인 오버레이 */}
-                  {videoFilter.preset === 'retro-vhs' && (
-                    <div
-                      className="absolute inset-0 pointer-events-none z-10 opacity-20"
-                      style={{
-                        backgroundImage: 'repeating-linear-gradient(0deg, rgba(0,0,0,0.5) 0px, rgba(0,0,0,0.5) 1px, transparent 1px, transparent 3px)',
-                        backgroundSize: '100% 3px',
-                      }}
-                    />
-                  )}
-                </div>
-
-                {/* 🎵 BGM HTML5 오디오 재생 엘리먼트 */}
-                <audio
-                  ref={bgmAudioRef}
-                  src={getBgmAudioSrc(layers.find(l => l.type === 'audio' && (l.id === 'layer_audio_bgm' || l.name.includes('BGM')))?.data)}
-                  loop={isLooping}
-                  muted={trackAudioMute.a1Bgm}
-                  className="hidden"
-                />
-              </div>
-
-              {/* 🕳️ LAYER 0.5: [인스타형 전용] 화이트 카드 오버레이 마스크 (zIndex: 20으로 비디오 위에 확실히 전면 배치) */}
-              {layoutTemplateMode === 'instagram' && (
-                <div
-                  className="absolute inset-0 pointer-events-none"
-                  style={{ zIndex: 20 }}
-                >
-                  <svg
-                    className="w-full h-full absolute inset-0 pointer-events-none select-none"
-                    xmlns="http://www.w3.org/2000/svg"
-                    viewBox="0 0 1000 1000"
-                    preserveAspectRatio="none"
-                  >
-                    <defs>
-                      <mask id="insta-hole-mask">
-                        {/* 전체 캔버스를 흰색(불투명 마스크 통과)으로 채움 */}
-                        <rect width="1000" height="1000" fill="white" />
-                        {/* 중앙 구멍 윈도우만 검은색(마스크 차단=투명)으로 뚫어 비디오가 선명히 보이게 함 */}
-                        <rect
-                          x={((100 - instaConfig.holeWidthPct) / 2) * 10}
-                          y={(instaConfig.holeYPct - (instaConfig.holeHeightPct / 2)) * 10}
-                          width={instaConfig.holeWidthPct * 10}
-                          height={instaConfig.holeHeightPct * 10}
-                          rx={instaConfig.holeRoundness * 2.5}
-                          ry={instaConfig.holeRoundness * 2.5}
-                          fill="black"
-                        />
-                      </mask>
-                    </defs>
-                    {/* 카드 전체에 흰색(#FFFFFF)을 칠하고 중앙 구멍만 투명하게 통과시킴 */}
-                    <rect
-                      width="1000"
-                      height="1000"
-                      fill={instaConfig.bgColor || '#FFFFFF'}
-                      mask="url(#insta-hole-mask)"
-                    />
-                  </svg>
-
-                  {/* 중앙 구멍 윈도우 테두리, 그림자 및 인터랙션 클릭 존 */}
-                  <div
-                    onClick={() => {
-                      setSelectedLayerId('layer_video');
-                      setActiveInspectorTab('template');
-                      document.getElementById('insta-sec-hole')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                    }}
-                    className={cn(
-                      "absolute cursor-pointer pointer-events-auto transition-all",
-                      selectedLayerId === 'layer_video' && "ring-2 ring-sky-400 ring-offset-2"
-                    )}
-                    style={{
-                      top: `${instaConfig.holeYPct - (instaConfig.holeHeightPct / 2)}%`,
-                      height: `${instaConfig.holeHeightPct}%`,
-                      left: `${(100 - instaConfig.holeWidthPct) / 2}%`,
-                      right: `${(100 - instaConfig.holeWidthPct) / 2}%`,
-                      borderRadius: `${instaConfig.holeRoundness}px`,
-                      border: `${instaConfig.holeBorderWidth}px solid ${instaConfig.holeBorderColor}`,
-                      boxShadow: instaConfig.holeShadow
-                        ? '0 10px 25px -5px rgba(0, 0, 0, 0.12), 0 8px 10px -6px rgba(0, 0, 0, 0.08)'
-                        : undefined,
-                      backgroundImage: !videoLayer?.data
-                        ? 'linear-gradient(45deg, #e5e7eb 25%, transparent 25%), linear-gradient(-45deg, #e5e7eb 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #e5e7eb 75%), linear-gradient(-45deg, transparent 75%, #e5e7eb 75%)'
-                        : undefined,
-                      backgroundSize: '16px 16px',
-                      backgroundPosition: '0 0, 0 8px, 8px -8px, -8px 0px',
-                    }}
-                    title="중앙 구멍 윈도우 (클릭하여 비디오 위치/크기 조절)"
-                  />
-                </div>
-              )}
-
-              {/* 🎯 비디오 전용 2D 자유 변형 기즈모 (2D 자유 이동, 줌, 회전, 스냅) */}
-              {selectedLayerId === 'layer_video' && !trackLock.v1Video && (
-                <div
-                  className="absolute pointer-events-none z-40 transition-transform duration-75"
-                  style={{
-                    top: layoutTemplateMode === 'instagram'
-                      ? `${instaConfig.holeYPct - (instaConfig.holeHeightPct / 2)}%`
-                      : layoutTemplateMode === 'gunlimbo'
-                      ? (currentTimeMs <= (gunlimboConfig.introDurationSec || 2.5) * 1000 ? '34%' : '24%')
-                      : `${Math.max(aspectRatio === '9:16' && videoFitMode === 'sandwich' && hasTopBarBg ? topBarHeightPct : 0, videoCropTopPct)}%`,
-                    height: layoutTemplateMode === 'instagram'
-                      ? `${instaConfig.holeHeightPct}%`
-                      : undefined,
-                    bottom: layoutTemplateMode === 'instagram'
-                      ? undefined
-                      : layoutTemplateMode === 'gunlimbo'
-                      ? '30%'
-                      : `${Math.max(aspectRatio === '9:16' && videoFitMode === 'sandwich' && hasBottomBarBg ? bottomBarHeightPct : 0, videoCropBottomPct)}%`,
-                    left: layoutTemplateMode === 'instagram' ? `${(100 - instaConfig.holeWidthPct) / 2}%` : 0,
-                    right: layoutTemplateMode === 'instagram' ? `${(100 - instaConfig.holeWidthPct) / 2}%` : 0,
-                    borderRadius: layoutTemplateMode === 'instagram' ? `${instaConfig.holeRoundness}px` : 0,
-                  }}
-                >
-                  {/* 슬림 1.5px 외곽선 & 2D 중앙 드래그 존 */}
-                  <div
-                    onPointerDown={(e) => {
-                      if (e.button !== 0) return;
-                      e.stopPropagation();
-                      const targetEl = e.currentTarget as HTMLElement;
-                      targetEl.setPointerCapture(e.pointerId);
-                      const startX = e.clientX;
-                      const startY = e.clientY;
-                      const initialX = videoFocusXPct;
-                      const initialY = videoFocusYPct;
-
-                      const onPointerMove = (mv: PointerEvent) => {
-                        const dx = (mv.clientX - startX) / Math.max(0.1, canvasScale);
-                        const dy = (mv.clientY - startY) / Math.max(0.1, canvasScale);
-                        const newX = Math.max(0, Math.min(100, Math.round(initialX + (dx * 0.4))));
-                        const newY = Math.max(0, Math.min(100, Math.round(initialY + (dy * 0.4))));
-                        setVideoFocusXPct(newX);
-                        setVideoFocusYPct(newY);
-                      };
-
-                      const onPointerUp = (upEv: PointerEvent) => {
-                        try { targetEl.releasePointerCapture(upEv.pointerId); } catch (_) {}
-                        window.removeEventListener('pointermove', onPointerMove);
-                        window.removeEventListener('pointerup', onPointerUp);
-                      };
-
-                      window.addEventListener('pointermove', onPointerMove);
-                      window.addEventListener('pointerup', onPointerUp);
-                    }}
-                    className="absolute inset-0 border-[1.5px] border-sky-400 pointer-events-auto cursor-move shadow-[0_0_8px_rgba(56,189,248,0.7)] bg-sky-400/5 hover:bg-sky-400/10 transition-colors"
-                    title="영상을 마우스로 드래그하여 원하는 위치로 자유 이동"
-                  />
-
-                  {/* 상단 플로팅 비디오 컨트롤 뱃지 */}
-                  <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-sky-600/95 text-white text-[9px] font-bold px-2.5 py-1 rounded shadow-lg pointer-events-auto flex items-center gap-2 whitespace-nowrap z-50 backdrop-blur-xs">
-                    <span>🎬 V1 비디오</span>
-                    <span className="text-[8.5px] text-sky-200 font-mono">
-                      ({videoZoomScale}% · X:{videoFocusXPct}% · Y:{videoFocusYPct}% · {videoRotationDeg}°)
-                    </span>
-                    <div className="flex items-center gap-1 border-l border-sky-400/40 pl-1.5">
-                      <button
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); setVideoRotationDeg(r => (r + 90) % 360); }}
-                        className="p-0.5 hover:bg-sky-500 rounded text-[9px] cursor-pointer"
-                        title="90도 회전"
-                      >
-                        ↻ 90°
-                      </button>
-                      <button
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); setVideoHorizontalFlip(f => !f); }}
-                        className="p-0.5 hover:bg-sky-500 rounded text-[9px] cursor-pointer"
-                        title="좌우 반전"
-                      >
-                        ⇄ 반전
-                      </button>
-                      <button
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); setVideoFocusXPct(50); setVideoFocusYPct(50); setVideoZoomScale(100); setVideoRotationDeg(0); }}
-                        className="p-0.5 hover:bg-sky-500 rounded text-[9px] text-sky-200 cursor-pointer"
-                        title="중앙 정렬 리셋"
-                      >
-                        ⟲ 리셋
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* 4대 모서리 리사이즈 핸들 (확대/축소) */}
-                  {[
-                    { pos: '-top-1.5 -left-1.5', cursor: 'cursor-nwse-resize', sign: -1 },
-                    { pos: '-top-1.5 -right-1.5', cursor: 'cursor-nesw-resize', sign: 1 },
-                    { pos: '-bottom-1.5 -left-1.5', cursor: 'cursor-nesw-resize', sign: -1 },
-                    { pos: '-bottom-1.5 -right-1.5', cursor: 'cursor-nwse-resize', sign: 1 },
-                  ].map((handle, hIdx) => (
-                    <div
-                      key={hIdx}
-                      onPointerDown={(e) => {
-                        if (e.button !== 0) return;
-                        e.stopPropagation();
-                        const targetEl = e.currentTarget as HTMLElement;
-                        targetEl.setPointerCapture(e.pointerId);
-                        const startX = e.clientX;
-                        const startY = e.clientY;
-                        const initialZoom = videoZoomScale;
-
-                        const onPointerMove = (mv: PointerEvent) => {
-                          const dx = (mv.clientX - startX) / Math.max(0.1, canvasScale);
-                          const dy = (mv.clientY - startY) / Math.max(0.1, canvasScale);
-                          const delta = (dx * handle.sign + dy * handle.sign) / 2;
-                          const newZoom = Math.max(50, Math.min(300, Math.round(initialZoom + delta)));
-                          setVideoZoomScale(newZoom);
-                        };
-
-                        const onPointerUp = (upEv: PointerEvent) => {
-                          try { targetEl.releasePointerCapture(upEv.pointerId); } catch (_) {}
-                          window.removeEventListener('pointermove', onPointerMove);
-                          window.removeEventListener('pointerup', onPointerUp);
-                        };
-
-                        window.addEventListener('pointermove', onPointerMove);
-                        window.addEventListener('pointerup', onPointerUp);
-                      }}
-                      className={`absolute ${handle.pos} w-3 h-3 bg-white border-2 border-sky-600 rounded-2xs ${handle.cursor} pointer-events-auto shadow-md hover:scale-125 transition-transform z-50`}
-                      title="모서리를 드래그하여 비디오 확대/축소"
-                    />
-                  ))}
-                </div>
-              )}
-
-              {/* 🎯 [군림보형] 픽셀링 기반 3단 화면 배치 (상단 2줄 대제목 + 중앙 100% 흰색 띠 후킹 바 + 하단 레터박스) */}
-              {layoutTemplateMode === 'gunlimbo' && (
-                <>
-                  {/* 1. 상단 블랙 레터박스 (0% ~ 24%) & 2줄 대제목 (노랑/흰) */}
-                  {(gunlimboConfig.keepTitleThroughout || currentTimeMs <= gunlimboConfig.introDurationSec * 1000) && (
-                    <div
-                      onClick={() => {
-                        setSelectedLayerId('layer_gunlimbo_title');
-                        setActiveInspectorTab('template');
-                      }}
-                      className={cn(
-                        "absolute top-0 left-0 right-0 h-[24%] bg-black select-none flex flex-col items-center justify-center px-4 transition-all cursor-pointer",
-                        selectedLayerId === 'layer_gunlimbo_title' && "ring-1 ring-amber-400"
-                      )}
-                      style={{
-                        zIndex: 25,
-                        borderBottom: gunlimboConfig.showGuidelines ? '1.5px dashed rgba(161, 161, 170, 0.75)' : 'none',
-                      }}
-                      title="클릭하여 상단 대제목 설정"
-                    >
-                      <div className="flex flex-col items-center text-center leading-tight">
-                        <span
-                          className="font-black tracking-tight drop-shadow-sm whitespace-pre-line"
-                          style={{
-                            color: gunlimboConfig.titleLine1Color || '#FFFFFF',
-                            fontSize: `${gunlimboConfig.titleFontSize || 34}px`,
-                            fontFamily: titleFontFamily,
-                            lineHeight: 1.15,
-                          }}
-                        >
-                          {gunlimboConfig.titleLine1}
-                        </span>
-                        <span
-                          className="font-black tracking-tight drop-shadow-sm whitespace-pre-line mt-1"
-                          style={{
-                            color: gunlimboConfig.titleLine2Color || '#FFE500',
-                            fontSize: `${gunlimboConfig.titleFontSize || 34}px`,
-                            fontFamily: titleFontFamily,
-                            lineHeight: 1.15,
-                          }}
-                        >
-                          {gunlimboConfig.titleLine2}
-                        </span>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* 2. 24~34% 짙은 회색 밴드 위 100% 순백색 띠 바 (뇌전구 실측 0초~2.5초 노출) */}
-                  {currentTimeMs <= gunlimboConfig.introDurationSec * 1000 && (
-                    <div
-                      onClick={() => {
-                        setSelectedLayerId('layer_gunlimbo_hook');
-                        setActiveInspectorTab('template');
-                      }}
-                      className={cn(
-                        "absolute left-0 right-0 w-full flex items-center justify-center transition-all cursor-pointer shadow-lg",
-                        selectedLayerId === 'layer_gunlimbo_hook' && "ring-2 ring-sky-400"
-                      )}
-                      style={{
-                        top: '24%',
-                        height: '10%',
-                        backgroundColor: '#3F3F46',
-                        zIndex: 45,
-                      }}
-                      title="클릭하여 소제목 훅 문구 설정"
-                    >
-                      <div 
-                        className="w-full py-1.5 px-4 flex items-center justify-center shadow-xs"
-                        style={{ backgroundColor: gunlimboConfig.hookBgColor || '#FFFFFF' }}
-                      >
-                        <span
-                          className="font-black tracking-tight text-center leading-snug break-keep select-none"
-                          style={{
-                            color: gunlimboConfig.hookTextColor || '#000000',
-                            fontSize: `${gunlimboConfig.hookFontSize || 22}px`,
-                            fontFamily: titleFontFamily,
-                          }}
-                        >
-                          {gunlimboConfig.hookPhrase}
-                        </span>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* 3. 하단 블랙 레터박스 (70% ~ 100%) 점선 가이드라인 */}
-                  <div
-                    className="absolute bottom-0 left-0 right-0 h-[30%] bg-black pointer-events-none select-none"
-                    style={{
-                      zIndex: 25,
-                      borderTop: gunlimboConfig.showGuidelines ? '1.5px dashed rgba(161, 161, 170, 0.75)' : 'none',
-                    }}
-                  />
-                </>
-              )}
-
-              {/* 📸 [인스타형 원형 100%] 좌상단 프로필 (TransformGizmo로 자유 이동/크기 조절 지원, 좌측 앵커 정렬) */}
-              {layoutTemplateMode === 'instagram' && (
-                <TransformGizmo
-                  transform={profileTransform}
-                  selected={selectedLayerId === 'layer_insta_profile'}
-                  name="인스타 프로필"
-                  canvasScale={canvasScale}
-                  anchor="left"
-                  onSelect={() => {
-                    setSelectedLayerId('layer_insta_profile');
-                    setActiveInspectorTab('template');
-                  }}
-                  onChange={(newT) => setProfileTransform(newT)}
-                >
-                  <div className="flex items-center gap-2.5 cursor-pointer select-none group">
-                    <div className="w-11 h-11 rounded-full border-2 border-blue-600 overflow-hidden bg-white shadow-xs shrink-0 flex items-center justify-center">
-                      <img
-                        src={instaConfig.profileAvatarUrl || "https://api.dicebear.com/9.x/lorelei/svg?seed=user_avatar_blue"}
-                        alt="Avatar"
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                    <div className="flex flex-col text-left leading-tight">
-                      <div className="flex items-center gap-1">
-                        <span className="text-blue-600 font-bold text-sm tracking-tight group-hover:underline">
-                          {instaConfig.profileName || '사용자명'}
-                        </span>
-                        {instaConfig.isVerified && (
-                          <svg className="w-3.5 h-3.5 text-blue-500 fill-current shrink-0" viewBox="0 0 24 24">
-                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-                          </svg>
-                        )}
-                      </div>
-                      <span className="text-neutral-500 text-xs font-normal">
-                        {instaConfig.profileHandle || '@handle'}
-                      </span>
-                    </div>
-                  </div>
-                </TransformGizmo>
-              )}
-
-              {/* 📜 [썰형] 상단 커뮤니티 게시글 헤더 (블라인드 / 네이트판 / 추천수) */}
-              {layoutTemplateMode === 'ssul' && (
-                <div className="absolute top-3 left-3 right-3 z-40 bg-neutral-900/90 backdrop-blur-md border border-emerald-500/30 rounded-md p-2 shadow-lg select-none">
-                  <div className="flex items-center justify-between text-[10px] mb-1">
-                    <div className="flex items-center gap-1.5">
-                      <span className="bg-emerald-600 text-white font-black px-1.5 py-0.2 rounded-2xs text-[9px] uppercase">
-                        {ssulConfig.communityType.toUpperCase()}
-                      </span>
-                      <span className="text-white font-bold">{ssulConfig.author}</span>
-                      <span className="text-neutral-400 text-[9px]">{ssulConfig.timeText}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-[9px] text-neutral-400">
-                      <span>{ssulConfig.viewsText}</span>
-                      <span className="text-emerald-400 font-bold">{ssulConfig.upvotesText}</span>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* ⬛ LAYER 1: 상단 배경 바 (Top Bar Bg - 독립 제어) */}
-              {hasTopBarBg && (
-                <div
-                  onClick={() => { setSelectedLayerId('layer_top_bar'); setActiveInspectorTab('titleSource'); }}
-                  className="absolute top-0 left-0 right-0 transition-all cursor-pointer"
-                  style={{
-                    height: `${topBarHeightPct}%`,
-                    backgroundColor: topBarBg,
-                    opacity: topBarOpacity,
-                    zIndex: topBarZIndex,
-                  }}
-                  title="클릭하여 상단 배경 바 설정"
-                />
-              )}
-
-              {/* 👑 LAYER 2: 상단 타이틀 (1줄/2줄 모드, 외곽선/그림자/배경박스/모서리 둥글기 완벽 지원) */}
-              {hasTopTitle && trackVisibility.t1Title && (
-                <TransformGizmo
-                  transform={titleTransform}
-                  selected={selectedLayerId === 'layer_title' || selectedLayerId === 'layer_top_title'}
-                  name="상단 타이틀"
-                  canvasScale={canvasScale}
-                  anchor={layoutTemplateMode === 'instagram' ? 'left' : 'center'}
-                  onSelect={() => {
-                    setSelectedLayerId('layer_title');
-                    if (layoutTemplateMode !== 'instagram') setActiveInspectorTab('titleSource');
-                    else setActiveInspectorTab('template');
-                  }}
-                  onChange={(newT) => {
-                    setTitleTransform(newT);
-                    setTopTitleYPct(newT.yPct);
-                  }}
-                >
-                  <div
-                    className={cn(
-                      "flex flex-col select-none cursor-move transition-all",
-                      layoutTemplateMode === 'instagram' ? "items-start text-left" : "items-center text-center"
-                    )}
-                    style={{
-                      fontFamily: titleFontFamily,
-                      backgroundColor: layoutTemplateMode === 'instagram' ? 'transparent' : (titleBgMode !== 'none' ? titleBgColor : 'transparent'),
-                      paddingLeft: layoutTemplateMode === 'instagram' ? 0 : (titleBgMode !== 'none' ? `${titlePaddingX}px` : 0),
-                      paddingRight: layoutTemplateMode === 'instagram' ? 0 : (titleBgMode !== 'none' ? `${titlePaddingX}px` : 0),
-                      paddingTop: layoutTemplateMode === 'instagram' ? 0 : (titleBgMode !== 'none' ? `${titlePaddingY}px` : 0),
-                      paddingBottom: layoutTemplateMode === 'instagram' ? 0 : (titleBgMode !== 'none' ? `${titlePaddingY}px` : 0),
-                      borderRadius: titleBgMode === 'pill' ? '9999px' : `${titleBorderRadius}px`,
-                      boxShadow: layoutTemplateMode === 'instagram' ? 'none' : (titleShadow ? `0 4px ${titleShadowBlur * 2}px ${titleShadowColor}` : 'none'),
-                    }}
-                  >
-                    {layoutTemplateMode === 'instagram' ? (
-                      <div
-                        className="font-black leading-tight tracking-tight text-left whitespace-pre-line text-neutral-950 dark:text-neutral-950"
-                        style={{
-                          fontSize: `${Math.round(27 * (titleTransform.scale || 1.0) * aspectScale)}px`,
-                          lineHeight: '1.18',
-                          letterSpacing: '-0.035em',
-                          color: '#000000',
-                          textAlign: 'left',
-                          fontWeight: 900,
-                        }}
-                      >
-                        {topTitleText || '제목을\n입력하세요'}
-                      </div>
-                    ) : (
-                      <>
-                        {/* 상단 뱃지 */}
-                        {hasTitleBadge && titleBadgeText && (
-                          <span
-                            className="text-white text-[8px] font-black px-1.5 py-0.2 uppercase tracking-wider mb-1 rounded-[1px] shadow-sm"
-                            style={{ backgroundColor: titleBadgeColor }}
-                          >
-                            {titleBadgeText}
-                          </span>
-                        )}
-
-                        {/* 1단 타이틀 */}
-                        {titleLine1 && (
-                          <div
-                            className="font-black leading-tight tracking-tight whitespace-nowrap"
-                            style={{
-                              color: titleLine1Color,
-                              fontSize: `${Math.round(titleLine1SizePx * aspectScale)}px`,
-                              WebkitTextStroke: titleStroke ? `${titleStrokeWidth}px ${titleStrokeColor}` : 'none',
-                              paintOrder: 'stroke fill',
-                              WebkitFontSmoothing: 'antialiased',
-                              textShadow: titleShadow ? `0 2px ${titleShadowBlur}px ${titleShadowColor}` : 'none',
-                            }}
-                          >
-                            {titleLine1}
-                          </div>
-                        )}
-
-                        {/* 2단 타이틀 (double 모드일 때만 표시) */}
-                        {titleLinesMode === 'double' && titleLine2 && (
-                          <div
-                            className="font-black leading-tight tracking-tight whitespace-nowrap mt-0.5"
-                            style={{
-                              color: titleLine2Color,
-                              fontSize: `${Math.round(titleLine2SizePx * aspectScale)}px`,
-                              WebkitTextStroke: titleStroke ? `${titleStrokeWidth}px ${titleStrokeColor}` : 'none',
-                              paintOrder: 'stroke fill',
-                              WebkitFontSmoothing: 'antialiased',
-                              textShadow: titleShadow ? `0 2px ${titleShadowBlur}px ${titleShadowColor}` : 'none',
-                            }}
-                          >
-                            {titleLine2}
-                          </div>
-                        )}
-                      </>
-                    )}
-                  </div>
-                </TransformGizmo>
-              )}
-
-              {/* ⚡ LAYER 3: 긴박 쨉쨉이 훅 (타임라인 시간대 동기화 & 고스트 노출 완벽 차단) */}
-              {(() => {
-                // 재생 중일 때는 현재 타임코드에 위치한 activeJab만 표시! 비시간대 고스트 쨉쨉이 영구 차단
-                const isExplicitJabClipSelected = !isPlaying && selectedLayer?.type === 'jab' && selectedLayer.id !== 'layer_audio_bgm';
-                const displayJab = activeJab || (isExplicitJabClipSelected ? selectedLayer : null);
-                const isJabSelected = selectedLayerId === 'layer_jab' || selectedLayer?.type === 'jab' || (displayJab ? selectedLayerId === displayJab.id : false);
-                const shouldShowJab = hasJab && trackVisibility.t2Jab !== false && !!displayJab;
-
-                if (!shouldShowJab) return null;
-
-                return (
-                  <TransformGizmo
-                    transform={jabTransform}
-                    selected={isJabSelected}
-                    name="긴박 쨉쨉이 훅"
-                    canvasScale={canvasScale}
-                    onSelect={() => {
-                      if (displayJab) setSelectedLayerId(displayJab.id);
-                      else setSelectedLayerId('layer_jab');
-                      setActiveInspectorTab('jabHook');
-                    }}
-                    onChange={(newT) => {
-                      setJabTransform(newT);
-                      setJabYPercent(newT.yPct);
-                      setJabTiltDeg(newT.rotationDeg);
-                    }}
-                  >
-                    <div
-                      className="font-black px-3 py-1.5 flex items-center justify-center whitespace-nowrap cursor-move transition-all"
-                      style={{
-                        backgroundColor: jabBgEnabled ? jabBgColor : 'transparent',
-                        borderRadius: `${jabBorderRadius}px`,
-                        boxShadow: jabShadow ? `0 4px ${jabShadowBlur * 2}px rgba(0,0,0,0.8)` : 'none',
-                        border: (jabBgEnabled && jabStroke) ? '1px solid rgba(0,0,0,0.2)' : 'none',
-                      }}
-                    >
-                      <span
-                        style={{
-                          fontSize: `${Math.round(jabFontSize * aspectScale)}px`,
-                          color: jabTextColor,
-                          fontFamily: titleFontFamily,
-                          WebkitTextStroke: jabStroke ? `${jabStrokeWidth}px ${jabStrokeColor}` : 'none',
-                          paintOrder: 'stroke fill',
-                          WebkitFontSmoothing: 'antialiased',
-                          textShadow: jabShadow ? `0 2px ${jabShadowBlur}px rgba(0,0,0,0.9)` : 'none',
-                        }}
-                      >
-                        {displayJab?.data || jabText}
-                      </span>
-                    </div>
-                  </TransformGizmo>
-                );
-              })()}
-
-              {/* 💬 LAYER 4: 본문 자막 (타임라인 시간대 동기화 & 인스타형 상시 노출 & 고스트 자막 방지) */}
-              {(() => {
-                const isSubSelected = selectedLayer?.type === 'subtitle' || selectedLayerId === 'layer_sub';
-                const displaySub = activeSub || (isSubSelected ? (selectedLayer?.type === 'subtitle' ? selectedLayer : subtitleLayers[0]) : (layoutTemplateMode === 'instagram' ? subtitleLayers[0] : null));
-                const subText = displaySub?.data || (
-                  layoutTemplateMode === 'instagram'
-                    ? '게시글 본문 자막을 입력하세요.\n타임라인에 자막이 동기화됩니다.'
-                    : '자막 텍스트'
-                );
-
-                const isTrackVisible = trackVisibility ? (trackVisibility.sub !== false && (trackVisibility as any).s1Subtitle !== false) : true;
-                const isConfigVisible = subtitleConfig?.enabled !== false && (subtitleConfig as any)?.visible !== false;
-                const shouldShowSub = isConfigVisible &&
-                  isTrackVisible &&
-                  (layoutTemplateMode === 'instagram' || !!displaySub || isSubSelected);
-
-                // 🎯 군림보형: 0초~후킹구간에는 중앙 100% 흰색 바에서 첫 문장이 표시되므로 하단 자막 중복 방지 (선택 편집 시 제외)
-                if (layoutTemplateMode === 'gunlimbo' && currentTimeMs <= gunlimboConfig.introDurationSec * 1000 && !isSubSelected) {
-                  return null;
-                }
-
-                if (!shouldShowSub) return null;
-
-                return (
-                  <TransformGizmo
-                    transform={subTransform}
-                    selected={isSubSelected}
-                    name="본문 자막"
-                    canvasScale={canvasScale}
-                    anchor={layoutTemplateMode === 'instagram' ? 'left' : 'center'}
-                    onSelect={() => {
-                      if (displaySub) setSelectedLayerId(displaySub.id);
-                      else setSelectedLayerId('layer_sub');
-                      if (layoutTemplateMode !== 'instagram') setActiveInspectorTab('style');
-                      else setActiveInspectorTab('template');
-                    }}
-                    onChange={(newT) => {
-                      setSubTransform(newT);
-                      setSubtitleYPercent(newT.yPct);
-                    }}
-                  >
-                    <div
-                      className={cn(
-                        "inline-block whitespace-pre-line transition-all cursor-move",
-                        layoutTemplateMode === 'instagram'
-                          ? "text-left font-medium max-w-[88%] break-words"
-                          : "font-black leading-snug tracking-tight text-center px-2",
-                        layoutTemplateMode !== 'instagram' && (subtitleConfig.useBox ?? subtitleUseBox) && "px-3 py-1.5"
-                      )}
-                      style={{
-                        backgroundColor: layoutTemplateMode === 'instagram'
-                          ? 'transparent'
-                          : ((subtitleConfig.useBox ?? subtitleUseBox)
-                              ? (subtitleConfig.boxColor || subtitleBoxColor)
-                              : 'transparent'),
-                        borderRadius: layoutTemplateMode === 'instagram'
-                          ? 0
-                          : ((subtitleConfig.useBox ?? subtitleUseBox) ? `${subtitleBorderRadius}px` : 0),
-                        boxShadow: layoutTemplateMode === 'instagram'
-                          ? 'none'
-                          : ((((subtitleConfig.shadowSize ?? 0) > 0) || subtitleShadowEnabled) && (subtitleConfig.useBox ?? subtitleUseBox)
-                              ? '0 4px 14px rgba(0,0,0,0.7)'
-                              : 'none'),
-                      }}
-                    >
-                      <span
-                        style={{
-                          fontSize: layoutTemplateMode === 'instagram'
-                            ? `${Math.round(15 * (subTransform.scale || 1.0) * aspectScale)}px`
-                            : `${Math.round((subtitleConfig.fontSize || 18) * aspectScale)}px`,
-                          color: layoutTemplateMode === 'instagram'
-                            ? (instaConfig.subColor || '#374151')
-                            : (subtitleConfig.textColor || (subtitleConfig as any).fillColor || '#FFFFFF'),
-                          fontFamily: layoutTemplateMode === 'instagram'
-                            ? (instaConfig.subFont || 'Pretendard, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif')
-                            : (subtitleConfig.font || (subtitleConfig as any).fontFamily || 'Pretendard'),
-                          fontWeight: layoutTemplateMode === 'instagram' ? 500 : (subtitleConfig.isBold !== false ? 'bold' : 'normal'),
-                          fontStyle: subtitleConfig.isItalic ? 'italic' : 'normal',
-                          WebkitTextStroke: layoutTemplateMode === 'instagram'
-                            ? '0 transparent'
-                            : ((subtitleConfig.outlineSize && subtitleConfig.outlineSize > 0)
-                                ? `${subtitleConfig.outlineSize}px ${subtitleConfig.outlineColor || '#000000'}`
-                                : subtitleStrokeEnabled
-                                  ? `${subtitleStrokeWidth}px ${subtitleStrokeColor}`
-                                  : '0 transparent'),
-                          paintOrder: layoutTemplateMode === 'instagram' ? 'normal' : 'stroke fill',
-                          WebkitFontSmoothing: 'antialiased',
-                          textShadow: layoutTemplateMode === 'instagram'
-                            ? 'none'
-                            : ((subtitleConfig.shadowSize && subtitleConfig.shadowSize > 0)
-                                ? `0 2px ${(subtitleConfig.shadowSize * 3)}px ${subtitleConfig.shadowColor || 'rgba(0,0,0,0.95)'}`
-                                : subtitleShadowEnabled
-                                  ? `0 2px ${subtitleShadowBlur || 8}px ${subtitleShadowColor}`
-                                  : 'none'),
-                        }}
-                      >
-                        {layoutTemplateMode === 'instagram'
-                          ? subText
-                          : renderHighlightedSubtitleText(
-                              formatWrappedText(subText, activeSplitLimit, subtitleConfig.maxLines || 2),
-                              displaySub?.styleProps?.highlights,
-                              subtitleConfig.textColor || (subtitleConfig as any).fillColor || '#FFFFFF',
-                              selectedHighlightColor
-                            )
-                        }
-                      </span>
-                    </div>
-                  </TransformGizmo>
-                );
-              })()}
-
-              {/* 🏷️ LAYER 5: 하단 출처 표기 */}
-              {hasBottomSource && (
-                <TransformGizmo
-                  transform={sourceTransform}
-                  selected={selectedLayerId === 'layer_source'}
-                  name="하단 출처 표기"
-                  canvasScale={canvasScale}
-                  onSelect={() => {
-                    setSelectedLayerId('layer_source');
-                    setActiveInspectorTab('titleSource');
-                  }}
-                  onChange={(newT) => {
-                    setSourceTransform(newT);
-                    setBottomSourceBottomPct(100 - newT.yPct);
-                  }}
-                >
-                  <div
-                    className="select-none text-center whitespace-nowrap px-2 cursor-move"
-                    style={{
-                      backgroundColor: bottomSourceBg ? 'rgba(0,0,0,0.7)' : 'transparent',
-                      borderRadius: `${bottomSourceBorderRadius}px`,
-                    }}
-                  >
-                    <span
-                      className="font-medium tracking-wide drop-shadow-md"
-                      style={{
-                        fontSize: `${bottomSourceSizePx}px`,
-                        color: bottomSourceColor,
-                        fontFamily: titleFontFamily,
-                        WebkitTextStroke: bottomSourceStroke ? '1px #000000' : 'none',
-                        paintOrder: 'stroke fill',
-                        textShadow: bottomSourceShadow ? '0 1px 4px rgba(0,0,0,0.9)' : 'none',
-                      }}
-                    >
-                      {bottomSourceText}
-                    </span>
-                  </div>
-                </TransformGizmo>
-              )}
-
-              {/* ⬛ LAYER 6: 하단 배경 바 (Bottom Bar Bg - 독립 제어) */}
-              {hasBottomBarBg && (
-                <div
-                  onClick={() => { setSelectedLayerId('layer_bottom_bar'); setActiveInspectorTab('titleSource'); }}
-                  className="absolute bottom-0 left-0 right-0 transition-all cursor-pointer"
-                  style={{
-                    height: `${bottomBarHeightPct}%`,
-                    backgroundColor: bottomBarBg,
-                    zIndex: bottomBarZIndex,
-                  }}
-                  title="클릭하여 하단 배경 바 설정"
-                />
-              )}
-
-
-              {/* 📜 [썰형] 텍스트 모드 & 페페 / 이라스토야 밈 캐릭터 인터리빙 */}
-              {layoutTemplateMode === 'ssul' && ssulConfig.memeType !== 'none' && (
-                <div className="absolute bottom-20 left-0 right-0 z-35 flex flex-col items-center pointer-events-none select-none">
-                  <MemeAvatar
-                    type={ssulConfig.memeType}
-                    emotion={ssulConfig.memeEmotion}
-                    customUrl={ssulConfig.customMemeUrl}
-                    aliveMotion={ssulConfig.memeAliveMotion && isPlaying}
-                    size={130}
-                    className="drop-shadow-2xl"
-                  />
-                </div>
-              )}
-
-              {/* 💬 LAYER 7: 하단 바이럴 댓글 카드 (인스타 모드 기본 강제 표시, zIndex 45 보장) */}
-              {(hasCommentCard || layoutTemplateMode === 'instagram') && (
-                <TransformGizmo
-                  transform={{
-                    ...commentTransform,
-                    zIndex: Math.max(45, commentTransform.zIndex || 45),
-                  }}
-                  selected={selectedLayerId === 'layer_comment_card'}
-                  name="하단 바이럴 댓글 카드"
-                  canvasScale={canvasScale}
-                  anchor={layoutTemplateMode === 'instagram' ? (commentTransform.xPct <= 10 ? 'left' : 'center') : 'center'}
-                  onSelect={() => {
-                    setSelectedLayerId('layer_comment_card');
-                    if (layoutTemplateMode !== 'instagram') setActiveInspectorTab('commentCard');
-                    else setActiveInspectorTab('template');
-                  }}
-                  onChange={(newT) => setCommentTransform({ ...newT, zIndex: Math.max(45, newT.zIndex || 45) })}
-                >
-                  <div
-                    className={cn(
-                      "p-3 transition-all cursor-move select-none min-w-[200px] max-w-[88%] w-fit inline-block",
-                      (commentCard.theme === 'insta' || layoutTemplateMode === 'instagram')
-                        ? "bg-neutral-100/95 text-neutral-900 border border-neutral-200/90 shadow-xs rounded-2xl backdrop-blur-xs"
-                        : commentCard.theme === 'yt-dark'
-                        ? "bg-[#0f0f0f]/90 text-white border border-white/10 rounded-lg shadow-xl backdrop-blur-md"
-                        : commentCard.theme === 'yt-light'
-                        ? "bg-white/95 text-neutral-900 border border-black/10 shadow-lg rounded-lg"
-                        : "bg-gradient-to-r from-purple-900/90 to-pink-900/90 text-white border border-pink-500/20 rounded-lg shadow-xl"
-                    )}
-                  >
-                    {/* 상단: 프로필 아바타 + 닉네임 + 작성시간 + 고정 뱃지 */}
-                    <div className="flex items-center justify-between gap-2 mb-1.5">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <div
-                          className={cn(
-                            "w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-black text-white shrink-0 overflow-hidden",
-                            (commentCard.theme === 'insta' || layoutTemplateMode === 'instagram')
-                              ? "bg-neutral-300 text-neutral-800"
-                              : "bg-gradient-to-tr from-primary to-amber-500",
-                            commentCard.blurId && "blur-[2.5px]"
-                          )}
-                        >
-                          {(commentCard.theme === 'insta' || layoutTemplateMode === 'instagram') ? (
-                            <img src="https://api.dicebear.com/9.x/bottts/svg?seed=commenter" alt="Avatar" className="w-full h-full object-cover" />
-                          ) : (
-                            commentCard.author.charAt(0)
-                          )}
-                        </div>
-                        <div className="flex flex-col min-w-0">
-                          <div className="flex items-center gap-1.5">
-                            <span
-                              className={cn(
-                                "text-[11px] font-bold leading-tight truncate",
-                                commentCard.blurId && "blur-[3.5px]"
-                              )}
-                            >
-                              {commentCard.anonymous ? '익명_유저' : commentCard.author}
-                            </span>
-                            <span
-                              className={cn(
-                                "text-[9px] opacity-60 font-mono truncate",
-                                commentCard.blurId && "blur-[3.5px]"
-                              )}
-                            >
-                              {commentCard.anonymous ? '@user_***' : commentCard.handle}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                      <span className="text-[9px] opacity-50 shrink-0">{commentCard.timeText}</span>
-                    </div>
-
-                    {/* 댓글 본문 */}
-                    <p className="text-[12px] font-medium leading-relaxed break-words px-0.5 mb-2 whitespace-pre-line text-left">
-                      {commentCard.text}
-                    </p>
-
-                    {/* 하단 인터랙션 (인스타형: ❤️ 좋아요 + 답글 달기, 유튜브형: 👍 / 👎) */}
-                    <div className="flex items-center justify-between text-[10px] opacity-75 pt-1 border-t border-current/10">
-                      <div className="flex items-center gap-3">
-                        {(commentCard.theme === 'insta' || layoutTemplateMode === 'instagram') ? (
-                          <>
-                            <span className="flex items-center gap-1 font-semibold text-rose-500">
-                              ❤️ {commentCard.likes}
-                            </span>
-                            <span className="font-semibold cursor-pointer hover:underline">
-                              답글 달기
-                            </span>
-                          </>
-                        ) : (
-                          <>
-                            <span className="flex items-center gap-1 font-semibold">
-                              👍 {commentCard.likes}
-                            </span>
-                            <span className="flex items-center gap-1">
-                              👎
-                            </span>
-                            <span className="font-semibold cursor-pointer hover:underline">
-                              답글
-                            </span>
-                          </>
-                        )}
-                      </div>
-                      <span className="text-[9px] bg-primary/20 text-primary font-bold px-1.5 py-0.2 rounded-xs">
-                        📌 베댓
-                      </span>
-                    </div>
-                  </div>
-                </TransformGizmo>
-              )}
-
-
-              {/* 🏷️ 실시간 워터마크 & 채널 로고 오버레이 */}
-              {watermarkConfig.enabled && (
-                <div
-                  className="absolute pointer-events-none select-none z-30 flex items-center justify-center p-2"
-                  style={{
-                    opacity: (watermarkConfig.opacity || 80) / 100,
-                    top: watermarkConfig.position.startsWith('top') ? 16 : watermarkConfig.position.startsWith('mid') ? '50%' : 'auto',
-                    bottom: watermarkConfig.position.startsWith('bottom') ? 16 : 'auto',
-                    left: watermarkConfig.position.endsWith('left') ? 16 : watermarkConfig.position.endsWith('center') ? '50%' : 'auto',
-                    right: watermarkConfig.position.endsWith('right') ? 16 : 'auto',
-                    transform: `${watermarkConfig.position.includes('center') ? 'translateX(-50%) ' : ''}${watermarkConfig.position.startsWith('mid') ? 'translateY(-50%) ' : ''}scale(${(watermarkConfig.scale || 20) / 20})`,
-                  }}
-                >
-                  {watermarkConfig.type === 'text' ? (
-                    <span
-                      className="font-bold text-xs tracking-wider px-2 py-0.5 rounded-[2px] bg-black/40 border border-white/20 backdrop-blur-xs text-white"
-                      style={{ fontFamily: watermarkConfig.fontFamily || 'Pretendard' }}
-                    >
-                      {watermarkConfig.text || '@ViraLoopStudio'}
-                    </span>
-                  ) : watermarkConfig.imageUrl ? (
-                    <img src={watermarkConfig.imageUrl} alt="watermark" className="w-12 h-12 object-contain" />
-                  ) : null}
-                </div>
-              )}
-
-              {/* 📐 프로 3분할선 및 센터 십자선 가이드 오버레이 */}
-              {showGrid && (
-                <div className="absolute inset-0 pointer-events-none z-40">
-                  <div className="absolute left-1/3 top-0 bottom-0 w-px bg-cyan-400/40 border-r border-dashed border-cyan-400/30" />
-                  <div className="absolute left-2/3 top-0 bottom-0 w-px bg-cyan-400/40 border-r border-dashed border-cyan-400/30" />
-                  <div className="absolute top-1/3 left-0 right-0 h-px bg-cyan-400/40 border-b border-dashed border-cyan-400/30" />
-                  <div className="absolute top-2/3 left-0 right-0 h-px bg-cyan-400/40 border-b border-dashed border-cyan-400/30" />
-                  <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-6 h-6 pointer-events-none flex items-center justify-center">
-                    <div className="w-6 h-px bg-red-500/70" />
-                    <div className="h-6 w-px bg-red-500/70 absolute" />
-                  </div>
-                </div>
-              )}
-
-              {/* 📱 쇼츠 안전영역 (Safe Zone) 오버레이 */}
-              {safeZoneVisible && aspectRatio === '9:16' && (
-                <div className="absolute inset-0 pointer-events-none border-2 border-dashed border-amber-500/70 z-40 bg-amber-500/[0.03] flex flex-col justify-between p-2">
-                  <div className="bg-black/85 text-amber-300 text-[9px] font-bold px-2 py-0.5 rounded-[2px] border border-amber-500/40 self-center">
-                    ⚠️ 상단 10% 헤더·검색 영역 (텍스트 금지)
-                  </div>
-                  <div className="flex justify-between items-end pb-1">
-                    <div className="bg-black/85 text-amber-300 text-[8px] font-bold p-1 rounded-[2px] border border-amber-500/40 max-w-[130px] leading-tight">
-                      ⚠️ 하단 제목 & 사운드 UI
-                    </div>
-                    <div className="bg-black/85 text-amber-300 text-[8px] font-bold p-1 rounded-[2px] border border-amber-500/40 text-right leading-tight">
-                      ⚠️ 우측 아이콘 바
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
+            <UniversalCanvasStage
+              aspectRatio={aspectRatio}
+              canvasScale={canvasScale}
+              canvasPan={canvasPan}
+              layoutTemplateMode={layoutTemplateMode}
+              selectedLayerId={selectedLayerId}
+              setSelectedLayerId={setSelectedLayerId}
+              activeInspectorTab={activeInspectorTab}
+              setActiveInspectorTab={setActiveInspectorTab}
+              activeFloatingInspector={activeFloatingInspector}
+              setActiveFloatingInspector={handleOpenFloatingInspector}
+              currentBrandChannelName={channelDna.channelName}
+              videoFitMode={videoFitMode as any}
+              videoBlurBg={videoBlurBg}
+              videoFocusXPct={videoFocusXPct}
+              videoFocusYPct={videoFocusYPct}
+              videoZoomScale={videoZoomScale}
+              videoRotationDeg={videoRotationDeg}
+              videoHorizontalFlip={videoHorizontalFlip}
+              videoVerticalFlip={videoVerticalFlip}
+              videoFilter={videoFilter}
+              videoCropTopPct={videoCropTopPct}
+              videoCropBottomPct={videoCropBottomPct}
+              videoLayer={videoLayer}
+              videoZIndex={10}
+              trackVisibility={trackVisibility}
+              currentTimeMs={currentTimeMs}
+              instaConfig={instaConfig}
+              setInstaConfig={setInstaConfig}
+              profileTransform={profileTransform}
+              setProfileTransform={setProfileTransform}
+              gunlimboConfig={gunlimboConfig}
+              setGunlimboConfig={setGunlimboConfig}
+              ssulConfig={ssulConfig}
+              setSsulConfig={setSsulConfig}
+              hasTopBarBg={hasTopBarBg}
+              topBarHeightPct={topBarHeightPct}
+              topBarBg={topBarBg}
+              topBarOpacity={topBarOpacity}
+              hasBottomBarBg={hasBottomBarBg}
+              bottomBarHeightPct={bottomBarHeightPct}
+              bottomBarBg={bottomBarBg}
+              bottomBarOpacity={bottomBarOpacity}
+              hasTopTitle={hasTopTitle}
+              topTitleText={topTitleText}
+              titleTransform={titleTransform}
+              setTitleTransform={setTitleTransform}
+              titleLinesMode={titleLinesMode}
+              titleLine1={titleLine1}
+              titleLine2={titleLine2}
+              titleLine1SizePx={titleLine1SizePx}
+              titleLine2SizePx={titleLine2SizePx}
+              titleLine1Color={titleLine1Color}
+              titleLine2Color={titleLine2Color}
+              titleFontFamily={titleFontFamily}
+              titleStroke={titleStroke}
+              titleStrokeWidth={titleStrokeWidth}
+              titleStrokeColor={titleStrokeColor}
+              titleShadow={titleShadow}
+              titleShadowBlur={titleShadowBlur}
+              titleShadowColor={titleShadowColor}
+              titleBgMode={titleBgMode}
+              titleBgColor={titleBgColor}
+              titleBgOpacity={titleBgOpacity}
+              titlePaddingX={titlePaddingX}
+              titlePaddingY={titlePaddingY}
+              titleBorderRadius={titleBorderRadius}
+              hasTitleBadge={hasTitleBadge}
+              titleBadgeText={titleBadgeText}
+              titleBadgeBg={titleBadgeBg}
+              titleBadgeColor={titleBadgeColor}
+              hasJab={hasJab}
+              jabTransform={jabTransform}
+              setJabTransform={setJabTransform}
+              jabText={jabText}
+              jabTiltDeg={jabTiltDeg}
+              jabFontSize={jabFontSize}
+              jabTextColor={jabTextColor}
+              jabStroke={jabStroke}
+              jabStrokeWidth={jabStrokeWidth}
+              jabStrokeColor={jabStrokeColor}
+              jabShadow={jabShadow}
+              jabShadowBlur={jabShadowBlur}
+              jabBgEnabled={jabBgEnabled}
+              jabBgColor={jabBgColor}
+              jabBorderRadius={jabBorderRadius}
+              hasSubtitle={true}
+              subTransform={subTransform}
+              setSubTransform={setSubTransform}
+              setSubtitleYPercent={(y) => setSubTransform((prev) => ({ ...prev, yPct: y }))}
+              currentSubtitleText={activeSub?.data || (typeof subtitleLayers[0]?.data === 'string' ? subtitleLayers[0]?.data : '자막 텍스트')}
+              subtitleConfig={subtitleConfig}
+              subtitleStrokeEnabled={subtitleConfig.outlineSize > 0}
+              subtitleStrokeWidth={subtitleConfig.outlineSize}
+              subtitleStrokeColor={subtitleConfig.outlineColor}
+              subtitleShadowEnabled={subtitleConfig.shadowSize > 0}
+              subtitleShadowBlur={subtitleConfig.shadowSize}
+              subtitleShadowColor={subtitleConfig.shadowColor}
+              subtitleUseBox={subtitleConfig.useBox}
+              subtitleBoxColor={subtitleConfig.boxColor}
+              subtitleBorderRadius={subtitleBorderRadius}
+              selectedHighlightColor={channelDna.secondaryColor || '#FFE500'}
+              hasBottomSource={hasBottomSource}
+              sourceTransform={sourceTransform}
+              setSourceTransform={setSourceTransform}
+              bottomSourceText={bottomSourceText}
+              bottomSourceColor={bottomSourceColor}
+              bottomSourceSizePx={bottomSourceSizePx}
+              bottomSourceBg={bottomSourceBg}
+              bottomSourceBorderRadius={bottomSourceBorderRadius}
+              bottomSourceStroke={bottomSourceStroke}
+              bottomSourceShadow={bottomSourceShadow}
+              setBottomSourceBottomPct={setBottomSourceBottomPct}
+              hasCommentCard={hasCommentCard}
+              commentCard={commentCard}
+              commentTransform={commentTransform}
+              setCommentTransform={setCommentTransform}
+              layers={layers}
+              currentProjectDisplayName={currentProjectDisplayName}
+              videoRef={videoRef}
+              isLooping={isLooping}
+              isPlaying={isPlaying}
+              trackLock={trackLock}
+              handleTimeUpdate={handleTimeUpdate}
+              handleLoadedMetadata={handleLoadedMetadata}
+              getBgmAudioSrc={getBgmAudioSrc}
+              showGrid={showGrid}
+              safeZoneVisible={safeZoneVisible}
+              safeZonePlatform="youtube"
+            />
           </div>
 
           {/* 3. 뷰어 하단 완벽 도킹 트랜스포트 바 (다빈치 / 프리미어 NLE 프로 컨트롤러) */}
