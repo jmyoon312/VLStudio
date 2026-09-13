@@ -3,7 +3,7 @@ import { BaseFloatingInspectorCard } from '../controls/BaseFloatingInspectorCard
 import { ColorPicker8Preset } from '../controls/ColorPicker8Preset';
 import { UnitSliderControl } from '../controls/UnitSliderControl';
 import { Switch } from '@/components/ui/switch';
-import { Instagram, CheckCircle2, Volume2, UserCheck, Image as ImageIcon } from 'lucide-react';
+import { Camera, CheckCircle2, Volume2, UserCheck, Image as ImageIcon } from 'lucide-react';
 
 export interface InstaProfileConfig {
   avatarUrl: string;
@@ -39,7 +39,7 @@ export const InstaProfileFloatingInspector: React.FC<InstaProfileFloatingInspect
   return (
     <BaseFloatingInspectorCard
       title="인스타그램 프로필 바"
-      icon={<Instagram className="w-4 h-4 text-pink-500" />}
+      icon={<Camera className="w-4 h-4 text-pink-500" />}
       isOpen={isOpen}
       onClose={onClose}
       onReset={onReset}

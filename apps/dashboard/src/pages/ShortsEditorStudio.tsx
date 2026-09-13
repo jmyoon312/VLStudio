@@ -31,6 +31,7 @@ import { Highlighter, Send, Globe2, ThumbsUp, MessageCircle, Palette, Layout } f
 import { SFX_CATALOG, playSynthesizedSfx, SfxItem } from '@/config/sfxCatalog';
 import { proceduralBgmEngine, BGM_PRESETS } from '@/services/proceduralBgmEngine';
 import { MemeAvatar, MEME_EMOTION_PRESETS, MemeType, MemeEmotion } from '@/components/memeAssets';
+import { MASTER_INSPECTOR_GROUPS } from '@/components/canvas/constants/canvasConstants';
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -647,6 +648,14 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
   
   // 🎛️ 우측 6대 프로 인스펙터 탭 (자막/스타일, 변형, 음성TTS, 전환, 워터마크, 채널DNA)
   const [activeInspectorTab, setActiveInspectorTab] = useState<'template' | 'titleSource' | 'videoCrop' | 'filterFx' | 'commentCard' | 'jabHook' | 'style' | 'tts' | 'channel'>('template');
+  const [activeMasterGroup, setActiveMasterGroup] = useState<'layout' | 'text' | 'media' | 'viral'>('layout');
+
+  useEffect(() => {
+    const group = MASTER_INSPECTOR_GROUPS.find((g) => g.subTabs.some((t) => t.id === activeInspectorTab));
+    if (group && group.id !== activeMasterGroup) {
+      setActiveMasterGroup(group.id);
+    }
+  }, [activeInspectorTab]);
 
   // 🗣️ 전체 대본 상태
   const [fullScript, setFullScript] = useState<string>(
@@ -710,7 +719,7 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
     jabTextColor: string;
     subtitleConfig: SubtitleConfig;
     subtitleBorderRadius: number;
-    videoFitMode: 'sandwich' | 'fullscreen';
+    videoFitMode: 'sandwich' | 'fullscreen' | 'fit-center' | 'fit-top' | 'custom';
     videoZoomScale: number;
   }
 
@@ -995,6 +1004,20 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
     customMemeUrl?: string;
     memeAliveMotion: boolean;
     currentParagraphIndex: number;
+    ssulHeader?: {
+      enabled?: boolean;
+      channelName?: string;
+      bgColor?: string;
+      heightMultiplier?: number;
+      font?: string;
+      fontSizeMultiplier?: number;
+      bold?: boolean;
+      italic?: boolean;
+      backIcon?: boolean;
+      menuIcon?: boolean;
+      shareIcon?: boolean;
+      sparkleBadge?: boolean;
+    };
   }>({
     communityType: 'blind',
     author: '익명의 직장인',
@@ -1006,6 +1029,20 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
     memeEmotion: 'panic',
     memeAliveMotion: true,
     currentParagraphIndex: 0,
+    ssulHeader: {
+      enabled: true,
+      channelName: '썰방 TV',
+      bgColor: '#FFFFFF',
+      heightMultiplier: 1.0,
+      font: 'Pretendard',
+      fontSizeMultiplier: 1.8,
+      bold: true,
+      italic: false,
+      backIcon: true,
+      menuIcon: true,
+      shareIcon: true,
+      sparkleBadge: true,
+    },
   });
 
   // 💬 티키타카 3단 멀티 댓글 시퀀스 상태
@@ -1140,10 +1177,10 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
 
   // 🎯 활성 비디오 레이어 및 프로젝트 표시명 (SSOT & TDZ 방지)
   const videoLayer = useMemo(() => layers.find((l) => l.type === 'video'), [layers]);
-  const currentProjectDisplayName = useMemo(() => {
-    const vData = videoLayer?.data || '';
+  const currentProjectDisplayName: string = useMemo(() => {
+    const vData = typeof videoLayer?.data === 'string' ? videoLayer.data : '';
     if (vData && typeof vData === 'string' && !vData.startsWith('data:')) {
-      const clean = vData.split(/[/\]/).pop()?.replace(/\.[^/.]+$/, '');
+      const clean = vData.split(/[/\\]/).pop()?.replace(/\.[^/.]+$/, '');
       if (clean && clean.length > 2) return clean;
     }
     if (topTitleText && topTitleText !== '제목을\n입력하세요') {
@@ -1320,11 +1357,13 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
       setGunlimboConfig(prev => {
         let t1 = prev.titleLine1;
         let t2 = prev.titleLine2;
-        const candidateTitle = (topTitleText && topTitleText !== '실화 바탕 몰입감 100% 스토리') 
-          ? topTitleText 
-          : (currentProjectDisplayName && currentProjectDisplayName !== '영상 프로젝트' && !currentProjectDisplayName.startsWith('video_'))
-          ? currentProjectDisplayName
-          : '';
+        const candidateTitle = String(
+          (topTitleText && topTitleText !== '실화 바탕 몰입감 100% 스토리') 
+            ? topTitleText 
+            : (currentProjectDisplayName && currentProjectDisplayName !== '영상 프로젝트' && !String(currentProjectDisplayName).startsWith('video_'))
+            ? currentProjectDisplayName
+            : ''
+        );
 
         if (candidateTitle) {
           const parts = candidateTitle.trim().split(/\s+/);
@@ -1573,12 +1612,29 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
         const title = parsed.title || '영상 프로젝트';
         const subList = parsed.subtitles || [];
         const jabList = parsed.jabs || [];
+        const handoffChannelName = parsed.channelName || parsed.brandChannelName || '';
+        const handoffTemplateMode = parsed.layoutTemplateMode || parsed.templateMode || '';
 
-        // 1) 제목 상태 즉시 동기화
+        // 1) 제목 및 채널명 상태 즉시 동기화
         setTopTitleText(title);
+        if (handoffChannelName) {
+          setChannelDna(prev => ({ ...prev, channelName: handoffChannelName }));
+          setSsulConfig(prev => ({
+            ...prev,
+            author: prev.author === '익명의 직장인' ? handoffChannelName : prev.author,
+            ssulHeader: {
+              ...prev.ssulHeader,
+              channelName: handoffChannelName,
+            },
+          }));
+        }
+        if (handoffTemplateMode) {
+          setLayoutTemplateMode(handoffTemplateMode as any);
+        }
         setInstaConfig(prev => ({
           ...prev,
           titleText: title,
+          profileName: handoffChannelName || prev.profileName,
         }));
 
         // 2) 인스타형 템플릿 기본 댓글 카드 강제 활성화
@@ -1815,13 +1871,13 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
 
           setSubtitleConfig(prev => ({
             ...prev,
-            font_family: s.captionFont || prev.font_family,
-            primary_color: s.captionDefaultColor || prev.primary_color,
-            stroke_color: s.captionStrokeColor || prev.stroke_color,
-            stroke_width: s.captionStrokeWidth ?? prev.stroke_width,
-            font_size: s.captionFontSize || prev.font_size,
-            use_box: s.captionUseBox ?? prev.use_box,
-            box_color: s.captionBoxColor || prev.box_color,
+            font: s.captionFont || prev.font,
+            textColor: s.captionDefaultColor || prev.textColor,
+            outlineColor: s.captionStrokeColor || prev.outlineColor,
+            outlineSize: s.captionStrokeWidth ?? prev.outlineSize,
+            fontSize: s.captionFontSize || prev.fontSize,
+            useBox: s.captionUseBox ?? prev.useBox,
+            boxColor: s.captionBoxColor || prev.boxColor,
           }));
         }
 
@@ -2401,6 +2457,7 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
       visible: true,
       locked: false,
       data: sfx.id,
+      transform: createDefaultTransform({ zIndex: 10 }),
       styleProps: {
         color: '#F59E0B',
         sfxName: sfx.name,
@@ -2671,7 +2728,7 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
   };
 
   // 📋 클립보드 1초 복사 헬퍼
-  const copyToClipboard = (text: string, label: string, key: string) => {
+  const copyToClipboard = (text: string, label: string = '텍스트', key: string = label) => {
     try {
       if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(text);
@@ -2901,7 +2958,7 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
           author: commentCard.author,
           text: commentCard.text,
           likes: commentCard.likes,
-          timeAgo: commentCard.timeAgo,
+          timeAgo: (commentCard as any).timeAgo || commentCard.timeText || '10분 전',
           xPct: commentTransform.xPct,
           yPct: commentTransform.yPct,
           theme: commentCard.theme,
@@ -5499,7 +5556,7 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                 );
 
                 const isTrackVisible = trackVisibility ? (trackVisibility.sub !== false && (trackVisibility as any).s1Subtitle !== false) : true;
-                const isConfigVisible = subtitleConfig?.visible !== false;
+                const isConfigVisible = subtitleConfig?.enabled !== false && (subtitleConfig as any)?.visible !== false;
                 const shouldShowSub = isConfigVisible &&
                   isTrackVisible &&
                   (layoutTemplateMode === 'instagram' || !!displaySub || isSubSelected);
@@ -6027,107 +6084,61 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
             </span>
           </div>
 
-          <div className="grid grid-cols-3 gap-0.5 border-b border-border bg-muted/40 p-0.5 text-[9.5px]">
-            <button
-              type="button"
-              onClick={() => setActiveInspectorTab('template')}
-              className={cn(
-                "py-1 text-center font-semibold rounded-[2px] transition cursor-pointer truncate px-0.5",
-                activeInspectorTab === 'template' ? "bg-primary text-primary-foreground shadow-2xs font-bold" : "text-muted-foreground hover:text-foreground"
-              )}
-              title="4대 바이럴 폼팩터 (기본 / 인스타 / 군림보 / 썰형)"
-            >
-              🏛️ 템플릿/폼
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveInspectorTab('titleSource')}
-              className={cn(
-                "py-1 text-center font-semibold rounded-[2px] transition cursor-pointer truncate px-0.5",
-                activeInspectorTab === 'titleSource' ? "bg-card text-foreground shadow-2xs" : "text-muted-foreground hover:text-foreground"
-              )}
-              title="상단 2단 타이틀 & 하단 출처 & 상하단 바"
-            >
-              타이틀/출처
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveInspectorTab('videoCrop')}
-              className={cn(
-                "py-1 text-center font-semibold rounded-[2px] transition cursor-pointer truncate px-0.5",
-                activeInspectorTab === 'videoCrop' ? "bg-card text-foreground shadow-2xs" : "text-muted-foreground hover:text-foreground"
-              )}
-              title="비디오 샌드위치 핏 & 크롭 & 포커스"
-            >
-              비디오 핏
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveInspectorTab('filterFx')}
-              className={cn(
-                "py-1 text-center font-semibold rounded-[2px] transition cursor-pointer truncate px-0.5",
-                activeInspectorTab === 'filterFx' ? "bg-card text-primary shadow-2xs font-bold" : "text-muted-foreground hover:text-foreground"
-              )}
-              title="CapCut 10대 필터 & 35mm 영화 노이즈 FX"
-            >
-              🎨 필터/FX
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveInspectorTab('commentCard')}
-              className={cn(
-                "py-1 text-center font-semibold rounded-[2px] transition cursor-pointer truncate px-0.5",
-                activeInspectorTab === 'commentCard' ? "bg-card text-primary shadow-2xs font-bold" : "text-muted-foreground hover:text-foreground"
-              )}
-              title="하단 바이럴 댓글 카드"
-            >
-              💬 댓글카드
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveInspectorTab('jabHook')}
-              className={cn(
-                "py-1 text-center font-semibold rounded-[2px] transition cursor-pointer truncate px-0.5",
-                activeInspectorTab === 'jabHook' ? "bg-card text-foreground shadow-2xs" : "text-muted-foreground hover:text-foreground"
-              )}
-              title="긴박 쨉쨉이 훅 & 회전각"
-            >
-              쨉쨉이 훅
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveInspectorTab('style')}
-              className={cn(
-                "py-1 text-center font-semibold rounded-[2px] transition cursor-pointer truncate px-0.5",
-                activeInspectorTab === 'style' ? "bg-card text-foreground shadow-2xs" : "text-muted-foreground hover:text-foreground"
-              )}
-              title="본문 자막 & 내려쓰기 & 외곽선/그림자"
-            >
-              자막 스타일
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveInspectorTab('tts')}
-              className={cn(
-                "py-1 text-center font-semibold rounded-[2px] transition cursor-pointer truncate px-0.5",
-                activeInspectorTab === 'tts' ? "bg-card text-foreground shadow-2xs" : "text-muted-foreground hover:text-foreground"
-              )}
-              title="AI 나레이션(TTS) 음성 엔진 & 트랙 제어"
-            >
-              음성 (TTS)
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveInspectorTab('channel')}
-              className={cn(
-                "py-1 text-center font-semibold rounded-[2px] transition cursor-pointer truncate px-0.5",
-                activeInspectorTab === 'channel' ? "bg-card text-foreground shadow-2xs" : "text-muted-foreground hover:text-foreground"
-              )}
-              title="채널 DNA 시그니처 일괄 동기화"
-            >
-              채널 DNA
-            </button>
+          {/* 4대 마스터 그룹 1층 바 (직관적/상징적 탭) */}
+          <div className="grid grid-cols-4 gap-0.5 border-b border-border bg-muted/40 p-1">
+            {MASTER_INSPECTOR_GROUPS.map((group) => {
+              const isActive = activeMasterGroup === group.id;
+              return (
+                <button
+                  key={group.id}
+                  type="button"
+                  onClick={() => {
+                    setActiveMasterGroup(group.id);
+                    if (!group.subTabs.some((t) => t.id === activeInspectorTab)) {
+                      setActiveInspectorTab(group.subTabs[0].id as any);
+                    }
+                  }}
+                  className={cn(
+                    "py-1.5 px-1 rounded-sm text-center transition cursor-pointer flex flex-col items-center justify-center gap-0.5",
+                    isActive
+                      ? "bg-primary text-primary-foreground font-bold shadow-2xs"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
+                  )}
+                  title={group.label}
+                >
+                  <span className="text-xs leading-none">{group.icon}</span>
+                  <span className="text-[10px] font-medium leading-tight truncate w-full text-center">{group.label}</span>
+                </button>
+              );
+            })}
           </div>
+
+          {/* 서브 카테고리 2층 바 (하위 세부 항목) */}
+          {(() => {
+            const curGroup = MASTER_INSPECTOR_GROUPS.find((g) => g.id === activeMasterGroup) || MASTER_INSPECTOR_GROUPS[0];
+            return (
+              <div className="flex items-center gap-1 border-b border-border bg-muted/20 px-2 py-1.5 overflow-x-auto custom-scrollbar">
+                {curGroup.subTabs.map((sub) => {
+                  const isSubActive = activeInspectorTab === sub.id;
+                  return (
+                    <button
+                      key={sub.id}
+                      type="button"
+                      onClick={() => setActiveInspectorTab(sub.id as any)}
+                      className={cn(
+                        "px-2.5 py-1 rounded-[3px] text-[11px] font-medium transition cursor-pointer shrink-0",
+                        isSubActive
+                          ? "bg-card text-foreground font-bold border border-border shadow-2xs"
+                          : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
+                      )}
+                    >
+                      {sub.label}
+                    </button>
+                  );
+                })}
+              </div>
+            );
+          })()}
 
           <div className="flex-1 overflow-y-auto p-3 space-y-3 custom-scrollbar text-xs">
             <div className="p-2 border border-border bg-muted/20 rounded-[2px] flex items-center justify-between">
@@ -7746,7 +7757,7 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                 4대 표준 아키타입
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {Object.values(STANDARD_TEMPLATES).map((tpl) => (
+                {Object.values(STANDARD_TEMPLATES).map((tpl: any) => (
                   <div
                     key={tpl.id}
                     onClick={() => handleApplyManifest(tpl)}

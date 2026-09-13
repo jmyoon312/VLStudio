@@ -213,6 +213,46 @@ export const defaultLayoutState: ShortsLayoutState = {
   bottomBarOpacity: 1.0,
 };
 
+export const MASTER_INSPECTOR_GROUPS = [
+  {
+    id: 'layout' as const,
+    label: '화면 구성',
+    icon: '🏛️',
+    subTabs: [
+      { id: 'template', label: '4대 양식 & 배경 바' },
+    ],
+  },
+  {
+    id: 'text' as const,
+    label: '글자 · 자막',
+    icon: '✍️',
+    subTabs: [
+      { id: 'style', label: '자막 스타일' },
+      { id: 'titleSource', label: '대제목 · 출처' },
+      { id: 'jabHook', label: '3초 쨉쨉이' },
+    ],
+  },
+  {
+    id: 'media' as const,
+    label: '영상 · 연출',
+    icon: '🎬',
+    subTabs: [
+      { id: 'videoCrop', label: '화면 맞춤 · 구도' },
+      { id: 'filterFx', label: '필터 · 영화 효과' },
+    ],
+  },
+  {
+    id: 'viral' as const,
+    label: '바이럴 · 소리',
+    icon: '⚡',
+    subTabs: [
+      { id: 'commentCard', label: '댓글 카드' },
+      { id: 'tts', label: '음성 (TTS)' },
+      { id: 'channel', label: '채널 정보' },
+    ],
+  },
+];
+
 export interface ShortsTemplateStudioProps {
   initialLayout?: ShortsLayoutState;
   onLayoutChange?: (layout: ShortsLayoutState) => void;
@@ -273,6 +313,15 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
 
   const [selectedLayerId, setSelectedLayerId] = useState<string | null>('layer_title');
   const [activeInspectorTab, setActiveInspectorTab] = useState<'template' | 'titleSource' | 'videoCrop' | 'filterFx' | 'commentCard' | 'jabHook' | 'style' | 'tts' | 'channel'>('template');
+  const [activeMasterGroup, setActiveMasterGroup] = useState<'layout' | 'text' | 'media' | 'viral'>('layout');
+  const [activeFloatingInspector, setActiveFloatingInspector] = useState<string>('none');
+
+  useEffect(() => {
+    const group = MASTER_INSPECTOR_GROUPS.find((g) => g.subTabs.some((t) => t.id === activeInspectorTab));
+    if (group && group.id !== activeMasterGroup) {
+      setActiveMasterGroup(group.id);
+    }
+  }, [activeInspectorTab]);
 
   // 재생 시뮬레이션
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
@@ -617,9 +666,9 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
           titleLine2,
           titleLine1Color,
           titleLine2Color,
-          subtitleFontFamily: subtitleConfig.fontFamily,
-          subtitleColor: subtitleConfig.color,
-          subtitleHighlightColor: subtitleConfig.highlightColor,
+          subtitleFontFamily: subtitleConfig.font,
+          subtitleColor: subtitleConfig.textColor,
+          subtitleHighlightColor: selectedHighlightColor,
         },
         colorTheme: {
           primaryBgColor: topBarBg,
@@ -838,7 +887,7 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
 
     // 6. 잽 훅
     if (manifest.geometry?.jabHookZone) {
-      setHasJabHook(manifest.geometry.jabHookZone.enabled ?? true);
+      setHasJab(manifest.geometry.jabHookZone.enabled ?? true);
     }
 
     // 7. 스타일 영역
@@ -852,7 +901,9 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
       if (s.titleLine2FontSize) setTitleLine2SizePx(s.titleLine2FontSize);
       if (s.titleLine1Color) setTitleLine1Color(s.titleLine1Color);
       if (s.titleLine2Color) setTitleLine2Color(s.titleLine2Color);
-      if (s.titleBgMode) setTitleBgMode(s.titleBgMode);
+      if (s.titleBgMode) {
+        setTitleBgMode((s.titleBgMode === 'box' || s.titleBgMode === 'pill') ? s.titleBgMode : 'none');
+      }
       if (s.titleBgColor) setTitleBgColor(s.titleBgColor);
       if (s.titleBorderRadius !== undefined) setTitleBorderRadius(s.titleBorderRadius);
       if (s.titleStroke !== undefined) setTitleStroke(s.titleStroke);
@@ -1856,6 +1907,9 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
               safeZoneVisible={safeZoneVisible}
               safeZonePlatform={safeZonePlatform}
               deviceMockup={deviceMockup}
+              currentBrandChannelName={channelDna.channelName}
+              activeFloatingInspector={activeFloatingInspector}
+              setActiveFloatingInspector={setActiveFloatingInspector}
             />
           </div>
 
@@ -2108,34 +2162,61 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
 
         {/* ── 3. 우측 9대 프로 인스펙터 패널 (정밀 편집기와 100% 동일한 조작계) ── */}
         <aside className="w-80 border-l border-border bg-card flex flex-col shrink-0 z-20 overflow-hidden">
-          {/* 9대 탭 그리드 */}
-          <div className="grid grid-cols-3 gap-0.5 border-b border-border bg-muted/40 p-0.5 text-[9.5px]">
-            {[
-              { id: 'template', label: '🏛️ 템플릿/폼' },
-              { id: 'titleSource', label: '타이틀/출처' },
-              { id: 'videoCrop', label: '비디오 핏' },
-              { id: 'filterFx', label: '🎨 필터/FX' },
-              { id: 'commentCard', label: '💬 댓글카드' },
-              { id: 'jabHook', label: '쨉쨉이 훅' },
-              { id: 'style', label: '자막 스타일' },
-              { id: 'tts', label: '음성 (TTS)' },
-              { id: 'channel', label: '채널 DNA' },
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setActiveInspectorTab(tab.id as any)}
-                className={cn(
-                  "py-1 text-center font-semibold rounded-[2px] transition cursor-pointer truncate px-0.5",
-                  activeInspectorTab === tab.id
-                    ? "bg-primary text-primary-foreground shadow-2xs font-bold"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                {tab.label}
-              </button>
-            ))}
+          {/* 4대 마스터 그룹 1층 바 (직관적/상징적 탭) */}
+          <div className="grid grid-cols-4 gap-0.5 border-b border-border bg-muted/40 p-1">
+            {MASTER_INSPECTOR_GROUPS.map((group) => {
+              const isActive = activeMasterGroup === group.id;
+              return (
+                <button
+                  key={group.id}
+                  type="button"
+                  onClick={() => {
+                    setActiveMasterGroup(group.id);
+                    if (!group.subTabs.some((t) => t.id === activeInspectorTab)) {
+                      setActiveInspectorTab(group.subTabs[0].id as any);
+                    }
+                  }}
+                  className={cn(
+                    "py-1.5 px-1 rounded-sm text-center transition cursor-pointer flex flex-col items-center justify-center gap-0.5",
+                    isActive
+                      ? "bg-primary text-primary-foreground font-bold shadow-2xs"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
+                  )}
+                  title={group.label}
+                >
+                  <span className="text-xs leading-none">{group.icon}</span>
+                  <span className="text-[10px] font-medium leading-tight truncate w-full text-center">{group.label}</span>
+                </button>
+              );
+            })}
           </div>
+
+          {/* 서브 카테고리 2층 바 (하위 세부 항목) */}
+          {(() => {
+            const curGroup = MASTER_INSPECTOR_GROUPS.find((g) => g.id === activeMasterGroup) || MASTER_INSPECTOR_GROUPS[0];
+            return (
+              <div className="flex items-center gap-1 border-b border-border bg-muted/20 px-2 py-1.5 overflow-x-auto custom-scrollbar">
+                {curGroup.subTabs.map((sub) => {
+                  const isSubActive = activeInspectorTab === sub.id;
+                  return (
+                    <button
+                      key={sub.id}
+                      type="button"
+                      onClick={() => setActiveInspectorTab(sub.id as any)}
+                      className={cn(
+                        "px-2.5 py-1 rounded-[3px] text-[11px] font-medium transition cursor-pointer shrink-0",
+                        isSubActive
+                          ? "bg-card text-foreground font-bold border border-border shadow-2xs"
+                          : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
+                      )}
+                    >
+                      {sub.label}
+                    </button>
+                  );
+                })}
+              </div>
+            );
+          })()}
 
           {/* 인스펙터 세부 컨텐츠 영역 */}
           <div className="flex-1 overflow-y-auto p-3 space-y-3.5 custom-scrollbar text-xs">
@@ -2426,7 +2507,7 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
                 4대 표준 아키타입
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {Object.values(STANDARD_TEMPLATES).map((tpl) => (
+                {Object.values(STANDARD_TEMPLATES).map((tpl: any) => (
                   <div
                     key={tpl.id}
                     onClick={() => handleApplyManifest(tpl)}

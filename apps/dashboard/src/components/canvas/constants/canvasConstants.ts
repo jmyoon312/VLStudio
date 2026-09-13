@@ -87,3 +87,47 @@ export const IRASUTOYA_MEMES = [
   { id: 'irasutoya_fight', name: '격렬 논쟁', src: '/assets/memes/irasutoya/irasutoya_fight.svg', emoji: '⚔' },
   { id: 'irasutoya_run', name: '전력 질주', src: '/assets/memes/irasutoya/irasutoya_run.svg', emoji: '🏃' },
 ];
+
+// 🎛️ 4대 마스터 인스펙터 그룹 및 서브탭 체계 (단일 진실 공급원)
+export const MASTER_INSPECTOR_GROUPS = [
+  {
+    id: 'layout' as const,
+    label: '화면 구성',
+    icon: '🏛️',
+    subTabs: [
+      { id: 'template', label: '4대 양식 & 배경 바' },
+    ],
+  },
+  {
+    id: 'text' as const,
+    label: '글자 · 자막',
+    icon: '✍️',
+    subTabs: [
+      { id: 'style', label: '자막 스타일' },
+      { id: 'titleSource', label: '대제목 · 출처' },
+      { id: 'jabHook', label: '3초 쨉쨉이' },
+    ],
+  },
+  {
+    id: 'media' as const,
+    label: '영상 · 연출',
+    icon: '🎬',
+    subTabs: [
+      { id: 'videoCrop', label: '화면 맞춤 · 구도' },
+      { id: 'filterFx', label: '필터 · 영화 효과' },
+    ],
+  },
+  {
+    id: 'viral' as const,
+    label: '바이럴 · 소리',
+    icon: '⚡',
+    subTabs: [
+      { id: 'commentCard', label: '댓글 카드' },
+      { id: 'tts', label: '음성 (TTS)' },
+      { id: 'channel', label: '채널 정보' },
+    ],
+  },
+] as const;
+
+export type MasterInspectorGroupId = typeof MASTER_INSPECTOR_GROUPS[number]['id'];
+
