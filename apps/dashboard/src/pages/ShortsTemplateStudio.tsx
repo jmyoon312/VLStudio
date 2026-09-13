@@ -601,6 +601,20 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
     return () => clearInterval(interval);
   }, [isPlaying, playbackRate, isLooping, durationMs]);
 
+  // 💬 재생 중 타임코드에 따라 샘플 자막 실시간 시뮬레이션
+  useEffect(() => {
+    const SAMPLE_PREVIEW_SUBS = [
+      '손흥민 80m 단독 폭풍 드리블 원더골 작렬!',
+      '수비수 5명을 단숨에 제치며 골망을 갈랐습니다.',
+      '현지 해설진 전원 기립 극찬이 폭발했습니다.',
+      '역대급 푸스카스상 후보로 전 세계가 열광 중!'
+    ];
+    if (isPlaying) {
+      const idx = Math.floor((currentTimeMs / 1250) % SAMPLE_PREVIEW_SUBS.length);
+      setCurrentSubtitleText(SAMPLE_PREVIEW_SUBS[idx]);
+    }
+  }, [currentTimeMs, isPlaying]);
+
   // ⌨️ Spacebar 재생/일시정지 단축키
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -774,9 +788,11 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
       setVideoFitMode('sandwich');
       setHasTopBarBg(false);
       setHasBottomBarBg(false);
-      setHasTopTitle(false);
+      setHasTopTitle(true);
       setHasCommentCard(false);
-      setSubTransform(prev => ({ ...prev, xPct: 50.0, yPct: 72.0, scale: 1.0, zIndex: 40 }));
+      setTitleTransform(prev => ({ ...prev, xPct: 50.0, yPct: 12.0, scale: 1.0, zIndex: 30 }));
+      setJabTransform(prev => ({ ...prev, xPct: 50.0, yPct: 29.0, scale: 1.0, zIndex: 45 }));
+      setSubTransform(prev => ({ ...prev, xPct: 50.0, yPct: 78.0, scale: 1.0, zIndex: 40 }));
       toast({
         title: '군림보형 템플릿 적용',
         description: '상단 24% 레터박스 2줄 대제목 + 24~34% 흰색 띠 후킹 바 + 하단 자막이 적용되었습니다.'
@@ -784,8 +800,10 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
     } else if (mode === 'ssul') {
       setHasTopBarBg(false);
       setHasBottomBarBg(false);
-      setHasTopTitle(false);
+      setHasTopTitle(true);
       setHasCommentCard(false);
+      setTitleTransform(prev => ({ ...prev, xPct: 6.0, yPct: 8.5, scale: 1.0, zIndex: 35 }));
+      setSubTransform(prev => ({ ...prev, xPct: 50.0, yPct: 24.5, scale: 1.0, zIndex: 35 }));
       toast({
         title: '썰형 템플릿 적용',
         description: '커뮤니티 헤더 + 텍스트 모드 + 페페 밈 생동감 모션이 적용되었습니다.'
@@ -1951,6 +1969,7 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
               safeZonePlatform={safeZonePlatform}
               deviceMockup={deviceMockup}
               currentBrandChannelName={channelDna.channelName}
+              isPlaying={isPlaying}
               activeFloatingInspector={activeFloatingInspector}
               setActiveFloatingInspector={setActiveFloatingInspector}
             />

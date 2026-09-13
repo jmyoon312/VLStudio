@@ -1371,15 +1371,17 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
       setVideoFitMode('sandwich');
       setHasTopBarBg(false);
       setHasBottomBarBg(false);
-      setHasTopTitle(false);
+      setHasTopTitle(true);
       setHasCommentCard(false);
 
-      // 자막을 유튜브 쇼핑 세이프존 영역(72.0%)으로 도킹
-      setSubtitleYPercent(72.0);
+      setTitleTransform(prev => ({ ...prev, xPct: 50.0, yPct: 12.0, scale: 1.0, zIndex: 30 }));
+      setJabTransform(prev => ({ ...prev, xPct: 50.0, yPct: 29.0, scale: 1.0, zIndex: 45 }));
+      // 자막을 유튜브 쇼핑 세이프존 영역(78.0%)으로 도킹
+      setSubtitleYPercent(78.0);
       setSubTransform(prev => ({
         ...prev,
         xPct: 50.0,
-        yPct: 72.0,
+        yPct: 78.0,
         scale: 1.0,
         zIndex: 40,
       }));
@@ -1436,8 +1438,10 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
     } else if (mode === 'ssul') {
       setHasTopBarBg(false);
       setHasBottomBarBg(false);
-      setHasTopTitle(false);
+      setHasTopTitle(true);
       setHasCommentCard(false);
+      setTitleTransform(prev => ({ ...prev, xPct: 6.0, yPct: 8.5, scale: 1.0, zIndex: 35 }));
+      setSubTransform(prev => ({ ...prev, xPct: 50.0, yPct: 24.5, scale: 1.0, zIndex: 35 }));
       toast({
         title: '썰형 템플릿 적용 완료',
         description: '커뮤니티 헤더 + 텍스트 모드 + 페페 밈 생동감 모션이 적용되었습니다.',
@@ -2292,6 +2296,50 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
       if (dur > 0) setDurationMs(dur);
     }
   };
+
+  // ⏱️ 비디오 부재 시(대본/썰형/이미지/오디오 프로젝트) 가상 마스터 클록 (Virtual Master Playback Clock)
+  useEffect(() => {
+    if (!isPlaying) return;
+    // 실제 네이티브 비디오가 정상 로드되어 재생 중인 경우 onTimeUpdate에 위임
+    const hasActiveVideo = videoLayer?.data && !/\.(png|jpe?g|webp|gif)$/i.test(videoLayer.data) && videoRef.current && !videoRef.current.paused && !videoRef.current.ended;
+    if (hasActiveVideo) return;
+
+    let lastTime = performance.now();
+    const timer = setInterval(() => {
+      const now = performance.now();
+      const delta = now - lastTime;
+      lastTime = now;
+
+      setCurrentTimeMs((prev) => {
+        const next = Math.round(prev + delta);
+        if (next >= durationMs) {
+          if (isLooping) {
+            seekToMs(0);
+            return 0;
+          }
+          setIsPlaying(false);
+          return durationMs;
+        }
+
+        // SFX 효과음 실시간 감지
+        if (enabledTracks.a3Sfx && !trackAudioMute.a3Sfx && trackVisibility.a3Sfx !== false) {
+          const sfxClips = layers.filter(
+            (l) => l.type === 'audio' && (l.name.startsWith('SFX:') || l.id.startsWith('smart_sfx') || l.id.startsWith('sfx_'))
+          );
+          sfxClips.forEach((sfx) => {
+            if (next >= sfx.startMs && next < sfx.startMs + 350 && !playedSfxIdsRef.current.has(sfx.id)) {
+              playedSfxIdsRef.current.add(sfx.id);
+              playSynthesizedSfx(sfx.data || 'sfx_punch_hit');
+            }
+          });
+        }
+
+        return next;
+      });
+    }, 33);
+
+    return () => clearInterval(timer);
+  }, [isPlaying, durationMs, isLooping, videoLayer?.data, enabledTracks.a3Sfx, trackAudioMute.a3Sfx, trackVisibility.a3Sfx, layers]);
 
   // 🎯 활성 레이어 필터
   const titleLayer = layers.find((l) => l.type === 'title');
@@ -4182,7 +4230,7 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                   <div className="flex items-center gap-1">
                     <button
                       type="button"
-                      onClick={(e) => { e.stopPropagation(); setSubTransform(t => ({ ...t, zIndex: t.zIndex + 1 })); }}
+                      onClick={(e) => { e.stopPropagation(); setSubTransform(t => ({ ...t, zIndex: (t.zIndex ?? 30) + 1 })); }}
                       className="p-1 hover:bg-muted rounded text-[10px] font-bold"
                       title="위로 (앞으로 가져오기)"
                     >
@@ -4190,7 +4238,7 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                     </button>
                     <button
                       type="button"
-                      onClick={(e) => { e.stopPropagation(); setSubTransform(t => ({ ...t, zIndex: Math.max(1, t.zIndex - 1) })); }}
+                      onClick={(e) => { e.stopPropagation(); setSubTransform(t => ({ ...t, zIndex: Math.max(1, (t.zIndex ?? 30) - 1) })); }}
                       className="p-1 hover:bg-muted rounded text-[10px] font-bold"
                       title="아래로 (뒤로 보내기)"
                     >
@@ -4215,7 +4263,7 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                   <div className="flex items-center gap-1">
                     <button
                       type="button"
-                      onClick={(e) => { e.stopPropagation(); setJabTransform(t => ({ ...t, zIndex: t.zIndex + 1 })); }}
+                      onClick={(e) => { e.stopPropagation(); setJabTransform(t => ({ ...t, zIndex: (t.zIndex ?? 25) + 1 })); }}
                       className="p-1 hover:bg-muted rounded text-[10px] font-bold"
                       title="위로 (앞으로 가져오기)"
                     >
@@ -4223,7 +4271,7 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                     </button>
                     <button
                       type="button"
-                      onClick={(e) => { e.stopPropagation(); setJabTransform(t => ({ ...t, zIndex: Math.max(1, t.zIndex - 1) })); }}
+                      onClick={(e) => { e.stopPropagation(); setJabTransform(t => ({ ...t, zIndex: Math.max(1, (t.zIndex ?? 25) - 1) })); }}
                       className="p-1 hover:bg-muted rounded text-[10px] font-bold"
                       title="아래로 (뒤로 보내기)"
                     >
@@ -4255,7 +4303,7 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                   <div className="flex items-center gap-1">
                     <button
                       type="button"
-                      onClick={(e) => { e.stopPropagation(); setTitleTransform(t => ({ ...t, zIndex: t.zIndex + 1 })); }}
+                      onClick={(e) => { e.stopPropagation(); setTitleTransform(t => ({ ...t, zIndex: (t.zIndex ?? 20) + 1 })); }}
                       className="p-1 hover:bg-muted rounded text-[10px] font-bold"
                       title="위로 (앞으로 가져오기)"
                     >
@@ -4263,7 +4311,7 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                     </button>
                     <button
                       type="button"
-                      onClick={(e) => { e.stopPropagation(); setTitleTransform(t => ({ ...t, zIndex: Math.max(1, t.zIndex - 1) })); }}
+                      onClick={(e) => { e.stopPropagation(); setTitleTransform(t => ({ ...t, zIndex: Math.max(1, (t.zIndex ?? 20) - 1) })); }}
                       className="p-1 hover:bg-muted rounded text-[10px] font-bold"
                       title="아래로 (뒤로 보내기)"
                     >
@@ -4295,7 +4343,7 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                   <div className="flex items-center gap-1">
                     <button
                       type="button"
-                      onClick={(e) => { e.stopPropagation(); setSourceTransform(t => ({ ...t, zIndex: t.zIndex + 1 })); }}
+                      onClick={(e) => { e.stopPropagation(); setSourceTransform(t => ({ ...t, zIndex: (t.zIndex ?? 20) + 1 })); }}
                       className="p-1 hover:bg-muted rounded text-[10px] font-bold"
                       title="위로 (앞으로 가져오기)"
                     >
@@ -4303,7 +4351,7 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                     </button>
                     <button
                       type="button"
-                      onClick={(e) => { e.stopPropagation(); setSourceTransform(t => ({ ...t, zIndex: Math.max(1, t.zIndex - 1) })); }}
+                      onClick={(e) => { e.stopPropagation(); setSourceTransform(t => ({ ...t, zIndex: Math.max(1, (t.zIndex ?? 20) - 1) })); }}
                       className="p-1 hover:bg-muted rounded text-[10px] font-bold"
                       title="아래로 (뒤로 보내기)"
                     >
