@@ -59,11 +59,28 @@ export const BaseFloatingInspectorCard: React.FC<BaseFloatingInspectorCardProps>
     }
   }, [isOpen]);
 
+  // 🎯 휠 이벤트 버블링 차단 (캔버스 줌인/줌아웃 방지 & 카드 내부 스크롤 허용)
+  useEffect(() => {
+    if (!isOpen) return;
+    const cardEl = cardRef.current;
+    if (!cardEl) return;
+
+    const stopWheelPropagation = (e: WheelEvent) => {
+      e.stopPropagation();
+    };
+
+    cardEl.addEventListener('wheel', stopWheelPropagation, { passive: true });
+    return () => {
+      cardEl.removeEventListener('wheel', stopWheelPropagation);
+    };
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   return (
     <div
       ref={cardRef}
+      data-no-canvas-zoom="true"
       style={{
         position: 'absolute',
         left: `${position.x}px`,
@@ -73,8 +90,9 @@ export const BaseFloatingInspectorCard: React.FC<BaseFloatingInspectorCardProps>
       }}
       onClick={(e) => e.stopPropagation()}
       onMouseDown={(e) => e.stopPropagation()}
+      onWheel={(e) => e.stopPropagation()}
       className={cn(
-        "bg-card text-card-foreground border border-border shadow-2xl rounded-xl flex flex-col overflow-hidden backdrop-blur-md animate-in fade-in zoom-in-95 duration-150 select-none",
+        "floating-inspector-card bg-card text-card-foreground border border-border shadow-2xl rounded-xl flex flex-col overflow-hidden backdrop-blur-md animate-in fade-in zoom-in-95 duration-150 select-none",
         className
       )}
     >
@@ -150,7 +168,10 @@ export const BaseFloatingInspectorCard: React.FC<BaseFloatingInspectorCardProps>
       </div>
 
       {/* 2. 스크롤 가능한 본문 설정 영역 */}
-      <div className="p-3.5 space-y-3.5 max-h-[460px] overflow-y-auto custom-scrollbar text-xs">
+      <div
+        onWheel={(e) => e.stopPropagation()}
+        className="p-3.5 space-y-3.5 max-h-[460px] overflow-y-auto custom-scrollbar text-xs"
+      >
         {children}
       </div>
     </div>

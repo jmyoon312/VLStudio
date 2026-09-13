@@ -348,6 +348,7 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
   const [topBarBg, setTopBarBg] = useState<string>('#000000');
   const [topBarHeightPct, setTopBarHeightPct] = useState<number>(18.3);
   const [topBarOpacity, setTopBarOpacity] = useState<number>(1.0);
+  const [topBarRadius, setTopBarRadius] = useState<number>(0);
   const [topBarZIndex, setTopBarZIndex] = useState<number>(15);
 
   // 상단 타이틀 레이어
@@ -421,6 +422,8 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
   const [hasBottomBarBg, setHasBottomBarBg] = useState<boolean>(true);
   const [bottomBarBg, setBottomBarBg] = useState<string>('#000000');
   const [bottomBarHeightPct, setBottomBarHeightPct] = useState<number>(6.0);
+  const [bottomBarOpacity, setBottomBarOpacity] = useState<number>(1.0);
+  const [bottomBarRadius, setBottomBarRadius] = useState<number>(0);
   const [bottomBarZIndex, setBottomBarZIndex] = useState<number>(15);
 
   // 💬 댓글 카드
@@ -537,6 +540,12 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
     if (!el) return;
 
     const handleWheel = (e: WheelEvent) => {
+      // 🎯 플로팅 인스펙터 팝업창 및 내부 스크롤 영역 조작 시 캔버스 줌인/줌아웃 방지
+      const target = e.target as HTMLElement | null;
+      if (target?.closest('.floating-inspector-card, [data-no-canvas-zoom="true"], .custom-scrollbar, select, input, textarea')) {
+        return;
+      }
+
       e.preventDefault();
       e.stopPropagation();
       const zoomDelta = -e.deltaY * 0.0015;
@@ -1821,20 +1830,38 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
               ssulConfig={ssulConfig}
               setSsulConfig={setSsulConfig}
               hasTopBarBg={hasTopBarBg}
+              setHasTopBarBg={setHasTopBarBg}
               topBarHeightPct={topBarHeightPct}
+              setTopBarHeightPct={setTopBarHeightPct}
               topBarBg={topBarBg}
+              setTopBarBg={setTopBarBg}
+              topBarOpacity={topBarOpacity}
+              setTopBarOpacity={setTopBarOpacity}
+              topBarRadius={topBarRadius}
+              setTopBarRadius={setTopBarRadius}
               topBarZIndex={topBarZIndex}
               hasBottomBarBg={hasBottomBarBg}
+              setHasBottomBarBg={setHasBottomBarBg}
               bottomBarHeightPct={bottomBarHeightPct}
+              setBottomBarHeightPct={setBottomBarHeightPct}
               bottomBarBg={bottomBarBg}
+              setBottomBarBg={setBottomBarBg}
+              bottomBarOpacity={bottomBarOpacity}
+              setBottomBarOpacity={setBottomBarOpacity}
+              bottomBarRadius={bottomBarRadius}
+              setBottomBarRadius={setBottomBarRadius}
               bottomBarZIndex={bottomBarZIndex}
               hasTopTitle={hasTopTitle}
+              setHasTopTitle={setHasTopTitle}
               topTitleText={topTitleText}
+              setTopTitleText={setTopTitleText}
               titleTransform={titleTransform}
               setTitleTransform={setTitleTransform}
               titleLinesMode={titleLinesMode}
               titleLine1={titleLine1}
+              setTitleLine1={setTitleLine1}
               titleLine2={titleLine2}
+              setTitleLine2={setTitleLine2}
               titleLine1SizePx={titleLine1SizePx}
               titleLine2SizePx={titleLine2SizePx}
               titleLine1Color={titleLine1Color}
@@ -1853,16 +1880,25 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
               titlePaddingY={titlePaddingY}
               titleBorderRadius={titleBorderRadius}
               hasTitleBadge={hasTitleBadge}
+              setHasTitleBadge={setHasTitleBadge}
               titleBadgeText={titleBadgeText}
+              setTitleBadgeText={setTitleBadgeText}
               titleBadgeBg={titleBadgeBg}
+              setTitleBadgeBg={setTitleBadgeBg}
               titleBadgeColor={titleBadgeColor}
+              setTitleBadgeColor={setTitleBadgeColor}
               hasJab={hasJab}
+              setHasJab={setHasJab}
               jabTransform={jabTransform}
               setJabTransform={setJabTransform}
               jabText={jabText}
+              setJabText={setJabText}
               jabTiltDeg={jabTiltDeg}
+              setJabTiltDeg={setJabTiltDeg}
               jabFontSize={jabFontSize}
+              setJabFontSize={setJabFontSize}
               jabTextColor={jabTextColor}
+              setJabTextColor={setJabTextColor}
               jabStroke={jabStroke}
               jabStrokeWidth={jabStrokeWidth}
               jabStrokeColor={jabStrokeColor}
@@ -1870,6 +1906,7 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
               jabShadowBlur={jabShadowBlur}
               jabBgEnabled={jabBgEnabled}
               jabBgColor={jabBgColor}
+              setJabBgColor={setJabBgColor}
               jabBorderRadius={jabBorderRadius}
               hasSubtitle={true}
               subTransform={subTransform}
@@ -1889,18 +1926,24 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
               subtitleMaxChars={subtitleMaxChars}
               selectedHighlightColor={selectedHighlightColor}
               hasBottomSource={hasBottomSource}
+              setHasBottomSource={setHasBottomSource}
               sourceTransform={sourceTransform}
               setSourceTransform={setSourceTransform}
               bottomSourceText={bottomSourceText}
+              setBottomSourceText={setBottomSourceText}
               bottomSourceColor={bottomSourceColor}
+              setBottomSourceColor={setBottomSourceColor}
               bottomSourceSizePx={bottomSourceSizePx}
+              setBottomSourceSizePx={setBottomSourceSizePx}
               bottomSourceBg={bottomSourceBg}
               bottomSourceBorderRadius={bottomSourceBorderRadius}
               bottomSourceStroke={bottomSourceStroke}
               bottomSourceShadow={bottomSourceShadow}
               setBottomSourceBottomPct={setBottomSourceBottomPct}
               hasCommentCard={hasCommentCard}
+              setHasCommentCard={setHasCommentCard}
               commentCard={commentCard}
+              setCommentCard={setCommentCard}
               commentTransform={commentTransform}
               setCommentTransform={setCommentTransform}
               showGrid={showGrid}

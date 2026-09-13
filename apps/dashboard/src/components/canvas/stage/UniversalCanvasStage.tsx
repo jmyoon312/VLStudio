@@ -7,7 +7,7 @@ import { SubtitleConfig } from '@/types/subtitle';
 import { VideoFilterConfig } from '../forms/FilterFxInspectorForm';
 import { CommentCardConfig } from '../forms/CommentCardInspectorForm';
 import { VideoFitMode } from '../forms/VideoCropInspectorForm';
-import { FileVideo, ThumbsUp, MessageCircle, ArrowLeft, Menu, Share2, Sparkles } from 'lucide-react';
+import { FileVideo, ThumbsUp, MessageCircle, ArrowLeft, ChevronLeft, Menu, Share2, Sparkles } from 'lucide-react';
 import { MemeAvatar } from '@/components/memeAssets';
 import {
   SsulHeaderFloatingInspector,
@@ -38,8 +38,6 @@ export interface UniversalCanvasStageProps {
   currentBrandChannelName?: string;
   canvasRef?: React.RefObject<HTMLDivElement>;
   activeInspectorTab?: any;
-  setTopTitleText?: (text: string) => void;
-  setCommentCard?: any;
 
   // Video
   videoFitMode: VideoFitMode;
@@ -74,24 +72,38 @@ export interface UniversalCanvasStageProps {
 
   // Top / Bottom Bars
   hasTopBarBg: boolean;
+  setHasTopBarBg?: (val: boolean) => void;
   topBarHeightPct: number;
+  setTopBarHeightPct?: (val: number) => void;
   topBarBg: string;
+  setTopBarBg?: (val: string) => void;
   topBarOpacity?: number;
+  setTopBarOpacity?: (val: number) => void;
   topBarRadius?: number;
+  setTopBarRadius?: (val: number) => void;
   hasBottomBarBg: boolean;
+  setHasBottomBarBg?: (val: boolean) => void;
   bottomBarHeightPct: number;
+  setBottomBarHeightPct?: (val: number) => void;
   bottomBarBg: string;
+  setBottomBarBg?: (val: string) => void;
   bottomBarOpacity?: number;
+  setBottomBarOpacity?: (val: number) => void;
   bottomBarRadius?: number;
+  setBottomBarRadius?: (val: number) => void;
 
   // Top Title
   hasTopTitle: boolean;
+  setHasTopTitle?: (val: boolean) => void;
   topTitleText: string;
+  setTopTitleText?: (text: string) => void;
   titleTransform: NleLayerTransform;
   setTitleTransform?: any;
   titleLinesMode?: 'single' | 'double';
   titleLine1?: string;
+  setTitleLine1?: (val: string) => void;
   titleLine2?: string;
+  setTitleLine2?: (val: string) => void;
   titleLine1SizePx?: number;
   titleLine2SizePx?: number;
   titleLine1Color?: string;
@@ -110,18 +122,27 @@ export interface UniversalCanvasStageProps {
   titlePaddingY?: number;
   titleBorderRadius?: number;
   hasTitleBadge?: boolean;
+  setHasTitleBadge?: (val: boolean) => void;
   titleBadgeText?: string;
+  setTitleBadgeText?: (val: string) => void;
   titleBadgeBg?: string;
+  setTitleBadgeBg?: (val: string) => void;
   titleBadgeColor?: string;
+  setTitleBadgeColor?: (val: string) => void;
 
   // Jab Hook
   hasJab: boolean;
+  setHasJab?: (val: boolean) => void;
   jabTransform: NleLayerTransform;
   setJabTransform?: any;
   jabText: string;
+  setJabText?: (val: string) => void;
   jabTiltDeg: number;
+  setJabTiltDeg?: (val: number) => void;
   jabFontSize: number;
+  setJabFontSize?: (val: number) => void;
   jabTextColor: string;
+  setJabTextColor?: (val: string) => void;
   jabStroke: boolean;
   jabStrokeWidth: number;
   jabStrokeColor: string;
@@ -129,6 +150,7 @@ export interface UniversalCanvasStageProps {
   jabShadowBlur: number;
   jabBgEnabled: boolean;
   jabBgColor: string;
+  setJabBgColor?: (val: string) => void;
   jabBorderRadius: number;
 
   // Subtitle
@@ -152,18 +174,25 @@ export interface UniversalCanvasStageProps {
 
   // Bottom Source
   hasBottomSource: boolean;
+  setHasBottomSource?: (val: boolean) => void;
   sourceTransform: NleLayerTransform;
   setSourceTransform?: any;
   bottomSourceText: string;
+  setBottomSourceText?: (val: string) => void;
   bottomSourceColor?: string;
+  setBottomSourceColor?: (val: string) => void;
   bottomSourceSizePx?: number;
+  setBottomSourceSizePx?: (val: number) => void;
   bottomSourceBg?: boolean;
   bottomSourceBorderRadius?: number;
   bottomSourceStroke?: boolean;
   bottomSourceShadow?: boolean;
+  setBottomSourceBottomPct?: (val: number) => void;
 
   // Comment Card
   hasCommentCard: boolean;
+  setHasCommentCard?: (val: boolean) => void;
+  setCommentCard?: any;
   commentCard: CommentCardConfig;
   commentTransform: NleLayerTransform;
   setCommentTransform?: any;
@@ -181,11 +210,9 @@ export interface UniversalCanvasStageProps {
   handleLoadedMetadata?: (e: any) => void;
   getBgmAudioSrc?: (data?: string) => string | undefined;
   setJabYPercent?: (y: number) => void;
-  setJabTiltDeg?: (deg: number) => void;
   topBarZIndex?: number;
   bottomBarZIndex?: number;
   setTopTitleYPct?: (y: number) => void;
-  setBottomSourceBottomPct?: (pct: number) => void;
   setVideoFocusXPct?: (x: number) => void;
   setVideoFocusYPct?: (y: number) => void;
   setVideoZoomScale?: any;
@@ -534,9 +561,9 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
   // 📜 썰형 5대 객체 (헤더바, 대제목, 메타데이터, 구분선, 자막본문) 설정 단일 진실 공급원
   const ssulHeader = {
     enabled: ssulConfig?.ssulHeader?.enabled ?? true,
-    bgColor: ssulConfig?.ssulHeader?.bgColor || '#FFFFFF',
+    bgColor: ssulConfig?.ssulHeader?.bgColor || '#F7CF46',
     heightMultiplier: ssulConfig?.ssulHeader?.heightMultiplier ?? 1.0,
-    text: ssulConfig?.ssulHeader?.text || ssulConfig?.channelName || currentBrandChannelName,
+    text: ssulConfig?.ssulHeader?.text || currentBrandChannelName || '채널명',
     textColor: ssulConfig?.ssulHeader?.textColor || '#18181B',
     font: ssulConfig?.ssulHeader?.font || 'Pretendard',
     fontSizeMultiplier: ssulConfig?.ssulHeader?.fontSizeMultiplier ?? 1.0,
@@ -547,10 +574,10 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
   };
 
   const postTitleConfig = {
-    text: ssulConfig?.postTitle?.text || topTitleText || '오늘자 역대급 레전드 실화 썰 푼다',
+    text: ssulConfig?.postTitle?.text || topTitleText || (currentProjectDisplayName && currentProjectDisplayName !== '템플릿 미리보기' ? currentProjectDisplayName : '') || '제목을 입력하세요',
     color: ssulConfig?.postTitle?.color || '#111827',
     font: ssulConfig?.postTitle?.font || titleFontFamily || 'Pretendard',
-    fontSizeMultiplier: ssulConfig?.postTitle?.fontSizeMultiplier ?? 1.0,
+    fontSizeMultiplier: ssulConfig?.postTitle?.fontSizeMultiplier ?? 1.1,
     align: (ssulConfig?.postTitle?.align as 'left' | 'center' | 'right') || 'left',
     bold: ssulConfig?.postTitle?.bold ?? true,
     italic: ssulConfig?.postTitle?.italic ?? false,
@@ -568,11 +595,11 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
 
   const metadataConfig = {
     showAuthor: ssulConfig?.metadata?.showAuthor ?? true,
-    authorText: ssulConfig?.metadata?.authorText || ssulConfig?.author || '익명의 직장인',
+    authorText: ssulConfig?.metadata?.authorText || ssulConfig?.author || '작성자',
     showTime: ssulConfig?.metadata?.showTime ?? true,
-    timeText: ssulConfig?.metadata?.timeText || ssulConfig?.timeText || '방금 전',
-    showViews: ssulConfig?.metadata?.showViews ?? true,
-    viewsText: ssulConfig?.metadata?.viewsText || ssulConfig?.viewsText || '조회 1.2만 · 추천 420',
+    timeText: ssulConfig?.metadata?.timeText || ssulConfig?.timeText || '시간',
+    showViews: ssulConfig?.metadata?.showViews ?? (!!ssulConfig?.viewsText),
+    viewsText: ssulConfig?.metadata?.viewsText || ssulConfig?.viewsText || '',
     separator: (ssulConfig?.metadata?.separator as 'dot' | 'bar' | 'slash') || 'dot',
     color: ssulConfig?.metadata?.color || '#6B7280',
     font: ssulConfig?.metadata?.font || 'Pretendard',
@@ -593,15 +620,16 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
   };
 
   const ssulSubtitleConfig = {
+    text: ssulConfig?.ssulSubtitle?.text || '',
     font: ssulConfig?.ssulSubtitle?.font || subCfg?.font || subCfg?.fontFamily || 'Pretendard',
-    color: ssulConfig?.ssulSubtitle?.color || '#1F2937',
+    color: ssulConfig?.ssulSubtitle?.color || '#18181B',
     fontSizeMultiplier: ssulConfig?.ssulSubtitle?.fontSizeMultiplier ?? 1.0,
-    align: (ssulConfig?.ssulSubtitle?.align as 'left' | 'center' | 'right') || 'left',
+    align: (ssulConfig?.ssulSubtitle?.align as 'left' | 'center' | 'right') || 'center',
     bold: ssulConfig?.ssulSubtitle?.bold ?? true,
     italic: ssulConfig?.ssulSubtitle?.italic ?? false,
-    lineHeightMultiplier: ssulConfig?.ssulSubtitle?.lineHeightMultiplier ?? 1.6,
+    lineHeightMultiplier: ssulConfig?.ssulSubtitle?.lineHeightMultiplier ?? 1.5,
     letterSpacingPx: ssulConfig?.ssulSubtitle?.letterSpacingPx ?? 0,
-    marginTopPx: ssulConfig?.ssulSubtitle?.marginTopPx ?? 10,
+    marginTopPx: ssulConfig?.ssulSubtitle?.marginTopPx ?? 16,
     strokeEnabled: ssulConfig?.ssulSubtitle?.strokeEnabled ?? false,
     strokeColor: ssulConfig?.ssulSubtitle?.strokeColor || '#000000',
     strokeWidth: ssulConfig?.ssulSubtitle?.strokeWidth ?? 2,
@@ -627,62 +655,62 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
           isInsta
             ? 'bg-white shadow-[0_25px_60px_-15px_rgba(0,0,0,0.5)] ring-zinc-300 dark:ring-zinc-700'
             : isSsul
-            ? 'bg-[#F1F5F9] dark:bg-[#0F172A] shadow-xl ring-zinc-200 dark:ring-zinc-800'
+            ? 'bg-white shadow-xl ring-zinc-200 dark:ring-zinc-800'
             : 'bg-black border border-zinc-700 dark:border-zinc-800 ring-zinc-600/50',
-                aspectRatio === '9:16' && "h-full max-h-[96%] aspect-[9/16]",
-                aspectRatio === '16:9' && "w-full max-w-[96%] aspect-[16/9]",
-                aspectRatio === '1:1' && "h-full max-h-[96%] aspect-square"
-              )}
-              style={{
-                backgroundColor: isInsta ? instaConfig.bgColor : isSsul ? (ssulConfig?.cardBgColor === '#FFFFFF' ? '#F1F5F9' : '#0F172A') : undefined,
-                transform: `scale(${canvasScale}) translate(${canvasPan.x}px, ${canvasPan.y}px)`,
-              }}
-            >
-              {/* 🎬 LAYER 0: 비디오 레이어 (인스타 모드: 캔버스 전체 풀뷰포트 vs 일반 모드: 샌드위치/크롭) */}
-              <div
-                onClick={() => {
-                  setSelectedLayerId('layer_video');
-                  if (layoutTemplateMode !== 'instagram') setActiveInspectorTab('videoCrop');
-                  else setActiveInspectorTab('template');
-                }}
-                onDoubleClick={(e) => {
-                  e.stopPropagation();
-                  setActiveFloating('videoCrop');
-                }}
-                className={cn(
-                  "absolute overflow-hidden flex items-center justify-center transition-all cursor-pointer",
-                  layoutTemplateMode === 'instagram' ? "bg-transparent" : "bg-black",
-                  selectedLayerId === 'layer_video' && layoutTemplateMode !== 'instagram' && "ring-1 ring-sky-400"
-                )}
-                style={{
-                  top: isInsta
-                    ? 0
-                    : isGunlimbo
-                    ? (currentTimeMs <= (gunlimboConfig.introDurationSec || 2.5) * 1000 ? '34%' : '24%')
-                    : isSsul
-                    ? '54%'
-                    : `${Math.max(aspectRatio === '9:16' && videoFitMode === 'sandwich' && hasTopBarBg ? topBarHeightPct : 0, videoCropTopPct)}%`,
-                  height: isInsta
-                    ? '100%'
-                    : isSsul
-                    ? '42%'
-                    : undefined,
-                  bottom: isInsta
-                    ? 0
-                    : isGunlimbo
-                    ? '30%'
-                    : isSsul
-                    ? '4%'
-                    : `${Math.max(aspectRatio === '9:16' && videoFitMode === 'sandwich' && hasBottomBarBg ? bottomBarHeightPct : 0, videoCropBottomPct)}%`,
-                  left: isSsul ? '4%' : 0,
-                  right: isSsul ? '4%' : 0,
-                  borderRadius: isSsul ? '16px' : 0,
-                  boxShadow: isSsul ? '0 10px 25px -5px rgba(0,0,0,0.2), 0 0 0 1px rgba(0,0,0,0.08)' : 'none',
-                  zIndex: videoZIndex,
-                  opacity: trackVisibility.v1Video ? 1 : 0,
-                }}
-              >
-                {/* 🌟 여백 가우시안 블러 미러 배경 (CapCut 1순위 인기 연출) */}
+          aspectRatio === '9:16' && "h-full max-h-[96%] aspect-[9/16]",
+          aspectRatio === '16:9' && "w-full max-w-[96%] aspect-[16/9]",
+          aspectRatio === '1:1' && "h-full max-h-[96%] aspect-square"
+        )}
+        style={{
+          backgroundColor: isInsta ? instaConfig.bgColor : isSsul ? '#FFFFFF' : undefined,
+          transform: `scale(${canvasScale}) translate(${canvasPan.x}px, ${canvasPan.y}px)`,
+        }}
+      >
+        {/* 🎬 LAYER 0: 비디오 레이어 (인스타 모드: 캔버스 전체 풀뷰포트 vs 일반 모드: 샌드위치/크롭) */}
+        <div
+          onClick={() => {
+            setSelectedLayerId('layer_video');
+            if (layoutTemplateMode !== 'instagram') setActiveInspectorTab('videoCrop');
+            else setActiveInspectorTab('template');
+          }}
+          onDoubleClick={(e) => {
+            e.stopPropagation();
+            setActiveFloating('videoCrop');
+          }}
+          className={cn(
+            "absolute overflow-hidden flex items-center justify-center transition-all cursor-pointer",
+            layoutTemplateMode === 'instagram' ? "bg-transparent" : "bg-black",
+            selectedLayerId === 'layer_video' && layoutTemplateMode !== 'instagram' && "ring-1 ring-sky-400"
+          )}
+          style={{
+            top: isInsta
+              ? 0
+              : isGunlimbo
+              ? (currentTimeMs <= (gunlimboConfig.introDurationSec || 2.5) * 1000 ? '34%' : '24%')
+              : isSsul
+              ? '46%'
+              : `${Math.max(aspectRatio === '9:16' && videoFitMode === 'sandwich' && hasTopBarBg ? topBarHeightPct : 0, videoCropTopPct)}%`,
+            height: isInsta
+              ? '100%'
+              : isSsul
+              ? '51%'
+              : undefined,
+            bottom: isInsta
+              ? 0
+              : isGunlimbo
+              ? '30%'
+              : isSsul
+              ? '3%'
+              : `${Math.max(aspectRatio === '9:16' && videoFitMode === 'sandwich' && hasBottomBarBg ? bottomBarHeightPct : 0, videoCropBottomPct)}%`,
+            left: isSsul ? '3%' : 0,
+            right: isSsul ? '3%' : 0,
+            borderRadius: isSsul ? '12px' : 0,
+            boxShadow: isSsul ? '0 8px 20px -4px rgba(0,0,0,0.15), 0 0 0 1px rgba(0,0,0,0.06)' : 'none',
+            zIndex: videoZIndex,
+            opacity: trackVisibility.v1Video ? 1 : 0,
+          }}
+        >
+          {/* 🌟 여백 가우시안 블러 미러 배경 (CapCut 1순위 인기 연출) */}
                 {videoBlurBg && videoFitMode !== 'fullscreen' && videoLayer?.data && layoutTemplateMode !== 'instagram' && (
                   <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
                     <video
@@ -1126,182 +1154,190 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                 </TransformGizmo>
               )}
 
-              {/* 📜 [썰형] 픽셀링 규격 100% 동일 복제: 화이트 커뮤니티 포스트 카드 (헤더바 + 대제목 + 메타데이터 + 구분선 + 자막본문) */}
+              {/* 📜 [썰형] 픽셀링 규격 100% 동일 복제: 화이트 배경 + 옐로우 헤더바 + 대제목 + 메타데이터 + 구분선 + 자막본문 */}
               {layoutTemplateMode === 'ssul' && (
                 <div
-                  className="absolute z-[35] flex flex-col transition-all select-none"
-                  style={{
-                    top: '4%',
-                    left: '4%',
-                    right: '4%',
-                    maxHeight: '48%',
-                    zIndex: 35,
-                    backgroundColor: ssulConfig?.cardBgColor || '#FFFFFF',
-                    borderRadius: `${ssulConfig?.cardRadius ?? 14}px`,
-                    boxShadow: '0 20px 50px rgba(0,0,0,0.4), 0 0 0 1px rgba(0,0,0,0.06)',
-                    overflow: 'hidden',
-                  }}
+                  className="absolute inset-x-0 top-0 z-[35] flex flex-col transition-all select-none pointer-events-auto"
                 >
-                  {/* 1. 헤더바 (Header Bar) */}
+                  {/* 1. 상단 옐로우 헤더바 (Header Bar - 가로 100% 꽉 채우기) */}
                   {ssulHeader.enabled && (
                     <div
                       onDoubleClick={(e) => {
                         e.stopPropagation();
                         setActiveFloating('ssulHeader');
                       }}
-                      className="px-3.5 py-2 flex items-center justify-between border-b border-zinc-200 dark:border-zinc-700/60 cursor-pointer hover:bg-black/[0.02] transition-colors"
+                      className="w-full px-4 py-2 flex items-center justify-between cursor-pointer hover:opacity-95 transition-all select-none shadow-xs shrink-0"
                       style={{
-                        backgroundColor: ssulHeader.bgColor || '#FFFFFF',
-                        minHeight: `${Math.round(36 * (ssulHeader.heightMultiplier || 1.0))}px`,
+                        backgroundColor: ssulHeader.bgColor || '#F7CF46',
+                        minHeight: `${Math.round(48 * (ssulHeader.heightMultiplier || 1.0))}px`,
                       }}
                       title="더블클릭하여 헤더 바 속성 편집"
                     >
-                      <div className="flex items-center gap-2">
-                        {ssulHeader.leftIcon === 'arrow_back' && <ArrowLeft className="w-4 h-4 text-zinc-700 dark:text-zinc-300" />}
-                        {ssulHeader.leftIcon === 'home' && <Sparkles className="w-4 h-4 text-amber-500" />}
+                      {/* 좌측 뒤로가기 (<) 버튼 */}
+                      <div className="w-8 flex items-center justify-start">
+                        {ssulHeader.leftIcon === 'arrow_back' && (
+                          <ChevronLeft className="w-6 h-6 stroke-[2.5] text-zinc-900" />
+                        )}
+                        {ssulHeader.leftIcon === 'home' && (
+                          <Sparkles className="w-5 h-5 text-amber-900" />
+                        )}
+                        {ssulHeader.leftIcon === 'close' && (
+                          <span className="text-xl font-bold text-zinc-900 leading-none">✕</span>
+                        )}
+                      </div>
+
+                      {/* 중앙 채널명 */}
+                      <div className="flex-1 text-center">
                         <span
                           style={{
                             color: ssulHeader.textColor || '#18181B',
                             fontFamily: ssulHeader.font || 'Pretendard',
-                            fontSize: `${Math.round(13 * (ssulHeader.fontSizeMultiplier || 1.0))}px`,
-                            fontWeight: ssulHeader.bold ? 700 : 500,
+                            fontSize: `${Math.round(16 * (ssulHeader.fontSizeMultiplier || 1.0))}px`,
+                            fontWeight: ssulHeader.bold ? 800 : 600,
                             fontStyle: ssulHeader.italic ? 'italic' : 'normal',
                           }}
+                          className="tracking-tight truncate inline-block max-w-[200px]"
                         >
-                          {ssulHeader.text || currentBrandChannelName}
+                          {ssulHeader.text || currentBrandChannelName || '채널명'}
                         </span>
                       </div>
-                      <div className="flex items-center gap-2">
-                        {ssulHeader.rightIcon === 'menu' && <Menu className="w-4 h-4 text-zinc-500" />}
-                        {ssulHeader.rightIcon === 'share' && <Share2 className="w-4 h-4 text-zinc-500" />}
+
+                      {/* 우측 햄버거 메뉴 (☰) */}
+                      <div className="w-8 flex items-center justify-end">
+                        {ssulHeader.rightIcon === 'menu' && (
+                          <Menu className="w-6 h-6 stroke-[2.5] text-zinc-900" />
+                        )}
+                        {ssulHeader.rightIcon === 'share' && (
+                          <Share2 className="w-5 h-5 text-zinc-900" />
+                        )}
+                        {ssulHeader.rightIcon === 'bookmark' && (
+                          <span className="text-lg text-zinc-900">★</span>
+                        )}
                       </div>
                     </div>
                   )}
 
-                  {/* 포스트 본체 내부 패딩 영역 */}
-                  <div className="p-3.5 flex flex-col flex-1 overflow-hidden">
-                    {/* 2. 게시글 제목 (Post Title) */}
-                    <div
-                      onDoubleClick={(e) => {
-                        e.stopPropagation();
-                        setActiveFloating('postTitle');
-                      }}
-                      className="cursor-pointer hover:bg-black/[0.02] rounded p-1 -m-1 transition-colors"
+                  {/* 2. 게시글 제목 (Post Title) */}
+                  <div
+                    onDoubleClick={(e) => {
+                      e.stopPropagation();
+                      setActiveFloating('postTitle');
+                    }}
+                    className="px-5 pt-3.5 pb-1 cursor-pointer hover:bg-black/[0.02] transition-colors text-left"
+                    style={{
+                      textAlign: postTitleConfig.align || 'left',
+                      transform: `translate(${postTitleConfig.offsetX || 0}px, ${postTitleConfig.offsetY || 0}px)`,
+                    }}
+                    title="더블클릭하여 게시글 제목 속성 편집"
+                  >
+                    <h2
                       style={{
-                        textAlign: postTitleConfig.align || 'left',
-                        transform: `translate(${postTitleConfig.offsetX || 0}px, ${postTitleConfig.offsetY || 0}px)`,
+                        color: postTitleConfig.color || '#111827',
+                        fontFamily: postTitleConfig.font || 'Pretendard',
+                        fontSize: `${Math.round(22 * (postTitleConfig.fontSizeMultiplier || 1.0) * aspectScale)}px`,
+                        fontWeight: postTitleConfig.bold ? 800 : 700,
+                        fontStyle: postTitleConfig.italic ? 'italic' : 'normal',
+                        letterSpacing: `${postTitleConfig.letterSpacing || -0.5}px`,
+                        lineHeight: postTitleConfig.lineHeight || 1.3,
+                        WebkitTextStroke: postTitleConfig.strokeEnabled ? `${postTitleConfig.strokeWidth}px ${postTitleConfig.strokeColor}` : 'none',
+                        textShadow: postTitleConfig.shadowEnabled ? `0 2px ${postTitleConfig.shadowBlur}px ${postTitleConfig.shadowColor}` : 'none',
                       }}
-                      title="더블클릭하여 게시글 제목 속성 편집"
+                      className="tracking-tight whitespace-pre-line break-keep font-extrabold"
                     >
-                      <h2
-                        style={{
-                          color: postTitleConfig.color || '#111827',
-                          fontFamily: postTitleConfig.font || 'Pretendard',
-                          fontSize: `${Math.round(20 * (postTitleConfig.fontSizeMultiplier || 1.0) * aspectScale)}px`,
-                          fontWeight: postTitleConfig.bold ? 800 : 600,
-                          fontStyle: postTitleConfig.italic ? 'italic' : 'normal',
-                          letterSpacing: `${postTitleConfig.letterSpacing || -0.5}px`,
-                          lineHeight: postTitleConfig.lineHeight || 1.3,
-                          WebkitTextStroke: postTitleConfig.strokeEnabled ? `${postTitleConfig.strokeWidth}px ${postTitleConfig.strokeColor}` : 'none',
-                          textShadow: postTitleConfig.shadowEnabled ? `0 2px ${postTitleConfig.shadowBlur}px ${postTitleConfig.shadowColor}` : 'none',
-                        }}
-                        className="tracking-tight whitespace-pre-line break-keep"
-                      >
-                        {postTitleConfig.text || topTitleText || '오늘자 레전드 썰 풀어본다'}
-                      </h2>
-                    </div>
+                      {postTitleConfig.text || topTitleText || (currentProjectDisplayName && currentProjectDisplayName !== '템플릿 미리보기' ? currentProjectDisplayName : '') || '제목을 입력하세요'}
+                    </h2>
+                  </div>
 
-                    {/* 3. 메타데이터 (Metadata) */}
-                    <div
-                      onDoubleClick={(e) => {
-                        e.stopPropagation();
-                        setActiveFloating('metadata');
-                      }}
-                      className="flex items-center gap-1.5 mt-2 text-xs cursor-pointer hover:bg-black/[0.02] rounded px-1 -mx-1 py-0.5 transition-colors"
-                      style={{
-                        color: metadataConfig.color || '#6B7280',
-                        fontFamily: metadataConfig.font || 'Pretendard',
-                        fontSize: `${Math.round(11 * (metadataConfig.fontSizeMultiplier || 1.0))}px`,
-                        fontWeight: metadataConfig.bold ? 700 : 400,
-                        transform: `translate(${metadataConfig.offsetX || 0}px, ${metadataConfig.offsetY || 0}px)`,
-                      }}
-                      title="더블클릭하여 메타데이터 속성 편집"
-                    >
-                      {metadataConfig.showAuthor && (
-                        <span className="font-semibold text-zinc-800 dark:text-zinc-200">{metadataConfig.authorText || '익명'}</span>
-                      )}
-                      {metadataConfig.showAuthor && (metadataConfig.showTime || metadataConfig.showViews) && (
-                        <span className="opacity-40">{metadataConfig.separator === 'slash' ? '/' : metadataConfig.separator === 'bar' ? '|' : '·'}</span>
-                      )}
-                      {metadataConfig.showTime && (
-                        <span>{metadataConfig.timeText || '방금 전'}</span>
-                      )}
-                      {metadataConfig.showTime && metadataConfig.showViews && (
-                        <span className="opacity-40">{metadataConfig.separator === 'slash' ? '/' : metadataConfig.separator === 'bar' ? '|' : '·'}</span>
-                      )}
-                      {metadataConfig.showViews && (
-                        <span>{metadataConfig.viewsText || '조회 1.2만'}</span>
-                      )}
-                    </div>
-
-                    {/* 4. 구분선 (Divider) */}
-                    {dividerConfig.enabled && (
-                      <div
-                        onDoubleClick={(e) => {
-                          e.stopPropagation();
-                          setActiveFloating('divider');
-                        }}
-                        className="my-2.5 flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity"
-                        style={{
-                          transform: `translateY(${dividerConfig.offsetY || 0}px)`,
-                        }}
-                        title="더블클릭하여 구분선 속성 편집"
-                      >
-                        <div
-                          style={{
-                            width: `${dividerConfig.widthPercent || 100}%`,
-                            borderTopWidth: `${dividerConfig.thickness || 1}px`,
-                            borderTopStyle: dividerConfig.style || 'solid',
-                            borderTopColor: dividerConfig.color || '#E5E7EB',
-                            opacity: (dividerConfig.opacity ?? 100) / 100,
-                          }}
-                        />
-                      </div>
+                  {/* 3. 메타데이터 (Metadata: 작성자 · 시간) */}
+                  <div
+                    onDoubleClick={(e) => {
+                      e.stopPropagation();
+                      setActiveFloating('metadata');
+                    }}
+                    className="px-5 py-0.5 flex items-center gap-1.5 text-xs cursor-pointer hover:bg-black/[0.02] transition-colors"
+                    style={{
+                      color: metadataConfig.color || '#6B7280',
+                      fontFamily: metadataConfig.font || 'Pretendard',
+                      fontSize: `${Math.round(12 * (metadataConfig.fontSizeMultiplier || 1.0))}px`,
+                      fontWeight: metadataConfig.bold ? 700 : 400,
+                      transform: `translate(${metadataConfig.offsetX || 0}px, ${metadataConfig.offsetY || 0}px)`,
+                    }}
+                    title="더블클릭하여 메타데이터 속성 편집"
+                  >
+                    {metadataConfig.showAuthor && (
+                      <span className="font-medium text-zinc-600 dark:text-zinc-400">{metadataConfig.authorText || '작성자'}</span>
                     )}
+                    {metadataConfig.showAuthor && (metadataConfig.showTime || (metadataConfig.showViews && metadataConfig.viewsText)) && (
+                      <span className="opacity-40">{metadataConfig.separator === 'slash' ? '/' : metadataConfig.separator === 'bar' ? '|' : '·'}</span>
+                    )}
+                    {metadataConfig.showTime && (
+                      <span>{metadataConfig.timeText || '시간'}</span>
+                    )}
+                    {metadataConfig.showTime && metadataConfig.showViews && metadataConfig.viewsText && (
+                      <span className="opacity-40">{metadataConfig.separator === 'slash' ? '/' : metadataConfig.separator === 'bar' ? '|' : '·'}</span>
+                    )}
+                    {metadataConfig.showViews && metadataConfig.viewsText && (
+                      <span>{metadataConfig.viewsText}</span>
+                    )}
+                  </div>
 
-                    {/* 5. 자막 본문 (Subtitle Body) */}
+                  {/* 4. 가로 구분선 (Divider) */}
+                  {dividerConfig.enabled && (
                     <div
                       onDoubleClick={(e) => {
                         e.stopPropagation();
-                        setActiveFloating('ssulSubtitle');
+                        setActiveFloating('divider');
                       }}
-                      className="flex-1 cursor-pointer hover:bg-black/[0.02] rounded p-1 -m-1 transition-colors overflow-hidden"
+                      className="mx-5 my-2 flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity"
                       style={{
-                        marginTop: `${ssulSubtitleConfig.marginTopPx ?? 10}px`,
-                        textAlign: ssulSubtitleConfig.align || 'left',
+                        transform: `translateY(${dividerConfig.offsetY || 0}px)`,
                       }}
-                      title="더블클릭하여 자막 본문 속성 편집"
+                      title="더블클릭하여 구분선 속성 편집"
                     >
-                      <p
+                      <div
                         style={{
-                          color: ssulSubtitleConfig.color || '#1F2937',
-                          fontFamily: ssulSubtitleConfig.font || 'Pretendard',
-                          fontSize: `${Math.round(15 * (ssulSubtitleConfig.fontSizeMultiplier || 1.0) * aspectScale)}px`,
-                          fontWeight: ssulSubtitleConfig.bold ? 700 : 500,
-                          fontStyle: ssulSubtitleConfig.italic ? 'italic' : 'normal',
-                          lineHeight: ssulSubtitleConfig.lineHeightMultiplier || 1.6,
-                          letterSpacing: `${ssulSubtitleConfig.letterSpacingPx || 0}px`,
-                          backgroundColor: ssulSubtitleConfig.boxEnabled ? ssulSubtitleConfig.boxColor : 'transparent',
-                          borderRadius: ssulSubtitleConfig.boxEnabled ? `${ssulSubtitleConfig.boxRadius}px` : 0,
-                          padding: ssulSubtitleConfig.boxEnabled ? '6px 10px' : '0',
-                          WebkitTextStroke: ssulSubtitleConfig.strokeEnabled ? `${ssulSubtitleConfig.strokeWidth}px ${ssulSubtitleConfig.strokeColor}` : 'none',
-                          textShadow: ssulSubtitleConfig.shadowEnabled ? `0 2px ${ssulSubtitleConfig.shadowBlur}px ${ssulSubtitleConfig.shadowColor}` : 'none',
+                          width: `${dividerConfig.widthPercent || 100}%`,
+                          borderTopWidth: `${dividerConfig.thickness || 1}px`,
+                          borderTopStyle: dividerConfig.style || 'solid',
+                          borderTopColor: dividerConfig.color || '#E5E7EB',
+                          opacity: (dividerConfig.opacity ?? 100) / 100,
                         }}
-                        className="whitespace-pre-line break-keep"
-                      >
-                        {activeSub?.data || currentSubtitleText || '여기에 썰형 자막 본문이 실시간 동기화되어 표시됩니다.'}
-                      </p>
+                      />
                     </div>
+                  )}
+
+                  {/* 5. 자막 본문 (Subtitle Body - 픽셀링 규격 중앙/좌측 배치) */}
+                  <div
+                    onDoubleClick={(e) => {
+                      e.stopPropagation();
+                      setActiveFloating('ssulSubtitle');
+                    }}
+                    className="px-5 cursor-pointer hover:bg-black/[0.02] rounded p-1 transition-colors"
+                    style={{
+                      marginTop: `${ssulSubtitleConfig.marginTopPx ?? 16}px`,
+                      textAlign: ssulSubtitleConfig.align || 'center',
+                    }}
+                    title="더블클릭하여 자막 본문 속성 편집"
+                  >
+                    <p
+                      style={{
+                        color: ssulSubtitleConfig.color || '#18181B',
+                        fontFamily: ssulSubtitleConfig.font || 'Pretendard',
+                        fontSize: `${Math.round(16 * (ssulSubtitleConfig.fontSizeMultiplier || 1.0) * aspectScale)}px`,
+                        fontWeight: ssulSubtitleConfig.bold ? 800 : 600,
+                        fontStyle: ssulSubtitleConfig.italic ? 'italic' : 'normal',
+                        lineHeight: ssulSubtitleConfig.lineHeightMultiplier || 1.5,
+                        letterSpacing: `${ssulSubtitleConfig.letterSpacingPx || 0}px`,
+                        backgroundColor: ssulSubtitleConfig.boxEnabled ? ssulSubtitleConfig.boxColor : 'transparent',
+                        borderRadius: ssulSubtitleConfig.boxEnabled ? `${ssulSubtitleConfig.boxRadius}px` : 0,
+                        padding: ssulSubtitleConfig.boxEnabled ? '6px 12px' : '0',
+                        WebkitTextStroke: ssulSubtitleConfig.strokeEnabled ? `${ssulSubtitleConfig.strokeWidth}px ${ssulSubtitleConfig.strokeColor}` : 'none',
+                        textShadow: ssulSubtitleConfig.shadowEnabled ? `0 2px ${ssulSubtitleConfig.shadowBlur}px ${ssulSubtitleConfig.shadowColor}` : 'none',
+                      }}
+                      className="whitespace-pre-line break-keep font-bold"
+                    >
+                      {activeSub?.data || (currentSubtitleText && currentSubtitleText !== '자막을 입력하거나 타임라인에서 자막을 선택하세요' ? currentSubtitleText : (ssulSubtitleConfig.text || '자막을 입력하세요'))}
+                    </p>
                   </div>
                 </div>
               )}
@@ -2205,16 +2241,26 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                     bottomBarRadius: props.bottomBarRadius ?? 0,
                   }}
                   onChange={(patch) => {
-                    if (patch.hasTopBarBg !== undefined && (props as any).setHasTopBarBg) (props as any).setHasTopBarBg(patch.hasTopBarBg);
-                    if (patch.topBarBg !== undefined && (props as any).setTopBarBg) (props as any).setTopBarBg(patch.topBarBg);
-                    if (patch.topBarHeightPct !== undefined && (props as any).setTopBarHeightPct) (props as any).setTopBarHeightPct(patch.topBarHeightPct);
-                    if (patch.hasBottomBarBg !== undefined && (props as any).setHasBottomBarBg) (props as any).setHasBottomBarBg(patch.hasBottomBarBg);
-                    if (patch.bottomBarBg !== undefined && (props as any).setBottomBarBg) (props as any).setBottomBarBg(patch.bottomBarBg);
-                    if (patch.bottomBarHeightPct !== undefined && (props as any).setBottomBarHeightPct) (props as any).setBottomBarHeightPct(patch.bottomBarHeightPct);
+                    if (patch.hasTopBarBg !== undefined && props.setHasTopBarBg) props.setHasTopBarBg(patch.hasTopBarBg);
+                    if (patch.topBarBg !== undefined && props.setTopBarBg) props.setTopBarBg(patch.topBarBg);
+                    if (patch.topBarHeightPct !== undefined && props.setTopBarHeightPct) props.setTopBarHeightPct(patch.topBarHeightPct);
+                    if (patch.topBarOpacity !== undefined && props.setTopBarOpacity) props.setTopBarOpacity(patch.topBarOpacity / 100);
+                    if (patch.topBarRadius !== undefined && props.setTopBarRadius) props.setTopBarRadius(patch.topBarRadius);
+                    if (patch.hasBottomBarBg !== undefined && props.setHasBottomBarBg) props.setHasBottomBarBg(patch.hasBottomBarBg);
+                    if (patch.bottomBarBg !== undefined && props.setBottomBarBg) props.setBottomBarBg(patch.bottomBarBg);
+                    if (patch.bottomBarHeightPct !== undefined && props.setBottomBarHeightPct) props.setBottomBarHeightPct(patch.bottomBarHeightPct);
+                    if (patch.bottomBarOpacity !== undefined && props.setBottomBarOpacity) props.setBottomBarOpacity(patch.bottomBarOpacity / 100);
+                    if (patch.bottomBarRadius !== undefined && props.setBottomBarRadius) props.setBottomBarRadius(patch.bottomBarRadius);
                   }}
                   onReset={() => {
-                    (props as any).setTopBarBg?.('#000000');
-                    (props as any).setBottomBarBg?.('#000000');
+                    props.setTopBarBg?.('#000000');
+                    props.setTopBarHeightPct?.(18.3);
+                    props.setTopBarOpacity?.(1.0);
+                    props.setTopBarRadius?.(0);
+                    props.setBottomBarBg?.('#000000');
+                    props.setBottomBarHeightPct?.(6.0);
+                    props.setBottomBarOpacity?.(1.0);
+                    props.setBottomBarRadius?.(0);
                   }}
                 />
               )}

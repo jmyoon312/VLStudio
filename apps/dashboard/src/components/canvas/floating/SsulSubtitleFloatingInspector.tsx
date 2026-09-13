@@ -7,6 +7,7 @@ import { FONT_FAMILIES } from '../constants/canvasConstants';
 import { MessageSquareText, AlignLeft, AlignCenter, AlignRight, Bold, Italic } from 'lucide-react';
 
 export interface SsulSubtitleConfig {
+  text?: string;
   font: string;
   color: string;
   fontSizeMultiplier: number;
@@ -53,6 +54,18 @@ export const SsulSubtitleFloatingInspector: React.FC<SsulSubtitleFloatingInspect
       onReset={onReset}
       defaultPosition={defaultPosition}
     >
+      {/* 0. 자막 문구 직접 편집 */}
+      <div className="space-y-1">
+        <label className="text-[11px] font-semibold text-muted-foreground">자막 문구 (타임라인 자막 우선 동기화)</label>
+        <textarea
+          rows={2}
+          value={config.text || ''}
+          onChange={(e) => onChange({ text: e.target.value })}
+          placeholder="자막을 입력하세요"
+          className="w-full px-2 py-1.5 text-xs bg-muted/30 border border-border rounded-[4px] focus:outline-hidden focus:ring-1 focus:ring-primary resize-none"
+        />
+      </div>
+
       {/* 1. 글꼴 선택 */}
       <div className="space-y-1">
         <label className="text-[11px] font-semibold text-muted-foreground">글꼴 (Font)</label>

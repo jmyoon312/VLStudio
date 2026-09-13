@@ -396,6 +396,12 @@ const formatWrappedText = (text: string, splitLimit: number = 14, maxLines: numb
     if (!el) return;
 
     const handleWheel = (e: WheelEvent) => {
+      // 🎯 플로팅 인스펙터 팝업창 및 내부 스크롤 영역 조작 시 캔버스 줌인/줌아웃 방지
+      const target = e.target as HTMLElement | null;
+      if (target?.closest('.floating-inspector-card, [data-no-canvas-zoom="true"], .custom-scrollbar, select, input, textarea')) {
+        return;
+      }
+
       e.preventDefault();
       e.stopPropagation();
       const zoomDelta = -e.deltaY * 0.0015;
@@ -440,6 +446,7 @@ const formatWrappedText = (text: string, splitLimit: number = 14, maxLines: numb
   const [topBarBg, setTopBarBg] = useState<string>('#000000');
   const [topBarHeightPct, setTopBarHeightPct] = useState<number>(18.3);
   const [topBarOpacity, setTopBarOpacity] = useState<number>(1.0);
+  const [topBarRadius, setTopBarRadius] = useState<number>(0);
 
   // Layer 2: 상단 2단 타이틀 (Top Title - 상단바와 완전 독립 레이어)
   const [hasTopTitle, setHasTopTitle] = useState<boolean>(true);
@@ -532,6 +539,7 @@ const formatWrappedText = (text: string, splitLimit: number = 14, maxLines: numb
   const [bottomBarBg, setBottomBarBg] = useState<string>('#000000');
   const [bottomBarHeightPct, setBottomBarHeightPct] = useState<number>(6.0);
   const [bottomBarOpacity, setBottomBarOpacity] = useState<number>(1.0);
+  const [bottomBarRadius, setBottomBarRadius] = useState<number>(0);
 
   // 🎚️ 동적 멀티 오디오 트랙 상태 (무음 영상 vs 나레이션/TTS 영상 가변 대응)
   const [enabledTracks, setEnabledTracks] = useState<{
@@ -4937,20 +4945,36 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
               ssulConfig={ssulConfig}
               setSsulConfig={setSsulConfig}
               hasTopBarBg={hasTopBarBg}
+              setHasTopBarBg={setHasTopBarBg}
               topBarHeightPct={topBarHeightPct}
+              setTopBarHeightPct={setTopBarHeightPct}
               topBarBg={topBarBg}
+              setTopBarBg={setTopBarBg}
               topBarOpacity={topBarOpacity}
+              setTopBarOpacity={setTopBarOpacity}
+              topBarRadius={topBarRadius}
+              setTopBarRadius={setTopBarRadius}
               hasBottomBarBg={hasBottomBarBg}
+              setHasBottomBarBg={setHasBottomBarBg}
               bottomBarHeightPct={bottomBarHeightPct}
+              setBottomBarHeightPct={setBottomBarHeightPct}
               bottomBarBg={bottomBarBg}
+              setBottomBarBg={setBottomBarBg}
               bottomBarOpacity={bottomBarOpacity}
+              setBottomBarOpacity={setBottomBarOpacity}
+              bottomBarRadius={bottomBarRadius}
+              setBottomBarRadius={setBottomBarRadius}
               hasTopTitle={hasTopTitle}
+              setHasTopTitle={setHasTopTitle}
               topTitleText={topTitleText}
+              setTopTitleText={setTopTitleText}
               titleTransform={titleTransform}
               setTitleTransform={setTitleTransform}
               titleLinesMode={titleLinesMode}
               titleLine1={titleLine1}
+              setTitleLine1={setTitleLine1}
               titleLine2={titleLine2}
+              setTitleLine2={setTitleLine2}
               titleLine1SizePx={titleLine1SizePx}
               titleLine2SizePx={titleLine2SizePx}
               titleLine1Color={titleLine1Color}
@@ -4969,16 +4993,25 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
               titlePaddingY={titlePaddingY}
               titleBorderRadius={titleBorderRadius}
               hasTitleBadge={hasTitleBadge}
+              setHasTitleBadge={setHasTitleBadge}
               titleBadgeText={titleBadgeText}
+              setTitleBadgeText={setTitleBadgeText}
               titleBadgeBg={titleBadgeBg}
+              setTitleBadgeBg={setTitleBadgeBg}
               titleBadgeColor={titleBadgeColor}
+              setTitleBadgeColor={setTitleBadgeColor}
               hasJab={hasJab}
+              setHasJab={setHasJab}
               jabTransform={jabTransform}
               setJabTransform={setJabTransform}
               jabText={jabText}
+              setJabText={setJabText}
               jabTiltDeg={jabTiltDeg}
+              setJabTiltDeg={setJabTiltDeg}
               jabFontSize={jabFontSize}
+              setJabFontSize={setJabFontSize}
               jabTextColor={jabTextColor}
+              setJabTextColor={setJabTextColor}
               jabStroke={jabStroke}
               jabStrokeWidth={jabStrokeWidth}
               jabStrokeColor={jabStrokeColor}
@@ -4986,6 +5019,7 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
               jabShadowBlur={jabShadowBlur}
               jabBgEnabled={jabBgEnabled}
               jabBgColor={jabBgColor}
+              setJabBgColor={setJabBgColor}
               jabBorderRadius={jabBorderRadius}
               hasSubtitle={true}
               subTransform={subTransform}
@@ -5004,18 +5038,24 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
               subtitleBorderRadius={subtitleBorderRadius}
               selectedHighlightColor={channelDna.secondaryColor || '#FFE500'}
               hasBottomSource={hasBottomSource}
+              setHasBottomSource={setHasBottomSource}
               sourceTransform={sourceTransform}
               setSourceTransform={setSourceTransform}
               bottomSourceText={bottomSourceText}
+              setBottomSourceText={setBottomSourceText}
               bottomSourceColor={bottomSourceColor}
+              setBottomSourceColor={setBottomSourceColor}
               bottomSourceSizePx={bottomSourceSizePx}
+              setBottomSourceSizePx={setBottomSourceSizePx}
               bottomSourceBg={bottomSourceBg}
               bottomSourceBorderRadius={bottomSourceBorderRadius}
               bottomSourceStroke={bottomSourceStroke}
               bottomSourceShadow={bottomSourceShadow}
               setBottomSourceBottomPct={setBottomSourceBottomPct}
               hasCommentCard={hasCommentCard}
+              setHasCommentCard={setHasCommentCard}
               commentCard={commentCard}
+              setCommentCard={setCommentCard}
               commentTransform={commentTransform}
               setCommentTransform={setCommentTransform}
               layers={layers}

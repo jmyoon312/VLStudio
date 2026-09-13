@@ -3,8 +3,8 @@ import { BaseFloatingInspectorCard } from '../controls/BaseFloatingInspectorCard
 import { ColorPicker8Preset } from '../controls/ColorPicker8Preset';
 import { UnitSliderControl } from '../controls/UnitSliderControl';
 import { Switch } from '@/components/ui/switch';
-import { FONT_FAMILIES } from '../constants/canvasConstants';
-import { Info, Bold, User, Clock, Eye } from 'lucide-react';
+import { FONT_FAMILIES, getRandomSatiricalMetadata } from '../constants/canvasConstants';
+import { Info, Bold, User, Clock, Eye, Sparkles, Dices } from 'lucide-react';
 
 export interface MetadataConfig {
   showAuthor: boolean;
@@ -48,6 +48,38 @@ export const MetadataFloatingInspector: React.FC<MetadataFloatingInspectorProps>
       onReset={onReset}
       defaultPosition={defaultPosition}
     >
+      {/* 🎭 풍자/위트 메타데이터 랜덤 생성기 */}
+      <div className="p-2 bg-emerald-500/10 dark:bg-emerald-500/15 border border-emerald-500/30 rounded-[4px] space-y-1.5">
+        <div className="flex items-center justify-between">
+          <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+            <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+            <span>풍자 밈 메타데이터 생성기</span>
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              const rand = getRandomSatiricalMetadata();
+              onChange({
+                authorText: rand.author,
+                timeText: rand.timeText,
+                viewsText: rand.viewsText,
+                showAuthor: true,
+                showTime: true,
+                showViews: true,
+              });
+            }}
+            className="h-6 px-2 text-[10px] font-bold text-white bg-emerald-600 hover:bg-emerald-500 rounded flex items-center gap-1 cursor-pointer transition active:scale-95 shadow-2xs"
+            title="클릭 시 재미있는 직장인/커뮤니티 풍자 메타데이터 자동 주입"
+          >
+            <Dices className="w-3 h-3" />
+            <span>랜덤 뽑기</span>
+          </button>
+        </div>
+        <p className="text-[10px] text-muted-foreground leading-tight">
+          직장인, 퇴사러, 주식개미 등 12대 한국 커뮤니티 인기 풍자 프리셋을 원클릭으로 주입합니다.
+        </p>
+      </div>
+
       {/* 1. 작성자 항목 */}
       <div className="space-y-1.5 p-2 bg-muted/20 rounded-[4px] border border-border/50">
         <div className="flex items-center justify-between">

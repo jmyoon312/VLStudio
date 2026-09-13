@@ -145,3 +145,33 @@ export const MASTER_INSPECTOR_GROUPS = [
 
 export type MasterInspectorGroupId = typeof MASTER_INSPECTOR_GROUPS[number]['id'];
 
+// 🎭 커뮤니티 썰형 전용 위트/풍자 메타데이터 프리셋 (12대 인기 밈)
+export interface SatiricalMetadataItem {
+  id: string;
+  author: string;
+  timeText: string;
+  viewsText: string;
+  badge?: string;
+}
+
+export const SATIRICAL_METADATA_PRESETS: SatiricalMetadataItem[] = [
+  { id: 'lupin', author: '월급루팡 김대리', timeText: '방금 전', viewsText: '조회 14,290 · 추천 999+', badge: '직장인' },
+  { id: 'soul_dev', author: '영혼 탈곡된 개발자', timeText: '새벽 2시 14분', viewsText: '조회 42,100 · 댓글 842', badge: 'IT' },
+  { id: 'resignation', author: '내일 퇴사할 사람', timeText: '퇴근 5분 전', viewsText: '조회 88,400 · 추천 1,520', badge: '화제' },
+  { id: 'ant_stock', author: '주식 물린 개미', timeText: '장 마감 직후', viewsText: '조회 31,200 · 눈물 404', badge: '재테크' },
+  { id: 'algo_slave', author: '알고리즘의 노예', timeText: '1분 전', viewsText: '조회 10.4만 · 스크랩 2,300', badge: '급상승' },
+  { id: 'pantry_raider', author: '탕비실 털이범', timeText: '점심시간 직전', viewsText: '조회 19,800 · 추천 550', badge: '일상' },
+  { id: 'night_shift', author: '프로야근러 박과장', timeText: '막차 끊기기 10분 전', viewsText: '조회 53,200 · 분노 777', badge: '직장인' },
+  { id: 'lotto_999', author: '로또 1등 기원 999일차', timeText: '추첨 30분 전', viewsText: '조회 27,600 · 추천 888', badge: '희망' },
+  { id: 'party_escape', author: '회식 탈출 넘버원', timeText: '1차 끝나고 도망', viewsText: '조회 64,000 · 좋아요 1.2만', badge: '생존' },
+  { id: 'intern_coffee', author: '커피 수혈 중인 인턴', timeText: '출근 3분 전', viewsText: '조회 18,300 · 댓글 312', badge: '뉴비' },
+  { id: 'fast_clockout', author: '칼퇴 요정 핑구', timeText: '17:59:59', viewsText: '조회 35,900 · 추천 1,111', badge: '스피드' },
+  { id: 'anonymous_pro', author: '익명의 직장인', timeText: '방금 전', viewsText: '조회 14,290', badge: '블라인드' },
+];
+
+export function getRandomSatiricalMetadata(): SatiricalMetadataItem {
+  const idx = Math.floor(Math.random() * SATIRICAL_METADATA_PRESETS.length);
+  return SATIRICAL_METADATA_PRESETS[idx];
+}
+
+

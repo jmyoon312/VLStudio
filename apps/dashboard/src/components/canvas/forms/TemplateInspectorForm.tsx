@@ -20,6 +20,7 @@ import {
   PEPE_MEMES,
   IRASUTOYA_MEMES,
   rgbaToHex,
+  getRandomSatiricalMetadata,
 } from '../constants/canvasConstants';
 
 export interface TemplateInspectorFormProps {
@@ -1509,10 +1510,40 @@ export const TemplateInspectorForm: React.FC<TemplateInspectorFormProps> = (prop
 
                 {layoutTemplateMode === 'ssul' && (
                   <div className="p-2.5 rounded-[4px] border border-emerald-500/30 bg-emerald-500/5 space-y-2.5">
-                    <span className="text-[11px] font-bold text-emerald-500 flex items-center gap-1">
-                      <Sparkles className="w-3.5 h-3.5" />
-                      썰형 (커뮤니티 + 텍스트 모드 + 페페 밈 에셋)
-                    </span>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-bold text-emerald-500 flex items-center gap-1">
+                        <Sparkles className="w-3.5 h-3.5" />
+                        썰형 (커뮤니티 + 텍스트 모드)
+                      </span>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          const rand = getRandomSatiricalMetadata();
+                          setSsulConfig((prev: any) => ({
+                            ...prev,
+                            author: rand.author,
+                            timeText: rand.timeText,
+                            viewsText: rand.viewsText,
+                            metadata: {
+                              ...prev?.metadata,
+                              authorText: rand.author,
+                              timeText: rand.timeText,
+                              viewsText: rand.viewsText,
+                            },
+                          }));
+                          toast({
+                            title: '풍자 메타데이터 주입 완료',
+                            description: `${rand.author} · ${rand.timeText} · ${rand.viewsText}`,
+                          });
+                        }}
+                        className="h-6 px-2 text-[10px] font-bold border-emerald-500/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 cursor-pointer"
+                        title="클릭 시 재미있는 직장인/커뮤니티 풍자 메타데이터 자동 주입"
+                      >
+                        🎲 풍자 랜덤
+                      </Button>
+                    </div>
                     <div className="space-y-1">
                       <label className="text-[10px] text-muted-foreground font-bold">텍스트 디스플레이 3대 모드</label>
                       <div className="grid grid-cols-3 gap-1">
