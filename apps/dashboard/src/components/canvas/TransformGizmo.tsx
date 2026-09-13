@@ -11,6 +11,7 @@ interface TransformGizmoProps {
   anchor?: 'center' | 'left';
   onSelect: () => void;
   onChange: (newTransform: NleLayerTransform) => void;
+  onDoubleClick?: (e: React.MouseEvent) => void;
   children: React.ReactNode;
 }
 
@@ -31,10 +32,12 @@ export const TransformGizmo: React.FC<TransformGizmoProps> = ({
   anchor = 'center',
   onSelect,
   onChange,
+  onDoubleClick,
   children,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [activeAction, setActiveAction] = useState<string | null>(null);
+  const lastPointerDownRef = useRef<number>(0);
 
   // 1. 위치 이동 핸들러 (바디 또는 외곽선 라인 드래그)
   const handleTranslatePointerDown = (e: React.PointerEvent) => {
@@ -42,6 +45,14 @@ export const TransformGizmo: React.FC<TransformGizmoProps> = ({
     if (e.button !== 0) return;
     e.stopPropagation();
     onSelect();
+    const now = Date.now();
+    if (now - lastPointerDownRef.current < 350) {
+      lastPointerDownRef.current = 0;
+      onDoubleClick?.(e as any);
+      return;
+    }
+    lastPointerDownRef.current = now;
+
     setActiveAction('translate');
 
     const targetEl = e.currentTarget as HTMLElement;
@@ -227,6 +238,10 @@ export const TransformGizmo: React.FC<TransformGizmoProps> = ({
     <div
       ref={containerRef}
       onPointerDown={handleTranslatePointerDown}
+      onDoubleClick={(e) => {
+        e.stopPropagation();
+        onDoubleClick?.(e);
+      }}
       className={`absolute select-none group shrink-0 ${selected ? 'z-50' : ''} ${locked ? 'cursor-not-allowed' : 'cursor-move'} ${transform.widthPct && transform.widthPct < 100 ? 'w-auto' : 'w-max max-w-none'}`}
       style={{
         left: `${transform.xPct}%`,

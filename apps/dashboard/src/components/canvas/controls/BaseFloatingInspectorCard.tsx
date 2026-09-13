@@ -20,19 +20,23 @@ export const BaseFloatingInspectorCard: React.FC<BaseFloatingInspectorCardProps>
   isOpen,
   onClose,
   onReset,
-  defaultPosition = { x: 24, y: 48 },
+  defaultPosition,
   className,
   width = 280,
   children,
 }) => {
-  const [position, setPosition] = useState<{ x: number; y: number }>(defaultPosition);
+  const initialPos = defaultPosition || {
+    x: typeof window !== 'undefined' ? Math.max(20, Math.round(window.innerWidth / 2 - 380)) : 24,
+    y: 100,
+  };
+  const [position, setPosition] = useState<{ x: number; y: number }>(initialPos);
   const cardRef = useRef<HTMLDivElement>(null);
   const isDraggingRef = useRef(false);
   const dragStartRef = useRef<{ startX: number; startY: number; posX: number; posY: number }>({
     startX: 0,
     startY: 0,
-    posX: defaultPosition.x,
-    posY: defaultPosition.y,
+    posX: initialPos.x,
+    posY: initialPos.y,
   });
 
   // ESC 키로 닫기

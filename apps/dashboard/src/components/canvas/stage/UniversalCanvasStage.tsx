@@ -501,7 +501,16 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
   const activeSplitLimit = aspectRatio === '16:9' ? 24 : ((subtitleConfig as any)?.splitLimit || 14);
   const [internalActiveFloating, setInternalActiveFloating] = useState<string>('none');
   const activeFloating = props.activeFloatingInspector !== undefined ? props.activeFloatingInspector : internalActiveFloating;
-  const setActiveFloating = props.setActiveFloatingInspector || setInternalActiveFloating;
+  const setActiveFloating = (insp: string) => {
+    setInternalActiveFloating(insp);
+    props.setActiveFloatingInspector?.(insp);
+  };
+
+  // 🛡️ 4대 폼팩터 모드 불리언 플래그 (레이어 누수 원천 차단)
+  const isSsul = layoutTemplateMode === 'ssul';
+  const isInsta = layoutTemplateMode === 'instagram';
+  const isGunlimbo = layoutTemplateMode === 'gunlimbo';
+  const isClassic = layoutTemplateMode === 'classic';
   const currentBrandChannelName = props.currentBrandChannelName || '썰방 TV';
 
   // 📜 썰형 5대 객체 (헤더바, 대제목, 메타데이터, 구분선, 자막본문) 설정 단일 진실 공급원
@@ -589,16 +598,25 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
   const aspectScale = aspectRatio === '9:16' ? 1.0 : aspectRatio === '1:1' ? 0.9 : 0.75;
 
   return (
-<div
-className={cn(
-                "canvas-stage-wrapper relative shadow-2xl overflow-visible transition-transform duration-75 flex items-center justify-center select-none rounded-2xl ring-1 ring-zinc-600/50 dark:ring-zinc-700",
-                layoutTemplateMode === 'instagram' ? 'bg-white shadow-[0_25px_60px_-15px_rgba(0,0,0,0.5)]' : 'bg-black border border-zinc-700 dark:border-zinc-800',
+    <div className="canvas-viewport-root relative w-full h-full flex items-center justify-center overflow-visible">
+      {/* 1. 캔버스 스테이지 (스케일 및 팬 적용) */}
+      <div
+        id="nle-universal-canvas"
+        ref={canvasRef}
+        onClick={handleCanvasDeselect}
+        className={cn(
+          "canvas-stage-wrapper relative shadow-2xl overflow-hidden transition-transform duration-75 flex items-center justify-center select-none rounded-2xl ring-1",
+          isInsta
+            ? 'bg-white shadow-[0_25px_60px_-15px_rgba(0,0,0,0.5)] ring-zinc-300 dark:ring-zinc-700'
+            : isSsul
+            ? 'bg-[#F1F5F9] dark:bg-[#0F172A] shadow-xl ring-zinc-200 dark:ring-zinc-800'
+            : 'bg-black border border-zinc-700 dark:border-zinc-800 ring-zinc-600/50',
                 aspectRatio === '9:16' && "h-full max-h-[96%] aspect-[9/16]",
                 aspectRatio === '16:9' && "w-full max-w-[96%] aspect-[16/9]",
                 aspectRatio === '1:1' && "h-full max-h-[96%] aspect-square"
               )}
               style={{
-                backgroundColor: layoutTemplateMode === 'instagram' ? instaConfig.bgColor : undefined,
+                backgroundColor: isInsta ? instaConfig.bgColor : isSsul ? (ssulConfig?.cardBgColor === '#FFFFFF' ? '#F1F5F9' : '#0F172A') : undefined,
                 transform: `scale(${canvasScale}) translate(${canvasPan.x}px, ${canvasPan.y}px)`,
               }}
             >
@@ -619,21 +637,29 @@ className={cn(
                   selectedLayerId === 'layer_video' && layoutTemplateMode !== 'instagram' && "ring-1 ring-sky-400"
                 )}
                 style={{
-                  top: layoutTemplateMode === 'instagram'
+                  top: isInsta
                     ? 0
-                    : layoutTemplateMode === 'gunlimbo'
+                    : isGunlimbo
                     ? (currentTimeMs <= (gunlimboConfig.introDurationSec || 2.5) * 1000 ? '34%' : '24%')
+                    : isSsul
+                    ? '54%'
                     : `${Math.max(aspectRatio === '9:16' && videoFitMode === 'sandwich' && hasTopBarBg ? topBarHeightPct : 0, videoCropTopPct)}%`,
-                  height: layoutTemplateMode === 'instagram'
+                  height: isInsta
                     ? '100%'
+                    : isSsul
+                    ? '42%'
                     : undefined,
-                  bottom: layoutTemplateMode === 'instagram'
+                  bottom: isInsta
                     ? 0
-                    : layoutTemplateMode === 'gunlimbo'
+                    : isGunlimbo
                     ? '30%'
+                    : isSsul
+                    ? '4%'
                     : `${Math.max(aspectRatio === '9:16' && videoFitMode === 'sandwich' && hasBottomBarBg ? bottomBarHeightPct : 0, videoCropBottomPct)}%`,
-                  left: 0,
-                  right: 0,
+                  left: isSsul ? '4%' : 0,
+                  right: isSsul ? '4%' : 0,
+                  borderRadius: isSsul ? '16px' : 0,
+                  boxShadow: isSsul ? '0 10px 25px -5px rgba(0,0,0,0.2), 0 0 0 1px rgba(0,0,0,0.08)' : 'none',
                   zIndex: videoZIndex,
                   opacity: trackVisibility.v1Video ? 1 : 0,
                 }}
@@ -1038,6 +1064,7 @@ className={cn(
               {layoutTemplateMode === 'instagram' && (
                 <TransformGizmo
                   transform={profileTransform}
+                  onDoubleClick={() => setActiveFloating('instaProfile')}
                   selected={selectedLayerId === 'layer_insta_profile'}
                   name="인스타 프로필"
                   canvasScale={canvasScale}
@@ -1084,12 +1111,13 @@ className={cn(
               {/* 📜 [썰형] 픽셀링 규격 100% 동일 복제: 화이트 커뮤니티 포스트 카드 (헤더바 + 대제목 + 메타데이터 + 구분선 + 자막본문) */}
               {layoutTemplateMode === 'ssul' && (
                 <div
-                  className="absolute z-35 flex flex-col transition-all select-none"
+                  className="absolute z-[35] flex flex-col transition-all select-none"
                   style={{
-                    top: '6%',
-                    left: '5%',
-                    right: '5%',
-                    maxHeight: '62%',
+                    top: '4%',
+                    left: '4%',
+                    right: '4%',
+                    maxHeight: '48%',
+                    zIndex: 35,
                     backgroundColor: ssulConfig?.cardBgColor || '#FFFFFF',
                     borderRadius: `${ssulConfig?.cardRadius ?? 14}px`,
                     boxShadow: '0 20px 50px rgba(0,0,0,0.4), 0 0 0 1px rgba(0,0,0,0.06)',
@@ -1261,7 +1289,7 @@ className={cn(
               )}
 
               {/* ⬛ LAYER 1: 상단 배경 바 (Top Bar Bg - 독립 제어) */}
-              {hasTopBarBg && (
+              {!isSsul && !isInsta && hasTopBarBg && (
                 <div
                   onClick={() => { setSelectedLayerId('layer_top_bar'); setActiveInspectorTab('titleSource'); }}
                   onDoubleClick={(e) => {
@@ -1280,9 +1308,10 @@ className={cn(
               )}
 
               {/* 👑 LAYER 2: 상단 타이틀 (1줄/2줄 모드, 외곽선/그림자/배경박스/모서리 둥글기 완벽 지원) */}
-              {hasTopTitle && trackVisibility.t1Title && (
+              {!isSsul && hasTopTitle && trackVisibility.t1Title && (
                 <TransformGizmo
                   transform={titleTransform}
+                  onDoubleClick={() => setActiveFloating('postTitle')}
                   selected={selectedLayerId === 'layer_title' || selectedLayerId === 'layer_top_title'}
                   name="상단 타이틀"
                   canvasScale={canvasScale}
@@ -1393,13 +1422,14 @@ className={cn(
                 const isExplicitJabClipSelected = !isPlaying && selectedLayer?.type === 'jab' && selectedLayer.id !== 'layer_audio_bgm';
                 const displayJab = activeJab || (isExplicitJabClipSelected ? selectedLayer : null);
                 const isJabSelected = selectedLayerId === 'layer_jab' || selectedLayer?.type === 'jab' || (displayJab ? selectedLayerId === displayJab.id : false);
-                const shouldShowJab = hasJab && trackVisibility.t2Jab !== false && !!displayJab;
+                const shouldShowJab = !isSsul && hasJab && trackVisibility.t2Jab !== false && !!displayJab;
 
                 if (!shouldShowJab) return null;
 
                 return (
                   <TransformGizmo
                     transform={jabTransform}
+                    onDoubleClick={() => setActiveFloating('jabHook')}
                     selected={isJabSelected}
                     name="긴박 쨉쨉이 훅"
                     canvasScale={canvasScale}
@@ -1467,13 +1497,14 @@ className={cn(
                   return null;
                 }
 
-                if (!shouldShowSub) return null;
+                if (!shouldShowSub || isSsul) return null;
 
                 return (
                   <TransformGizmo
                     transform={subTransform}
                     selected={isSubSelected}
                     name="본문 자막"
+                    onDoubleClick={() => setActiveFloating('ssulSubtitle')}
                     canvasScale={canvasScale}
                     anchor={layoutTemplateMode === 'instagram' ? 'left' : 'center'}
                     onSelect={() => {
@@ -1602,7 +1633,7 @@ className={cn(
               )}
 
               {/* ⬛ LAYER 6: 하단 배경 바 (Bottom Bar Bg) */}
-              {hasBottomBarBg && (
+              {!isSsul && !isInsta && hasBottomBarBg && (
                 <div
                   onClick={() => { setSelectedLayerId('layer_bottom_bar'); setActiveInspectorTab('titleSource'); }}
                   onDoubleClick={(e) => {
@@ -1639,6 +1670,7 @@ className={cn(
               {(hasCommentCard || layoutTemplateMode === 'instagram') && commentCard && (
                 <TransformGizmo
                   transform={commentTransform}
+                  onDoubleClick={() => setActiveFloating('commentCard')}
                   selected={selectedLayerId === 'layer_comment_card'}
                   name="하단 바이럴 댓글 카드"
                   canvasScale={canvasScale}
@@ -1770,7 +1802,14 @@ className={cn(
                 </div>
               )}
 
-              {/* ── 🌟 인-캔버스 객체 지향 플로팅 프로퍼티 인스펙터 (Pixeling 규격 100% 동일 복제) ── */}
+              
+      </div>
+
+      {/* ── 🌟 화면 뷰포트 최상위 비왜곡 플로팅 프로퍼티 인스펙터 (스케일 왜곡 0% 보장) ── */}
+      {activeFloating !== 'none' && (
+        <div className="fixed inset-0 pointer-events-none z-[99999]">
+          <div className="pointer-events-auto">
+            {/* ── 🌟 인-캔버스 객체 지향 플로팅 프로퍼티 인스펙터 (Pixeling 규격 100% 동일 복제) ── */}
               {activeFloating === 'ssulHeader' && (
                 <SsulHeaderFloatingInspector
                   isOpen={true}
@@ -2214,7 +2253,11 @@ className={cn(
                   }}
                 />
               )}
-            </div>
+            
+          </div>
+        </div>
+      )}
+    </div>
   );
 };
 
