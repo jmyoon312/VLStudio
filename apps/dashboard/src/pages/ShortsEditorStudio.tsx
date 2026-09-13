@@ -1793,6 +1793,24 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
         const title = parsed.title || '영상 프로젝트';
         const subList = parsed.subtitles || [];
         const jabList = parsed.jabs || [];
+        const handoffChannelName = parsed.channelName || parsed.brandChannelName || '';
+        const handoffTemplateMode = parsed.layoutTemplateMode || parsed.templateMode || '';
+
+        if (title) setTopTitleText(title);
+        if (handoffChannelName) {
+          setChannelDna((prev) => ({ ...prev, channelName: handoffChannelName }));
+          setSsulConfig((prev: any) => ({
+            ...prev,
+            author: prev.author === '익명의 직장인' ? handoffChannelName : prev.author,
+            ssulHeader: {
+              ...prev.ssulHeader,
+              channelName: handoffChannelName,
+            },
+          }));
+        }
+        if (handoffTemplateMode) {
+          setLayoutTemplateMode(handoffTemplateMode as any);
+        }
 
         setLayers((prev) => {
           const videoL = prev.find((l) => l.type === 'video');
