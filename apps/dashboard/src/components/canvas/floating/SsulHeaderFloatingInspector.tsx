@@ -2,10 +2,10 @@ import React from 'react';
 import { BaseFloatingInspectorCard } from '../controls/BaseFloatingInspectorCard';
 import { ColorPicker8Preset } from '../controls/ColorPicker8Preset';
 import { UnitSliderControl } from '../controls/UnitSliderControl';
+import { TypographyControlGroup } from '../forms/shared';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
-import { FONT_FAMILIES } from '../constants/canvasConstants';
-import { Layout, Upload, ArrowLeft, Menu, Sparkles } from 'lucide-react';
+import { Layout, Upload, Sparkles } from 'lucide-react';
 
 export interface SsulHeaderConfig {
   enabled: boolean;
@@ -117,60 +117,19 @@ export const SsulHeaderFloatingInspector: React.FC<SsulHeaderFloatingInspectorPr
             />
           </div>
 
-          {/* 6. 텍스트 색상 */}
-          <ColorPicker8Preset
-            label="글자 색상"
-            value={config.textColor || '#1F2937'}
-            onChange={(color) => onChange({ textColor: color })}
+          {/* 6. 타이포그래피 (글자색, 글꼴, 크기, 굵게, 기울임 등) */}
+          <TypographyControlGroup
+            font={config.font || 'Pretendard'}
+            setFont={(font) => onChange({ font })}
+            color={config.textColor || '#1F2937'}
+            setColor={(textColor) => onChange({ textColor })}
+            fontSizeMultiplier={config.fontSizeMultiplier || 1.8}
+            setFontSizeMultiplier={(fontSizeMultiplier) => onChange({ fontSizeMultiplier })}
+            bold={config.bold}
+            setBold={(bold) => onChange({ bold })}
+            italic={config.italic}
+            setItalic={(italic) => onChange({ italic })}
           />
-
-          {/* 7. 폰트 선택 */}
-          <div className="space-y-1">
-            <span className="text-[11px] font-medium text-foreground">폰트</span>
-            <select
-              value={config.font || 'Pretendard'}
-              onChange={(e) => onChange({ font: e.target.value })}
-              className="w-full h-8 px-2 text-xs bg-background border border-border rounded-md text-foreground cursor-pointer shadow-2xs"
-            >
-              {FONT_FAMILIES.map((f) => (
-                <option key={f.id} value={f.id}>{f.name}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* 8. 글씨 크기 배율 */}
-          <UnitSliderControl
-            label="글씨 크기"
-            value={config.fontSizeMultiplier || 1.8}
-            min={0.8}
-            max={3.0}
-            step={0.1}
-            unit="x"
-            onChange={(v) => onChange({ fontSizeMultiplier: v })}
-          />
-
-          {/* 9. 스타일 체크박스 (굵게, 기울임) */}
-          <div className="flex items-center gap-4 pt-1">
-            <label className="flex items-center gap-1.5 text-xs text-foreground cursor-pointer">
-              <input
-                type="checkbox"
-                checked={config.bold}
-                onChange={(e) => onChange({ bold: e.target.checked })}
-                className="w-4 h-4 rounded text-primary accent-primary"
-              />
-              <span className="font-bold">굵게</span>
-            </label>
-
-            <label className="flex items-center gap-1.5 text-xs text-foreground cursor-pointer">
-              <input
-                type="checkbox"
-                checked={config.italic}
-                onChange={(e) => onChange({ italic: e.target.checked })}
-                className="w-4 h-4 rounded text-primary accent-primary"
-              />
-              <span className="italic">기울임</span>
-            </label>
-          </div>
 
           {/* 10. 좌/우 아이콘 설정 */}
           <div className="grid grid-cols-2 gap-2 pt-1 border-t border-border/50">

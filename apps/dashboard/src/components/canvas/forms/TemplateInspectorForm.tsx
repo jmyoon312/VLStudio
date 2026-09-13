@@ -2,7 +2,7 @@ import React from 'react';
 import {
   Layout, Sparkles, Wand2, RefreshCw, Layers, Check, ExternalLink,
   Sliders, Palette, Type, Shield, Image, Search, Plus, Trash2, ArrowUpRight,
-  FolderOpen, Music, Split, ChevronRight
+  FolderOpen, Music, Split, ChevronRight, Save
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
@@ -23,6 +23,8 @@ import {
   getRandomSatiricalMetadata,
 } from '../constants/canvasConstants';
 
+type StateUpdater = (updater: (prev: any) => any) => void;
+
 export interface TemplateInspectorFormProps {
   [key: string]: any;
 }
@@ -33,25 +35,18 @@ export const TemplateInspectorForm: React.FC<TemplateInspectorFormProps> = (prop
     handleSelectTemplateMode,
     handleOpenTemplateLibrary,
     instaConfig,
-    setInstaConfig,
     gunlimboConfig,
-    setGunlimboConfig,
     ssulConfig,
-    setSsulConfig,
     profileTransform,
-    setProfileTransform,
     topTitleText,
     setTopTitleText,
     titleTransform,
-    setTitleTransform,
     topTitleFontSize,
     setTopTitleFontSize,
     topTitleColor,
     setTopTitleColor,
     commentCard,
-    setCommentCard,
     commentTransform,
-    setCommentTransform,
     hasCommentCard,
     setHasCommentCard,
     handleInsertMeme,
@@ -71,15 +66,23 @@ export const TemplateInspectorForm: React.FC<TemplateInspectorFormProps> = (prop
     selectedLayerId,
     setSelectedLayerId,
     layers,
-    setLayers,
   } = props;
+
+  const setInstaConfig: StateUpdater = props.setInstaConfig || (() => {});
+  const setGunlimboConfig: StateUpdater = props.setGunlimboConfig || (() => {});
+  const setSsulConfig: StateUpdater = props.setSsulConfig || (() => {});
+  const setProfileTransform: StateUpdater = props.setProfileTransform || (() => {});
+  const setTitleTransform: StateUpdater = props.setTitleTransform || (() => {});
+  const setCommentCard: StateUpdater = props.setCommentCard || (() => {});
+  const setCommentTransform: StateUpdater = props.setCommentTransform || (() => {});
+  const setSubtitleConfig: StateUpdater = props.setSubtitleConfig || (() => {});
+  const setLayers: StateUpdater = props.setLayers || (() => {});
 
   const navigate = useNavigate();
   const { toast } = useToast();
   const setTopTitleYPct = props.setTopTitleYPct || (() => {});
   const titleFontFamily = props.titleFontFamily || 'Pretendard';
   const setTitleFontFamily = props.setTitleFontFamily || (() => {});
-  const setSubtitleConfig = props.setSubtitleConfig || (() => {});
   const subTransform = props.subTransform || { xPct: 50, yPct: 75, scale: 1.0, rotationDeg: 0, zIndex: 30 };
   const setSubTransform = props.setSubTransform || (() => {});
   const setSubtitleYPercent = props.setSubtitleYPercent || (() => {});
@@ -96,6 +99,19 @@ export const TemplateInspectorForm: React.FC<TemplateInspectorFormProps> = (prop
                       바이럴 숏폼 4대 폼팩터
                     </span>
                     <div className="flex items-center gap-1">
+                      {props.onSaveCurrentStyleAsTemplate && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={props.onSaveCurrentStyleAsTemplate}
+                          className="h-6 px-1.5 text-[10px] gap-1 font-semibold border-emerald-500/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 shadow-2xs"
+                          title="현재 편집 스타일을 템플릿 라이브러리에 새 템플릿으로 저장"
+                        >
+                          <Save className="w-3 h-3 text-emerald-500" />
+                          저장
+                        </Button>
+                      )}
                       <Button
                         type="button"
                         variant="outline"
@@ -1289,7 +1305,7 @@ export const TemplateInspectorForm: React.FC<TemplateInspectorFormProps> = (prop
                         <button
                           type="button"
                           onClick={() => {
-                            const subLayer = layers.find(l => l.id === 'layer_subtitle' || l.type === 'subtitle');
+                            const subLayer = (layers || []).find((l: any) => l.id === 'layer_subtitle' || l.type === 'subtitle');
                             if (subLayer?.data && Array.isArray(subLayer.data) && subLayer.data.length > 0) {
                               const firstSub = subLayer.data[0];
                               const newDuration = (firstSub.endMs && firstSub.startMs) 
@@ -1444,7 +1460,7 @@ export const TemplateInspectorForm: React.FC<TemplateInspectorFormProps> = (prop
                             type="button"
                             onClick={() => {
                               setSubtitleConfig(prev => ({ ...prev, textColor: preset.color }));
-                              setLayers(prev => prev.map(l => l.type === 'subtitle' ? {
+                              setLayers((prev: any) => (prev || []).map((l: any) => l.type === 'subtitle' ? {
                                 ...l,
                                 styleProps: { ...l.styleProps, color: preset.color }
                               } : l));

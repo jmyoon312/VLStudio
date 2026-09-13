@@ -541,8 +541,9 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
 
     const handleWheel = (e: WheelEvent) => {
       // 🎯 플로팅 인스펙터 팝업창 및 내부 스크롤 영역 조작 시 캔버스 줌인/줌아웃 방지
-      const target = e.target as HTMLElement | null;
-      if (target?.closest('.floating-inspector-card, [data-no-canvas-zoom="true"], .custom-scrollbar, select, input, textarea')) {
+      const rawTarget = e.target as Node | null;
+      const target = rawTarget instanceof HTMLElement ? rawTarget : rawTarget?.parentElement;
+      if (target?.closest?.('.floating-inspector-card, [data-no-canvas-zoom="true"], .custom-scrollbar, select, input, textarea, [role="slider"]')) {
         return;
       }
 

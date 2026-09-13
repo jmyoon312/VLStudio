@@ -96,6 +96,7 @@ import {
   Radio,
   Minimize2,
   Zap,
+  Save,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -397,8 +398,9 @@ const formatWrappedText = (text: string, splitLimit: number = 14, maxLines: numb
 
     const handleWheel = (e: WheelEvent) => {
       // 🎯 플로팅 인스펙터 팝업창 및 내부 스크롤 영역 조작 시 캔버스 줌인/줌아웃 방지
-      const target = e.target as HTMLElement | null;
-      if (target?.closest('.floating-inspector-card, [data-no-canvas-zoom="true"], .custom-scrollbar, select, input, textarea')) {
+      const rawTarget = e.target as Node | null;
+      const target = rawTarget instanceof HTMLElement ? rawTarget : rawTarget?.parentElement;
+      if (target?.closest?.('.floating-inspector-card, [data-no-canvas-zoom="true"], .custom-scrollbar, select, input, textarea, [role="slider"]')) {
         return;
       }
 
@@ -1262,6 +1264,167 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
       description: `[${manifest.archetype.toUpperCase()}] 매니페스트 규격이 정밀 편집기 캔버스에 즉시 적용되었습니다.`
     });
     setIsTemplateLibraryOpen(false);
+  };
+
+  const [isSavingTemplate, setIsSavingTemplate] = useState<boolean>(false);
+  const [newTemplateNameInput, setNewTemplateNameInput] = useState<string>('');
+  const [isSaveTemplateDialogOpen, setIsSaveTemplateDialogOpen] = useState<boolean>(false);
+
+  const handleSaveCurrentStyleAsTemplate = async (customName?: string) => {
+    const targetName = (customName || newTemplateNameInput || '').trim();
+    if (!targetName) {
+      setIsSaveTemplateDialogOpen(true);
+      return;
+    }
+    setIsSavingTemplate(true);
+    try {
+      const manifest: TemplateManifest = {
+        version: 1,
+        id: `custom_${Date.now()}`,
+        name: targetName,
+        badge: '커스텀',
+        description: '정밀 편집기에서 저장된 사용자 맞춤 템플릿',
+        archetype: layoutTemplateMode,
+        aspectRatio: '9:16',
+        isSystem: false,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        geometry: {
+          mediaZone: {
+            introTopPct: layoutTemplateMode === 'gunlimbo' ? 34.0 : 0,
+            introHeightPct: layoutTemplateMode === 'gunlimbo' ? 36.0 : 100,
+            normalTopPct: layoutTemplateMode === 'gunlimbo' ? 24.0 : 0,
+            normalHeightPct: layoutTemplateMode === 'gunlimbo' ? 46.0 : 100,
+            fitMode: videoFitMode === 'sandwich' ? 'sandwich' : 'fullscreen',
+            kenBurnsIntroZoom: true,
+            kenBurnsScaleEnd: 1.1,
+            introDurationSec: gunlimboConfig.introDurationSec || 2.5,
+          },
+          topTitleZone: {
+            enabled: hasTopTitle || hasTopBarBg,
+            topPct: 0,
+            heightPct: topBarHeightPct || 24.0,
+            bgColor: topBarBg || '#000000',
+            opacity: topBarOpacity,
+            keepThroughout: true,
+          },
+          holeWindowZone: layoutTemplateMode === 'instagram' ? {
+            enabled: true,
+            widthPct: instaConfig.holeWidthPct,
+            heightPct: instaConfig.holeHeightPct,
+            yPct: instaConfig.holeYPct,
+            roundness: instaConfig.holeRoundness,
+            borderWidth: 1,
+            borderColor: '#E5E7EB',
+            shadow: true,
+            cardBgColor: instaConfig.bgColor || '#FFFFFF',
+          } : undefined,
+          hookBandZone: layoutTemplateMode === 'gunlimbo' ? {
+            enabled: true,
+            topPct: 24.0,
+            heightPct: 10.0,
+            bgBarColor: '#000000',
+            boxColor: gunlimboConfig.hookBgColor,
+            textColor: gunlimboConfig.hookTextColor,
+            paddingX: 12,
+            paddingY: 6,
+            borderRadius: 0,
+          } : undefined,
+          captionZone: {
+            enabled: true,
+            topPct: 70.0,
+            heightPct: 25.0,
+            safeZoneYPct: 75.0,
+            bgColor: '#000000',
+            hideDuringIntro: layoutTemplateMode === 'gunlimbo',
+          },
+          sourceZone: hasBottomSource ? {
+            enabled: true,
+            yPct: 94.0,
+            defaultText: bottomSourceText,
+            textColor: bottomSourceColor,
+            fontSize: 11,
+          } : undefined,
+        },
+        style: {
+          titleFont: titleFontFamily,
+          titleLinesMode: titleLinesMode,
+          titleBadgeText: titleBadgeText,
+          titleBadgeColor: titleBadgeColor,
+          titleFontSize: layoutTemplateMode === 'gunlimbo' ? gunlimboConfig.titleFontSize : titleLine1SizePx,
+          titleLine2FontSize: titleLine2SizePx,
+          titleLine1Color: layoutTemplateMode === 'gunlimbo' ? gunlimboConfig.titleLine1Color : titleLine1Color,
+          titleLine2Color: layoutTemplateMode === 'gunlimbo' ? gunlimboConfig.titleLine2Color : titleLine2Color,
+          titleBgMode: titleBgMode,
+          titleBgColor: titleBgColor,
+          titleBorderRadius: titleBorderRadius,
+          titleStroke: titleStroke,
+          titleStrokeWidth: titleStrokeWidth,
+          titleStrokeColor: titleStrokeColor,
+          titleShadow: titleShadow,
+          titleShadowBlur: titleShadowBlur,
+          titleShadowColor: titleShadowColor,
+          captionFont: subtitleConfig.font || 'Pretendard',
+          captionFontSize: subtitleConfig.fontSize || 32,
+          captionDefaultColor: subtitleConfig.textColor || '#FFFFFF',
+          captionStrokeWidth: subtitleConfig.outlineSize || 4,
+          captionStrokeColor: subtitleConfig.outlineColor || '#000000',
+          captionShadowBlur: subtitleConfig.shadowSize || 4,
+          captionShadowColor: subtitleConfig.shadowColor || '#000000',
+          captionUseBox: subtitleConfig.useBox || false,
+          captionBoxColor: subtitleConfig.boxColor || '#000000',
+          captionBoxOpacity: (subtitleConfig.boxOpacity || 80) / 100,
+          emotionColors: {
+            normal: '#FFE500',
+            highlight: '#00F0FF',
+            impact: '#FF3366',
+            white: '#FFFFFF',
+          },
+        },
+        sourcing: {
+          priority: 'video_crop_only',
+          promptPrefix: 'cinematic 4k shot',
+          enableMemeReactions: false,
+          memePlacement: 'bottom_left',
+          memeScale: 1.0,
+          memeDurationSec: 0.8,
+        },
+        capcut: {
+          titleMotion: 'fade_in',
+          hookMotion: 'word_pop',
+          captionMotion: 'karaoke',
+        },
+      };
+
+      const res = await api.post('/channel-dna/templates', {
+        name: targetName,
+        archetype: layoutTemplateMode,
+        aspect_ratio: '9:16',
+        description: '정밀 편집기에서 저장된 사용자 맞춤 템플릿',
+        manifest: manifest,
+        layout: manifest.geometry,
+      });
+
+      if (res.data?.template) {
+        setTemplateLibraryList(prev => [res.data.template, ...prev.filter(t => t.id !== res.data.template.id)]);
+      }
+
+      toast({
+        title: '💾 새 템플릿 저장 완료',
+        description: `'${targetName}' 템플릿이 단일 DB(viral_loop.db)에 성공적으로 저장되었습니다.`
+      });
+      setIsSaveTemplateDialogOpen(false);
+      setNewTemplateNameInput('');
+    } catch (err: any) {
+      console.warn('템플릿 저장 실패:', err);
+      toast({
+        title: '템플릿 저장 실패',
+        description: err.message || '저장 중 오류가 발생했습니다.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSavingTemplate(false);
+    }
   };
 
   // 🏛️ 폼팩터 전환 시 상호 배타적 자동 정리 가드 (Auto-Switch Guard & 객체 단일화)
@@ -5377,6 +5540,7 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                 layoutTemplateMode={layoutTemplateMode}
                 handleSelectTemplateMode={handleSelectTemplateMode}
                 handleOpenTemplateLibrary={handleOpenTemplateLibrary}
+                onSaveCurrentStyleAsTemplate={() => setIsSaveTemplateDialogOpen(true)}
                 topBarBg={topBarBg}
                 setTopBarBg={setTopBarBg}
                 topBarHeightPct={topBarHeightPct}
@@ -7035,18 +7199,28 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
             </div>
 
             {/* 푸터 */}
-            <div className="p-3 border-t border-border bg-muted/20 flex items-center justify-between">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setIsTemplateLibraryOpen(false);
-                  navigate('/shorts-template-studio');
-                }}
-                className="text-xs gap-1"
-              >
-                <Sparkles className="w-3.5 h-3.5" /> 템플릿 디자인 공방 열기
-              </Button>
+            <div className="p-3 border-t border-border bg-muted/20 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setIsTemplateLibraryOpen(false);
+                    navigate('/shorts-template-studio');
+                  }}
+                  className="text-xs gap-1"
+                >
+                  <Sparkles className="w-3.5 h-3.5" /> 템플릿 디자인 공방 열기
+                </Button>
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={() => setIsSaveTemplateDialogOpen(true)}
+                  className="text-xs gap-1 bg-primary text-primary-foreground font-semibold"
+                >
+                  <Save className="w-3.5 h-3.5" /> 현재 스타일을 새 템플릿으로 저장
+                </Button>
+              </div>
               <Button
                 variant="ghost"
                 size="sm"
@@ -7054,6 +7228,73 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                 className="text-xs"
               >
                 닫기
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 💾 현재 스타일을 새 템플릿으로 저장 모달 다이얼로그 */}
+      {isSaveTemplateDialogOpen && (
+        <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-card border border-border shadow-2xl rounded-lg w-full max-w-md p-4 space-y-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-border pb-2">
+              <div className="flex items-center gap-2">
+                <Save className="w-4 h-4 text-primary" />
+                <h3 className="font-bold text-sm text-foreground">현재 스타일을 새 템플릿으로 저장</h3>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setIsSaveTemplateDialogOpen(false);
+                  setNewTemplateNameInput('');
+                }}
+                className="h-6 w-6 p-0"
+              >
+                ✕
+              </Button>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-semibold text-foreground">템플릿 이름</label>
+              <input
+                type="text"
+                value={newTemplateNameInput}
+                onChange={(e) => setNewTemplateNameInput(e.target.value)}
+                placeholder="예: 나의 시그니처 썰형 템플릿"
+                className="w-full h-9 px-3 text-xs bg-muted/30 border border-border rounded-md text-foreground focus:outline-hidden focus:ring-1 focus:ring-primary"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleSaveCurrentStyleAsTemplate();
+                }}
+                autoFocus
+              />
+              <p className="text-[11px] text-muted-foreground">
+                현재 프로젝트의 폼팩터({layoutTemplateMode}), 배경 바, 자막 스타일, 지오메트리 규격을 단일 DB(viral_loop.db)의 템플릿 라이브러리에 영구 보관합니다.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setIsSaveTemplateDialogOpen(false);
+                  setNewTemplateNameInput('');
+                }}
+                className="text-xs"
+              >
+                취소
+              </Button>
+              <Button
+                variant="default"
+                size="sm"
+                disabled={isSavingTemplate || !newTemplateNameInput.trim()}
+                onClick={() => handleSaveCurrentStyleAsTemplate()}
+                className="text-xs gap-1.5"
+              >
+                <Save className="w-3.5 h-3.5" />
+                {isSavingTemplate ? '저장 중...' : '템플릿으로 저장'}
               </Button>
             </div>
           </div>

@@ -4,6 +4,7 @@ import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { Sparkles, Type } from 'lucide-react';
+import { BarGeometryControlGroup } from './shared';
 
 export interface TitleSourceInspectorFormProps {
   [key: string]: any;
@@ -386,79 +387,8 @@ export const TitleSourceInspectorForm: React.FC<TitleSourceInspectorFormProps> =
                           className="w-6 h-6 p-0 border border-border rounded cursor-pointer bg-transparent"
                         />
                       </div>
-                    </div>
-                  )}
-                </div>
 
-                {/* 상단 및 하단 배경 바 카드 */}
-                <div className="p-2.5 border border-border bg-card rounded-[2px] space-y-2.5 shadow-2xs">
-                  <div className="flex items-center justify-between border-b border-border pb-1.5">
-                    <span className="text-[11px] font-bold text-foreground">상하단 배경 바</span>
-                  </div>
-                  <div className="space-y-2 text-[10px]">
-                    <div className="flex items-center justify-between">
-                      <span>상단 배경 바</span>
-                      <Switch checked={hasTopBarBg} onCheckedChange={setHasTopBarBg} />
-                    </div>
-                    {hasTopBarBg && (
-                      <div className="space-y-1">
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">높이: {topBarHeightPct}%</span>
-                          <input
-                            type="color"
-                            value={topBarBg}
-                            onChange={(e) => setTopBarBg(e.target.value)}
-                            className="w-4 h-4 p-0 border border-border rounded cursor-pointer bg-transparent"
-                          />
-                        </div>
-                        <input
-                          type="range"
-                          min="5"
-                          max="30"
-                          value={topBarHeightPct}
-                          onChange={(e) => setTopBarHeightPct(parseInt(e.target.value))}
-                          className="w-full accent-primary cursor-pointer h-1 bg-muted"
-                        />
-                      </div>
-                    )}
-                    <div className="flex items-center justify-between pt-1 border-t border-border">
-                      <span className="font-semibold text-foreground">하단 배경 바</span>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="color"
-                          value={bottomBarBg}
-                          onChange={(e) => setBottomBarBg(e.target.value)}
-                          className="w-6 h-6 p-0 border border-border rounded cursor-pointer bg-transparent"
-                          title="하단 바 배경색"
-                        />
-                        <Switch checked={hasBottomBarBg} onCheckedChange={setHasBottomBarBg} />
-                      </div>
-                    </div>
-                    {hasBottomBarBg && (
-                      <div className="space-y-1.5 pt-1 pl-2 border-l-2 border-primary/40 bg-muted/10 p-2 rounded-[2px]">
-                        <div className="flex justify-between text-[10px]">
-                          <span className="text-muted-foreground font-semibold">하단 바 높이 (두께)</span>
-                          <span className="font-mono text-primary font-bold">{bottomBarHeightPct.toFixed(1)}%</span>
-                        </div>
-                        <input
-                          type="range"
-                          min="0"
-                          max="25"
-                          step="0.5"
-                          value={bottomBarHeightPct}
-                          onChange={(e) => setBottomBarHeightPct(parseFloat(e.target.value))}
-                          className="w-full accent-primary cursor-pointer h-1 bg-muted"
-                        />
-                        <div className="flex justify-between text-[9px] text-muted-foreground">
-                          <span>0% (완전 밀착)</span>
-                          <span>12%</span>
-                          <span>25% (대형 바)</span>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* 하단 출처 표기 세부 위치 & 높낮이 */}
-                    {hasBottomSource && (
+                      {/* 하단 출처 표기 세부 위치 & 높낮이 */}
                       <div className="space-y-2 pt-2 border-t border-border/80">
                         <div className="flex items-center justify-between text-[10px]">
                           <span className="font-bold text-foreground">🏷️ 하단 출처 표기 바닥 위치 (Y)</span>
@@ -473,7 +403,7 @@ export const TitleSourceInspectorForm: React.FC<TitleSourceInspectorFormProps> =
                           onChange={(e) => {
                             const val = parseFloat(e.target.value);
                             setBottomSourceBottomPct(val);
-                            setSourceTransform(prev => ({ ...prev, yPct: 100 - val }));
+                            setSourceTransform((prev: any) => ({ ...prev, yPct: 100 - val }));
                           }}
                           className="w-full accent-primary cursor-pointer h-1 bg-muted"
                         />
@@ -483,8 +413,33 @@ export const TitleSourceInspectorForm: React.FC<TitleSourceInspectorFormProps> =
                           <span>25%</span>
                         </div>
                       </div>
-                    )}
+                    </div>
+                  )}
+                </div>
+
+                {/* 상단 및 하단 배경 바 카드 */}
+                <div className="p-2.5 border border-border bg-card rounded-[2px] space-y-2.5 shadow-2xs">
+                  <div className="flex items-center justify-between border-b border-border pb-1.5">
+                    <span className="text-[11px] font-bold text-foreground">상하단 배경 바</span>
                   </div>
+                  <BarGeometryControlGroup
+                    label="상단 배경 바"
+                    enabled={hasTopBarBg}
+                    setEnabled={setHasTopBarBg}
+                    bgColor={topBarBg}
+                    setBgColor={setTopBarBg}
+                    heightPct={topBarHeightPct}
+                    setHeightPct={setTopBarHeightPct}
+                  />
+                  <BarGeometryControlGroup
+                    label="하단 배경 바"
+                    enabled={hasBottomBarBg}
+                    setEnabled={setHasBottomBarBg}
+                    bgColor={bottomBarBg}
+                    setBgColor={setBottomBarBg}
+                    heightPct={bottomBarHeightPct}
+                    setHeightPct={setBottomBarHeightPct}
+                  />
                 </div>
               </div>
   );

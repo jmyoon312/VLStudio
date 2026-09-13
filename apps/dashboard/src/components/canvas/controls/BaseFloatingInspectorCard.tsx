@@ -59,19 +59,23 @@ export const BaseFloatingInspectorCard: React.FC<BaseFloatingInspectorCardProps>
     }
   }, [isOpen]);
 
-  // 🎯 휠 이벤트 버블링 차단 (캔버스 줌인/줌아웃 방지 & 카드 내부 스크롤 허용)
+  // 🎯 휠 이벤트 및 포인터 이벤트 버블링 완벽 차단 (캔버스 줌인/줌아웃 및 캔버스 패닝 방지)
   useEffect(() => {
     if (!isOpen) return;
     const cardEl = cardRef.current;
     if (!cardEl) return;
 
-    const stopWheelPropagation = (e: WheelEvent) => {
+    const stopPropagationNative = (e: Event) => {
       e.stopPropagation();
     };
 
-    cardEl.addEventListener('wheel', stopWheelPropagation, { passive: true });
+    cardEl.addEventListener('wheel', stopPropagationNative, { capture: true, passive: false });
+    cardEl.addEventListener('pointerdown', stopPropagationNative, { capture: true });
+    cardEl.addEventListener('mousedown', stopPropagationNative, { capture: true });
     return () => {
-      cardEl.removeEventListener('wheel', stopWheelPropagation);
+      cardEl.removeEventListener('wheel', stopPropagationNative, { capture: true } as any);
+      cardEl.removeEventListener('pointerdown', stopPropagationNative, { capture: true } as any);
+      cardEl.removeEventListener('mousedown', stopPropagationNative, { capture: true } as any);
     };
   }, [isOpen]);
 
@@ -90,6 +94,7 @@ export const BaseFloatingInspectorCard: React.FC<BaseFloatingInspectorCardProps>
       }}
       onClick={(e) => e.stopPropagation()}
       onMouseDown={(e) => e.stopPropagation()}
+      onPointerDown={(e) => e.stopPropagation()}
       onWheel={(e) => e.stopPropagation()}
       className={cn(
         "floating-inspector-card bg-card text-card-foreground border border-border shadow-2xl rounded-xl flex flex-col overflow-hidden backdrop-blur-md animate-in fade-in zoom-in-95 duration-150 select-none",
@@ -170,7 +175,8 @@ export const BaseFloatingInspectorCard: React.FC<BaseFloatingInspectorCardProps>
       {/* 2. 스크롤 가능한 본문 설정 영역 */}
       <div
         onWheel={(e) => e.stopPropagation()}
-        className="p-3.5 space-y-3.5 max-h-[460px] overflow-y-auto custom-scrollbar text-xs"
+        style={{ overscrollBehavior: 'contain' }}
+        className="p-3.5 space-y-3.5 max-h-[460px] overflow-y-auto custom-scrollbar text-xs overscroll-contain"
       >
         {children}
       </div>
