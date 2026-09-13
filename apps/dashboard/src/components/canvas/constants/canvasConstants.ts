@@ -5,16 +5,30 @@ export type SsulTextMode = 'accumulate' | 'single-stepped' | 'single-fixed';
 export type ScriptSplitPreset = 'shorts' | 'balanced' | 'sentence';
 export type BgmMood = 'energetic' | 'emotional' | 'suspense' | 'funny' | 'cinematic';
 
-// 🎨 안전한 HEX 컬러 변환 헬퍼 (rgba/rgb 경고 원천 차단)
+// 🎨 안전한 HEX 컬러 변환 헬퍼 (HTML5 input[type=color] 표준 #rrggbb 보장 및 rgba 경고 원천 차단)
 export const rgbaToHex = (colorStr?: string, fallback: string = '#000000'): string => {
-  if (!colorStr) return fallback;
-  if (colorStr.startsWith('#')) return colorStr.slice(0, 7);
-  const rgbaMatch = colorStr.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
+  if (!colorStr || typeof colorStr !== 'string') return fallback;
+  const trimmed = colorStr.trim();
+  if (/^#[0-9a-fA-F]{6}$/i.test(trimmed)) return trimmed;
+  if (/^#[0-9a-fA-F]{3}$/i.test(trimmed)) {
+    const r = trimmed[1];
+    const g = trimmed[2];
+    const b = trimmed[3];
+    return `#${r}${r}${g}${g}${b}${b}`;
+  }
+  if (/^#[0-9a-fA-F]{8}$/i.test(trimmed)) {
+    return trimmed.slice(0, 7);
+  }
+  const rgbaMatch = trimmed.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i);
   if (rgbaMatch) {
-    const r = parseInt(rgbaMatch[1], 10).toString(16).padStart(2, '0');
-    const g = parseInt(rgbaMatch[2], 10).toString(16).padStart(2, '0');
-    const b = parseInt(rgbaMatch[3], 10).toString(16).padStart(2, '0');
+    const r = Math.min(255, Math.max(0, parseInt(rgbaMatch[1], 10))).toString(16).padStart(2, '0');
+    const g = Math.min(255, Math.max(0, parseInt(rgbaMatch[2], 10))).toString(16).padStart(2, '0');
+    const b = Math.min(255, Math.max(0, parseInt(rgbaMatch[3], 10))).toString(16).padStart(2, '0');
     return `#${r}${g}${b}`;
+  }
+  if (trimmed.startsWith('#')) {
+    const clean = trimmed.replace(/[^0-9a-fA-F]/g, '');
+    if (clean.length >= 6) return `#${clean.slice(0, 6)}`;
   }
   return fallback;
 };

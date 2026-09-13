@@ -178,7 +178,7 @@ export const TemplateInspectorForm: React.FC<TemplateInspectorFormProps> = (prop
                           <div className="flex items-center gap-1.5">
                             <input
                               type="color"
-                              value={props.topBarBg || '#000000'}
+                              value={rgbaToHex(props.topBarBg, '#000000')}
                               onChange={(e) => props.setTopBarBg?.(e.target.value)}
                               className="w-5 h-5 p-0 border border-border rounded cursor-pointer"
                             />
@@ -231,7 +231,7 @@ export const TemplateInspectorForm: React.FC<TemplateInspectorFormProps> = (prop
                           <div className="flex items-center gap-1.5">
                             <input
                               type="color"
-                              value={props.bottomBarBg || '#000000'}
+                              value={rgbaToHex(props.bottomBarBg, '#000000')}
                               onChange={(e) => props.setBottomBarBg?.(e.target.value)}
                               className="w-5 h-5 p-0 border border-border rounded cursor-pointer"
                             />
@@ -885,7 +885,7 @@ export const TemplateInspectorForm: React.FC<TemplateInspectorFormProps> = (prop
                           <div className="flex items-center gap-1.5 pt-0.5">
                             <input
                               type="color"
-                              value={instaConfig.subColor || '#374151'}
+                              value={rgbaToHex(instaConfig.subColor, '#374151')}
                               onChange={(e) => {
                                 const val = e.target.value;
                                 setInstaConfig(prev => ({ ...prev, subColor: val }));
@@ -1223,7 +1223,7 @@ export const TemplateInspectorForm: React.FC<TemplateInspectorFormProps> = (prop
                           />
                           <input
                             type="color"
-                            value={gunlimboConfig.titleLine1Color || '#FFFFFF'}
+                            value={rgbaToHex(gunlimboConfig.titleLine1Color, '#FFFFFF')}
                             onChange={(e) => setGunlimboConfig(prev => ({ ...prev, titleLine1Color: e.target.value }))}
                             className="w-7 h-7 p-0 border border-border rounded cursor-pointer shrink-0"
                             title="1번째 줄 색상"
@@ -1242,7 +1242,7 @@ export const TemplateInspectorForm: React.FC<TemplateInspectorFormProps> = (prop
                           />
                           <input
                             type="color"
-                            value={gunlimboConfig.titleLine2Color || '#FFE500'}
+                            value={rgbaToHex(gunlimboConfig.titleLine2Color, '#FFE500')}
                             onChange={(e) => setGunlimboConfig(prev => ({ ...prev, titleLine2Color: e.target.value }))}
                             className="w-7 h-7 p-0 border border-border rounded cursor-pointer shrink-0"
                             title="2번째 줄 색상"
@@ -1358,7 +1358,7 @@ export const TemplateInspectorForm: React.FC<TemplateInspectorFormProps> = (prop
                           <label className="text-muted-foreground">바 배경색</label>
                           <input
                             type="color"
-                            value={gunlimboConfig.hookBgColor || '#FFFFFF'}
+                            value={rgbaToHex(gunlimboConfig.hookBgColor, '#FFFFFF')}
                             onChange={(e) => setGunlimboConfig(prev => ({ ...prev, hookBgColor: e.target.value }))}
                             className="w-6 h-6 p-0 border border-border rounded cursor-pointer"
                           />
@@ -1367,7 +1367,7 @@ export const TemplateInspectorForm: React.FC<TemplateInspectorFormProps> = (prop
                           <label className="text-muted-foreground">글자색</label>
                           <input
                             type="color"
-                            value={gunlimboConfig.hookTextColor || '#000000'}
+                            value={rgbaToHex(gunlimboConfig.hookTextColor, '#000000')}
                             onChange={(e) => setGunlimboConfig(prev => ({ ...prev, hookTextColor: e.target.value }))}
                             className="w-6 h-6 p-0 border border-border rounded cursor-pointer"
                           />

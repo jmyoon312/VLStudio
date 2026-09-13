@@ -1,5 +1,6 @@
 import React, { useRef } from 'react';
 import { cn } from '@/lib/utils';
+import { rgbaToHex } from '../constants/canvasConstants';
 
 export interface ColorPicker8PresetProps {
   label?: string;
@@ -28,15 +29,23 @@ export const ColorPicker8Preset: React.FC<ColorPicker8PresetProps> = ({
 }) => {
   const nativeColorInputRef = useRef<HTMLInputElement>(null);
 
-  // HEX 정규화 (대문자 또는 소문자)
-  const normalizedValue = value ? (value.startsWith('#') ? value : `#${value}`) : '#FFFFFF';
+  // 1. 네이티브 <input type="color"> 전용 순수 6자리 HEX (#rrggbb) - 브라우저 유효성 경고 원천 차단
+  const hexForNative = rgbaToHex(value, '#000000');
+
+  // 2. 프리뷰 색상 칩 (rgba, hex 등 브라우저 지원 유효 CSS 색상 반영)
+  const previewBg = value && !value.startsWith('#rgba') ? value : hexForNative;
+
+  // 3. 텍스트 입력창 표시 값 (rgba 형식이면 그대로 표시, hex 형식이면 # 접두사 보장)
+  const displayValue = value && !value.startsWith('#rgba')
+    ? (value.startsWith('rgb') || value.startsWith('hsl') ? value : (value.startsWith('#') ? value : `#${value}`))
+    : hexForNative;
 
   return (
     <div className={cn("space-y-1.5", className)}>
       {label && (
         <div className="flex items-center justify-between text-[11px] font-medium text-foreground">
           <span>{label}</span>
-          <span className="font-mono text-[10px] text-muted-foreground uppercase">{normalizedValue}</span>
+          <span className="font-mono text-[10px] text-muted-foreground uppercase">{displayValue}</span>
         </div>
       )}
 
@@ -46,13 +55,13 @@ export const ColorPicker8Preset: React.FC<ColorPicker8PresetProps> = ({
           type="button"
           onClick={() => nativeColorInputRef.current?.click()}
           className="w-8 h-8 rounded-md border border-border shadow-xs shrink-0 cursor-pointer relative overflow-hidden transition hover:scale-105 active:scale-95"
-          style={{ backgroundColor: normalizedValue }}
+          style={{ backgroundColor: previewBg }}
           title="클릭하여 커스텀 색상 선택"
         >
           <input
             ref={nativeColorInputRef}
             type="color"
-            value={normalizedValue.slice(0, 7)}
+            value={hexForNative}
             onChange={(e) => onChange(e.target.value)}
             className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
           />
@@ -61,7 +70,7 @@ export const ColorPicker8Preset: React.FC<ColorPicker8PresetProps> = ({
         <div className="flex-1 relative">
           <input
             type="text"
-            value={normalizedValue}
+            value={displayValue}
             onChange={(e) => onChange(e.target.value)}
             placeholder="#000000"
             className="w-full h-8 px-2.5 text-xs font-mono bg-background border border-border rounded-md text-foreground focus:outline-hidden focus:ring-1 focus:ring-primary uppercase shadow-2xs"
@@ -72,7 +81,7 @@ export const ColorPicker8Preset: React.FC<ColorPicker8PresetProps> = ({
       {/* 하단: 8대 원터치 프리셋 컬러 써클 */}
       <div className="flex items-center justify-between pt-0.5 px-0.5">
         {PRESET_8_COLORS.map((c) => {
-          const isSelected = normalizedValue.toLowerCase() === c.hex.toLowerCase();
+          const isSelected = hexForNative.toLowerCase() === c.hex.toLowerCase();
           return (
             <button
               key={c.hex}
