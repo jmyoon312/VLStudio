@@ -466,6 +466,7 @@ const formatWrappedText = (text: string, splitLimit: number = 14, maxLines: numb
   const [titleLine2SizePx, setTitleLine2SizePx] = useState<number>(24);
   const [titleFontFamily, setTitleFontFamily] = useState<string>('Pretendard');
   const [titleBadgeText, setTitleBadgeText] = useState<string>('HOT ISSUE');
+  const [titleBadgeBg, setTitleBadgeBg] = useState<string>('#EF4444');
   const [titleBadgeColor, setTitleBadgeColor] = useState<string>('#EF4444');
   const [hasTitleBadge, setHasTitleBadge] = useState<boolean>(true);
 
@@ -478,6 +479,7 @@ const formatWrappedText = (text: string, splitLimit: number = 14, maxLines: numb
   const [titleShadowColor, setTitleShadowColor] = useState<string>('rgba(0,0,0,0.9)');
   const [titleBgMode, setTitleBgMode] = useState<'none' | 'box' | 'pill'>('none');
   const [titleBgColor, setTitleBgColor] = useState<string>('rgba(0,0,0,0.85)');
+  const [titleBgOpacity, setTitleBgOpacity] = useState<number>(0.85);
   const [titleBorderRadius, setTitleBorderRadius] = useState<number>(6);
   const [titlePaddingX, setTitlePaddingX] = useState<number>(12);
   const [titlePaddingY, setTitlePaddingY] = useState<number>(6);
@@ -529,6 +531,7 @@ const formatWrappedText = (text: string, splitLimit: number = 14, maxLines: numb
   const [hasBottomBarBg, setHasBottomBarBg] = useState<boolean>(true);
   const [bottomBarBg, setBottomBarBg] = useState<string>('#000000');
   const [bottomBarHeightPct, setBottomBarHeightPct] = useState<number>(6.0);
+  const [bottomBarOpacity, setBottomBarOpacity] = useState<number>(1.0);
 
   // 🎚️ 동적 멀티 오디오 트랙 상태 (무음 영상 vs 나레이션/TTS 영상 가변 대응)
   const [enabledTracks, setEnabledTracks] = useState<{
@@ -4904,7 +4907,7 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
               canvasPan={canvasPan}
               layoutTemplateMode={layoutTemplateMode}
               selectedLayerId={selectedLayerId}
-              setSelectedLayerId={setSelectedLayerId}
+              setSelectedLayerId={(id) => setSelectedLayerId(id || '')}
               activeInspectorTab={activeInspectorTab}
               setActiveInspectorTab={setActiveInspectorTab}
               activeFloatingInspector={activeFloatingInspector}
