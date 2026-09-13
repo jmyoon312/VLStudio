@@ -8,13 +8,13 @@ export type LayerType = 'video' | 'title' | 'subtitle' | 'jab' | 'audio' | 'sfx'
 export interface NleLayerTransform {
   xPct: number;        // 캔버스 중심 기준 X 위치 (0 ~ 100%, 기본 50%)
   yPct: number;        // 캔버스 중심 기준 Y 위치 (0 ~ 100%)
-  widthPct: number;    // 너비 비율 (기본 100%)
-  heightPct: number;   // 높이 비율
+  widthPct?: number;   // 너비 비율 (기본 100%)
+  heightPct?: number;  // 높이 비율
   scale: number;       // 확대/축소 (0.1x ~ 5.0x, 기본 1.0)
   rotationDeg: number; // 회전 각도 (-180° ~ +180°, 기본 0°)
-  isFlippedH: boolean; // 좌우반전 토글 (기본 false)
-  opacity: number;     // 불투명도 (0 ~ 1, 기본 1.0)
-  zIndex: number;      // 레이어 순서 (기본 1)
+  isFlippedH?: boolean;// 좌우반전 토글 (기본 false)
+  opacity?: number;    // 불투명도 (0 ~ 1, 기본 1.0)
+  zIndex?: number;     // 레이어 순서 (기본 1)
 }
 
 export interface NleLayerObject {

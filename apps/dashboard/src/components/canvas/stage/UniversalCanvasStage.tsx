@@ -36,6 +36,10 @@ export interface UniversalCanvasStageProps {
   activeFloatingInspector?: string;
   setActiveFloatingInspector?: (inspector: string) => void;
   currentBrandChannelName?: string;
+  canvasRef?: React.RefObject<HTMLDivElement>;
+  activeInspectorTab?: any;
+  setTopTitleText?: (text: string) => void;
+  setCommentCard?: any;
 
   // Video
   videoFitMode: VideoFitMode;
@@ -465,6 +469,20 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
     layers = [],
   } = props;
 
+  const internalCanvasRef = useRef<HTMLDivElement>(null);
+  const canvasRef = props.canvasRef || internalCanvasRef;
+  const setTopTitleText = props.setTopTitleText || (() => {});
+  const setCommentCard = props.setCommentCard || (() => {});
+
+  const handleCanvasDeselect = (e: React.MouseEvent) => {
+    if (e.target === e.currentTarget) {
+      setSelectedLayerId(null);
+      setActiveFloating('none');
+    }
+  };
+
+  const subCfg: any = subtitleConfig;
+
   const internalVideoRef = useRef<HTMLVideoElement>(null);
   const internalBgmRef = useRef<HTMLAudioElement>(null);
   const videoRef = (props as any).videoRef || internalVideoRef;
@@ -575,7 +593,7 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
   };
 
   const ssulSubtitleConfig = {
-    font: ssulConfig?.ssulSubtitle?.font || subtitleConfig?.font || 'Pretendard',
+    font: ssulConfig?.ssulSubtitle?.font || subCfg?.font || subCfg?.fontFamily || 'Pretendard',
     color: ssulConfig?.ssulSubtitle?.color || '#1F2937',
     fontSizeMultiplier: ssulConfig?.ssulSubtitle?.fontSizeMultiplier ?? 1.0,
     align: (ssulConfig?.ssulSubtitle?.align as 'left' | 'center' | 'right') || 'left',
@@ -890,7 +908,7 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                     <div className="flex items-center gap-1 border-l border-sky-400/40 pl-1.5">
                       <button
                         type="button"
-                        onClick={(e) => { e.stopPropagation(); setVideoRotationDeg(r => (r + 90) % 360); }}
+                        onClick={(e) => { e.stopPropagation(); setVideoRotationDeg((r: number) => (r + 90) % 360); }}
                         className="p-0.5 hover:bg-sky-500 rounded text-[9px] cursor-pointer"
                         title="90도 회전"
                       >
@@ -898,7 +916,7 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                       </button>
                       <button
                         type="button"
-                        onClick={(e) => { e.stopPropagation(); setVideoHorizontalFlip(f => !f); }}
+                        onClick={(e) => { e.stopPropagation(); setVideoHorizontalFlip((f: boolean) => !f); }}
                         className="p-0.5 hover:bg-sky-500 rounded text-[9px] cursor-pointer"
                         title="좌우 반전"
                       >
@@ -1486,7 +1504,7 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                 );
 
                 const isTrackVisible = trackVisibility ? (trackVisibility.sub !== false && (trackVisibility as any).s1Subtitle !== false) : true;
-                const isConfigVisible = subtitleConfig?.visible !== false;
+                const isConfigVisible = subCfg?.visible !== false;
                 const shouldShowSub = isConfigVisible &&
                   isTrackVisible &&
                   (hasSubtitle !== false) &&
@@ -1524,20 +1542,20 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                         layoutTemplateMode === 'instagram'
                           ? "text-left font-medium max-w-[88%] break-words"
                           : "font-black leading-snug tracking-tight text-center px-2",
-                        layoutTemplateMode !== 'instagram' && (subtitleConfig?.useBox ?? subtitleUseBox) && "px-3 py-1.5"
+                        layoutTemplateMode !== 'instagram' && (subCfg?.useBox ?? subtitleUseBox) && "px-3 py-1.5"
                       )}
                       style={{
                         backgroundColor: layoutTemplateMode === 'instagram'
                           ? 'transparent'
-                          : ((subtitleConfig?.useBox ?? subtitleUseBox)
-                              ? (subtitleConfig?.boxColor || subtitleBoxColor)
+                          : ((subCfg?.useBox ?? subtitleUseBox)
+                              ? (subCfg?.boxColor || subtitleBoxColor)
                               : 'transparent'),
                         borderRadius: layoutTemplateMode === 'instagram'
                           ? 0
-                          : ((subtitleConfig?.useBox ?? subtitleUseBox) ? `${subtitleBorderRadius}px` : 0),
+                          : ((subCfg?.useBox ?? subtitleUseBox) ? `${subtitleBorderRadius}px` : 0),
                         boxShadow: layoutTemplateMode === 'instagram'
                           ? 'none'
-                          : ((((subtitleConfig?.shadowSize ?? 0) > 0) || subtitleShadowEnabled) && (subtitleConfig?.useBox ?? subtitleUseBox)
+                          : ((((subCfg?.shadowSize ?? 0) > 0) || subtitleShadowEnabled) && (subCfg?.useBox ?? subtitleUseBox)
                               ? '0 4px 14px rgba(0,0,0,0.7)'
                               : 'none'),
                       }}
@@ -1546,19 +1564,19 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                         style={{
                           fontSize: layoutTemplateMode === 'instagram'
                             ? `${Math.round(15 * (subTransform.scale || 1.0) * aspectScale)}px`
-                            : `${Math.round(((subtitleConfig?.fontSize || 18)) * aspectScale)}px`,
+                            : `${Math.round(((subCfg?.fontSize || 18)) * aspectScale)}px`,
                           color: layoutTemplateMode === 'instagram'
                             ? (instaConfig.subColor || '#374151')
-                            : (subtitleConfig?.textColor || (subtitleConfig as any)?.fillColor || '#FFFFFF'),
+                            : (subCfg?.textColor || subCfg?.fillColor || subCfg?.color || '#FFFFFF'),
                           fontFamily: layoutTemplateMode === 'instagram'
                             ? (instaConfig.subFont || 'Pretendard, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif')
-                            : (subtitleConfig?.font || (subtitleConfig as any)?.fontFamily || 'Pretendard'),
-                          fontWeight: layoutTemplateMode === 'instagram' ? 500 : (subtitleConfig?.isBold !== false ? 'bold' : 'normal'),
-                          fontStyle: subtitleConfig?.isItalic ? 'italic' : 'normal',
+                            : (subCfg?.font || subCfg?.fontFamily || 'Pretendard'),
+                          fontWeight: layoutTemplateMode === 'instagram' ? 500 : (subCfg?.isBold !== false && subCfg?.bold !== false ? 'bold' : 'normal'),
+                          fontStyle: (subCfg?.isItalic || subCfg?.italic) ? 'italic' : 'normal',
                           WebkitTextStroke: layoutTemplateMode === 'instagram'
                             ? '0 transparent'
-                            : ((subtitleConfig?.outlineSize && subtitleConfig.outlineSize > 0)
-                                ? `${subtitleConfig.outlineSize}px ${subtitleConfig.outlineColor || '#000000'}`
+                            : ((subCfg?.outlineSize && subCfg.outlineSize > 0)
+                                ? `${subCfg.outlineSize}px ${subCfg.outlineColor || '#000000'}`
                                 : subtitleStrokeEnabled
                                   ? `${subtitleStrokeWidth}px ${subtitleStrokeColor}`
                                   : '0 transparent'),
@@ -1566,8 +1584,8 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                           WebkitFontSmoothing: 'antialiased',
                           textShadow: layoutTemplateMode === 'instagram'
                             ? 'none'
-                            : ((subtitleConfig?.shadowSize && subtitleConfig.shadowSize > 0)
-                                ? `0 2px ${(subtitleConfig.shadowSize * 3)}px ${subtitleConfig.shadowColor || 'rgba(0,0,0,0.95)'}`
+                            : ((subCfg?.shadowSize && subCfg.shadowSize > 0)
+                                ? `0 2px ${(subCfg.shadowSize * 3)}px ${subCfg.shadowColor || 'rgba(0,0,0,0.95)'}`
                                 : subtitleShadowEnabled
                                   ? `0 2px ${subtitleShadowBlur || 8}px ${subtitleShadowColor}`
                                   : 'none'),
@@ -1576,9 +1594,9 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                         {layoutTemplateMode === 'instagram'
                           ? subText
                           : renderHighlightedSubtitleText(
-                              formatWrappedText(subText, activeSplitLimit, subtitleConfig?.maxLines || 2),
+                              formatWrappedText(subText, activeSplitLimit, subCfg?.maxLines || 2),
                               displaySub?.styleProps?.highlights,
-                              subtitleConfig?.textColor || (subtitleConfig as any)?.fillColor || '#FFFFFF',
+                              subCfg?.textColor || subCfg?.fillColor || subCfg?.color || '#FFFFFF',
                               selectedHighlightColor
                             )
                         }

@@ -6,6 +6,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import ts from 'typescript';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -228,6 +229,45 @@ for (const pagePath of coreStudioPages) {
             }
         }
     });
+}
+
+// 8. [Runtime Scope & AST Identifier Gate] Verify Zero Undeclared Identifiers in Core Canvas/NLE Components
+console.log('🔬 [Contract-Checker] Validating AST Scope & Identifier Bindings (Zero Undeclared Variables Gate)...');
+const tsConfigPath = path.join(rootDir, 'apps', 'dashboard', 'tsconfig.json');
+if (fs.existsSync(tsConfigPath)) {
+    try {
+        const configFile = ts.readConfigFile(tsConfigPath, ts.sys.readFile);
+        const parsedCommandLine = ts.parseJsonConfigFileContent(
+            configFile.config,
+            ts.sys,
+            path.dirname(tsConfigPath)
+        );
+
+        const coreComponents = [
+            path.join(rootDir, 'apps', 'dashboard', 'src', 'components', 'canvas', 'stage', 'UniversalCanvasStage.tsx'),
+            path.join(rootDir, 'apps', 'dashboard', 'src', 'components', 'canvas', 'TransformGizmo.tsx'),
+            path.join(rootDir, 'apps', 'dashboard', 'src', 'components', 'canvas', 'controls', 'BaseFloatingInspectorCard.tsx'),
+        ].filter(p => fs.existsSync(p));
+
+        const program = ts.createProgram(coreComponents, parsedCommandLine.options);
+        for (const compPath of coreComponents) {
+            const sourceFile = program.getSourceFile(compPath);
+            if (!sourceFile) continue;
+            const diagnostics = program.getSemanticDiagnostics(sourceFile);
+            const criticalDiags = diagnostics.filter(d => d.code === 2304 || d.code === 2552);
+            if (criticalDiags.length > 0) {
+                console.error(`❌ [Contract-Checker] Critical Undeclared Identifier(s) in ${path.relative(rootDir, compPath)}:`);
+                criticalDiags.forEach(d => {
+                    const message = ts.flattenDiagnosticMessageText(d.messageText, '\n');
+                    const { line, character } = d.file.getLineAndCharacterOfPosition(d.start);
+                    console.error(`   👉 Line ${line + 1}:${character + 1} [TS${d.code}]: ${message}`);
+                });
+                hasErrors = true;
+            }
+        }
+    } catch (err) {
+        console.error('⚠️ [Contract-Checker] Error running AST semantic check:', err.message);
+    }
 }
 
 if (hasErrors) {

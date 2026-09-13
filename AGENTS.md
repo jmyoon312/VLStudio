@@ -19,7 +19,7 @@ Electron 데스크톱 앱 - Google Flow AI로 이미지/비디오 생성 후 Cap
 8. **`bulletproof-fullstack-dev`**: [인터페이스 계약] Renderer ↔ Preload ↔ Main 3계층 계약 무결성 검증기(`contract-checker.js`).
 9. **`systematic-debugging`**: [과학적 디버깅] 추측성 수정 배제, 가설 수립 및 4대 상태 추적 기반 5단계 결함 격리.
 10. **`performance-memory-profiler`**: [성능 최적화] Electron GPU/V8 메모리 누수 방지, 가상 렌더링, IPC 오버헤드 최소화.
-11. **`exhaustive-audit-verification-cycle`**: [전수조사 폐루프] 4대 매트릭스(이벤트 전파, 레이어 격리, 렌더링 컨텍스트, 기획 명세 실측) 기반 전수조사-피드백-코드수정-재조사 폐루프 완결.
+11. **`exhaustive-audit-verification-cycle`**: [전수조사 폐루프] 5대 매트릭스(AST 스코프, 이벤트 전파, 레이어 격리, 렌더링 컨텍스트, 기획 명세 실측) 기반 전수조사-피드백-코드수정-재조사 폐루프 완결.
 
 - 모든 작업 전후 반드시 `contract-checker.js` 및 `storage-validator.js`를 실행하여 계약 무결성을 입증할 것.
 
@@ -84,9 +84,10 @@ Electron 데스크톱 앱 - Google Flow AI로 이미지/비디오 생성 후 Cap
 ## 🔄 절대 전수조사 및 폐루프 자체 치유 절대 규칙 (Exhaustive Audit & Closed-Loop Sovereignty Law)
 사용자가 "전수조사", "전수 점검", "계획대로 되었는지 확인"을 지시했을 때, 에이전트는 아래 4대 폐루프 원칙을 헌법적 의무로 강제 준수해야 한다:
 
-1. **단순 정적 텍스트 검색 기반 거짓 양성(False-Positive) 판정 원천 금지**:
-   - `grep`, `includes`, `match` 등으로 "코드에 컴포넌트 이름이나 핸들러 문자열이 존재한다"는 이유만으로 기능이 정상 동작한다고 보고하는 기만 행위를 영구 금지한다.
-2. **4대 다차원 물리 런타임 매트릭스 전수 검증 의무화**:
+1. **단순 정적 텍스트 검색 및 무검증 빌드 기반 거짓 양성(False-Positive) 판정 원천 금지**:
+   - `grep`, `includes`, `match` 등으로 "코드에 문자열이 존재한다"거나, `vite build`(타입 미검증 고속 번들러)가 성공했다는 이유만으로 런타임 정상 동작을 단정하는 기만 행위를 영구 금지한다.
+2. **5대 다차원 물리 런타임 매트릭스 전수 검증 의무화**:
+   - **0. AST 스코프 및 식별자 바인딩 무결성**: TypeScript Compiler API(`program.getSemanticDiagnostics`)로 수정 파일에 미선언 변수(`TS2304: Cannot find name`, `TS2552`)가 0개임을 입증하고, `contract-checker.js` Step 8을 필수 통과할 것.
    - **A. 이벤트 전달망 무결성**: 포인터 캡처(`setPointerCapture`), `stopPropagation`이 더블클릭이나 클릭을 가로채 증발시키는지 추적. 더블클릭 시간차(350ms 듀얼 감지) 안전망 확인.
    - **B. 시각 계층 및 레이어 스택 무결성**: 폼팩터 모드별(Classic, Ssul, Instagram, Gunlimbo) 레이어 완전 격리. 타 모드의 레터박스, 대제목, 자막이 누수되어 겹치지 않는지 확인. 유효하지 않은 CSS 클래스(`z-35` 등) 원천 차단.
    - **C. 렌더링 컨텍스트 및 스케일링 무결성**: 플로팅 창/인스펙터가 `scale()` 트랜스폼 내부에서 축소 왜곡되거나 `overflow-hidden`에 잘리지 않는지 확인.

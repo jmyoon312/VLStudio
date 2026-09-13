@@ -6,6 +6,7 @@
  */
 
 export type TemplateArchetype = 'classic' | 'instagram' | 'gunlimbo' | 'ssul';
+export type LayoutTemplateMode = TemplateArchetype;
 
 export type AspectRatioType = '9:16' | '16:9' | '1:1';
 
