@@ -5,38 +5,14 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { Type, AlignLeft, AlignCenter, AlignRight, Bold, Italic } from 'lucide-react';
 import { BarGeometryControlGroup } from './shared';
+import { ColorPicker8Preset } from '../controls/ColorPicker8Preset';
+import { UnitSliderControl } from '../controls/UnitSliderControl';
 
 export interface TitleSourceInspectorFormProps {
   [key: string]: any;
 }
 
-const BADGE_COLOR_PRESETS = ['#EF4444', '#3B82F6', '#EAB308', '#8B5CF6', '#10B981', '#18181B', '#FFFFFF'];
-const LINE1_COLOR_PRESETS = ['#FFFFFF', '#FFE500', '#00F0FF', '#FF3366', '#FF9900', '#22C55E', '#18181B'];
-const LINE2_COLOR_PRESETS = ['#FFE500', '#FFFFFF', '#FF9900', '#FF007F', '#00F0FF', '#84CC16', '#18181B'];
-const STROKE_COLOR_PRESETS = ['#000000', '#18181B', '#FFFFFF', '#EF4444', '#FFE500'];
 const FONT_OPTIONS = ['Pretendard', 'GmarketSans', 'TmoneyRoundWind', 'Paperlogy', 'ChosunCentennial', 'Noto Sans KR'];
-
-const ColorPresetPalette: React.FC<{
-  colors: string[];
-  selectedColor?: string;
-  onSelect: (color: string) => void;
-}> = ({ colors, selectedColor, onSelect }) => (
-  <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
-    {colors.map((c) => (
-      <button
-        key={c}
-        type="button"
-        onClick={() => onSelect(c)}
-        className={cn(
-          "w-3.5 h-3.5 rounded-full border transition-transform cursor-pointer shadow-2xs hover:scale-115 shrink-0",
-          selectedColor?.toLowerCase() === c.toLowerCase() ? "ring-2 ring-primary ring-offset-1 scale-110 border-white" : "border-border/60"
-        )}
-        style={{ backgroundColor: c }}
-        title={c}
-      />
-    ))}
-  </div>
-);
 
 export const TitleSourceInspectorForm: React.FC<TitleSourceInspectorFormProps> = (props) => {
   const {
@@ -128,9 +104,9 @@ export const TitleSourceInspectorForm: React.FC<TitleSourceInspectorFormProps> =
             </div>
 
             {/* 2. 상단 뱃지 태그 설정 */}
-            <div className="space-y-1.5 p-2 bg-muted/20 border border-border rounded-[2px]">
+            <div className="space-y-2 p-2 bg-muted/20 border border-border rounded-[2px]">
               <div className="flex items-center justify-between">
-                <span className="text-[10px] text-foreground font-semibold flex items-center gap-1">
+                <span className="text-[11px] text-foreground font-semibold flex items-center gap-1">
                   <span>상단 뱃지 태그</span>
                   {hasTitleBadge && (
                     <span className="text-[9px] px-1 py-0.2 rounded bg-primary/10 text-primary font-mono font-bold">
@@ -142,66 +118,50 @@ export const TitleSourceInspectorForm: React.FC<TitleSourceInspectorFormProps> =
               </div>
 
               {hasTitleBadge && (
-                <div className="space-y-2 pt-1 border-t border-border/50">
-                  <div className="flex gap-1.5">
+                <div className="space-y-2.5 pt-1.5 border-t border-border/50">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-semibold text-muted-foreground">뱃지 문구</label>
                     <input
                       type="text"
                       value={titleBadgeText}
                       onChange={(e) => setTitleBadgeText(e.target.value)}
-                      className="flex-1 h-7 px-2 text-[11px] bg-background border border-border rounded-[2px] text-foreground font-bold"
-                      placeholder="뱃지 문구 (예: 속보, 핫이슈)"
-                    />
-                    <div className="flex items-center gap-1">
-                      <input
-                        type="color"
-                        value={titleBadgeBg || '#EF4444'}
-                        onChange={(e) => setTitleBadgeBg(e.target.value)}
-                        className="w-7 h-7 p-0 border border-border rounded-[2px] cursor-pointer bg-transparent"
-                        title="뱃지 배경색"
-                      />
-                      <input
-                        type="color"
-                        value={titleBadgeColor || '#FFFFFF'}
-                        onChange={(e) => setTitleBadgeColor(e.target.value)}
-                        className="w-7 h-7 p-0 border border-border rounded-[2px] cursor-pointer bg-transparent"
-                        title="뱃지 글자색"
-                      />
-                    </div>
-                  </div>
-
-                  {/* 뱃지 글자 크기 슬라이더 */}
-                  <div className="space-y-1">
-                    <div className="flex justify-between text-[10px]">
-                      <span className="text-muted-foreground">뱃지 글자 크기</span>
-                      <span className="font-mono text-primary font-bold">{titleBadgeSizePx}px</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="9"
-                      max="24"
-                      value={titleBadgeSizePx}
-                      onChange={(e) => setTitleBadgeSizePx(parseInt(e.target.value))}
-                      className="w-full accent-primary cursor-pointer h-1 bg-muted"
+                      className="w-full h-7 px-2 text-[11px] bg-background border border-border rounded-[2px] text-foreground font-bold focus:outline-hidden focus:ring-1 focus:ring-primary"
+                      placeholder="예: [단독], [속보], [실화]"
                     />
                   </div>
 
-                  {/* 뱃지 대표 배경색 프리셋 */}
-                  <div className="space-y-0.5">
-                    <span className="text-[9px] text-muted-foreground">대표 배경색</span>
-                    <ColorPresetPalette
-                      colors={BADGE_COLOR_PRESETS}
-                      selectedColor={titleBadgeBg}
-                      onSelect={(c) => setTitleBadgeBg(c)}
-                    />
-                  </div>
+                  {/* 뱃지 배경 색상 */}
+                  <ColorPicker8Preset
+                    label="뱃지 배경 색상"
+                    value={titleBadgeBg || '#EF4444'}
+                    onChange={setTitleBadgeBg}
+                  />
+
+                  {/* 뱃지 글자 색상 */}
+                  <ColorPicker8Preset
+                    label="뱃지 글자 색상"
+                    value={titleBadgeColor || '#FFFFFF'}
+                    onChange={setTitleBadgeColor}
+                  />
+
+                  {/* 뱃지 글자 크기 */}
+                  <UnitSliderControl
+                    label="뱃지 글자 크기"
+                    value={titleBadgeSizePx}
+                    min={8}
+                    max={24}
+                    step={1}
+                    unit="px"
+                    onChange={setTitleBadgeSizePx}
+                  />
                 </div>
               )}
             </div>
 
             {/* 3. 1단 타이틀 (상단 텍스트) */}
-            <div className="space-y-1.5 p-2 bg-muted/20 border border-border rounded-[2px]">
+            <div className="space-y-2 p-2 bg-muted/20 border border-border rounded-[2px]">
               <div className="flex items-center justify-between">
-                <span className="text-[10px] text-foreground font-semibold flex items-center gap-1">
+                <span className="text-[11px] text-foreground font-semibold flex items-center gap-1">
                   <span>1단 텍스트 (상단)</span>
                   {hasTitleLine1 && (
                     <span className="font-mono text-primary font-bold text-[9px]">{titleLine1SizePx}px</span>
@@ -211,58 +171,44 @@ export const TitleSourceInspectorForm: React.FC<TitleSourceInspectorFormProps> =
               </div>
 
               {hasTitleLine1 && (
-                <div className="space-y-2 pt-1 border-t border-border/50">
-                  <div className="flex gap-1.5">
+                <div className="space-y-2.5 pt-1.5 border-t border-border/50">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-semibold text-muted-foreground">1단 타이틀 문구</label>
                     <input
                       type="text"
                       value={titleLine1}
                       onChange={(e) => setTitleLine1(e.target.value)}
-                      className="flex-1 h-7 px-2 text-[11px] bg-background border border-border rounded-[2px] text-foreground font-bold"
+                      className="w-full h-7 px-2 text-[11px] bg-background border border-border rounded-[2px] text-foreground font-bold focus:outline-hidden focus:ring-1 focus:ring-primary"
                       placeholder="1단 타이틀 입력..."
                     />
-                    <input
-                      type="color"
-                      value={titleLine1Color}
-                      onChange={(e) => setTitleLine1Color(e.target.value)}
-                      className="w-7 h-7 p-0 border border-border rounded-[2px] cursor-pointer bg-transparent shrink-0"
-                      title="1단 글자 색상"
-                    />
                   </div>
+
+                  {/* 1단 글자 색상 */}
+                  <ColorPicker8Preset
+                    label="1단 글자 색상"
+                    value={titleLine1Color}
+                    onChange={setTitleLine1Color}
+                  />
 
                   {/* 1단 글자 크기 */}
-                  <div className="space-y-1">
-                    <div className="flex justify-between text-[10px]">
-                      <span className="text-muted-foreground">글자 크기</span>
-                      <span className="font-mono text-primary font-bold">{titleLine1SizePx}px</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="14"
-                      max="48"
-                      value={titleLine1SizePx}
-                      onChange={(e) => setTitleLine1SizePx(parseInt(e.target.value))}
-                      className="w-full accent-primary cursor-pointer h-1 bg-muted"
-                    />
-                  </div>
-
-                  {/* 1단 대표 색상 프리셋 */}
-                  <div className="space-y-0.5">
-                    <span className="text-[9px] text-muted-foreground">대표 글자색</span>
-                    <ColorPresetPalette
-                      colors={LINE1_COLOR_PRESETS}
-                      selectedColor={titleLine1Color}
-                      onSelect={(c) => setTitleLine1Color(c)}
-                    />
-                  </div>
+                  <UnitSliderControl
+                    label="1단 글자 크기"
+                    value={titleLine1SizePx}
+                    min={14}
+                    max={56}
+                    step={1}
+                    unit="px"
+                    onChange={setTitleLine1SizePx}
+                  />
                 </div>
               )}
             </div>
 
             {/* 4. 2단 타이틀 (하단 핵심 후킹 - double 모드일 때) */}
             {titleLinesMode === 'double' && (
-              <div className="space-y-1.5 p-2 bg-muted/20 border border-border rounded-[2px]">
+              <div className="space-y-2 p-2 bg-muted/20 border border-border rounded-[2px]">
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] text-foreground font-semibold flex items-center gap-1">
+                  <span className="text-[11px] text-foreground font-semibold flex items-center gap-1">
                     <span>2단 텍스트 (하단 핵심 후킹)</span>
                     {hasTitleLine2 && (
                       <span className="font-mono text-amber-500 font-bold text-[9px]">{titleLine2SizePx}px</span>
@@ -272,49 +218,35 @@ export const TitleSourceInspectorForm: React.FC<TitleSourceInspectorFormProps> =
                 </div>
 
                 {hasTitleLine2 && (
-                  <div className="space-y-2 pt-1 border-t border-border/50">
-                    <div className="flex gap-1.5">
+                  <div className="space-y-2.5 pt-1.5 border-t border-border/50">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-semibold text-muted-foreground">2단 타이틀 문구</label>
                       <input
                         type="text"
                         value={titleLine2}
                         onChange={(e) => setTitleLine2(e.target.value)}
-                        className="flex-1 h-7 px-2 text-[11px] bg-background border border-border rounded-[2px] text-foreground font-bold"
+                        className="w-full h-7 px-2 text-[11px] bg-background border border-border rounded-[2px] text-foreground font-bold focus:outline-hidden focus:ring-1 focus:ring-primary"
                         placeholder="2단 타이틀 입력..."
                       />
-                      <input
-                        type="color"
-                        value={titleLine2Color}
-                        onChange={(e) => setTitleLine2Color(e.target.value)}
-                        className="w-7 h-7 p-0 border border-border rounded-[2px] cursor-pointer bg-transparent shrink-0"
-                        title="2단 글자 색상"
-                      />
                     </div>
+
+                    {/* 2단 글자 색상 */}
+                    <ColorPicker8Preset
+                      label="2단 글자 색상"
+                      value={titleLine2Color}
+                      onChange={setTitleLine2Color}
+                    />
 
                     {/* 2단 글자 크기 */}
-                    <div className="space-y-1">
-                      <div className="flex justify-between text-[10px]">
-                        <span className="text-muted-foreground">글자 크기</span>
-                        <span className="font-mono text-amber-500 font-bold">{titleLine2SizePx}px</span>
-                      </div>
-                      <input
-                        type="range"
-                        min="16"
-                        max="52"
-                        value={titleLine2SizePx}
-                        onChange={(e) => setTitleLine2SizePx(parseInt(e.target.value))}
-                        className="w-full accent-amber-500 cursor-pointer h-1 bg-muted"
-                      />
-                    </div>
-
-                    {/* 2단 대표 색상 프리셋 */}
-                    <div className="space-y-0.5">
-                      <span className="text-[9px] text-muted-foreground">대표 글자색</span>
-                      <ColorPresetPalette
-                        colors={LINE2_COLOR_PRESETS}
-                        selectedColor={titleLine2Color}
-                        onSelect={(c) => setTitleLine2Color(c)}
-                      />
-                    </div>
+                    <UnitSliderControl
+                      label="2단 글자 크기"
+                      value={titleLine2SizePx}
+                      min={14}
+                      max={56}
+                      step={1}
+                      unit="px"
+                      onChange={setTitleLine2SizePx}
+                    />
                   </div>
                 )}
               </div>
@@ -322,12 +254,12 @@ export const TitleSourceInspectorForm: React.FC<TitleSourceInspectorFormProps> =
 
             {/* 5. 글꼴 및 서체 스타일 / 정렬 */}
             <div className="space-y-2 p-2 bg-muted/20 border border-border rounded-[2px]">
-              <div className="flex items-center justify-between text-[10px]">
+              <div className="flex items-center justify-between text-[11px]">
                 <span className="font-semibold text-foreground">글꼴 (Font)</span>
                 <select
                   value={titleFontFamily}
                   onChange={(e) => setTitleFontFamily(e.target.value)}
-                  className="h-6 px-1.5 text-[10px] bg-background border border-border rounded text-foreground font-medium"
+                  className="h-6 px-1.5 text-[10.5px] bg-background border border-border rounded text-foreground font-medium"
                 >
                   {FONT_OPTIONS.map((f) => (
                     <option key={f} value={f}>{f}</option>
@@ -335,8 +267,8 @@ export const TitleSourceInspectorForm: React.FC<TitleSourceInspectorFormProps> =
                 </select>
               </div>
 
-              <div className="flex items-center justify-between pt-1 border-t border-border/50">
-                <span className="text-[10px] text-muted-foreground">스타일 및 정렬</span>
+              <div className="flex items-center justify-between pt-1.5 border-t border-border/50">
+                <span className="text-[10.5px] text-muted-foreground font-medium">스타일 및 정렬</span>
                 <div className="flex items-center gap-1">
                   <button
                     type="button"
@@ -380,73 +312,60 @@ export const TitleSourceInspectorForm: React.FC<TitleSourceInspectorFormProps> =
             </div>
 
             {/* 6. 🎨 테두리(외곽선) 상세 제어 */}
-            <div className="space-y-1.5 p-2 bg-muted/20 border border-border rounded-[2px]">
-              <div className="flex items-center justify-between text-[10px]">
+            <div className="space-y-2 p-2 bg-muted/20 border border-border rounded-[2px]">
+              <div className="flex items-center justify-between text-[11px]">
                 <span className="font-semibold text-foreground">글자 테두리 (외곽선)</span>
                 <Switch checked={titleStroke} onCheckedChange={setTitleStroke} />
               </div>
               {titleStroke && (
-                <div className="space-y-1.5 pt-1 border-t border-border/50">
-                  <div className="flex items-center justify-between text-[10px]">
-                    <span className="text-muted-foreground">두께: {titleStrokeWidth}px</span>
-                    <input
-                      type="color"
-                      value={titleStrokeColor}
-                      onChange={(e) => setTitleStrokeColor(e.target.value)}
-                      className="w-5 h-5 p-0 border border-border rounded cursor-pointer bg-transparent shrink-0"
-                      title="테두리 색상"
-                    />
-                  </div>
-                  <input
-                    type="range"
-                    min="1"
-                    max="10"
+                <div className="space-y-2 pt-1.5 border-t border-border/50">
+                  <UnitSliderControl
+                    label="테두리 두께"
                     value={titleStrokeWidth}
-                    onChange={(e) => setTitleStrokeWidth(parseInt(e.target.value))}
-                    className="w-full accent-primary cursor-pointer h-1 bg-muted"
+                    min={1}
+                    max={10}
+                    step={1}
+                    unit="px"
+                    onChange={setTitleStrokeWidth}
                   />
-                  <ColorPresetPalette
-                    colors={STROKE_COLOR_PRESETS}
-                    selectedColor={titleStrokeColor}
-                    onSelect={(c) => setTitleStrokeColor(c)}
+                  <ColorPicker8Preset
+                    label="테두리 색상"
+                    value={titleStrokeColor}
+                    onChange={setTitleStrokeColor}
                   />
                 </div>
               )}
             </div>
 
             {/* 7. 🌌 그림자 상세 제어 */}
-            <div className="space-y-1.5 p-2 bg-muted/20 border border-border rounded-[2px]">
-              <div className="flex items-center justify-between text-[10px]">
+            <div className="space-y-2 p-2 bg-muted/20 border border-border rounded-[2px]">
+              <div className="flex items-center justify-between text-[11px]">
                 <span className="font-semibold text-foreground">글자 그림자 (Shadow)</span>
                 <Switch checked={titleShadow} onCheckedChange={setTitleShadow} />
               </div>
               {titleShadow && (
-                <div className="space-y-1.5 pt-1 border-t border-border/50">
-                  <div className="flex items-center justify-between text-[10px]">
-                    <span className="text-muted-foreground">흐림: {titleShadowBlur}px</span>
-                    <input
-                      type="color"
-                      value={titleShadowColor || '#000000'}
-                      onChange={(e) => setTitleShadowColor(e.target.value)}
-                      className="w-5 h-5 p-0 border border-border rounded cursor-pointer bg-transparent shrink-0"
-                      title="그림자 색상"
-                    />
-                  </div>
-                  <input
-                    type="range"
-                    min="0"
-                    max="20"
+                <div className="space-y-2 pt-1.5 border-t border-border/50">
+                  <UnitSliderControl
+                    label="그림자 흐림 (Blur)"
                     value={titleShadowBlur}
-                    onChange={(e) => setTitleShadowBlur(parseInt(e.target.value))}
-                    className="w-full accent-primary cursor-pointer h-1 bg-muted"
+                    min={0}
+                    max={20}
+                    step={1}
+                    unit="px"
+                    onChange={setTitleShadowBlur}
+                  />
+                  <ColorPicker8Preset
+                    label="그림자 색상"
+                    value={titleShadowColor || '#000000'}
+                    onChange={setTitleShadowColor}
                   />
                 </div>
               )}
             </div>
 
             {/* 8. 🔲 배경 박스 & 모서리 둥글기 제어 */}
-            <div className="space-y-1.5 p-2 bg-muted/20 border border-border rounded-[2px]">
-              <div className="flex items-center justify-between text-[10px]">
+            <div className="space-y-2 p-2 bg-muted/20 border border-border rounded-[2px]">
+              <div className="flex items-center justify-between text-[11px]">
                 <span className="font-semibold text-foreground">배경 박스</span>
                 <div className="flex gap-1">
                   {(['none', 'box', 'pill'] as const).map((m) => (
@@ -455,8 +374,8 @@ export const TitleSourceInspectorForm: React.FC<TitleSourceInspectorFormProps> =
                       type="button"
                       onClick={() => setTitleBgMode(m)}
                       className={cn(
-                        "px-1.5 py-0.5 text-[9px] rounded font-medium cursor-pointer transition",
-                        titleBgMode === m ? "bg-primary text-primary-foreground shadow-2xs" : "bg-muted text-muted-foreground"
+                        "px-2 py-0.5 text-[10px] rounded font-medium cursor-pointer transition",
+                        titleBgMode === m ? "bg-primary text-primary-foreground shadow-2xs font-bold" : "bg-muted text-muted-foreground hover:text-foreground"
                       )}
                     >
                       {m === 'none' ? '없음' : m === 'box' ? '박스' : '알약'}
@@ -466,46 +385,32 @@ export const TitleSourceInspectorForm: React.FC<TitleSourceInspectorFormProps> =
               </div>
 
               {titleBgMode !== 'none' && (
-                <div className="space-y-2 pt-1 border-t border-border/50">
-                  <div className="flex items-center justify-between text-[10px]">
-                    <span className="text-muted-foreground">배경 색상</span>
-                    <input
-                      type="color"
-                      value={titleBgColor || '#000000'}
-                      onChange={(e) => setTitleBgColor(e.target.value)}
-                      className="w-5 h-5 p-0 border border-border rounded cursor-pointer bg-transparent shrink-0"
-                    />
-                  </div>
+                <div className="space-y-2 pt-1.5 border-t border-border/50">
+                  <ColorPicker8Preset
+                    label="배경 색상"
+                    value={titleBgColor || '#000000'}
+                    onChange={setTitleBgColor}
+                  />
                   {titleBgMode === 'box' && (
-                    <div className="space-y-1">
-                      <div className="flex justify-between text-[10px]">
-                        <span className="text-muted-foreground">모서리 모양 (둥글기)</span>
-                        <span className="font-mono text-primary">{titleBorderRadius}px</span>
-                      </div>
-                      <input
-                        type="range"
-                        min="0"
-                        max="30"
-                        value={titleBorderRadius}
-                        onChange={(e) => setTitleBorderRadius(parseInt(e.target.value))}
-                        className="w-full accent-primary cursor-pointer h-1 bg-muted"
-                      />
-                    </div>
-                  )}
-                  <div className="space-y-1">
-                    <div className="flex justify-between text-[10px]">
-                      <span className="text-muted-foreground">내부 패딩</span>
-                      <span className="font-mono">{titlePaddingX}px</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="2"
-                      max="30"
-                      value={titlePaddingX}
-                      onChange={(e) => setTitlePaddingX(parseInt(e.target.value))}
-                      className="w-full accent-primary cursor-pointer h-1 bg-muted"
+                    <UnitSliderControl
+                      label="모서리 모양 (둥글기)"
+                      value={titleBorderRadius}
+                      min={0}
+                      max={30}
+                      step={1}
+                      unit="px"
+                      onChange={setTitleBorderRadius}
                     />
-                  </div>
+                  )}
+                  <UnitSliderControl
+                    label="내부 패딩"
+                    value={titlePaddingX}
+                    min={2}
+                    max={30}
+                    step={1}
+                    unit="px"
+                    onChange={setTitlePaddingX}
+                  />
                 </div>
               )}
             </div>
