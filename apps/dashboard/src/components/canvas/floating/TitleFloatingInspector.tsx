@@ -266,7 +266,7 @@ export const TitleFloatingInspector: React.FC<TitleFloatingInspectorProps> = ({
               {/* 1단 글꼴 & 스타일 및 정렬 */}
               <div className="pt-1.5 border-t border-border/50">
                 <FontStyleAlignControl
-                  label="1단 글꼴 & 스타일/정렬"
+                  label="1단 글꼴 (Font)"
                   font={titleLine1FontFamily || titleFontFamily}
                   setFont={(f) => {
                     onChange({ titleLine1FontFamily: f });
@@ -353,7 +353,7 @@ export const TitleFloatingInspector: React.FC<TitleFloatingInspectorProps> = ({
                 {/* 2단 글꼴 & 스타일 및 정렬 */}
                 <div className="pt-1.5 border-t border-border/50">
                   <FontStyleAlignControl
-                    label="2단 글꼴 & 스타일/정렬"
+                    label="2단 글꼴 (Font)"
                     font={titleLine2FontFamily || titleFontFamily}
                     setFont={(f) => onChange({ titleLine2FontFamily: f })}
                     bold={titleLine2Bold !== undefined ? titleLine2Bold : titleBold}

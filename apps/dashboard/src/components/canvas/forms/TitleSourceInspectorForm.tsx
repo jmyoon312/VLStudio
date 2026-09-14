@@ -365,30 +365,28 @@ export const TitleSourceInspectorForm: React.FC<TitleSourceInspectorFormProps> =
                   placeholder="제목 1행"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-2">
-                <ColorPicker8Preset
-                  label="1단 글자 색상"
-                  value={gunlimboConfig?.titleLine1Color || titleLine1Color || '#FFFFFF'}
-                  onChange={(val) => {
-                    setTitleLine1Color?.(val);
-                    setGunlimboConfig?.((prev: any) => ({ ...prev, titleLine1Color: val }));
-                  }}
-                />
-                <UnitSliderControl
-                  label="1단 글자 크기"
-                  value={gunlimboConfig?.titleLine1FontSize || gunlimboConfig?.titleFontSize || titleLine1SizePx || 34}
-                  min={16}
-                  max={50}
-                  step={1}
-                  unit="px"
-                  onChange={(val) => {
-                    setTitleLine1SizePx?.(val);
-                    setGunlimboConfig?.((prev: any) => ({ ...prev, titleLine1FontSize: val, titleFontSize: val }));
-                  }}
-                />
-              </div>
+              <ColorPicker8Preset
+                label="1단 글자 색상"
+                value={gunlimboConfig?.titleLine1Color || titleLine1Color || '#FFFFFF'}
+                onChange={(val) => {
+                  setTitleLine1Color?.(val);
+                  setGunlimboConfig?.((prev: any) => ({ ...prev, titleLine1Color: val }));
+                }}
+              />
+              <UnitSliderControl
+                label="1단 글자 크기"
+                value={gunlimboConfig?.titleLine1FontSize || gunlimboConfig?.titleFontSize || titleLine1SizePx || 34}
+                min={16}
+                max={50}
+                step={1}
+                unit="px"
+                onChange={(val) => {
+                  setTitleLine1SizePx?.(val);
+                  setGunlimboConfig?.((prev: any) => ({ ...prev, titleLine1FontSize: val, titleFontSize: val }));
+                }}
+              />
               <FontStyleAlignControl
-                label="1단 글꼴 & 스타일/정렬"
+                label="1단 글꼴 (Font)"
                 font={gunlimboConfig?.titleLine1Font || gunlimboConfig?.titleFont || titleLine1FontFamily || titleFontFamily || 'Pretendard'}
                 setFont={(f) => {
                   setTitleLine1FontFamily?.(f);
@@ -438,30 +436,28 @@ export const TitleSourceInspectorForm: React.FC<TitleSourceInspectorFormProps> =
                   placeholder="제목 2행"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-2">
-                <ColorPicker8Preset
-                  label="2단 포인트 색상"
-                  value={gunlimboConfig?.titleLine2Color || titleLine2Color || '#FFE500'}
-                  onChange={(val) => {
-                    setTitleLine2Color?.(val);
-                    setGunlimboConfig?.((prev: any) => ({ ...prev, titleLine2Color: val }));
-                  }}
-                />
-                <UnitSliderControl
-                  label="2단 글자 크기"
-                  value={gunlimboConfig?.titleLine2FontSize || gunlimboConfig?.titleFontSize || titleLine2SizePx || 34}
-                  min={16}
-                  max={50}
-                  step={1}
-                  unit="px"
-                  onChange={(val) => {
-                    setTitleLine2SizePx?.(val);
-                    setGunlimboConfig?.((prev: any) => ({ ...prev, titleLine2FontSize: val }));
-                  }}
-                />
-              </div>
+              <ColorPicker8Preset
+                label="2단 포인트 색상"
+                value={gunlimboConfig?.titleLine2Color || titleLine2Color || '#FFE500'}
+                onChange={(val) => {
+                  setTitleLine2Color?.(val);
+                  setGunlimboConfig?.((prev: any) => ({ ...prev, titleLine2Color: val }));
+                }}
+              />
+              <UnitSliderControl
+                label="2단 글자 크기"
+                value={gunlimboConfig?.titleLine2FontSize || gunlimboConfig?.titleFontSize || titleLine2SizePx || 34}
+                min={16}
+                max={50}
+                step={1}
+                unit="px"
+                onChange={(val) => {
+                  setTitleLine2SizePx?.(val);
+                  setGunlimboConfig?.((prev: any) => ({ ...prev, titleLine2FontSize: val }));
+                }}
+              />
               <FontStyleAlignControl
-                label="2단 글꼴 & 스타일/정렬"
+                label="2단 글꼴 (Font)"
                 font={gunlimboConfig?.titleLine2Font || gunlimboConfig?.titleFont || titleLine2FontFamily || titleFontFamily || 'Pretendard'}
                 setFont={(f) => {
                   setTitleLine2FontFamily?.(f);
@@ -1019,7 +1015,7 @@ export const TitleSourceInspectorForm: React.FC<TitleSourceInspectorFormProps> =
 
                   {/* 1단 글꼴 & 스타일 및 정렬 & 자간/줄간격 */}
                   <FontStyleAlignControl
-                    label="1단 글꼴 & 스타일/정렬"
+                    label="1단 글꼴 (Font)"
                     font={titleLine1FontFamily || titleFontFamily}
                     setFont={(f) => {
                       setTitleLine1FontFamily?.(f);
@@ -1101,7 +1097,7 @@ export const TitleSourceInspectorForm: React.FC<TitleSourceInspectorFormProps> =
 
                     {/* 2단 글꼴 & 스타일 및 정렬 & 자간/줄간격 */}
                     <FontStyleAlignControl
-                      label="2단 글꼴 & 스타일/정렬"
+                      label="2단 글꼴 (Font)"
                       font={titleLine2FontFamily || titleFontFamily}
                       setFont={setTitleLine2FontFamily}
                       bold={titleLine2Bold !== undefined ? titleLine2Bold : (titleBold !== false)}

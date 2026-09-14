@@ -71,12 +71,16 @@ export const FontStyleAlignControl: React.FC<FontStyleAlignControlProps> = ({
     <div className={cn("space-y-2 p-2 bg-muted/20 border border-border rounded-[2px]", className)}>
       {/* 1. 상단: 글꼴 (Font) 라벨 & 셀렉트 */}
       {setFont && (
-        <div className="flex items-center justify-between text-[11px]">
-          <span className="font-semibold text-foreground">{label}</span>
+        <div className="space-y-1">
+          {label && (
+            <div className="flex items-center justify-between text-[11px]">
+              <span className="font-semibold text-foreground truncate">{label}</span>
+            </div>
+          )}
           <select
             value={font || 'Pretendard'}
             onChange={(e) => setFont(e.target.value)}
-            className="h-6 px-1.5 text-[10.5px] bg-background border border-border rounded text-foreground font-medium cursor-pointer focus:outline-hidden focus:ring-1 focus:ring-primary max-w-[195px]"
+            className="w-full h-7 px-2 text-[11px] bg-background border border-border rounded-[2px] text-foreground font-medium cursor-pointer focus:outline-hidden focus:ring-1 focus:ring-primary"
           >
             {(() => {
               const hasCategories = fontOptions.some((f) => f.category);

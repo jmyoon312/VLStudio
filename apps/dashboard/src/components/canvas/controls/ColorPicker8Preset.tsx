@@ -80,7 +80,7 @@ export const ColorPicker8Preset: React.FC<ColorPicker8PresetProps> = ({
       </div>
 
       {/* 하단: 8대 원터치 프리셋 컬러 써클 */}
-      <div className="flex items-center justify-between pt-0.5 px-0.5">
+      <div className="flex items-center justify-between pt-0.5 px-0.5 gap-1">
         {PRESET_8_COLORS.map((c) => {
           const isSelected = hexForNative.toLowerCase() === c.hex.toLowerCase();
           return (
@@ -89,7 +89,7 @@ export const ColorPicker8Preset: React.FC<ColorPicker8PresetProps> = ({
               type="button"
               onClick={() => onChange(c.hex)}
               className={cn(
-                "w-5 h-5 rounded-full transition-all cursor-pointer shadow-2xs relative flex items-center justify-center",
+                "w-5 h-5 rounded-full shrink-0 transition-all cursor-pointer shadow-2xs relative flex items-center justify-center",
                 c.border ? "border border-border/80" : "border border-black/10 dark:border-white/10",
                 isSelected
                   ? "ring-2 ring-primary ring-offset-1 scale-110 shadow-xs"
