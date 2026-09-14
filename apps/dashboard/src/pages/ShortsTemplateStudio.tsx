@@ -3172,7 +3172,7 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
                 setTopTitleText={setTopTitleText}
                 titleTransform={titleTransform}
                 setTitleTransform={setTitleTransform}
-                setTopTitleYPct={setTopTitleYPct}
+                setTopTitleYPct={(val: number) => setTitleTransform(prev => ({ ...prev, yPct: val }))}
               />
             )}
 
