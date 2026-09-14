@@ -130,16 +130,6 @@ import { SsulObjectInspectorForm } from "@/components/canvas/forms/SsulObjectIns
 
 
 
-// ── 한글 폰트 패밀리 정의 ──
-const FONT_FAMILIES = [
-  { id: 'Pretendard', name: 'Pretendard (기본 볼드)' },
-  { id: 'GmarketSans', name: 'Gmarket Sans (깔끔 고딕)' },
-  { id: 'BlackHanSans', name: 'Black Han Sans (임팩트 헤드라인)' },
-  { id: 'NotoSansKR', name: 'Noto Sans KR (표준 본문)' },
-  { id: 'Jalnan', name: '여기어때 잘난체 (캐주얼)' },
-  { id: 'CookieRun', name: '쿠키런 폰트 (귀여운 볼드)' },
-];
-
 // ── 프로 NLE 스타일 프리셋 (라이트/다크 양방향 시인성 확보) ──
 interface ProStylePreset {
   id: string;

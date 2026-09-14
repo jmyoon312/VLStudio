@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 export interface FontOption {
   id: string;
   name: string;
+  category?: string;
 }
 
 export interface FontStyleAlignControlProps {
@@ -53,13 +54,37 @@ export const FontStyleAlignControl: React.FC<FontStyleAlignControlProps> = ({
           <select
             value={font || 'Pretendard'}
             onChange={(e) => setFont(e.target.value)}
-            className="h-6 px-1.5 text-[10.5px] bg-background border border-border rounded text-foreground font-medium cursor-pointer focus:outline-hidden focus:ring-1 focus:ring-primary max-w-[170px]"
+            className="h-6 px-1.5 text-[10.5px] bg-background border border-border rounded text-foreground font-medium cursor-pointer focus:outline-hidden focus:ring-1 focus:ring-primary max-w-[195px]"
           >
-            {fontOptions.map((f) => (
-              <option key={f.id} value={f.id} className="bg-popover text-popover-foreground">
-                {f.name}
-              </option>
-            ))}
+            {(() => {
+              const hasCategories = fontOptions.some((f) => f.category);
+              if (!hasCategories) {
+                return fontOptions.map((f) => (
+                  <option key={f.id} value={f.id} className="bg-popover text-popover-foreground">
+                    {f.name}
+                  </option>
+                ));
+              }
+              const groups: { category: string; options: FontOption[] }[] = [];
+              fontOptions.forEach((f) => {
+                const cat = f.category || '기타';
+                let g = groups.find((x) => x.category === cat);
+                if (!g) {
+                  g = { category: cat, options: [] };
+                  groups.push(g);
+                }
+                g.options.push(f);
+              });
+              return groups.map((g) => (
+                <optgroup key={g.category} label={g.category} className="bg-popover text-popover-foreground font-bold">
+                  {g.options.map((f) => (
+                    <option key={f.id} value={f.id} className="bg-popover text-popover-foreground font-normal">
+                      {f.name}
+                    </option>
+                  ))}
+                </optgroup>
+              ));
+            })()}
           </select>
         </div>
       )}

@@ -69,15 +69,6 @@ export const CAPCUT_FILTER_PRESETS = [
   { id: 'vintage-grain', name: '📽️ 1970 빈티지 그레인', desc: '헤비 입자 & 세피아 톤', grain: 80, vignette: 50, b: 95, c: 120, s: 70, t: 30 },
 ];
 
-const FONT_FAMILIES = [
-  { id: 'Pretendard', name: 'Pretendard (기본 볼드)' },
-  { id: 'GmarketSans', name: 'Gmarket Sans (깔끔 고딕)' },
-  { id: 'BlackHanSans', name: 'Black Han Sans (임팩트 헤드라인)' },
-  { id: 'NotoSansKR', name: 'Noto Sans KR (표준 본문)' },
-  { id: 'Jalnan', name: '여기어때 잘난체 (캐주얼)' },
-  { id: 'CookieRun', name: '쿠키런 폰트 (귀여운 볼드)' },
-];
-
 const SHORTS_SUBTITLE_DESIGN_PRESETS = [
   { id: 'neon-yellow', name: '네온 옐로우', badge: 'MZ 바이럴', desc: '선명한 옐로우 + 블랙 볼드 외곽선', fontFamily: 'Black Han Sans', textColor: '#FFE600', outlineSize: 5, outlineColor: '#000000', useBox: false, boxColor: '#000000', shadowSize: 3, shadowColor: '#000000', fontSize: 19 },
   { id: 'white-glow', name: '화이트 글로우', badge: '추천 1위', desc: '순백 글자 + 시안 네온 그림자', fontFamily: 'Pretendard', textColor: '#FFFFFF', outlineSize: 4, outlineColor: '#0F172A', useBox: false, boxColor: '#000000', shadowSize: 4, shadowColor: '#00F0FF', fontSize: 18 },

@@ -84,11 +84,27 @@ export const TypographyControlGroup: React.FC<TypographyControlGroupProps> = ({
             onChange={(e) => setFont(e.target.value)}
             className="w-full px-2 py-1.5 text-xs bg-muted/30 border border-border rounded-[4px] focus:outline-hidden focus:ring-1 focus:ring-primary cursor-pointer text-foreground"
           >
-            {FONT_FAMILIES.map((f) => (
-              <option key={f.id} value={f.id} className="bg-popover text-popover-foreground">
-                {f.name}
-              </option>
-            ))}
+            {(() => {
+              const groups: { category: string; options: typeof FONT_FAMILIES }[] = [];
+              FONT_FAMILIES.forEach((f) => {
+                const cat = f.category || '기타';
+                let g = groups.find((x) => x.category === cat);
+                if (!g) {
+                  g = { category: cat, options: [] };
+                  groups.push(g);
+                }
+                g.options.push(f);
+              });
+              return groups.map((g) => (
+                <optgroup key={g.category} label={g.category} className="bg-popover text-popover-foreground font-bold">
+                  {g.options.map((f) => (
+                    <option key={f.id} value={f.id} className="bg-popover text-popover-foreground font-normal">
+                      {f.name}
+                    </option>
+                  ))}
+                </optgroup>
+              ));
+            })()}
           </select>
         </div>
       )}
