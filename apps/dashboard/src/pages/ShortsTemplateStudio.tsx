@@ -868,47 +868,8 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
     isInitialModeAppliedRef.current = true;
   }, [searchParams, sovereignMode]);
 
-  // 📡 실시간 템플릿 변경 이벤트 리스너 (정밀 편집기 ↔ 템플릿 공방 0.01초 동기화)
-  useEffect(() => {
-    const currentTargetMode = sovereignMode || (searchParams.get('mode') as LayoutTemplateMode | null);
-
-    const handleTemplateEvent = (e: any) => {
-      const manifest = e.detail;
-      if (manifest && (!currentTargetMode || manifest.archetype === currentTargetMode)) {
-        handleApplyManifest(manifest);
-      }
-    };
-
-    const handleStorageEvent = (e: StorageEvent) => {
-      if (e.key === 'applied_template_manifest' && e.newValue) {
-        try {
-          const manifest = JSON.parse(e.newValue);
-          if (!currentTargetMode || manifest.archetype === currentTargetMode) {
-            handleApplyManifest(manifest);
-          }
-        } catch (_) {}
-      }
-    };
-
-    let channel: BroadcastChannel | null = null;
-    try {
-      channel = new BroadcastChannel('vl_template_channel');
-      channel.onmessage = (msgEvent) => {
-        if (msgEvent.data && (!currentTargetMode || msgEvent.data.archetype === currentTargetMode)) {
-          handleApplyManifest(msgEvent.data);
-        }
-      };
-    } catch (_) {}
-
-    window.addEventListener('vl_template_applied', handleTemplateEvent);
-    window.addEventListener('storage', handleStorageEvent);
-
-    return () => {
-      window.removeEventListener('vl_template_applied', handleTemplateEvent);
-      window.removeEventListener('storage', handleStorageEvent);
-      if (channel) channel.close();
-    };
-  }, [sovereignMode, searchParams]);
+  // 🏛️ 템플릿 디자인 공방: 지속 사용되는 템플릿의 단일 진실 공급원(SSOT)
+  // 편집기 등 외부 화면의 임시 수정값이나 브로드캐스트를 일체 수신하지 않고 공방 주권을 독립 수호합니다.
 
   // 🎨 주권 템플릿 라이브러리 열기
   const handleOpenTemplateLibrary = async () => {
@@ -1644,15 +1605,7 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
       const manifestId = existingSameName?.id || `custom_${Date.now().toString(36)}`;
       const manifest = buildCurrentManifest(manifestId, cleanName, false);
 
-      try {
-        localStorage.setItem('applied_template_manifest', JSON.stringify(manifest));
-        window.dispatchEvent(new CustomEvent('vl_template_applied', { detail: manifest }));
-        try {
-          const ch = new BroadcastChannel('vl_template_channel');
-          ch.postMessage(manifest);
-          ch.close();
-        } catch (_) {}
-      } catch (_) {}
+      // 🏛️ 보관함 신규 저장은 라이브러리 목록에만 반영 (열려있는 편집기 화면 강제 침범 방지)
 
       const res = await api.post('/channel-dna/templates', {
         name: cleanName,

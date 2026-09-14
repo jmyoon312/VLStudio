@@ -1744,15 +1744,7 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
         },
       };
 
-      try {
-        localStorage.setItem('applied_template_manifest', JSON.stringify(manifest));
-        window.dispatchEvent(new CustomEvent('vl_template_applied', { detail: manifest }));
-        try {
-          const ch = new BroadcastChannel('vl_template_channel');
-          ch.postMessage(manifest);
-          ch.close();
-        } catch (_) {}
-      } catch (_) {}
+      // 🏛️ 전문 편집기에서 만든 템플릿은 라이브러리에 신규 등록만 수행 (글로벌 템플릿 원형 오염 차단)
 
       const res = await api.post('/channel-dna/templates', {
         name: targetName,
@@ -2444,83 +2436,31 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
     }
   }, []);
 
-  // ⚡ 템플릿 디자인 공방 ↔ 정밀 편집기 실시간 마스터 매니페스트 수신 및 양방향 동기화 (주권 격리 100% 보장)
+  // 🏛️ 전문 편집기: 템플릿 마스터를 베이스로 일회성 복사(Sandbox) 로드 후 독립 운영
   useEffect(() => {
-    // 1. 마운트 시 저장된 템플릿 매니페스트 하이드레이션 (주권 격리)
-    let applied = false;
+    // 1. 공방에서 [⚡ 정밀 편집기에 적용] 버튼을 눌러 명시적으로 전달된 템플릿이 있는 경우 1회 소비(Consume)
     const raw = localStorage.getItem('applied_template_manifest');
     if (raw) {
       try {
         const manifest = JSON.parse(raw);
-        // 🛡️ 주권 격리: sovereignMode가 있을 때는 해당 archetype과 100% 일치할 때만 복원!
         if (!sovereignMode || manifest.archetype === sovereignMode) {
           handleApplyManifest(manifest);
-          applied = true;
         }
-      } catch (manifestErr) {
-        console.error('[ShortsEditorStudio] Failed to apply manifest:', manifestErr);
-      }
+      } catch (_) {}
+      // 🛡️ 1회성 핸드오프 후 즉시 제거하여 이후 새로고침이나 다른 작업 시 오염 방지
+      localStorage.removeItem('applied_template_manifest');
+      return;
     }
 
-    // 🛡️ 만약 sovereignMode인데 일치하는 매니페스트가 적용되지 않았다면, 해당 폼팩터 마스터 템플릿을 즉시 로드하여 캔버스 완전 격리
-    if (sovereignMode && !applied) {
+    // 2. sovereignMode 진입 시 해당 폼팩터 공식 마스터 템플릿을 시작 베이스로 1회 안전 로드
+    if (sovereignMode) {
       const master = getMasterTemplate(sovereignMode);
       if (master) {
-        handleApplyManifest(master);
         setMasterManifest(master);
-      } else {
-        handleSelectTemplateMode(sovereignMode);
       }
-
-      api.get(`/channel-dna/templates/master/${sovereignMode}`)
-        .then((res) => {
-          if (res.data?.template?.manifest) {
-            const dbMaster = res.data.template.manifest;
-            saveMasterTemplateLocal(sovereignMode, dbMaster);
-            setMasterManifest(dbMaster);
-            handleApplyManifest(dbMaster);
-          }
-        })
-        .catch(() => {});
     }
-
-    // 2. 실시간 이벤트 수신 (주권 격리 보장)
-    const handleTemplateEvent = (e: any) => {
-      const manifest = e.detail;
-      if (manifest && (!sovereignMode || manifest.archetype === sovereignMode)) {
-        handleApplyManifest(manifest);
-      }
-    };
-
-    const handleStorageEvent = (e: StorageEvent) => {
-      if (e.key === 'applied_template_manifest' && e.newValue) {
-        try {
-          const manifest = JSON.parse(e.newValue);
-          if (!sovereignMode || manifest.archetype === sovereignMode) {
-            handleApplyManifest(manifest);
-          }
-        } catch (_) {}
-      }
-    };
-
-    let channel: BroadcastChannel | null = null;
-    try {
-      channel = new BroadcastChannel('vl_template_channel');
-      channel.onmessage = (msgEvent) => {
-        if (msgEvent.data && (!sovereignMode || msgEvent.data.archetype === sovereignMode)) {
-          handleApplyManifest(msgEvent.data);
-        }
-      };
-    } catch (_) {}
-
-    window.addEventListener('vl_template_applied', handleTemplateEvent);
-    window.addEventListener('storage', handleStorageEvent);
-
-    return () => {
-      window.removeEventListener('vl_template_applied', handleTemplateEvent);
-      window.removeEventListener('storage', handleStorageEvent);
-      if (channel) channel.close();
-    };
+    // 🚫 외부(공방/타 탭)의 실시간 브로드캐스트 리스너 완전 차단:
+    // 편집 중인 프로젝트 캔버스가 외부 이벤트로 인해 강제 리셋되는 사고를 원천 방지합니다.
   }, [sovereignMode]);
 
   // 💾 실시간 자동 저장 (Autosave Debounce 600ms)

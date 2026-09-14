@@ -569,10 +569,7 @@ export const getMasterTemplate = (archetype: string): TemplateManifest => {
     if (raw) {
       const parsed = JSON.parse(raw);
       if (parsed && (parsed.archetype === archetype || !parsed.archetype)) {
-        const normalized = normalizeTemplateManifest(parsed);
-        // 과도하게 팽창된 캐시도 골든 규격으로 자동 자가치유 업데이트
-        localStorage.setItem(`master_manifest_${archetype}`, JSON.stringify(normalized));
-        return normalized;
+        return normalizeTemplateManifest(parsed);
       }
     }
   } catch (e) {
@@ -588,18 +585,11 @@ export const saveMasterTemplateLocal = (archetype: string, manifest: TemplateMan
   try {
     const normalized = normalizeTemplateManifest(manifest);
     localStorage.setItem(`master_manifest_${archetype}`, JSON.stringify(normalized));
-    localStorage.setItem('applied_template_manifest', JSON.stringify(normalized));
     window.dispatchEvent(new CustomEvent('vl_master_template_updated', { detail: { archetype, manifest: normalized } }));
-    window.dispatchEvent(new CustomEvent('vl_template_applied', { detail: normalized }));
     try {
       const ch = new BroadcastChannel('vl_master_template_channel');
       ch.postMessage({ archetype, manifest: normalized });
       ch.close();
-    } catch (_) {}
-    try {
-      const tCh = new BroadcastChannel('vl_template_channel');
-      tCh.postMessage(normalized);
-      tCh.close();
     } catch (_) {}
   } catch (e) {
     console.error(`[saveMasterTemplateLocal] Failed to save master manifest for ${archetype}:`, e);
