@@ -25,8 +25,9 @@ export const UnitSliderControl: React.FC<UnitSliderControlProps> = ({
   className,
   disabled = false,
 }) => {
+  const safeVal = typeof value === 'number' && !isNaN(value) ? value : (min ?? 0);
   // 소수점 표시 포맷팅
-  const formattedValue = step < 1 ? value.toFixed(1) : value.toString();
+  const formattedValue = step < 1 ? safeVal.toFixed(1) : safeVal.toString();
 
   return (
     <div className={cn("space-y-1", className)}>
@@ -38,12 +39,12 @@ export const UnitSliderControl: React.FC<UnitSliderControlProps> = ({
       </div>
       <div className="flex items-center gap-2 pt-0.5">
         <Slider
-          value={[value]}
+          value={[safeVal]}
           min={min}
           max={max}
           step={step}
           disabled={disabled}
-          onValueChange={(vals) => onChange(vals[0])}
+          onValueChange={(vals) => onChange(vals[0] ?? safeVal)}
           className="flex-1 cursor-pointer"
         />
       </div>

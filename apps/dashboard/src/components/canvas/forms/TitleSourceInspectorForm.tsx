@@ -171,7 +171,7 @@ export const TitleSourceInspectorForm: React.FC<TitleSourceInspectorFormProps> =
                   {/* 뱃지 글자 크기 */}
                   <UnitSliderControl
                     label="뱃지 글자 크기"
-                    value={titleBadgeSizePx}
+                    value={titleBadgeSizePx ?? 11}
                     min={8}
                     max={24}
                     step={1}
@@ -217,7 +217,7 @@ export const TitleSourceInspectorForm: React.FC<TitleSourceInspectorFormProps> =
                   {/* 1단 글자 크기 */}
                   <UnitSliderControl
                     label="1단 글자 크기"
-                    value={titleLine1SizePx}
+                    value={titleLine1SizePx ?? 28}
                     min={14}
                     max={56}
                     step={1}
@@ -264,7 +264,7 @@ export const TitleSourceInspectorForm: React.FC<TitleSourceInspectorFormProps> =
                     {/* 2단 글자 크기 */}
                     <UnitSliderControl
                       label="2단 글자 크기"
-                      value={titleLine2SizePx}
+                      value={titleLine2SizePx ?? 34}
                       min={14}
                       max={56}
                       step={1}
@@ -345,7 +345,7 @@ export const TitleSourceInspectorForm: React.FC<TitleSourceInspectorFormProps> =
                 <div className="space-y-2 pt-1.5 border-t border-border/50">
                   <UnitSliderControl
                     label="테두리 두께"
-                    value={titleStrokeWidth}
+                    value={titleStrokeWidth ?? 2}
                     min={1}
                     max={10}
                     step={1}
@@ -371,7 +371,7 @@ export const TitleSourceInspectorForm: React.FC<TitleSourceInspectorFormProps> =
                 <div className="space-y-2 pt-1.5 border-t border-border/50">
                   <UnitSliderControl
                     label="그림자 흐림 (Blur)"
-                    value={titleShadowBlur}
+                    value={titleShadowBlur ?? 4}
                     min={0}
                     max={20}
                     step={1}
@@ -418,7 +418,7 @@ export const TitleSourceInspectorForm: React.FC<TitleSourceInspectorFormProps> =
                   {titleBgMode === 'box' && (
                     <UnitSliderControl
                       label="모서리 모양 (둥글기)"
-                      value={titleBorderRadius}
+                      value={titleBorderRadius ?? 4}
                       min={0}
                       max={30}
                       step={1}
@@ -428,7 +428,7 @@ export const TitleSourceInspectorForm: React.FC<TitleSourceInspectorFormProps> =
                   )}
                   <UnitSliderControl
                     label="내부 패딩"
-                    value={titlePaddingX}
+                    value={titlePaddingX ?? 8}
                     min={2}
                     max={30}
                     step={1}
@@ -604,13 +604,13 @@ export const TitleSourceInspectorForm: React.FC<TitleSourceInspectorFormProps> =
               <div className="p-2 bg-muted/20 border border-border rounded-[2px]">
                 <UnitSliderControl
                   label="🏷️ 바닥 위치 (Y)"
-                  value={bottomSourceBottomPct}
+                  value={bottomSourceBottomPct ?? 3.5}
                   min={0}
                   max={25}
                   step={0.5}
                   unit="%"
                   onChange={(val) => {
-                    setBottomSourceBottomPct(val);
+                    setBottomSourceBottomPct?.(val);
                     setSourceTransform?.((prev: any) => ({ ...prev, yPct: 100 - val }));
                   }}
                 />

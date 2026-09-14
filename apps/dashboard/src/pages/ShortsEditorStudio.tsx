@@ -335,13 +335,13 @@ export const ShortsEditorStudio: React.FC<ShortsEditorStudioProps> = ({ sovereig
   // 자막 자동 내려쓰기(줄바꿈) & 최대 줄 수 제어 헬퍼 (SSOT: splitLimit, maxLines 지원)
     // 🎨 안전한 HEX 컬러 변환 헬퍼 (rgba/rgb 경고 원천 차단)
   const rgbaToHex = (colorStr?: string, fallback: string = '#000000'): string => {
-    if (!colorStr) return fallback;
+    if (!colorStr || typeof colorStr !== 'string') return fallback;
     if (colorStr.startsWith('#')) return colorStr.slice(0, 7);
     const rgbaMatch = colorStr.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
-    if (rgbaMatch) {
-      const r = parseInt(rgbaMatch[1]).toString(16).padStart(2, '0');
-      const g = parseInt(rgbaMatch[2]).toString(16).padStart(2, '0');
-      const b = parseInt(rgbaMatch[3]).toString(16).padStart(2, '0');
+    if (rgbaMatch && rgbaMatch[1] && rgbaMatch[2] && rgbaMatch[3]) {
+      const r = Math.min(255, Math.max(0, parseInt(rgbaMatch[1], 10) || 0)).toString(16).padStart(2, '0');
+      const g = Math.min(255, Math.max(0, parseInt(rgbaMatch[2], 10) || 0)).toString(16).padStart(2, '0');
+      const b = Math.min(255, Math.max(0, parseInt(rgbaMatch[3], 10) || 0)).toString(16).padStart(2, '0');
       return `#${r}${g}${b}`;
     }
     return fallback;

@@ -118,7 +118,7 @@ export const JabHookInspectorForm: React.FC<JabHookInspectorFormProps> = ({
                       <div className="p-2 bg-muted/20 border border-border rounded-[2px]">
                         <UnitSliderControl
                           label="기울기 각도 (Tilt)"
-                          value={jabTiltDeg}
+                          value={jabTiltDeg ?? 0}
                           min={-30}
                           max={30}
                           step={1}
@@ -136,7 +136,7 @@ export const JabHookInspectorForm: React.FC<JabHookInspectorFormProps> = ({
                         />
                         <UnitSliderControl
                           label="글자 크기"
-                          value={jabFontSize}
+                          value={jabFontSize ?? 28}
                           min={12}
                           max={48}
                           step={1}
@@ -155,7 +155,7 @@ export const JabHookInspectorForm: React.FC<JabHookInspectorFormProps> = ({
                           <div className="space-y-2 pt-1.5 border-t border-border/50">
                             <UnitSliderControl
                               label="테두리 두께"
-                              value={jabStrokeWidth}
+                              value={jabStrokeWidth ?? 4}
                               min={1}
                               max={12}
                               step={1}
@@ -181,7 +181,7 @@ export const JabHookInspectorForm: React.FC<JabHookInspectorFormProps> = ({
                           <div className="space-y-2 pt-1.5 border-t border-border/50">
                             <UnitSliderControl
                               label="그림자 흐림 (Blur)"
-                              value={jabShadowBlur}
+                              value={jabShadowBlur ?? 4}
                               min={0}
                               max={20}
                               step={1}
@@ -212,7 +212,7 @@ export const JabHookInspectorForm: React.FC<JabHookInspectorFormProps> = ({
                             />
                             <UnitSliderControl
                               label="모서리 모양 (둥글기)"
-                              value={jabBorderRadius}
+                              value={jabBorderRadius ?? 4}
                               min={0}
                               max={30}
                               step={1}

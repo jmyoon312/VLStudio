@@ -28,16 +28,17 @@ export const ColorPicker8Preset: React.FC<ColorPicker8PresetProps> = ({
   className,
 }) => {
   const nativeColorInputRef = useRef<HTMLInputElement>(null);
+  const safeColor = (typeof value === 'string' && value.trim()) ? value.trim() : '#000000';
 
   // 1. 네이티브 <input type="color"> 전용 순수 6자리 HEX (#rrggbb) - 브라우저 유효성 경고 원천 차단
-  const hexForNative = rgbaToHex(value, '#000000');
+  const hexForNative = rgbaToHex(safeColor, '#000000');
 
   // 2. 프리뷰 색상 칩 (rgba, hex 등 브라우저 지원 유효 CSS 색상 반영)
-  const previewBg = value && !value.startsWith('#rgba') ? value : hexForNative;
+  const previewBg = safeColor && !safeColor.startsWith('#rgba') ? safeColor : hexForNative;
 
   // 3. 텍스트 입력창 표시 값 (rgba 형식이면 그대로 표시, hex 형식이면 # 접두사 보장)
-  const displayValue = value && !value.startsWith('#rgba')
-    ? (value.startsWith('rgb') || value.startsWith('hsl') ? value : (value.startsWith('#') ? value : `#${value}`))
+  const displayValue = safeColor && !safeColor.startsWith('#rgba')
+    ? (safeColor.startsWith('rgb') || safeColor.startsWith('hsl') ? safeColor : (safeColor.startsWith('#') ? safeColor : `#${safeColor}`))
     : hexForNative;
 
   return (
