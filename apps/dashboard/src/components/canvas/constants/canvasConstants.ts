@@ -151,6 +151,131 @@ export type InspectorSubTabId =
   | 'titleSource'
   | 'subtitle';
 
+/**
+ * 🎛️ 4대 폼팩터 독립 주권 인스펙터 그룹 및 서브탭 선택기 (Zero Cross-Format Noise)
+ * - 각 폼팩터 전용 화면에 필요한 탭만 정갈하게 노출하여 타 형식의 UI 노이즈를 0% 격리
+ */
+export function getInspectorGroupsForMode(mode: string = 'classic') {
+  switch (mode) {
+    case 'instagram':
+      return [
+        {
+          id: 'layout' as const,
+          label: '화면 구성',
+          icon: '🏛️',
+          subTabs: [
+            { id: 'template' as const, label: '프로필 & 홀' },
+          ],
+        },
+        {
+          id: 'text' as const,
+          label: '글자 · 자막',
+          icon: '✍️',
+          subTabs: [
+            { id: 'title' as const, label: '헤드라인 대제목' },
+            { id: 'style' as const, label: '본문 자막' },
+          ],
+        },
+        {
+          id: 'media' as const,
+          label: '영상 · 연출',
+          icon: '🎬',
+          subTabs: [
+            { id: 'videoCrop' as const, label: '화면 맞춤 · 구도' },
+          ],
+        },
+        {
+          id: 'viral' as const,
+          label: '바이럴 · 소리',
+          icon: '⚡',
+          subTabs: [
+            { id: 'commentCard' as const, label: '베스트 댓글 카드' },
+            { id: 'tts' as const, label: '음성 (TTS)' },
+            { id: 'channel' as const, label: '채널 정보' },
+          ],
+        },
+      ];
+    case 'gunlimbo':
+      return [
+        {
+          id: 'layout' as const,
+          label: '화면 구성',
+          icon: '🏛️',
+          subTabs: [
+            { id: 'template' as const, label: '군림보 레이아웃' },
+          ],
+        },
+        {
+          id: 'text' as const,
+          label: '글자 · 자막',
+          icon: '✍️',
+          subTabs: [
+            { id: 'title' as const, label: '상단 2줄 대제목' },
+            { id: 'jabHook' as const, label: '훅 밴드 (소제목)' },
+            { id: 'style' as const, label: '본문 자막' },
+          ],
+        },
+        {
+          id: 'media' as const,
+          label: '영상 · 연출',
+          icon: '🎬',
+          subTabs: [
+            { id: 'videoCrop' as const, label: '화면 맞춤 · 구도' },
+          ],
+        },
+        {
+          id: 'viral' as const,
+          label: '바이럴 · 소리',
+          icon: '⚡',
+          subTabs: [
+            { id: 'tts' as const, label: '음성 (TTS)' },
+            { id: 'channel' as const, label: '채널 정보' },
+          ],
+        },
+      ];
+    case 'ssul':
+      return [
+        {
+          id: 'layout' as const,
+          label: '화면 구성',
+          icon: '🏛️',
+          subTabs: [
+            { id: 'template' as const, label: '커뮤니티 헤더' },
+          ],
+        },
+        {
+          id: 'text' as const,
+          label: '글자 · 자막',
+          icon: '✍️',
+          subTabs: [
+            { id: 'title' as const, label: '게시글 제목' },
+            { id: 'style' as const, label: '자막 & 페페 말풍선' },
+          ],
+        },
+        {
+          id: 'media' as const,
+          label: '영상 · 연출',
+          icon: '🎬',
+          subTabs: [
+            { id: 'videoCrop' as const, label: '화면 맞춤 · 구도' },
+          ],
+        },
+        {
+          id: 'viral' as const,
+          label: '바이럴 · 소리',
+          icon: '⚡',
+          subTabs: [
+            { id: 'tts' as const, label: '음성 (TTS)' },
+            { id: 'channel' as const, label: '채널 정보' },
+          ],
+        },
+      ];
+    case 'classic':
+    default:
+      return MASTER_INSPECTOR_GROUPS;
+  }
+}
+
 // 🎭 커뮤니티 썰형 전용 위트/풍자 메타데이터 프리셋 (12대 인기 밈)
 export interface SatiricalMetadataItem {
   id: string;

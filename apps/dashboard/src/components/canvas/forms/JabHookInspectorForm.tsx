@@ -37,39 +37,116 @@ export interface JabHookInspectorFormProps {
   jabBorderRadius: number;
   setJabBorderRadius: (val: number | ((prev: number) => number)) => void;
   handleAutoTrackSmartPlacement?: () => void;
+  layoutTemplateMode?: string;
+  gunlimboConfig?: any;
+  setGunlimboConfig?: any;
 }
 
-export const JabHookInspectorForm: React.FC<JabHookInspectorFormProps> = ({
-  hasJab,
-  setHasJab,
-  jabText,
-  setJabText,
-  jabTiltDeg,
-  setJabTiltDeg,
-  jabFontSize,
-  setJabFontSize,
-  jabTextColor,
-  setJabTextColor,
-  jabStroke,
-  setJabStroke,
-  jabStrokeWidth,
-  setJabStrokeWidth,
-  jabStrokeColor,
-  setJabStrokeColor,
-  jabShadow,
-  setJabShadow,
-  jabShadowBlur,
-  setJabShadowBlur,
-  jabShadowColor = '#000000',
-  setJabShadowColor = () => {},
-  jabBgEnabled,
-  setJabBgEnabled,
-  jabBgColor,
-  setJabBgColor,
-  jabBorderRadius,
-  setJabBorderRadius,
-  handleAutoTrackSmartPlacement,
-}) => {
+export const JabHookInspectorForm: React.FC<JabHookInspectorFormProps> = (props) => {
+  const {
+    hasJab,
+    setHasJab,
+    jabText,
+    setJabText,
+    jabTiltDeg,
+    setJabTiltDeg,
+    jabFontSize,
+    setJabFontSize,
+    jabTextColor,
+    setJabTextColor,
+    jabStroke,
+    setJabStroke,
+    jabStrokeWidth,
+    setJabStrokeWidth,
+    jabStrokeColor,
+    setJabStrokeColor,
+    jabShadow,
+    setJabShadow,
+    jabShadowBlur,
+    setJabShadowBlur,
+    jabShadowColor = '#000000',
+    setJabShadowColor = () => {},
+    jabBgEnabled,
+    setJabBgEnabled,
+    jabBgColor,
+    setJabBgColor,
+    jabBorderRadius,
+    setJabBorderRadius,
+    handleAutoTrackSmartPlacement,
+    layoutTemplateMode = 'classic',
+    gunlimboConfig,
+    setGunlimboConfig,
+  } = props;
+
+  // 🎯 군림보형 독립 훅 밴드 인스펙터
+  if (layoutTemplateMode === 'gunlimbo') {
+    const gConfig = gunlimboConfig || {};
+    const setGConfig = setGunlimboConfig || (() => {});
+    return (
+      <div className="space-y-3">
+        <div className="p-2.5 border border-border bg-card rounded-[2px] space-y-3 shadow-2xs">
+          <div className="flex items-center justify-between border-b border-border pb-1.5">
+            <span className="text-[11px] font-bold text-foreground flex items-center gap-1.5">
+              <Zap className="w-3.5 h-3.5 text-amber-500" />
+              ⚡ 군림보 훅 밴드 (중앙 와이드 바)
+            </span>
+          </div>
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <label className="text-[10px] font-semibold text-muted-foreground">후킹 문구 (소제목 텍스트)</label>
+              <input
+                type="text"
+                value={gConfig.hookPhrase || ''}
+                onChange={(e) => setGConfig((prev: any) => ({ ...prev, hookPhrase: e.target.value }))}
+                className="w-full h-7 px-2 text-[11px] bg-background border border-border rounded-[2px] text-foreground font-bold"
+                placeholder="예: 1분 만에 밝혀진 진실"
+              />
+            </div>
+            <div className="space-y-2 p-2 bg-muted/20 border border-border rounded-[2px]">
+              <ColorPicker8Preset
+                label="밴드 배경 색상"
+                value={gConfig.hookBgColor || '#FFFFFF'}
+                onChange={(val) => setGConfig((prev: any) => ({ ...prev, hookBgColor: val }))}
+              />
+              <ColorPicker8Preset
+                label="밴드 글자 색상"
+                value={gConfig.hookTextColor || '#000000'}
+                onChange={(val) => setGConfig((prev: any) => ({ ...prev, hookTextColor: val }))}
+              />
+            </div>
+            <div className="space-y-2 p-2 bg-muted/20 border border-border rounded-[2px]">
+              <UnitSliderControl
+                label="글자 크기"
+                value={gConfig.hookFontSize || 19}
+                min={14}
+                max={32}
+                step={1}
+                unit="px"
+                onChange={(val) => setGConfig((prev: any) => ({ ...prev, hookFontSize: val }))}
+              />
+              <UnitSliderControl
+                label="초반 노출 시간 (초)"
+                value={gConfig.introDurationSec || 2.5}
+                min={1.0}
+                max={5.0}
+                step={0.1}
+                unit="초"
+                onChange={(val) => setGConfig((prev: any) => ({ ...prev, introDurationSec: val }))}
+              />
+              <div className="flex items-center justify-between pt-1">
+                <span className="text-[10px] font-semibold text-muted-foreground">가이드라인 표시</span>
+                <Switch
+                  checked={gConfig.showGuidelines ?? false}
+                  onCheckedChange={(val) => setGConfig((prev: any) => ({ ...prev, showGuidelines: val }))}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
 <div className="space-y-3">
                 <div className="p-2.5 border border-border bg-card rounded-[2px] space-y-3 shadow-2xs">

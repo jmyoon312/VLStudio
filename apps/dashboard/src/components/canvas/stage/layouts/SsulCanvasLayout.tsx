@@ -319,7 +319,7 @@ export const SsulCanvasLayout: React.FC<SsulCanvasLayoutProps> = ({
             }}
             onClick={() => {
               setSelectedLayerId('layer_ssul_post_title');
-              setActiveInspectorTab('template');
+              setActiveInspectorTab('title');
             }}
             className={cn(
               "w-full cursor-pointer hover:bg-black/[0.02] p-1 rounded transition-colors select-none",
@@ -433,7 +433,7 @@ export const SsulCanvasLayout: React.FC<SsulCanvasLayoutProps> = ({
             }}
             onClick={() => {
               setSelectedLayerId('layer_ssul_subtitle');
-              setActiveInspectorTab('template');
+              setActiveInspectorTab('style');
             }}
             className={cn(
               "flex-1 w-full flex flex-col justify-start cursor-pointer hover:bg-black/[0.02] p-1 rounded transition-colors select-none space-y-1.5 overflow-hidden",

@@ -75,11 +75,299 @@ export const TitleSourceInspectorForm: React.FC<TitleSourceInspectorFormProps> =
     bottomSourceBgColor = 'rgba(0,0,0,0.7)', setBottomSourceBgColor = () => {},
     bottomSourceBorderRadius = 4, setBottomSourceBorderRadius = () => {},
     sourceTransform, setSourceTransform = () => {},
+    layoutTemplateMode = 'classic',
+    instaConfig, setInstaConfig,
+    gunlimboConfig, setGunlimboConfig,
+    ssulConfig, setSsulConfig,
+    topTitleText, setTopTitleText,
+    titleTransform, setTitleTransform,
+    setTopTitleYPct,
   } = props;
 
   const showTitle = mode === 'all' || mode === 'title';
   const showSource = mode === 'all' || mode === 'sourceCredit';
   const showBars = mode === 'all' || mode === 'topBottomBar';
+
+  // 📱 인스타형 독립 헤드라인 대제목 인스펙터
+  if (showTitle && layoutTemplateMode === 'instagram') {
+    return (
+      <div className="space-y-3">
+        <div className="p-2.5 border border-border bg-card rounded-[2px] space-y-3 shadow-2xs">
+          <div className="flex items-center justify-between border-b border-border pb-1.5">
+            <div className="flex items-center gap-1.5">
+              <Type className="w-3.5 h-3.5 text-primary" />
+              <span className="text-[11px] font-bold text-foreground">✍️ 인스타 헤드라인 대제목</span>
+            </div>
+            <span className="text-[9px] text-muted-foreground">좌측 정렬</span>
+          </div>
+
+          <div className="space-y-3">
+            {/* 문구 입력 */}
+            <div className="space-y-1">
+              <label className="text-[10px] font-semibold text-muted-foreground">대제목 문구 (엔터로 줄바꿈)</label>
+              <textarea
+                rows={2}
+                value={topTitleText || titleLine1 || ''}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setTopTitleText?.(val);
+                  setTitleLine1?.(val);
+                  setInstaConfig?.((prev: any) => ({ ...prev, titleText: val }));
+                }}
+                placeholder="제목을\n입력하세요"
+                className="w-full px-2 py-1.5 text-xs bg-background border border-border rounded-[2px] resize-none font-bold leading-tight"
+              />
+            </div>
+
+            {/* 글자 크기 & 색상 */}
+            <div className="space-y-2 p-2 bg-muted/20 border border-border rounded-[2px]">
+              <UnitSliderControl
+                label="글자 크기 (폰트 사이즈)"
+                value={titleLine1SizePx || 22}
+                min={14}
+                max={42}
+                step={1}
+                unit="px"
+                onChange={(val) => {
+                  setTitleLine1SizePx?.(val);
+                  setInstaConfig?.((prev: any) => ({ ...prev, titleSize: val }));
+                }}
+              />
+              <ColorPicker8Preset
+                label="글자 색상"
+                value={titleLine1Color || '#000000'}
+                onChange={(val) => {
+                  setTitleLine1Color?.(val);
+                  setInstaConfig?.((prev: any) => ({ ...prev, titleColor: val }));
+                }}
+              />
+            </div>
+
+            {/* 폰트 & 굵기 */}
+            <div className="space-y-2 p-2 bg-muted/20 border border-border rounded-[2px]">
+              <div>
+                <span className="text-[10px] font-semibold text-muted-foreground block mb-1">폰트 서체</span>
+                <select
+                  value={titleFontFamily || 'Pretendard'}
+                  onChange={(e) => setTitleFontFamily?.(e.target.value)}
+                  className="w-full px-2 py-1 text-[11px] bg-background border border-border rounded-[2px] font-semibold cursor-pointer"
+                >
+                  <option value="Pretendard">Pretendard (산세리프 깔끔형)</option>
+                  <option value="GmarketSansBold">Gmarket Sans (볼드 임팩트)</option>
+                  <option value="Black Han Sans">Black Han Sans (울트라 헤비)</option>
+                  <option value="Noto Sans KR">Noto Sans KR (본고딕 표준)</option>
+                </select>
+              </div>
+              <div className="flex items-center justify-between pt-1">
+                <span className="text-[10px] font-semibold text-muted-foreground">볼드 (굵게)</span>
+                <Switch
+                  checked={titleBold !== false}
+                  onCheckedChange={(val) => setTitleBold?.(val)}
+                />
+              </div>
+            </div>
+
+            {/* 정밀 위치 & 스케일 */}
+            {titleTransform && (
+              <div className="space-y-2 p-2 bg-muted/20 border border-border rounded-[2px]">
+                <span className="text-[10px] font-semibold text-muted-foreground block">정밀 위치 & 스케일</span>
+                <div className="grid grid-cols-2 gap-2">
+                  <UnitSliderControl
+                    label="X 위치"
+                    value={titleTransform.xPct ?? 6.0}
+                    min={2}
+                    max={35}
+                    step={0.5}
+                    unit="%"
+                    onChange={(val) => setTitleTransform?.((prev: any) => ({ ...prev, xPct: val }))}
+                  />
+                  <UnitSliderControl
+                    label="Y 위치"
+                    value={titleTransform.yPct ?? 12.0}
+                    min={5}
+                    max={25}
+                    step={0.5}
+                    unit="%"
+                    onChange={(val) => {
+                      setTitleTransform?.((prev: any) => ({ ...prev, yPct: val }));
+                      setTopTitleYPct?.(val);
+                    }}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 🎯 군림보형 독립 상단 2줄 대제목 인스펙터
+  if (showTitle && layoutTemplateMode === 'gunlimbo') {
+    return (
+      <div className="space-y-3">
+        <div className="p-2.5 border border-border bg-card rounded-[2px] space-y-3 shadow-2xs">
+          <div className="flex items-center justify-between border-b border-border pb-1.5">
+            <div className="flex items-center gap-1.5">
+              <Type className="w-3.5 h-3.5 text-primary" />
+              <span className="text-[11px] font-bold text-foreground">👑 군림보 상단 2줄 대제목</span>
+            </div>
+          </div>
+          <div className="space-y-3">
+            {/* 1단 문구 및 색상 */}
+            <div className="space-y-2 p-2 bg-muted/20 border border-border rounded-[2px]">
+              <div className="space-y-1">
+                <label className="text-[10px] font-semibold text-muted-foreground">1단 타이틀 문구 (위)</label>
+                <input
+                  type="text"
+                  value={gunlimboConfig?.titleLine1 || titleLine1 || ''}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setTitleLine1?.(val);
+                    setGunlimboConfig?.((prev: any) => ({ ...prev, titleLine1: val }));
+                  }}
+                  className="w-full h-7 px-2 text-[11px] bg-background border border-border rounded-[2px] text-foreground font-bold"
+                  placeholder="제목 1행"
+                />
+              </div>
+              <ColorPicker8Preset
+                label="1단 글자 색상"
+                value={gunlimboConfig?.titleLine1Color || titleLine1Color || '#FFFFFF'}
+                onChange={(val) => {
+                  setTitleLine1Color?.(val);
+                  setGunlimboConfig?.((prev: any) => ({ ...prev, titleLine1Color: val }));
+                }}
+              />
+            </div>
+
+            {/* 2단 문구 및 색상 */}
+            <div className="space-y-2 p-2 bg-muted/20 border border-border rounded-[2px]">
+              <div className="space-y-1">
+                <label className="text-[10px] font-semibold text-muted-foreground">2단 타이틀 문구 (아래 포인트)</label>
+                <input
+                  type="text"
+                  value={gunlimboConfig?.titleLine2 || titleLine2 || ''}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setTitleLine2?.(val);
+                    setGunlimboConfig?.((prev: any) => ({ ...prev, titleLine2: val }));
+                  }}
+                  className="w-full h-7 px-2 text-[11px] bg-background border border-border rounded-[2px] text-foreground font-bold"
+                  placeholder="제목 2행"
+                />
+              </div>
+              <ColorPicker8Preset
+                label="2단 포인트 색상"
+                value={gunlimboConfig?.titleLine2Color || titleLine2Color || '#FFE500'}
+                onChange={(val) => {
+                  setTitleLine2Color?.(val);
+                  setGunlimboConfig?.((prev: any) => ({ ...prev, titleLine2Color: val }));
+                }}
+              />
+            </div>
+
+            {/* 글자 크기 및 폰트 */}
+            <div className="space-y-2 p-2 bg-muted/20 border border-border rounded-[2px]">
+              <UnitSliderControl
+                label="대제목 글자 크기"
+                value={gunlimboConfig?.titleFontSize || titleLine1SizePx || 34}
+                min={20}
+                max={50}
+                step={1}
+                unit="px"
+                onChange={(val) => {
+                  setTitleLine1SizePx?.(val);
+                  setGunlimboConfig?.((prev: any) => ({ ...prev, titleFontSize: val }));
+                }}
+              />
+              <div>
+                <span className="text-[10px] font-semibold text-muted-foreground block mb-1">폰트 서체</span>
+                <select
+                  value={titleFontFamily || 'Pretendard'}
+                  onChange={(e) => setTitleFontFamily?.(e.target.value)}
+                  className="w-full px-2 py-1 text-[11px] bg-background border border-border rounded-[2px] font-semibold cursor-pointer"
+                >
+                  <option value="Pretendard">Pretendard (산세리프)</option>
+                  <option value="GmarketSansBold">Gmarket Sans (볼드)</option>
+                  <option value="Black Han Sans">Black Han Sans (울트라)</option>
+                  <option value="Noto Sans KR">Noto Sans KR</option>
+                </select>
+              </div>
+              <div className="flex items-center justify-between pt-1">
+                <span className="text-[10px] font-semibold text-muted-foreground">영상 전체에서 계속 표시</span>
+                <Switch
+                  checked={gunlimboConfig?.keepTitleThroughout ?? true}
+                  onCheckedChange={(val) => setGunlimboConfig?.((prev: any) => ({ ...prev, keepTitleThroughout: val }))}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 📜 썰형 독립 게시글 제목 인스펙터
+  if (showTitle && layoutTemplateMode === 'ssul') {
+    return (
+      <div className="space-y-3">
+        <div className="p-2.5 border border-border bg-card rounded-[2px] space-y-3 shadow-2xs">
+          <div className="flex items-center justify-between border-b border-border pb-1.5">
+            <div className="flex items-center gap-1.5">
+              <Type className="w-3.5 h-3.5 text-primary" />
+              <span className="text-[11px] font-bold text-foreground">📰 썰형 게시글 제목</span>
+            </div>
+          </div>
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <label className="text-[10px] font-semibold text-muted-foreground">게시글 본문 제목</label>
+              <textarea
+                rows={2}
+                value={ssulConfig?.postTitle?.text || topTitleText || titleLine1 || ''}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setTopTitleText?.(val);
+                  setTitleLine1?.(val);
+                  setSsulConfig?.((prev: any) => ({
+                    ...prev,
+                    postTitle: { ...(prev?.postTitle || {}), text: val },
+                  }));
+                }}
+                placeholder="게시글 제목"
+                className="w-full px-2 py-1.5 text-xs bg-background border border-border rounded-[2px] resize-none font-bold"
+              />
+            </div>
+            <div className="space-y-2 p-2 bg-muted/20 border border-border rounded-[2px]">
+              <UnitSliderControl
+                label="글자 크기 배율"
+                value={ssulConfig?.postTitle?.fontSizeMultiplier || 1.0}
+                min={0.8}
+                max={1.6}
+                step={0.05}
+                unit="x"
+                onChange={(val) => {
+                  setSsulConfig?.((prev: any) => ({
+                    ...prev,
+                    postTitle: { ...(prev?.postTitle || {}), fontSizeMultiplier: val },
+                  }));
+                }}
+              />
+              <ColorPicker8Preset
+                label="글자 색상"
+                value={ssulConfig?.postTitle?.color || '#18181B'}
+                onChange={(val) => {
+                  setSsulConfig?.((prev: any) => ({
+                    ...prev,
+                    postTitle: { ...(prev?.postTitle || {}), color: val },
+                  }));
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-3">

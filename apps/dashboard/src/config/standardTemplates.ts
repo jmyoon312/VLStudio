@@ -116,7 +116,7 @@ export const STANDARD_TEMPLATES: Record<string, TemplateManifest> = {
     geometry: {
       topTitleZone: {
         enabled: true,
-        topPct: 4.0,
+        topPct: 12.0,
         heightPct: 15.0,
         bgColor: 'transparent',
         opacity: 1.0,
@@ -124,11 +124,11 @@ export const STANDARD_TEMPLATES: Record<string, TemplateManifest> = {
       },
       holeWindowZone: {
         enabled: true,
-        widthPct: 92,
-        heightPct: 50,
-        yPct: 48,
-        roundness: 24,
-        borderWidth: 2,
+        widthPct: 88,
+        heightPct: 47,
+        yPct: 44.5,
+        roundness: 14,
+        borderWidth: 1,
         borderColor: '#E5E7EB',
         shadow: true,
         cardBgColor: '#FFFFFF',

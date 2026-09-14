@@ -31,7 +31,7 @@ import { Highlighter, Send, Globe2, ThumbsUp, MessageCircle, Palette, Layout } f
 import { SFX_CATALOG, playSynthesizedSfx, SfxItem } from '@/config/sfxCatalog';
 import { proceduralBgmEngine, BGM_PRESETS } from '@/services/proceduralBgmEngine';
 import { MemeAvatar, MEME_EMOTION_PRESETS, MemeType, MemeEmotion } from '@/components/memeAssets';
-import { MASTER_INSPECTOR_GROUPS, InspectorSubTabId } from '@/components/canvas/constants/canvasConstants';
+import { MASTER_INSPECTOR_GROUPS, InspectorSubTabId, getInspectorGroupsForMode } from '@/components/canvas/constants/canvasConstants';
 import { UniversalCanvasStage } from '@/components/canvas/stage/UniversalCanvasStage';
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -684,18 +684,26 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
   const [activeMasterGroup, setActiveMasterGroup] = useState<'layout' | 'text' | 'media' | 'viral'>('layout');
   const [activeFloatingInspector, setActiveFloatingInspector] = useState<string>('none');
 
+  const inspectorGroups = useMemo(() => getInspectorGroupsForMode(layoutTemplateMode), [layoutTemplateMode]);
+
   useEffect(() => {
-    const group = MASTER_INSPECTOR_GROUPS.find((g) => g.subTabs.some((t) => t.id === activeInspectorTab));
+    const group = inspectorGroups.find((g) => g.subTabs.some((t) => t.id === activeInspectorTab));
     if (group && group.id !== activeMasterGroup) {
-      setActiveMasterGroup(group.id);
+      setActiveMasterGroup(group.id as any);
+    } else if (!group && inspectorGroups.length > 0) {
+      const firstGroup = inspectorGroups[0];
+      setActiveMasterGroup(firstGroup.id as any);
+      if (firstGroup.subTabs.length > 0) {
+        setActiveInspectorTab(firstGroup.subTabs[0].id as any);
+      }
     }
-  }, [activeInspectorTab]);
+  }, [activeInspectorTab, inspectorGroups]);
 
   // 플로팅 인스펙터가 열릴 때 해당하는 우측 인스펙터 탭과 마스터 그룹 자동 동기화
   const handleOpenFloatingInspector = (insp: string) => {
     setActiveFloatingInspector(insp);
     if (insp === 'none') return;
-    if (['ssulHeader', 'divider', 'gunlimboHookBand', 'instaProfile'].includes(insp)) {
+    if (['ssulHeader', 'divider', 'instaProfile'].includes(insp)) {
       setActiveInspectorTab('template');
     } else if (insp === 'topBottomBar') {
       setActiveInspectorTab('topBottomBar');
@@ -703,7 +711,7 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
       setActiveInspectorTab('title');
     } else if (insp === 'sourceCredit') {
       setActiveInspectorTab('sourceCredit');
-    } else if (['jabHook', 'badgeTag'].includes(insp)) {
+    } else if (['gunlimboHook', 'gunlimboHookBand', 'jabHook', 'badgeTag'].includes(insp)) {
       setActiveInspectorTab('jabHook');
     } else if (insp === 'ssulSubtitle') {
       setActiveInspectorTab('style');
@@ -5877,15 +5885,15 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
           </div>
 
           {/* 4대 마스터 그룹 1층 바 (직관적/상징적 탭) */}
-          <div className="grid grid-cols-4 gap-0.5 border-b border-border bg-muted/40 p-1">
-            {MASTER_INSPECTOR_GROUPS.map((group) => {
+          <div className="grid grid-flow-col auto-cols-fr gap-0.5 border-b border-border bg-muted/40 p-1">
+            {inspectorGroups.map((group) => {
               const isActive = activeMasterGroup === group.id;
               return (
                 <button
                   key={group.id}
                   type="button"
                   onClick={() => {
-                    setActiveMasterGroup(group.id);
+                    setActiveMasterGroup(group.id as any);
                     if (!group.subTabs.some((t) => t.id === activeInspectorTab)) {
                       setActiveInspectorTab(group.subTabs[0].id as any);
                     }
@@ -5907,7 +5915,8 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
 
           {/* 서브 카테고리 2층 바 (하위 세부 항목) */}
           {(() => {
-            const curGroup = MASTER_INSPECTOR_GROUPS.find((g) => g.id === activeMasterGroup) || MASTER_INSPECTOR_GROUPS[0];
+            const curGroup = inspectorGroups.find((g) => g.id === activeMasterGroup) || inspectorGroups[0];
+            if (!curGroup) return null;
             return (
               <div className="flex items-center gap-1 border-b border-border bg-muted/20 px-2 py-1.5 overflow-x-auto custom-scrollbar">
                 {curGroup.subTabs.map((sub) => {
@@ -6063,6 +6072,18 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                 titleBorderRadius={titleBorderRadius}
                 setTitleBorderRadius={setTitleBorderRadius}
                 handleInjectTitleCandidate={handleInjectTitleCandidate}
+                layoutTemplateMode={layoutTemplateMode}
+                instaConfig={instaConfig}
+                setInstaConfig={setInstaConfig}
+                gunlimboConfig={gunlimboConfig}
+                setGunlimboConfig={setGunlimboConfig}
+                ssulConfig={ssulConfig}
+                setSsulConfig={setSsulConfig}
+                topTitleText={topTitleText}
+                setTopTitleText={setTopTitleText}
+                titleTransform={titleTransform}
+                setTitleTransform={setTitleTransform}
+                setTopTitleYPct={setTopTitleYPct}
               />
             )}
 
@@ -6209,6 +6230,9 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                 jabBorderRadius={jabBorderRadius}
                 setJabBorderRadius={setJabBorderRadius}
                 handleAutoTrackSmartPlacement={handleAutoTrackSmartPlacement}
+                layoutTemplateMode={layoutTemplateMode}
+                gunlimboConfig={gunlimboConfig}
+                setGunlimboConfig={setGunlimboConfig}
               />
             )}
 

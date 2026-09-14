@@ -419,12 +419,12 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
     instaConfig = {
       profileName: '유머보따리',
       profileHandle: '@humor_box',
-      profileAvatarUrl: 'https://api.dicebear.com/9.x/fun-emoji/svg?seed=humor',
+      profileAvatarUrl: 'https://api.dicebear.com/9.x/lorelei/svg?seed=user_avatar_blue',
       isVerified: true,
       holeWidthPct: 88,
-      holeHeightPct: 48,
-      holeYPct: 42,
-      holeRoundness: 12,
+      holeHeightPct: 47,
+      holeYPct: 44.5,
+      holeRoundness: 14,
       holeBorderWidth: 1,
       holeBorderColor: '#E5E7EB',
       holeShadow: true,
@@ -432,7 +432,7 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
       subFont: 'Pretendard',
       subColor: '#374151',
     },
-    profileTransform = { xPct: 6.0, yPct: 5.5, scale: 1.0, rotationDeg: 0, zIndex: 35 },
+    profileTransform = { xPct: 6.0, yPct: 4.5, scale: 1.0, rotationDeg: 0, zIndex: 35 },
     setProfileTransform = () => {},
     gunlimboConfig = {
       titleLine1: '충격 실화 사건',
@@ -845,8 +845,7 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
           <div
             onClick={() => {
               setSelectedLayerId('layer_video');
-              if (layoutTemplateMode !== 'instagram') setActiveInspectorTab('videoCrop');
-              else setActiveInspectorTab('template');
+              setActiveInspectorTab('videoCrop');
             }}
             onDoubleClick={(e) => {
               e.stopPropagation();
@@ -1041,8 +1040,7 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                   <div
                     onClick={() => {
                       setSelectedLayerId('layer_video');
-                      setActiveInspectorTab('template');
-                      document.getElementById('insta-sec-hole')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                      setActiveInspectorTab('videoCrop');
                     }}
                     className={cn(
                       "absolute cursor-pointer pointer-events-auto transition-all",
@@ -1059,7 +1057,7 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                         ? '0 10px 25px -5px rgba(0, 0, 0, 0.12), 0 8px 10px -6px rgba(0, 0, 0, 0.08)'
                         : undefined,
                       backgroundImage: !videoLayer?.data
-                        ? 'linear-gradient(45deg, #e5e7eb 25%, transparent 25%), linear-gradient(-45deg, #e5e7eb 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #e5e7eb 75%), linear-gradient(-45deg, transparent 75%, #e5e7eb 75%)'
+                        ? 'linear-gradient(45deg, rgba(0, 0, 0, 0.035) 25%, transparent 25%), linear-gradient(-45deg, rgba(0, 0, 0, 0.035) 25%, transparent 25%), linear-gradient(45deg, transparent 75%, rgba(0, 0, 0, 0.035) 75%), linear-gradient(-45deg, transparent 75%, rgba(0, 0, 0, 0.035) 75%)'
                         : undefined,
                       backgroundSize: '16px 16px',
                       backgroundPosition: '0 0, 0 8px, 8px -8px, -8px 0px',
@@ -1234,7 +1232,7 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                       anchor="center"
                       onSelect={() => {
                         setSelectedLayerId('layer_gunlimbo_title');
-                        setActiveInspectorTab('template');
+                        setActiveInspectorTab('title');
                       }}
                       onChange={(newT) => {
                         setTitleTransform(newT);
@@ -1294,7 +1292,7 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                       anchor="center"
                       onSelect={() => {
                         setSelectedLayerId('layer_gunlimbo_hook');
-                        setActiveInspectorTab('template');
+                        setActiveInspectorTab('jabHook');
                       }}
                       onChange={(newT) => {
                         setJabTransform({ ...newT, rotationDeg: 0 });
@@ -1364,7 +1362,7 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                   >
                     <div className="w-9 h-9 rounded-full overflow-hidden bg-neutral-200 ring-2 ring-blue-500/20 shadow-xs shrink-0 flex items-center justify-center">
                       <img
-                        src={instaConfig.profileAvatar || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=face"}
+                        src={instaConfig.profileAvatarUrl || instaConfig.profileAvatar || "https://api.dicebear.com/9.x/lorelei/svg?seed=user_avatar_blue"}
                         alt="Avatar"
                         className="w-full h-full object-cover"
                       />
@@ -1418,7 +1416,7 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                       ? (titleTransform.xPct !== undefined && titleTransform.xPct !== 50 && titleTransform.xPct < 40 ? titleTransform.xPct : 6.0)
                       : ((titleTransform.xPct !== undefined && titleTransform.xPct >= 15 && titleTransform.xPct <= 85) ? titleTransform.xPct : 50),
                     yPct: layoutTemplateMode === 'instagram'
-                      ? (titleTransform.yPct !== undefined && titleTransform.yPct !== 9.0 && titleTransform.yPct !== 15 && titleTransform.yPct <= 30 ? titleTransform.yPct : 14.0)
+                      ? (titleTransform.yPct !== undefined && titleTransform.yPct !== 9.0 && titleTransform.yPct !== 14.0 && titleTransform.yPct !== 15 && titleTransform.yPct <= 30 ? titleTransform.yPct : 12.0)
                       : titleTransform.yPct,
                   }}
                   onDoubleClick={() => {
@@ -1431,8 +1429,7 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                   anchor={layoutTemplateMode === 'instagram' ? 'left' : 'center'}
                   onSelect={() => {
                     setSelectedLayerId('layer_title');
-                    if (layoutTemplateMode !== 'instagram') setActiveInspectorTab('title');
-                    else setActiveInspectorTab('template');
+                    setActiveInspectorTab('title');
                   }}
                   onChange={(newT) => {
                     setTitleTransform(newT);
@@ -1464,15 +1461,16 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                       <div
                         className="font-black leading-tight tracking-tight text-left whitespace-pre-line text-neutral-950 dark:text-neutral-950"
                         style={{
-                          fontSize: `${Math.round(27 * (titleTransform.scale || 1.0) * aspectScale)}px`,
+                          fontSize: `${Math.round((titleLine1SizePx || 22) * (titleTransform.scale || 1.0) * aspectScale)}px`,
                           lineHeight: '1.18',
                           letterSpacing: '-0.035em',
-                          color: '#000000',
+                          color: titleLine1Color || '#000000',
                           textAlign: 'left',
-                          fontWeight: 900,
+                          fontWeight: titleBold !== false ? 900 : 500,
+                          fontFamily: titleFontFamily || 'Pretendard',
                         }}
                       >
-                        {topTitleText || '제목을\n입력하세요'}
+                        {topTitleText || titleLine1 || '제목을\n입력하세요'}
                       </div>
                     ) : (
                       <>
@@ -1652,8 +1650,7 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                     onSelect={() => {
                       if (displaySub) setSelectedLayerId(displaySub.id);
                       else setSelectedLayerId('layer_sub');
-                      if (layoutTemplateMode !== 'instagram') setActiveInspectorTab('style');
-                      else setActiveInspectorTab('template');
+                      setActiveInspectorTab('style');
                     }}
                     onChange={(newT) => {
                       setSubTransform(newT);
@@ -1691,17 +1688,17 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                       <span
                         style={{
                           fontSize: layoutTemplateMode === 'instagram'
-                            ? `${Math.round(15 * (subTransform.scale || 1.0) * aspectScale)}px`
+                            ? `${Math.round(((subCfg?.fontSize && subCfg.fontSize <= 36 ? subCfg.fontSize : instaConfig.subSize || 15)) * (subTransform.scale || 1.0) * aspectScale)}px`
                             : layoutTemplateMode === 'gunlimbo'
                             ? `${Math.round(((subCfg?.fontSize && subCfg.fontSize <= 24 ? subCfg.fontSize : 20)) * aspectScale)}px`
                             : `${Math.round(((subCfg?.fontSize && subCfg.fontSize <= 24 ? subCfg.fontSize : 18)) * aspectScale)}px`,
                           color: layoutTemplateMode === 'instagram'
-                            ? (instaConfig.subColor || '#374151')
+                            ? (subCfg?.textColor || subCfg?.fillColor || instaConfig.subColor || '#374151')
                             : layoutTemplateMode === 'gunlimbo'
                             ? (subCfg?.textColor || subCfg?.fillColor || subCfg?.color || '#FFE500')
                             : (subCfg?.textColor || subCfg?.fillColor || subCfg?.color || '#FFFFFF'),
                           fontFamily: layoutTemplateMode === 'instagram'
-                            ? (instaConfig.subFont || 'Pretendard, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif')
+                            ? (subCfg?.font || subCfg?.fontFamily || instaConfig.subFont || 'Pretendard, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif')
                             : (subCfg?.font || subCfg?.fontFamily || 'Pretendard'),
                           fontWeight: layoutTemplateMode === 'instagram' ? 500 : (subCfg?.isBold !== false && subCfg?.bold !== false ? 'bold' : 'normal'),
                           fontStyle: (subCfg?.isItalic || subCfg?.italic) ? 'italic' : 'normal',
@@ -1818,8 +1815,7 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                   anchor="center"
                   onSelect={() => {
                     setSelectedLayerId('layer_comment_card');
-                    if (layoutTemplateMode !== 'instagram') setActiveInspectorTab('commentCard');
-                    else setActiveInspectorTab('template');
+                    setActiveInspectorTab('commentCard');
                   }}
                   onChange={(newT) => setCommentTransform?.(newT)}
                 >
