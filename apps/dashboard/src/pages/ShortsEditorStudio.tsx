@@ -31,7 +31,7 @@ import { Highlighter, Send, Globe2, ThumbsUp, MessageCircle, Palette, Layout } f
 import { SFX_CATALOG, playSynthesizedSfx, SfxItem } from '@/config/sfxCatalog';
 import { proceduralBgmEngine, BGM_PRESETS } from '@/services/proceduralBgmEngine';
 import { MemeAvatar, MEME_EMOTION_PRESETS, MemeType, MemeEmotion } from '@/components/memeAssets';
-import { MASTER_INSPECTOR_GROUPS } from '@/components/canvas/constants/canvasConstants';
+import { MASTER_INSPECTOR_GROUPS, InspectorSubTabId } from '@/components/canvas/constants/canvasConstants';
 import { UniversalCanvasStage } from '@/components/canvas/stage/UniversalCanvasStage';
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -672,7 +672,7 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
   const [activeLeftTab, setActiveLeftTab] = useState<'script' | 'subtitles' | 'text' | 'layers' | 'audio' | 'media'>('script');
   const [subtitleSearchQuery, setSubtitleSearchQuery] = useState<string>('');
   
-  const [activeInspectorTab, setActiveInspectorTab] = useState<'template' | 'titleSource' | 'videoCrop' | 'filterFx' | 'commentCard' | 'jabHook' | 'style' | 'tts' | 'channel'>('template');
+  const [activeInspectorTab, setActiveInspectorTab] = useState<InspectorSubTabId>('template');
   const [activeMasterGroup, setActiveMasterGroup] = useState<'layout' | 'text' | 'media' | 'viral'>('layout');
   const [activeFloatingInspector, setActiveFloatingInspector] = useState<string>('none');
 
@@ -687,10 +687,14 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
   const handleOpenFloatingInspector = (insp: string) => {
     setActiveFloatingInspector(insp);
     if (insp === 'none') return;
-    if (['ssulHeader', 'divider', 'gunlimboHookBand', 'instaProfile', 'topBottomBar'].includes(insp)) {
+    if (['ssulHeader', 'divider', 'gunlimboHookBand', 'instaProfile'].includes(insp)) {
       setActiveInspectorTab('template');
-    } else if (['postTitle', 'sourceCredit'].includes(insp)) {
-      setActiveInspectorTab('titleSource');
+    } else if (insp === 'topBottomBar') {
+      setActiveInspectorTab('topBottomBar');
+    } else if (insp === 'postTitle') {
+      setActiveInspectorTab('title');
+    } else if (insp === 'sourceCredit') {
+      setActiveInspectorTab('sourceCredit');
     } else if (['jabHook', 'badgeTag'].includes(insp)) {
       setActiveInspectorTab('jabHook');
     } else if (insp === 'ssulSubtitle') {
@@ -4798,7 +4802,7 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
 
                 {/* 3. 상단 2단 타이틀 */}
                 <div
-                  onClick={() => { setSelectedLayerId('layer_title'); setActiveInspectorTab('titleSource'); }}
+                  onClick={() => { setSelectedLayerId('layer_title'); setActiveInspectorTab('title'); }}
                   className={cn(
                     "p-2 border rounded-[2px] flex items-center justify-between text-xs cursor-pointer transition",
                     selectedLayerId === 'layer_title' ? "bg-primary/10 border-primary" : "border-border bg-card hover:bg-muted/40"
@@ -4838,7 +4842,7 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
 
                 {/* 4. 하단 출처 표기 */}
                 <div
-                  onClick={() => { setSelectedLayerId('layer_source'); setActiveInspectorTab('titleSource'); }}
+                  onClick={() => { setSelectedLayerId('layer_source'); setActiveInspectorTab('sourceCredit'); }}
                   className={cn(
                     "p-2 border rounded-[2px] flex items-center justify-between text-xs cursor-pointer transition",
                     selectedLayerId === 'layer_source' ? "bg-primary/10 border-primary" : "border-border bg-card hover:bg-muted/40"
@@ -4878,7 +4882,7 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
 
                 {/* 5. 상단 배경 바 */}
                 <div
-                  onClick={() => { setSelectedLayerId('layer_top_bar'); setActiveInspectorTab('titleSource'); }}
+                  onClick={() => { setSelectedLayerId('layer_top_bar'); setActiveInspectorTab('topBottomBar'); }}
                   className={cn(
                     "p-2 border rounded-[2px] flex items-center justify-between text-xs cursor-pointer transition",
                     selectedLayerId === 'layer_top_bar' ? "bg-primary/10 border-primary" : "border-border bg-card hover:bg-muted/40"
@@ -4918,7 +4922,7 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
 
                 {/* 6. 하단 배경 바 */}
                 <div
-                  onClick={() => { setSelectedLayerId('layer_bottom_bar'); setActiveInspectorTab('titleSource'); }}
+                  onClick={() => { setSelectedLayerId('layer_bottom_bar'); setActiveInspectorTab('topBottomBar'); }}
                   className={cn(
                     "p-2 border rounded-[2px] flex items-center justify-between text-xs cursor-pointer transition",
                     selectedLayerId === 'layer_bottom_bar' ? "bg-primary/10 border-primary" : "border-border bg-card hover:bg-muted/40"
@@ -6011,9 +6015,10 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
               />
             )}
 
-            {/* 1. 👑 타이틀 / 출처 / 상하단 바 탭 */}
-            {activeInspectorTab === 'titleSource' && (
+            {/* 👑 2-1. 제목 탭 */}
+            {(activeInspectorTab === 'title' || activeInspectorTab === 'titleSource') && (
               <TitleSourceInspectorForm
+                mode="title"
                 hasTopTitle={hasTopTitle}
                 setHasTopTitle={setHasTopTitle}
                 titleLinesMode={titleLinesMode}
@@ -6068,18 +6073,14 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                 setTitlePaddingX={setTitlePaddingX}
                 titleBorderRadius={titleBorderRadius}
                 setTitleBorderRadius={setTitleBorderRadius}
-                hasTopBarBg={hasTopBarBg}
-                setHasTopBarBg={setHasTopBarBg}
-                topBarBg={topBarBg}
-                setTopBarBg={setTopBarBg}
-                topBarHeightPct={topBarHeightPct}
-                setTopBarHeightPct={setTopBarHeightPct}
-                hasBottomBarBg={hasBottomBarBg}
-                setHasBottomBarBg={setHasBottomBarBg}
-                bottomBarBg={bottomBarBg}
-                setBottomBarBg={setBottomBarBg}
-                bottomBarHeightPct={bottomBarHeightPct}
-                setBottomBarHeightPct={setBottomBarHeightPct}
+                handleInjectTitleCandidate={handleInjectTitleCandidate}
+              />
+            )}
+
+            {/* 🏷️ 2-4. 하단 출처 탭 */}
+            {activeInspectorTab === 'sourceCredit' && (
+              <TitleSourceInspectorForm
+                mode="sourceCredit"
                 hasBottomSource={hasBottomSource}
                 setHasBottomSource={setHasBottomSource}
                 bottomSourceText={bottomSourceText}
@@ -6088,7 +6089,39 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                 setBottomSourceColor={setBottomSourceColor}
                 bottomSourceBottomPct={bottomSourceBottomPct}
                 setBottomSourceBottomPct={setBottomSourceBottomPct}
-                handleInjectTitleCandidate={handleInjectTitleCandidate}
+                bottomSourceSizePx={bottomSourceSizePx}
+                setBottomSourceSizePx={setBottomSourceSizePx}
+                bottomSourceFontFamily={bottomSourceFontFamily}
+                setBottomSourceFontFamily={setBottomSourceFontFamily}
+                sourceTransform={sourceTransform}
+                setSourceTransform={setSourceTransform}
+              />
+            )}
+
+            {/* 📏 2-5. 상하단바 탭 */}
+            {activeInspectorTab === 'topBottomBar' && (
+              <TitleSourceInspectorForm
+                mode="topBottomBar"
+                hasTopBarBg={hasTopBarBg}
+                setHasTopBarBg={setHasTopBarBg}
+                topBarBg={topBarBg}
+                setTopBarBg={setTopBarBg}
+                topBarHeightPct={topBarHeightPct}
+                setTopBarHeightPct={setTopBarHeightPct}
+                topBarOpacity={(topBarOpacity ?? 1) * 100}
+                setTopBarOpacity={(v: number) => setTopBarOpacity(v / 100)}
+                topBarRadius={topBarRadius}
+                setTopBarRadius={setTopBarRadius}
+                hasBottomBarBg={hasBottomBarBg}
+                setHasBottomBarBg={setHasBottomBarBg}
+                bottomBarBg={bottomBarBg}
+                setBottomBarBg={setBottomBarBg}
+                bottomBarHeightPct={bottomBarHeightPct}
+                setBottomBarHeightPct={setBottomBarHeightPct}
+                bottomBarOpacity={(bottomBarOpacity ?? 1) * 100}
+                setBottomBarOpacity={(v: number) => setBottomBarOpacity(v / 100)}
+                bottomBarRadius={bottomBarRadius}
+                setBottomBarRadius={setBottomBarRadius}
               />
             )}
 

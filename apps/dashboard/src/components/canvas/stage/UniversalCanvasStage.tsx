@@ -1368,7 +1368,7 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
               {/* ⬛ LAYER 1: 상단 배경 바 (Classic 전용 레터박스) */}
               {isClassic && hasTopBarBg && (
                 <div
-                  onClick={() => { setSelectedLayerId('layer_top_bar'); setActiveInspectorTab('titleSource'); }}
+                  onClick={() => { setSelectedLayerId('layer_top_bar'); setActiveInspectorTab('topBottomBar'); }}
                   onDoubleClick={(e) => {
                     e.stopPropagation();
                     setActiveFloating('topBottomBar');
@@ -1406,7 +1406,7 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                   anchor={layoutTemplateMode === 'instagram' ? 'left' : 'center'}
                   onSelect={() => {
                     setSelectedLayerId('layer_title');
-                    if (layoutTemplateMode !== 'instagram') setActiveInspectorTab('titleSource');
+                    if (layoutTemplateMode !== 'instagram') setActiveInspectorTab('title');
                     else setActiveInspectorTab('template');
                   }}
                   onChange={(newT) => {
@@ -1724,7 +1724,7 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                   canvasScale={canvasScale}
                   onSelect={() => {
                     setSelectedLayerId('layer_source');
-                    setActiveInspectorTab('titleSource');
+                    setActiveInspectorTab('sourceCredit');
                   }}
                   onChange={(newT) => {
                     setSourceTransform(newT);
@@ -1762,7 +1762,7 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
               {/* ⬛ LAYER 6: 하단 배경 바 (Classic 전용 레터박스) */}
               {isClassic && hasBottomBarBg && (
                 <div
-                  onClick={() => { setSelectedLayerId('layer_bottom_bar'); setActiveInspectorTab('titleSource'); }}
+                  onClick={() => { setSelectedLayerId('layer_bottom_bar'); setActiveInspectorTab('topBottomBar'); }}
                   onDoubleClick={(e) => {
                     e.stopPropagation();
                     setActiveFloating('topBottomBar');

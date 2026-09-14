@@ -9,6 +9,7 @@ import { ColorPicker8Preset } from '../controls/ColorPicker8Preset';
 import { UnitSliderControl } from '../controls/UnitSliderControl';
 
 export interface TitleSourceInspectorFormProps {
+  mode?: 'all' | 'title' | 'sourceCredit' | 'topBottomBar';
   [key: string]: any;
 }
 
@@ -16,6 +17,7 @@ const FONT_OPTIONS = ['Pretendard', 'GmarketSans', 'TmoneyRoundWind', 'Paperlogy
 
 export const TitleSourceInspectorForm: React.FC<TitleSourceInspectorFormProps> = (props) => {
   const {
+    mode = 'all',
     hasTopTitle = true, setHasTopTitle = () => {},
     titleLinesMode = 'double', setTitleLinesMode = () => {},
     hasTitleBadge = true, setHasTitleBadge = () => {},
@@ -48,20 +50,31 @@ export const TitleSourceInspectorForm: React.FC<TitleSourceInspectorFormProps> =
     hasTopBarBg = true, setHasTopBarBg = () => {},
     topBarBg = '#000000', setTopBarBg = () => {},
     topBarHeightPct = 18.3, setTopBarHeightPct = () => {},
+    topBarOpacity = 100, setTopBarOpacity = () => {},
+    topBarRadius = 0, setTopBarRadius = () => {},
     hasBottomBarBg = true, setHasBottomBarBg = () => {},
     bottomBarBg = '#000000', setBottomBarBg = () => {},
     bottomBarHeightPct = 6.0, setBottomBarHeightPct = () => {},
+    bottomBarOpacity = 100, setBottomBarOpacity = () => {},
+    bottomBarRadius = 0, setBottomBarRadius = () => {},
     hasBottomSource = true, setHasBottomSource = () => {},
     bottomSourceText = '출처: 공식 유튜브 영상', setBottomSourceText = () => {},
     bottomSourceColor = '#94A3B8', setBottomSourceColor = () => {},
+    bottomSourceSizePx = 12, setBottomSourceSizePx,
+    bottomSourceFontFamily, setBottomSourceFontFamily,
     bottomSourceBottomPct = 3.5, setBottomSourceBottomPct = () => {},
     sourceTransform, setSourceTransform = () => {},
   } = props;
 
+  const showTitle = mode === 'all' || mode === 'title';
+  const showSource = mode === 'all' || mode === 'sourceCredit';
+  const showBars = mode === 'all' || mode === 'topBottomBar';
+
   return (
     <div className="space-y-3">
       {/* 🏛️ 상단 고정 타이틀 카드 */}
-      <div className="p-2.5 border border-border bg-card rounded-[2px] space-y-3 shadow-2xs">
+      {showTitle && (
+        <div className="p-2.5 border border-border bg-card rounded-[2px] space-y-3 shadow-2xs">
         <div className="flex items-center justify-between border-b border-border pb-1.5">
           <div className="flex items-center gap-1.5">
             <Type className="w-3.5 h-3.5 text-primary" />
@@ -417,78 +430,116 @@ export const TitleSourceInspectorForm: React.FC<TitleSourceInspectorFormProps> =
           </div>
         )}
       </div>
+      )}
 
       {/* 🏷️ 하단 출처 표기 카드 */}
-      <div className="p-2.5 border border-border bg-card rounded-[2px] space-y-2.5 shadow-2xs">
-        <div className="flex items-center justify-between border-b border-border pb-1.5">
-          <span className="text-[11px] font-bold text-foreground">하단 출처 표기</span>
-          <Switch checked={hasBottomSource} onCheckedChange={setHasBottomSource} />
-        </div>
-        {hasBottomSource && (
-          <div className="space-y-2">
-            <input
-              type="text"
-              value={bottomSourceText}
-              onChange={(e) => setBottomSourceText(e.target.value)}
-              className="w-full h-7 px-2 text-[11px] bg-background border border-border rounded-[2px] text-foreground font-medium"
-            />
-            <ColorPicker8Preset
-              label="출처 글자 색상"
-              value={bottomSourceColor || '#94A3B8'}
-              onChange={setBottomSourceColor}
-            />
-
-            {/* 하단 출처 표기 세부 위치 & 높낮이 */}
-            <div className="pt-2 border-t border-border/80">
-              <UnitSliderControl
-                label="🏷️ 하단 출처 표기 바닥 위치 (Y)"
-                value={bottomSourceBottomPct}
-                min={0}
-                max={25}
-                step={0.5}
-                unit="%"
-                onChange={(val) => {
-                  setBottomSourceBottomPct(val);
-                  setSourceTransform?.((prev: any) => ({ ...prev, yPct: 100 - val }));
-                }}
+      {showSource && (
+        <div className="p-2.5 border border-border bg-card rounded-[2px] space-y-2.5 shadow-2xs">
+          <div className="flex items-center justify-between border-b border-border pb-1.5">
+            <span className="text-[11px] font-bold text-foreground">하단 출처 표기</span>
+            <Switch checked={hasBottomSource} onCheckedChange={setHasBottomSource} />
+          </div>
+          {hasBottomSource && (
+            <div className="space-y-2">
+              <input
+                type="text"
+                value={bottomSourceText}
+                onChange={(e) => setBottomSourceText(e.target.value)}
+                placeholder="출처: 공식 유튜브 영상"
+                className="w-full h-7 px-2 text-[11px] bg-background border border-border rounded-[2px] text-foreground font-medium"
               />
-              <div className="flex justify-between text-[9px] text-muted-foreground pt-1">
-                <span>0% (맨 바닥)</span>
-                <span>하단 바 위/안쪽 자유 배치</span>
-                <span>25%</span>
+              <ColorPicker8Preset
+                label="출처 글자 색상"
+                value={bottomSourceColor || '#94A3B8'}
+                onChange={setBottomSourceColor}
+              />
+
+              {setBottomSourceSizePx && (
+                <UnitSliderControl
+                  label="출처 글자 크기"
+                  value={bottomSourceSizePx}
+                  min={9}
+                  max={24}
+                  step={1}
+                  unit="px"
+                  onChange={setBottomSourceSizePx}
+                />
+              )}
+
+              {/* 하단 출처 표기 세부 위치 & 높낮이 */}
+              <div className="pt-2 border-t border-border/80">
+                <UnitSliderControl
+                  label="🏷️ 하단 출처 표기 바닥 위치 (Y)"
+                  value={bottomSourceBottomPct}
+                  min={0}
+                  max={25}
+                  step={0.5}
+                  unit="%"
+                  onChange={(val) => {
+                    setBottomSourceBottomPct(val);
+                    setSourceTransform?.((prev: any) => ({ ...prev, yPct: 100 - val }));
+                  }}
+                />
+                <div className="flex justify-between text-[9px] text-muted-foreground pt-1">
+                  <span>0% (맨 바닥)</span>
+                  <span>하단 바 위/안쪽 자유 배치</span>
+                  <span>25%</span>
+                </div>
               </div>
             </div>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      )}
 
       {/* 📏 상단 및 하단 배경 바 카드 */}
-      <div className="p-2.5 border border-border bg-card rounded-[2px] space-y-2.5 shadow-2xs">
-        <div className="flex items-center justify-between border-b border-border pb-1.5">
-          <span className="text-[11px] font-bold text-foreground">상하단 배경 바</span>
+      {showBars && (
+        <div className="p-2.5 border border-border bg-card rounded-[2px] space-y-2.5 shadow-2xs">
+          <div className="flex items-center justify-between border-b border-border pb-1.5">
+            <span className="text-[11px] font-bold text-foreground">상하단 배경 바</span>
+          </div>
+          <BarGeometryControlGroup
+            label="상단 배경 바"
+            enabled={hasTopBarBg}
+            setEnabled={setHasTopBarBg}
+            bgColor={topBarBg}
+            setBgColor={setTopBarBg}
+            heightPct={topBarHeightPct}
+            setHeightPct={setTopBarHeightPct}
+            opacity={topBarOpacity !== undefined ? (topBarOpacity > 1 ? topBarOpacity : topBarOpacity * 100) : 100}
+            setOpacity={(val) => setTopBarOpacity?.(val / 100)}
+            radius={topBarRadius}
+            setRadius={setTopBarRadius}
+          />
+          <BarGeometryControlGroup
+            label="하단 배경 바"
+            enabled={hasBottomBarBg}
+            setEnabled={setHasBottomBarBg}
+            bgColor={bottomBarBg}
+            setBgColor={setBottomBarBg}
+            heightPct={bottomBarHeightPct}
+            setHeightPct={setBottomBarHeightPct}
+            opacity={bottomBarOpacity !== undefined ? (bottomBarOpacity > 1 ? bottomBarOpacity : bottomBarOpacity * 100) : 100}
+            setOpacity={(val) => setBottomBarOpacity?.(val / 100)}
+            radius={bottomBarRadius}
+            setRadius={setBottomBarRadius}
+          />
         </div>
-        <BarGeometryControlGroup
-          label="상단 배경 바"
-          enabled={hasTopBarBg}
-          setEnabled={setHasTopBarBg}
-          bgColor={topBarBg}
-          setBgColor={setTopBarBg}
-          heightPct={topBarHeightPct}
-          setHeightPct={setTopBarHeightPct}
-        />
-        <BarGeometryControlGroup
-          label="하단 배경 바"
-          enabled={hasBottomBarBg}
-          setEnabled={setHasBottomBarBg}
-          bgColor={bottomBarBg}
-          setBgColor={setBottomBarBg}
-          heightPct={bottomBarHeightPct}
-          setHeightPct={setBottomBarHeightPct}
-        />
-      </div>
+      )}
     </div>
   );
 };
+
+export const TitleInspectorForm: React.FC<TitleSourceInspectorFormProps> = (props) => (
+  <TitleSourceInspectorForm mode="title" {...props} />
+);
+
+export const SourceCreditInspectorForm: React.FC<TitleSourceInspectorFormProps> = (props) => (
+  <TitleSourceInspectorForm mode="sourceCredit" {...props} />
+);
+
+export const TopBottomBarInspectorForm: React.FC<TitleSourceInspectorFormProps> = (props) => (
+  <TitleSourceInspectorForm mode="topBottomBar" {...props} />
+);
 
 export default TitleSourceInspectorForm;
 

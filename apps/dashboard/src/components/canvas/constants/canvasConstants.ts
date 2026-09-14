@@ -109,7 +109,7 @@ export const MASTER_INSPECTOR_GROUPS = [
     label: '화면 구성',
     icon: '🏛️',
     subTabs: [
-      { id: 'template', label: '4대 양식 & 배경 바' },
+      { id: 'template', label: '4대 양식 템플릿' },
     ],
   },
   {
@@ -117,9 +117,11 @@ export const MASTER_INSPECTOR_GROUPS = [
     label: '글자 · 자막',
     icon: '✍️',
     subTabs: [
-      { id: 'style', label: '자막 스타일' },
-      { id: 'titleSource', label: '대제목 · 출처' },
-      { id: 'jabHook', label: '3초 쨉쨉이' },
+      { id: 'title', label: '제목' },
+      { id: 'style', label: '본문 자막' },
+      { id: 'jabHook', label: '쨉쨉이' },
+      { id: 'sourceCredit', label: '하단 출처' },
+      { id: 'topBottomBar', label: '상하단바' },
     ],
   },
   {
@@ -144,6 +146,10 @@ export const MASTER_INSPECTOR_GROUPS = [
 ] as const;
 
 export type MasterInspectorGroupId = typeof MASTER_INSPECTOR_GROUPS[number]['id'];
+export type InspectorSubTabId =
+  | typeof MASTER_INSPECTOR_GROUPS[number]['subTabs'][number]['id']
+  | 'titleSource'
+  | 'subtitle';
 
 // 🎭 커뮤니티 썰형 전용 위트/풍자 메타데이터 프리셋 (12대 인기 밈)
 export interface SatiricalMetadataItem {

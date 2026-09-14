@@ -10,6 +10,7 @@ import CommentCardInspectorForm from '@/components/canvas/forms/CommentCardInspe
 import JabHookInspectorForm from '@/components/canvas/forms/JabHookInspectorForm';
 import SubtitleStyleInspectorForm from '@/components/canvas/forms/SubtitleStyleInspectorForm';
 import ForensicUrlExtractModal from '@/components/canvas/dialogs/ForensicUrlExtractModal';
+import { MASTER_INSPECTOR_GROUPS, InspectorSubTabId } from '@/components/canvas/constants/canvasConstants';
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
@@ -213,46 +214,6 @@ export const defaultLayoutState: ShortsLayoutState = {
   bottomBarOpacity: 1.0,
 };
 
-export const MASTER_INSPECTOR_GROUPS = [
-  {
-    id: 'layout' as const,
-    label: '화면 구성',
-    icon: '🏛️',
-    subTabs: [
-      { id: 'template', label: '4대 양식 & 배경 바' },
-    ],
-  },
-  {
-    id: 'text' as const,
-    label: '글자 · 자막',
-    icon: '✍️',
-    subTabs: [
-      { id: 'style', label: '자막 스타일' },
-      { id: 'titleSource', label: '대제목 · 출처' },
-      { id: 'jabHook', label: '3초 쨉쨉이' },
-    ],
-  },
-  {
-    id: 'media' as const,
-    label: '영상 · 연출',
-    icon: '🎬',
-    subTabs: [
-      { id: 'videoCrop', label: '화면 맞춤 · 구도' },
-      { id: 'filterFx', label: '필터 · 영화 효과' },
-    ],
-  },
-  {
-    id: 'viral' as const,
-    label: '바이럴 · 소리',
-    icon: '⚡',
-    subTabs: [
-      { id: 'commentCard', label: '댓글 카드' },
-      { id: 'tts', label: '음성 (TTS)' },
-      { id: 'channel', label: '채널 정보' },
-    ],
-  },
-];
-
 export interface ShortsTemplateStudioProps {
   initialLayout?: ShortsLayoutState;
   onLayoutChange?: (layout: ShortsLayoutState) => void;
@@ -332,7 +293,7 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
   const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#FFE500');
 
   const [selectedLayerId, setSelectedLayerId] = useState<string | null>('layer_title');
-  const [activeInspectorTab, setActiveInspectorTab] = useState<'template' | 'titleSource' | 'videoCrop' | 'filterFx' | 'commentCard' | 'jabHook' | 'style' | 'tts' | 'channel'>('template');
+  const [activeInspectorTab, setActiveInspectorTab] = useState<InspectorSubTabId>('template');
   const [activeMasterGroup, setActiveMasterGroup] = useState<'layout' | 'text' | 'media' | 'viral'>('layout');
   const [activeFloatingInspector, setActiveFloatingInspector] = useState<string>('none');
 
@@ -3122,8 +3083,10 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
               />
             )}
 
-            {activeInspectorTab === 'titleSource' && (
+            {/* 👑 2-1. 제목 탭 */}
+            {(activeInspectorTab === 'title' || activeInspectorTab === 'titleSource') && (
               <TitleSourceInspectorForm
+                mode="title"
                 hasTopTitle={hasTopTitle}
                 setHasTopTitle={setHasTopTitle}
                 titleLinesMode={titleLinesMode}
@@ -3178,18 +3141,13 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
                 setTitlePaddingX={setTitlePaddingX}
                 titleBorderRadius={titleBorderRadius}
                 setTitleBorderRadius={setTitleBorderRadius}
-                hasTopBarBg={hasTopBarBg}
-                setHasTopBarBg={setHasTopBarBg}
-                topBarBg={topBarBg}
-                setTopBarBg={setTopBarBg}
-                topBarHeightPct={topBarHeightPct}
-                setTopBarHeightPct={setTopBarHeightPct}
-                hasBottomBarBg={hasBottomBarBg}
-                setHasBottomBarBg={setHasBottomBarBg}
-                bottomBarBg={bottomBarBg}
-                setBottomBarBg={setBottomBarBg}
-                bottomBarHeightPct={bottomBarHeightPct}
-                setBottomBarHeightPct={setBottomBarHeightPct}
+              />
+            )}
+
+            {/* 🏷️ 2-4. 하단 출처 탭 */}
+            {activeInspectorTab === 'sourceCredit' && (
+              <TitleSourceInspectorForm
+                mode="sourceCredit"
                 hasBottomSource={hasBottomSource}
                 setHasBottomSource={setHasBottomSource}
                 bottomSourceText={bottomSourceText}
@@ -3198,6 +3156,39 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
                 setBottomSourceColor={setBottomSourceColor}
                 bottomSourceBottomPct={bottomSourceBottomPct}
                 setBottomSourceBottomPct={setBottomSourceBottomPct}
+                bottomSourceSizePx={bottomSourceSizePx}
+                setBottomSourceSizePx={setBottomSourceSizePx}
+                bottomSourceFontFamily={bottomSourceFontFamily}
+                setBottomSourceFontFamily={setBottomSourceFontFamily}
+                sourceTransform={sourceTransform}
+                setSourceTransform={setSourceTransform}
+              />
+            )}
+
+            {/* 📏 2-5. 상하단바 탭 */}
+            {activeInspectorTab === 'topBottomBar' && (
+              <TitleSourceInspectorForm
+                mode="topBottomBar"
+                hasTopBarBg={hasTopBarBg}
+                setHasTopBarBg={setHasTopBarBg}
+                topBarBg={topBarBg}
+                setTopBarBg={setTopBarBg}
+                topBarHeightPct={topBarHeightPct}
+                setTopBarHeightPct={setTopBarHeightPct}
+                topBarOpacity={(topBarOpacity ?? 1) * 100}
+                setTopBarOpacity={(v: number) => setTopBarOpacity(v / 100)}
+                topBarRadius={topBarRadius}
+                setTopBarRadius={setTopBarRadius}
+                hasBottomBarBg={hasBottomBarBg}
+                setHasBottomBarBg={setHasBottomBarBg}
+                bottomBarBg={bottomBarBg}
+                setBottomBarBg={setBottomBarBg}
+                bottomBarHeightPct={bottomBarHeightPct}
+                setBottomBarHeightPct={setBottomBarHeightPct}
+                bottomBarOpacity={(bottomBarOpacity ?? 1) * 100}
+                setBottomBarOpacity={(v: number) => setBottomBarOpacity(v / 100)}
+                bottomBarRadius={bottomBarRadius}
+                setBottomBarRadius={setBottomBarRadius}
               />
             )}
 
@@ -3269,7 +3260,8 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
               />
             )}
 
-            {activeInspectorTab === 'style' && (
+            {/* 💬 2-2. 본문 자막 탭 */}
+            {(activeInspectorTab === 'style' || (activeInspectorTab as string) === 'subtitle') && (
               <SubtitleStyleInspectorForm
                 subtitleConfig={subtitleConfig}
                 setSubtitleConfig={setSubtitleConfig}
