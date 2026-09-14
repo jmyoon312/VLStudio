@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
 import { INSTA_PROFILE_PRESETS } from '../constants/canvasConstants';
 import { UnitSliderControl } from '../controls/UnitSliderControl';
+import { ColorPicker8Preset } from '../controls/ColorPicker8Preset';
 import { NleLayerTransform } from '@/types/nle';
 
 export interface InstaProfileInspectorFormProps {
@@ -172,7 +173,122 @@ export const InstaProfileInspectorForm: React.FC<InstaProfileInspectorFormProps>
         </div>
       </div>
 
-      {/* 2. 📐 프로필 위치 및 크기 조절 (프로필 트랜스폼 연동) */}
+      {/* 2. 🎨 프로필 텍스트 & 박스 스타일 (외곽선, 그림자, 배경박스 표준 세트) */}
+      <div className="p-2.5 rounded-[4px] bg-muted/40 border border-border/80 space-y-2.5">
+        <div className="flex items-center justify-between border-b border-border/60 pb-1.5">
+          <label className="text-[11px] font-bold text-foreground flex items-center gap-1.5">
+            <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
+            프로필 텍스트 및 박스 스타일
+          </label>
+        </div>
+
+        {/* 닉네임 글자 색상 */}
+        <ColorPicker8Preset
+          label="닉네임 글자 색상"
+          value={instaConfig.profileNameColor || '#2563EB'}
+          onChange={(val) => setInstaConfig((prev: any) => ({ ...prev, profileNameColor: val }))}
+        />
+
+        {/* 닉네임 글자 크기 */}
+        <UnitSliderControl
+          label="닉네임 글자 크기"
+          value={instaConfig.profileNameSize ?? 14}
+          min={10}
+          max={28}
+          step={1}
+          unit="px"
+          onChange={(val) => setInstaConfig((prev: any) => ({ ...prev, profileNameSize: val }))}
+        />
+
+        {/* 글자 외곽선 (테두리) */}
+        <div className="space-y-1.5 pt-1 border-t border-border/50">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-semibold text-muted-foreground">글자 테두리 (외곽선)</span>
+            <Switch
+              checked={!!instaConfig.profileStrokeEnabled}
+              onCheckedChange={(c) => setInstaConfig((prev: any) => ({ ...prev, profileStrokeEnabled: c }))}
+            />
+          </div>
+          {instaConfig.profileStrokeEnabled && (
+            <div className="space-y-1.5 pl-1 border-l-2 border-primary/30">
+              <UnitSliderControl
+                label="외곽선 두께"
+                value={instaConfig.profileStrokeWidth ?? 2}
+                min={1}
+                max={6}
+                step={1}
+                unit="px"
+                onChange={(v) => setInstaConfig((prev: any) => ({ ...prev, profileStrokeWidth: v }))}
+              />
+              <ColorPicker8Preset
+                label="외곽선 색상"
+                value={instaConfig.profileStrokeColor || '#000000'}
+                onChange={(c) => setInstaConfig((prev: any) => ({ ...prev, profileStrokeColor: c }))}
+              />
+            </div>
+          )}
+        </div>
+
+        {/* 입체 그림자 */}
+        <div className="space-y-1.5 pt-1 border-t border-border/50">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-semibold text-muted-foreground">글자 입체 그림자</span>
+            <Switch
+              checked={!!instaConfig.profileShadowEnabled}
+              onCheckedChange={(c) => setInstaConfig((prev: any) => ({ ...prev, profileShadowEnabled: c }))}
+            />
+          </div>
+          {instaConfig.profileShadowEnabled && (
+            <div className="space-y-1.5 pl-1 border-l-2 border-primary/30">
+              <UnitSliderControl
+                label="그림자 흐림"
+                value={instaConfig.profileShadowBlur ?? 4}
+                min={0}
+                max={16}
+                step={1}
+                unit="px"
+                onChange={(v) => setInstaConfig((prev: any) => ({ ...prev, profileShadowBlur: v }))}
+              />
+              <ColorPicker8Preset
+                label="그림자 색상"
+                value={instaConfig.profileShadowColor || 'rgba(0,0,0,0.6)'}
+                onChange={(c) => setInstaConfig((prev: any) => ({ ...prev, profileShadowColor: c }))}
+              />
+            </div>
+          )}
+        </div>
+
+        {/* 프로필 배경 박스 & 모서리 둥글기 */}
+        <div className="space-y-1.5 pt-1 border-t border-border/50">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-semibold text-muted-foreground">프로필 배경 박스 (필)</span>
+            <Switch
+              checked={!!instaConfig.profileBoxEnabled}
+              onCheckedChange={(c) => setInstaConfig((prev: any) => ({ ...prev, profileBoxEnabled: c }))}
+            />
+          </div>
+          {instaConfig.profileBoxEnabled && (
+            <div className="space-y-1.5 pl-1 border-l-2 border-primary/30">
+              <ColorPicker8Preset
+                label="배경 박스 색상"
+                value={instaConfig.profileBoxColor || 'rgba(255,255,255,0.85)'}
+                onChange={(c) => setInstaConfig((prev: any) => ({ ...prev, profileBoxColor: c }))}
+              />
+              <UnitSliderControl
+                label="모서리 둥글기"
+                value={instaConfig.profileBorderRadius ?? 20}
+                min={0}
+                max={30}
+                step={2}
+                unit="px"
+                onChange={(v) => setInstaConfig((prev: any) => ({ ...prev, profileBorderRadius: v }))}
+              />
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* 3. 📐 프로필 위치 및 크기 조절 (프로필 트랜스폼 연동) */}
       {profileTransform && setProfileTransform && (
         <div className="p-2.5 rounded-[4px] bg-muted/40 border border-border/80 space-y-2.5">
           <div className="flex items-center justify-between border-b border-border/60 pb-1.5">

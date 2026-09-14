@@ -470,6 +470,14 @@ const formatWrappedText = (text: string, splitLimit: number = 14, maxLines: numb
   const [videoZIndex, setVideoZIndex] = useState<number>(10);
   const [videoCropTopPct, setVideoCropTopPct] = useState<number>(0);
   const [videoCropBottomPct, setVideoCropBottomPct] = useState<number>(0);
+  const [videoBorderRadius, setVideoBorderRadius] = useState<number>(0);
+  const [videoBorderEnabled, setVideoBorderEnabled] = useState<boolean>(false);
+  const [videoBorderWidth, setVideoBorderWidth] = useState<number>(1);
+  const [videoBorderColor, setVideoBorderColor] = useState<string>('#FFFFFF');
+  const [videoShadowEnabled, setVideoShadowEnabled] = useState<boolean>(false);
+  const [videoShadowBlur, setVideoShadowBlur] = useState<number>(20);
+  const [videoShadowColor, setVideoShadowColor] = useState<string>('rgba(0,0,0,0.5)');
+  const [videoPaddingPct, setVideoPaddingPct] = useState<number>(0);
 
   // Layer 2: 상단 고정 타이틀 (1줄 vs 2줄 모드 & 듀얼 컬러 & 테두리/그림자/배경)
   const [titleLinesMode, setTitleLinesMode] = useState<'single' | 'double'>('double');
@@ -719,7 +727,7 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
       setActiveMasterGroup('text');
       setActiveInspectorTab('style');
     } else if (insp === 'videoCrop') {
-      setActiveMasterGroup('media');
+      setActiveMasterGroup('text');
       setActiveInspectorTab('videoCrop');
     } else if (insp === 'commentCard') {
       setActiveMasterGroup('text');
@@ -5495,6 +5503,22 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
               videoFilter={videoFilter}
               videoCropTopPct={videoCropTopPct}
               videoCropBottomPct={videoCropBottomPct}
+              videoBorderRadius={videoBorderRadius}
+              setVideoBorderRadius={setVideoBorderRadius}
+              videoBorderEnabled={videoBorderEnabled}
+              setVideoBorderEnabled={setVideoBorderEnabled}
+              videoBorderWidth={videoBorderWidth}
+              setVideoBorderWidth={setVideoBorderWidth}
+              videoBorderColor={videoBorderColor}
+              setVideoBorderColor={setVideoBorderColor}
+              videoShadowEnabled={videoShadowEnabled}
+              setVideoShadowEnabled={setVideoShadowEnabled}
+              videoShadowBlur={videoShadowBlur}
+              setVideoShadowBlur={setVideoShadowBlur}
+              videoShadowColor={videoShadowColor}
+              setVideoShadowColor={setVideoShadowColor}
+              videoPaddingPct={videoPaddingPct}
+              setVideoPaddingPct={setVideoPaddingPct}
               videoLayer={videoLayer}
               videoZIndex={10}
               trackVisibility={trackVisibility}
@@ -6215,6 +6239,25 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                 setVideoVerticalFlip={setVideoVerticalFlip}
                 videoBlurBg={videoBlurBg}
                 setVideoBlurBg={setVideoBlurBg}
+                layoutTemplateMode={layoutTemplateMode}
+                instaConfig={instaConfig}
+                setInstaConfig={setInstaConfig}
+                videoBorderRadius={videoBorderRadius}
+                setVideoBorderRadius={setVideoBorderRadius}
+                videoBorderEnabled={videoBorderEnabled}
+                setVideoBorderEnabled={setVideoBorderEnabled}
+                videoBorderWidth={videoBorderWidth}
+                setVideoBorderWidth={setVideoBorderWidth}
+                videoBorderColor={videoBorderColor}
+                setVideoBorderColor={setVideoBorderColor}
+                videoShadowEnabled={videoShadowEnabled}
+                setVideoShadowEnabled={setVideoShadowEnabled}
+                videoShadowBlur={videoShadowBlur}
+                setVideoShadowBlur={setVideoShadowBlur}
+                videoShadowColor={videoShadowColor}
+                setVideoShadowColor={setVideoShadowColor}
+                videoPaddingPct={videoPaddingPct}
+                setVideoPaddingPct={setVideoPaddingPct}
               />
             )}
 

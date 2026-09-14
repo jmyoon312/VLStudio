@@ -58,6 +58,22 @@ export interface UniversalCanvasStageProps {
   videoZIndex?: number;
   trackVisibility?: any;
   currentTimeMs?: number;
+  videoBorderRadius?: number;
+  setVideoBorderRadius?: (val: number) => void;
+  videoBorderEnabled?: boolean;
+  setVideoBorderEnabled?: (val: boolean) => void;
+  videoBorderWidth?: number;
+  setVideoBorderWidth?: (val: number) => void;
+  videoBorderColor?: string;
+  setVideoBorderColor?: (val: string) => void;
+  videoShadowEnabled?: boolean;
+  setVideoShadowEnabled?: (val: boolean) => void;
+  videoShadowBlur?: number;
+  setVideoShadowBlur?: (val: number) => void;
+  videoShadowColor?: string;
+  setVideoShadowColor?: (val: string) => void;
+  videoPaddingPct?: number;
+  setVideoPaddingPct?: (val: number) => void;
 
   // Instagram
   instaConfig: any;
@@ -412,6 +428,14 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
     videoFilter,
     videoCropTopPct = 0,
     videoCropBottomPct = 0,
+    videoBorderRadius = 0,
+    videoBorderEnabled = false,
+    videoBorderWidth = 1,
+    videoBorderColor = '#FFFFFF',
+    videoShadowEnabled = false,
+    videoShadowBlur = 20,
+    videoShadowColor = 'rgba(0,0,0,0.5)',
+    videoPaddingPct = 0,
     videoLayer,
     videoZIndex = 10,
     trackVisibility = { v1Video: true, t1Title: true, s1Subtitle: true },
@@ -822,6 +846,8 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
             ssulConfig={ssulConfig}
             topTitleText={topTitleText}
             currentSubtitleText={currentSubtitleText}
+            subtitleConfig={subtitleConfig}
+            subtitleSplitLimit={activeSplitLimit}
             layers={layers}
             trackVisibility={trackVisibility}
             videoFitMode={videoFitMode}
@@ -837,6 +863,14 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
             videoFocusYPct={videoFocusYPct}
             videoRef={videoRef}
             isSlidingDown={isSlidingDown}
+            videoBorderRadius={videoBorderRadius}
+            videoBorderEnabled={videoBorderEnabled}
+            videoBorderWidth={videoBorderWidth}
+            videoBorderColor={videoBorderColor}
+            videoShadowEnabled={videoShadowEnabled}
+            videoShadowBlur={videoShadowBlur}
+            videoShadowColor={videoShadowColor}
+            videoPaddingPct={videoPaddingPct}
           />
         )}
 
@@ -876,10 +910,13 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
               : isSsul
               ? '2%'
               : `${Math.max(aspectRatio === '9:16' && videoFitMode === 'sandwich' && hasBottomBarBg ? bottomBarHeightPct : 0, videoCropBottomPct)}%`,
-            left: isSsul ? '3%' : 0,
-            right: isSsul ? '3%' : 0,
-            borderRadius: isSsul ? '12px' : 0,
-            boxShadow: isSsul ? '0 8px 20px -4px rgba(0,0,0,0.15), 0 0 0 1px rgba(0,0,0,0.06)' : 'none',
+            left: isSsul ? '3%' : `${videoPaddingPct || 0}%`,
+            right: isSsul ? '3%' : `${videoPaddingPct || 0}%`,
+            borderRadius: isSsul ? '12px' : `${videoBorderRadius || 0}px`,
+            border: videoBorderEnabled && !isInsta ? `${videoBorderWidth || 1}px solid ${videoBorderColor || '#FFFFFF'}` : undefined,
+            boxShadow: videoShadowEnabled && !isInsta
+              ? `0 8px ${videoShadowBlur || 20}px -4px ${videoShadowColor || 'rgba(0,0,0,0.5)'}`
+              : isSsul ? '0 8px 20px -4px rgba(0,0,0,0.15), 0 0 0 1px rgba(0,0,0,0.06)' : 'none',
             zIndex: videoZIndex,
             opacity: trackVisibility.v1Video ? 1 : 0,
           }}
@@ -1357,7 +1394,13 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                       e.stopPropagation();
                       setActiveFloating('instaProfile');
                     }}
-                    className="flex items-center gap-2.5 cursor-pointer hover:bg-black/5 p-1 rounded-full transition-colors select-none group"
+                    className="flex items-center gap-2.5 cursor-pointer transition-colors select-none group"
+                    style={{
+                      backgroundColor: instaConfig.profileBoxEnabled ? (instaConfig.profileBoxColor || 'rgba(255,255,255,0.85)') : 'transparent',
+                      borderRadius: `${instaConfig.profileBorderRadius ?? 20}px`,
+                      boxShadow: instaConfig.profileBoxEnabled ? '0 2px 8px rgba(0,0,0,0.08)' : 'none',
+                      padding: instaConfig.profileBoxEnabled ? '4px 10px' : '2px 4px',
+                    }}
                     title="더블클릭하여 프로필 설정"
                   >
                     <div className="w-9 h-9 rounded-full overflow-hidden bg-neutral-200 ring-2 ring-blue-500/20 shadow-xs shrink-0 flex items-center justify-center">
@@ -1369,7 +1412,15 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                     </div>
                     <div className="flex flex-col text-left leading-tight">
                       <div className="flex items-center gap-1">
-                        <span className="text-blue-600 font-bold text-sm tracking-tight group-hover:underline">
+                        <span
+                          className="font-bold tracking-tight"
+                          style={{
+                            color: instaConfig.profileNameColor || '#2563EB',
+                            fontSize: `${instaConfig.profileNameSize || 14}px`,
+                            WebkitTextStroke: instaConfig.profileStrokeEnabled ? `${instaConfig.profileStrokeWidth || 2}px ${instaConfig.profileStrokeColor || '#000000'}` : 'none',
+                            textShadow: instaConfig.profileShadowEnabled ? `0 2px ${instaConfig.profileShadowBlur || 4}px ${instaConfig.profileShadowColor || 'rgba(0,0,0,0.6)'}` : 'none',
+                          }}
+                        >
                           {instaConfig.profileName || '사용자명'}
                         </span>
                         {instaConfig.isVerified && (
@@ -1448,18 +1499,18 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                     )}
                     style={{
                       fontFamily: titleFontFamily,
-                      backgroundColor: layoutTemplateMode === 'instagram' ? 'transparent' : (titleBgMode !== 'none' ? titleBgColor : 'transparent'),
-                      paddingLeft: layoutTemplateMode === 'instagram' ? 0 : (titleBgMode !== 'none' ? `${titlePaddingX}px` : 0),
-                      paddingRight: layoutTemplateMode === 'instagram' ? 0 : (titleBgMode !== 'none' ? `${titlePaddingX}px` : 0),
-                      paddingTop: layoutTemplateMode === 'instagram' ? 0 : (titleBgMode !== 'none' ? `${titlePaddingY}px` : 0),
-                      paddingBottom: layoutTemplateMode === 'instagram' ? 0 : (titleBgMode !== 'none' ? `${titlePaddingY}px` : 0),
+                      backgroundColor: titleBgMode !== 'none' ? titleBgColor : 'transparent',
+                      paddingLeft: titleBgMode !== 'none' ? `${titlePaddingX}px` : 0,
+                      paddingRight: titleBgMode !== 'none' ? `${titlePaddingX}px` : 0,
+                      paddingTop: titleBgMode !== 'none' ? `${titlePaddingY}px` : 0,
+                      paddingBottom: titleBgMode !== 'none' ? `${titlePaddingY}px` : 0,
                       borderRadius: titleBgMode === 'pill' ? '9999px' : `${titleBorderRadius}px`,
-                      boxShadow: layoutTemplateMode === 'instagram' ? 'none' : (titleShadow ? `0 4px ${titleShadowBlur * 2}px ${titleShadowColor}` : 'none'),
+                      boxShadow: titleShadow ? `0 4px ${titleShadowBlur * 2}px ${titleShadowColor}` : 'none',
                     }}
                   >
                     {layoutTemplateMode === 'instagram' ? (
                       <div
-                        className="font-black leading-tight tracking-tight text-left whitespace-pre-line text-neutral-950 dark:text-neutral-950"
+                        className="font-black leading-tight tracking-tight text-left whitespace-pre-line"
                         style={{
                           fontSize: `${Math.round((titleLine1SizePx || 22) * (titleTransform.scale || 1.0) * aspectScale)}px`,
                           lineHeight: '1.18',
@@ -1468,6 +1519,9 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                           textAlign: 'left',
                           fontWeight: titleBold !== false ? 900 : 500,
                           fontFamily: titleFontFamily || 'Pretendard',
+                          WebkitTextStroke: titleStroke ? `${titleStrokeWidth || 3}px ${titleStrokeColor || '#000000'}` : 'none',
+                          paintOrder: 'stroke fill',
+                          textShadow: titleShadow ? `0 2px ${titleShadowBlur || 4}px ${titleShadowColor || 'rgba(0,0,0,0.5)'}` : 'none',
                         }}
                       >
                         {topTitleText || titleLine1 || '제목을\n입력하세요'}
@@ -1812,14 +1866,18 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                       e.stopPropagation();
                       setActiveFloating('commentCard');
                     }}
-                    className={cn(
-                      "p-3 transition-all cursor-move select-none min-w-[200px] max-w-[88%] w-fit inline-block",
-                      (commentCard.theme === 'insta' || layoutTemplateMode === 'instagram')
-                        ? "bg-neutral-100/95 text-neutral-900 border border-neutral-200/90 shadow-xs rounded-2xl backdrop-blur-xs"
-                        : commentCard.theme === 'yt-dark'
-                        ? "bg-[#0f0f0f]/90 text-white border border-white/10 rounded-lg shadow-xl backdrop-blur-md"
-                        : "bg-white/95 text-neutral-900 border border-black/10 shadow-lg rounded-lg"
-                    )}
+                    className="p-3 transition-all cursor-move select-none min-w-[200px] max-w-[88%] w-fit inline-block"
+                    style={{
+                      backgroundColor: commentCard.bgColor || ((commentCard.theme === 'insta' || layoutTemplateMode === 'instagram') ? 'rgba(245, 245, 245, 0.95)' : commentCard.theme === 'yt-dark' ? 'rgba(15, 15, 15, 0.9)' : 'rgba(255, 255, 255, 0.95)'),
+                      color: commentCard.textColor || ((commentCard.theme === 'insta' || layoutTemplateMode === 'instagram') ? '#171717' : commentCard.theme === 'yt-dark' ? '#ffffff' : '#171717'),
+                      borderRadius: `${commentCard.borderRadius !== undefined ? commentCard.borderRadius : ((commentCard.theme === 'insta' || layoutTemplateMode === 'instagram') ? 16 : 8)}px`,
+                      border: commentCard.borderEnabled
+                        ? `${commentCard.borderWidth || 1}px solid ${commentCard.borderColor || '#E5E7EB'}`
+                        : ((commentCard.theme === 'insta' || layoutTemplateMode === 'instagram') ? '1px solid rgba(229, 231, 235, 0.9)' : commentCard.theme === 'yt-dark' ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid rgba(0, 0, 0, 0.1)'),
+                      boxShadow: commentCard.cardShadowEnabled
+                        ? `0 10px ${commentCard.cardShadowBlur || 20}px ${commentCard.cardShadowColor || 'rgba(0,0,0,0.25)'}`
+                        : ((commentCard.theme === 'insta' || layoutTemplateMode === 'instagram') ? '0 4px 12px rgba(0,0,0,0.06)' : commentCard.theme === 'yt-dark' ? '0 10px 25px rgba(0,0,0,0.5)' : '0 10px 20px rgba(0,0,0,0.1)'),
+                    }}
                   >
                     <div className="flex items-center justify-between gap-2 mb-1.5">
                       <div className="flex items-center gap-2 min-w-0">
@@ -1833,7 +1891,14 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                       </div>
                       <span className="text-[9px] opacity-50 shrink-0">{commentCard.timeText || '방금 전'}</span>
                     </div>
-                    <p className="text-[12px] font-medium leading-relaxed break-words px-0.5 mb-2 whitespace-pre-line text-left">
+                    <p
+                      className="text-[12px] font-medium leading-relaxed break-words px-0.5 mb-2 whitespace-pre-line text-left"
+                      style={{
+                        color: commentCard.textColor || undefined,
+                        WebkitTextStroke: commentCard.textStrokeEnabled ? `${commentCard.textStrokeWidth || 1}px ${commentCard.textStrokeColor || '#000000'}` : 'none',
+                        textShadow: commentCard.textShadowEnabled ? `0 2px ${commentCard.textShadowBlur || 4}px ${commentCard.textShadowColor || 'rgba(0,0,0,0.5)'}` : 'none',
+                      }}
+                    >
                       {commentCard.text || '댓글 내용'}
                     </p>
                     <div className="flex items-center justify-between text-[10px] opacity-75 pt-1 border-t border-current/10">

@@ -26,6 +26,35 @@ const computeVideoCssFilter = (f?: VideoFilterConfig): string => {
   return str;
 };
 
+const formatWrappedText = (text: string, splitLimit: number = 14, maxLines: number = 2) => {
+  if (!text) return '';
+  let lines: string[] = [];
+  if (text.includes('\n')) {
+    lines = text.split('\n');
+  } else if (text.length <= splitLimit) {
+    lines = [text];
+  } else {
+    const words = text.split(' ');
+    let curLine = '';
+    for (const w of words) {
+      if ((curLine + ' ' + w).trim().length > splitLimit) {
+        if (curLine) lines.push(curLine.trim());
+        curLine = w;
+      } else {
+        curLine = curLine ? curLine + ' ' + w : w;
+      }
+    }
+    if (curLine) lines.push(curLine.trim());
+  }
+
+  if (maxLines > 0 && lines.length > maxLines) {
+    const preserved = lines.slice(0, maxLines - 1);
+    const remaining = lines.slice(maxLines - 1).join(' ');
+    lines = [...preserved, remaining];
+  }
+  return lines.join('\n');
+};
+
 export interface SsulCanvasLayoutProps {
   aspectRatio: '9:16' | '16:9' | '1:1';
   canvasScale: number;
@@ -39,6 +68,8 @@ export interface SsulCanvasLayoutProps {
   ssulConfig?: any;
   topTitleText?: string;
   currentSubtitleText?: string;
+  subtitleConfig?: any;
+  subtitleSplitLimit?: number;
   layers?: NleLayerObject[];
   trackVisibility?: { v1Video?: boolean; t1Title?: boolean; s1Subtitle?: boolean };
   videoFitMode?: any;
@@ -54,6 +85,14 @@ export interface SsulCanvasLayoutProps {
   videoFocusYPct?: number;
   videoRef?: any;
   isSlidingDown?: boolean;
+  videoBorderRadius?: number;
+  videoBorderEnabled?: boolean;
+  videoBorderWidth?: number;
+  videoBorderColor?: string;
+  videoShadowEnabled?: boolean;
+  videoShadowBlur?: number;
+  videoShadowColor?: string;
+  videoPaddingPct?: number;
 }
 
 export const SsulCanvasLayout: React.FC<SsulCanvasLayoutProps> = ({
@@ -68,6 +107,8 @@ export const SsulCanvasLayout: React.FC<SsulCanvasLayoutProps> = ({
   ssulConfig,
   topTitleText = '',
   currentSubtitleText = '',
+  subtitleConfig,
+  subtitleSplitLimit = 14,
   layers = [],
   trackVisibility = { v1Video: true, t1Title: true, s1Subtitle: true },
   videoFitMode = 'cover',
@@ -83,6 +124,14 @@ export const SsulCanvasLayout: React.FC<SsulCanvasLayoutProps> = ({
   videoFocusYPct = 50,
   videoRef,
   isSlidingDown = false,
+  videoBorderRadius,
+  videoBorderEnabled = false,
+  videoBorderWidth = 1,
+  videoBorderColor = '#FFFFFF',
+  videoShadowEnabled = false,
+  videoShadowBlur = 20,
+  videoShadowColor = 'rgba(0,0,0,0.3)',
+  videoPaddingPct = 0,
 }) => {
   const aspectScale = aspectRatio === '9:16' ? 1.0 : aspectRatio === '1:1' ? 0.9 : 0.75;
   const subtitleLayers = useMemo(() => layers.filter(l => l.type === 'subtitle'), [layers]);
@@ -105,6 +154,13 @@ export const SsulCanvasLayout: React.FC<SsulCanvasLayoutProps> = ({
     logoUrl: ssulConfig?.ssulHeader?.logoUrl,
     leftIcon: ssulConfig?.ssulHeader?.leftIcon || 'arrow_back',
     rightIcon: ssulConfig?.ssulHeader?.rightIcon || 'menu',
+    strokeEnabled: ssulConfig?.ssulHeader?.strokeEnabled ?? false,
+    strokeWidth: ssulConfig?.ssulHeader?.strokeWidth ?? 2,
+    strokeColor: ssulConfig?.ssulHeader?.strokeColor || '#000000',
+    shadowEnabled: ssulConfig?.ssulHeader?.shadowEnabled ?? false,
+    shadowBlur: ssulConfig?.ssulHeader?.shadowBlur ?? 4,
+    shadowColor: ssulConfig?.ssulHeader?.shadowColor || 'rgba(0,0,0,0.5)',
+    borderRadius: ssulConfig?.ssulHeader?.borderRadius ?? 0,
   };
 
   // 2. 게시글 제목 설정 (1줄 규격)
@@ -124,6 +180,9 @@ export const SsulCanvasLayout: React.FC<SsulCanvasLayoutProps> = ({
     shadowBlur: ssulConfig?.postTitle?.shadowBlur ?? 4,
     letterSpacing: ssulConfig?.postTitle?.letterSpacing ?? -0.5,
     lineHeight: ssulConfig?.postTitle?.lineHeight ?? 1.25,
+    boxEnabled: ssulConfig?.postTitle?.boxEnabled ?? false,
+    boxColor: ssulConfig?.postTitle?.boxColor || 'rgba(0,0,0,0.06)',
+    borderRadius: ssulConfig?.postTitle?.borderRadius ?? 4,
   };
 
   // 3. 메타데이터 설정
@@ -140,6 +199,12 @@ export const SsulCanvasLayout: React.FC<SsulCanvasLayoutProps> = ({
     font: ssulConfig?.metadata?.font || 'Pretendard',
     fontSizeMultiplier: ssulConfig?.metadata?.fontSizeMultiplier ?? 1.0,
     bold: ssulConfig?.metadata?.bold ?? false,
+    strokeEnabled: ssulConfig?.metadata?.strokeEnabled ?? false,
+    strokeWidth: ssulConfig?.metadata?.strokeWidth ?? 1,
+    strokeColor: ssulConfig?.metadata?.strokeColor || '#000000',
+    shadowEnabled: ssulConfig?.metadata?.shadowEnabled ?? false,
+    shadowBlur: ssulConfig?.metadata?.shadowBlur ?? 3,
+    shadowColor: ssulConfig?.metadata?.shadowColor || 'rgba(0,0,0,0.5)',
   };
 
   // 4. 구분선 설정
@@ -152,38 +217,39 @@ export const SsulCanvasLayout: React.FC<SsulCanvasLayoutProps> = ({
     opacity: ssulConfig?.divider?.opacity ?? 100,
   };
 
-  // 5. 자막 본문 설정
+  // 5. 자막 본문 설정 (글로벌 subtitleConfig 및 썰형 전용 스타일 완전 동기화)
   const ssulSubtitleConfig = {
-    font: ssulConfig?.ssulSubtitle?.font || 'Pretendard',
-    color: ssulConfig?.ssulSubtitle?.color || '#18181B',
+    font: subtitleConfig?.font || ssulConfig?.ssulSubtitle?.font || 'Pretendard',
+    color: subtitleConfig?.textColor || ssulConfig?.ssulSubtitle?.color || '#18181B',
     fontSizeMultiplier: ssulConfig?.ssulSubtitle?.fontSizeMultiplier ?? 1.0,
     align: (ssulConfig?.ssulSubtitle?.align as 'left' | 'center' | 'right') || 'left',
-    bold: ssulConfig?.ssulSubtitle?.bold ?? true,
-    italic: ssulConfig?.ssulSubtitle?.italic ?? false,
+    bold: (subtitleConfig?.isBold !== false && subtitleConfig?.bold !== false) ?? (ssulConfig?.ssulSubtitle?.bold ?? true),
+    italic: (subtitleConfig?.isItalic || subtitleConfig?.italic) ?? (ssulConfig?.ssulSubtitle?.italic ?? false),
     lineHeightMultiplier: ssulConfig?.ssulSubtitle?.lineHeightMultiplier ?? 1.4,
     letterSpacingPx: ssulConfig?.ssulSubtitle?.letterSpacingPx ?? 0,
-    boxEnabled: ssulConfig?.ssulSubtitle?.boxEnabled ?? false,
-    boxColor: ssulConfig?.ssulSubtitle?.boxColor || '#F3F4F6',
-    boxRadius: ssulConfig?.ssulSubtitle?.boxRadius ?? 4,
-    strokeEnabled: ssulConfig?.ssulSubtitle?.strokeEnabled ?? false,
-    strokeColor: ssulConfig?.ssulSubtitle?.strokeColor || '#000000',
-    strokeWidth: ssulConfig?.ssulSubtitle?.strokeWidth ?? 2,
-    shadowEnabled: ssulConfig?.ssulSubtitle?.shadowEnabled ?? false,
-    shadowColor: ssulConfig?.ssulSubtitle?.shadowColor || '#000000',
-    shadowBlur: ssulConfig?.ssulSubtitle?.shadowBlur ?? 4,
+    boxEnabled: subtitleConfig?.useBox !== undefined ? subtitleConfig.useBox : (ssulConfig?.ssulSubtitle?.boxEnabled ?? false),
+    boxColor: subtitleConfig?.boxColor || ssulConfig?.ssulSubtitle?.boxColor || '#F3F4F6',
+    boxRadius: subtitleConfig?.boxRadius ?? subtitleConfig?.borderRadius ?? ssulConfig?.ssulSubtitle?.boxRadius ?? 4,
+    strokeEnabled: (subtitleConfig?.outlineSize !== undefined ? subtitleConfig.outlineSize > 0 : ssulConfig?.ssulSubtitle?.strokeEnabled) ?? false,
+    strokeColor: subtitleConfig?.outlineColor || ssulConfig?.ssulSubtitle?.strokeColor || '#000000',
+    strokeWidth: subtitleConfig?.outlineSize ?? ssulConfig?.ssulSubtitle?.strokeWidth ?? 2,
+    shadowEnabled: (subtitleConfig?.shadowSize !== undefined ? subtitleConfig.shadowSize > 0 : ssulConfig?.ssulSubtitle?.shadowEnabled) ?? false,
+    shadowColor: subtitleConfig?.shadowColor || ssulConfig?.ssulSubtitle?.shadowColor || '#000000',
+    shadowBlur: (subtitleConfig?.shadowSize ? subtitleConfig.shadowSize * 2 : ssulConfig?.ssulSubtitle?.shadowBlur) ?? 4,
   };
 
-  // 6. 텍스트 디스플레이 3대 모드 연산
+  // 6. 텍스트 디스플레이 3대 모드 연산 (자동 줄바꿈 formatWrappedText 적용)
   const textMode: SsulTextMode = ssulConfig?.textMode || 'accumulate';
 
   const displayedLines = useMemo(() => {
+    const splitLimit = subtitleSplitLimit || (subtitleConfig as any)?.splitLimit || 16;
     if (textMode === 'accumulate') {
       if (isPlaying || currentTimeMs > 0) {
         const pastSubs = subtitleLayers.filter(l => l.visible && l.startMs <= currentTimeMs);
         if (pastSubs.length > 0) {
           return pastSubs.slice(-4).map(s => ({
             id: s.id,
-            text: s.data,
+            text: formatWrappedText(s.data, splitLimit, 2),
             isActive: activeSub?.id === s.id,
           }));
         }
@@ -191,20 +257,20 @@ export const SsulCanvasLayout: React.FC<SsulCanvasLayoutProps> = ({
       if (subtitleLayers.length > 0) {
         return subtitleLayers.slice(0, 3).map((s, idx) => ({
           id: s.id,
-          text: s.data,
+          text: formatWrappedText(s.data, splitLimit, 2),
           isActive: idx === 0,
         }));
       }
       return [
-        { id: 'l1', text: '오늘 회사에서 진짜 어처구니없는 일이 있었음', isActive: false },
-        { id: 'l2', text: '부장님이 갑자기 부르더니 커피 한잔하자고 함', isActive: false },
-        { id: 'l3', text: '그래서 따라갔더니 탕비실에서...', isActive: true },
+        { id: 'l1', text: formatWrappedText('오늘 회사에서 진짜 어처구니없는 일이 있었음', splitLimit, 2), isActive: false },
+        { id: 'l2', text: formatWrappedText('부장님이 갑자기 부르더니 커피 한잔하자고 함', splitLimit, 2), isActive: false },
+        { id: 'l3', text: formatWrappedText('그래서 따라갔더니 탕비실에서...', splitLimit, 2), isActive: true },
       ];
     } else {
       const text = activeSub?.data || (currentSubtitleText && currentSubtitleText !== '자막을 입력하거나 타임라인에서 자막을 선택하세요' ? currentSubtitleText : (subtitleLayers[0]?.data || '커뮤니티 게시글 본문 썰 자막이 여기에 표시됩니다.'));
-      return [{ id: activeSub?.id || 'single', text, isActive: true }];
+      return [{ id: activeSub?.id || 'single', text: formatWrappedText(text, splitLimit, 2), isActive: true }];
     }
-  }, [textMode, isPlaying, currentTimeMs, subtitleLayers, activeSub, currentSubtitleText]);
+  }, [textMode, isPlaying, currentTimeMs, subtitleLayers, activeSub, currentSubtitleText, subtitleSplitLimit, subtitleConfig]);
 
   // 7. 동적 카드 높이(%) 및 하단 비디오 top(%) 연산
   const cardHeightPct = useMemo(() => {
@@ -258,6 +324,7 @@ export const SsulCanvasLayout: React.FC<SsulCanvasLayoutProps> = ({
             style={{
               height: `${Math.round(44 * (ssulHeader.heightMultiplier || 1.0))}px`,
               backgroundColor: ssulHeader.bgColor || '#F7CF46',
+              borderRadius: ssulHeader.borderRadius ? `${ssulHeader.borderRadius}px ${ssulHeader.borderRadius}px 0 0` : 0,
             }}
             title="더블클릭하여 헤더 바 속성 편집"
           >
@@ -288,6 +355,8 @@ export const SsulCanvasLayout: React.FC<SsulCanvasLayoutProps> = ({
                 fontSize: `${Math.round(15 * (ssulHeader.fontSizeMultiplier || 1.0))}px`,
                 fontWeight: ssulHeader.bold ? 800 : 600,
                 fontStyle: ssulHeader.italic ? 'italic' : 'normal',
+                WebkitTextStroke: ssulHeader.strokeEnabled ? `${ssulHeader.strokeWidth}px ${ssulHeader.strokeColor}` : 'none',
+                textShadow: ssulHeader.shadowEnabled ? `0 2px ${ssulHeader.shadowBlur}px ${ssulHeader.shadowColor}` : 'none',
               }}
               className="flex-1 min-w-0 px-2 tracking-tight truncate text-center"
             >
@@ -339,6 +408,9 @@ export const SsulCanvasLayout: React.FC<SsulCanvasLayoutProps> = ({
                 textAlign: postTitleConfig.align || 'left',
                 WebkitTextStroke: postTitleConfig.strokeEnabled ? `${postTitleConfig.strokeWidth}px ${postTitleConfig.strokeColor}` : 'none',
                 textShadow: postTitleConfig.shadowEnabled ? `0 2px ${postTitleConfig.shadowBlur}px ${postTitleConfig.shadowColor}` : 'none',
+                backgroundColor: postTitleConfig.boxEnabled ? postTitleConfig.boxColor : 'transparent',
+                borderRadius: postTitleConfig.boxEnabled ? `${postTitleConfig.borderRadius}px` : 0,
+                padding: postTitleConfig.boxEnabled ? '2px 8px' : 0,
               }}
               className="tracking-tight whitespace-nowrap overflow-hidden text-ellipsis break-keep font-extrabold"
             >
@@ -365,6 +437,8 @@ export const SsulCanvasLayout: React.FC<SsulCanvasLayoutProps> = ({
               fontFamily: metadataConfig.font || 'Pretendard',
               fontSize: `${Math.round(12 * (metadataConfig.fontSizeMultiplier || 1.0))}px`,
               fontWeight: metadataConfig.bold ? 700 : 400,
+              WebkitTextStroke: metadataConfig.strokeEnabled ? `${metadataConfig.strokeWidth}px ${metadataConfig.strokeColor}` : 'none',
+              textShadow: metadataConfig.shadowEnabled ? `0 1px ${metadataConfig.shadowBlur}px ${metadataConfig.shadowColor}` : 'none',
             }}
             title="더블클릭하여 메타데이터 속성 편집"
           >
@@ -489,10 +563,13 @@ export const SsulCanvasLayout: React.FC<SsulCanvasLayoutProps> = ({
           top: `${videoTopPct}%`,
           height: `${videoHeightPct}%`,
           bottom: '2%',
-          left: '3%',
-          right: '3%',
-          borderRadius: '12px',
-          boxShadow: '0 8px 20px -4px rgba(0,0,0,0.15), 0 0 0 1px rgba(0,0,0,0.06)',
+          left: `${videoPaddingPct !== undefined && videoPaddingPct > 0 ? videoPaddingPct : 3}%`,
+          right: `${videoPaddingPct !== undefined && videoPaddingPct > 0 ? videoPaddingPct : 3}%`,
+          borderRadius: `${videoBorderRadius !== undefined ? videoBorderRadius : 12}px`,
+          border: videoBorderEnabled ? `${videoBorderWidth || 1}px solid ${videoBorderColor || '#FFFFFF'}` : undefined,
+          boxShadow: videoShadowEnabled
+            ? `0 8px ${videoShadowBlur || 20}px -4px ${videoShadowColor || 'rgba(0,0,0,0.3)'}`
+            : '0 8px 20px -4px rgba(0,0,0,0.15), 0 0 0 1px rgba(0,0,0,0.06)',
           zIndex: videoZIndex,
           opacity: trackVisibility.v1Video ? 1 : 0,
           transition: 'top 0.35s cubic-bezier(0.2, 0.8, 0.2, 1), height 0.35s cubic-bezier(0.2, 0.8, 0.2, 1)',

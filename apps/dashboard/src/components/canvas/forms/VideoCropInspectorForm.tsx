@@ -1,10 +1,12 @@
 import React from 'react';
-import { Crop, Sparkles, Sliders, RotateCcw, FlipHorizontal, FlipVertical, Crosshair, RefreshCw } from 'lucide-react';
+import { Crop, Sparkles, Sliders, RotateCcw, FlipHorizontal, FlipVertical, Crosshair, RefreshCw, Square } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
+import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/components/ui/use-toast';
 import { UnitSliderControl } from '../controls/UnitSliderControl';
+import { ColorPicker8Preset } from '../controls/ColorPicker8Preset';
 
 export type VideoFitMode = 'sandwich' | 'fullscreen' | 'fit-center' | 'fit-top' | 'center' | 'top_heavy' | 'bottom_heavy' | 'custom';
 
@@ -25,6 +27,25 @@ export interface VideoCropInspectorFormProps {
   setVideoVerticalFlip: (val: boolean | ((prev: boolean) => boolean)) => void;
   videoBlurBg: boolean;
   setVideoBlurBg: (val: boolean | ((prev: boolean) => boolean)) => void;
+  videoBorderRadius?: number;
+  setVideoBorderRadius?: (val: number | ((prev: number) => number)) => void;
+  videoBorderEnabled?: boolean;
+  setVideoBorderEnabled?: (val: boolean | ((prev: boolean) => boolean)) => void;
+  videoBorderWidth?: number;
+  setVideoBorderWidth?: (val: number | ((prev: number) => number)) => void;
+  videoBorderColor?: string;
+  setVideoBorderColor?: (val: string | ((prev: string) => string)) => void;
+  videoShadowEnabled?: boolean;
+  setVideoShadowEnabled?: (val: boolean | ((prev: boolean) => boolean)) => void;
+  videoShadowBlur?: number;
+  setVideoShadowBlur?: (val: number | ((prev: number) => number)) => void;
+  videoShadowColor?: string;
+  setVideoShadowColor?: (val: string | ((prev: string) => string)) => void;
+  videoPaddingPct?: number;
+  setVideoPaddingPct?: (val: number | ((prev: number) => number)) => void;
+  layoutTemplateMode?: string;
+  instaConfig?: any;
+  setInstaConfig?: any;
 }
 
 export const VideoCropInspectorForm: React.FC<VideoCropInspectorFormProps> = ({
@@ -44,8 +65,50 @@ export const VideoCropInspectorForm: React.FC<VideoCropInspectorFormProps> = ({
   setVideoVerticalFlip,
   videoBlurBg,
   setVideoBlurBg,
+  videoBorderRadius = 0,
+  setVideoBorderRadius,
+  videoBorderEnabled = false,
+  setVideoBorderEnabled,
+  videoBorderWidth = 1,
+  setVideoBorderWidth,
+  videoBorderColor = '#FFFFFF',
+  setVideoBorderColor,
+  videoShadowEnabled = false,
+  setVideoShadowEnabled,
+  videoShadowBlur = 10,
+  setVideoShadowBlur,
+  videoShadowColor = 'rgba(0,0,0,0.6)',
+  setVideoShadowColor,
+  videoPaddingPct = 0,
+  setVideoPaddingPct,
+  layoutTemplateMode = 'classic',
+  instaConfig,
+  setInstaConfig,
 }) => {
   const { toast } = useToast();
+
+  const currentBorderRadius = layoutTemplateMode === 'instagram' && instaConfig?.holeRoundness !== undefined
+    ? instaConfig.holeRoundness
+    : (layoutTemplateMode === 'ssul' && videoBorderRadius === 0 ? 12 : videoBorderRadius);
+
+  const currentBorderEnabled = layoutTemplateMode === 'instagram'
+    ? (instaConfig?.holeBorderWidth ?? 0) > 0
+    : videoBorderEnabled;
+
+  const currentBorderWidth = layoutTemplateMode === 'instagram'
+    ? (instaConfig?.holeBorderWidth || 1)
+    : videoBorderWidth;
+
+  const currentBorderColor = layoutTemplateMode === 'instagram'
+    ? (instaConfig?.holeBorderColor || '#E5E7EB')
+    : videoBorderColor;
+
+  const currentShadowEnabled = layoutTemplateMode === 'instagram'
+    ? !!instaConfig?.holeShadow
+    : videoShadowEnabled;
+
+  const currentShadowBlur = videoShadowBlur;
+  const currentShadowColor = videoShadowColor;
   return (
 <div className="space-y-3">
                 <div className="p-2.5 border border-border bg-card rounded-[2px] space-y-3 shadow-2xs">
@@ -242,6 +305,132 @@ export const VideoCropInspectorForm: React.FC<VideoCropInspectorFormProps> = ({
                         ⇅ 상하
                       </button>
                     </div>
+                  </div>
+                </div>
+
+                {/* 🖼️ 비디오 외곽 프레임 디자인 (라운드 & 테두리 & 그림자 & 여백) */}
+                <div className="p-2.5 border border-border bg-card rounded-[2px] space-y-3 shadow-2xs">
+                  <div className="flex items-center justify-between border-b border-border pb-1.5">
+                    <span className="text-[11px] font-bold text-foreground flex items-center gap-1.5">
+                      <Square className="w-3.5 h-3.5 text-sky-500" />
+                      비디오 외곽 디자인 (라운드 & 테두리 & 그림자)
+                    </span>
+                    <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/30 font-bold">
+                      외곽 스타일
+                    </Badge>
+                  </div>
+
+                  {/* 1. 모서리 둥글기 (Border Radius) */}
+                  <div className="p-2 bg-muted/20 border border-border rounded-[2px]">
+                    <UnitSliderControl
+                      label="모서리 모양 (둥글기)"
+                      value={currentBorderRadius}
+                      min={0}
+                      max={48}
+                      step={1}
+                      unit="px"
+                      onChange={(val) => {
+                        setVideoBorderRadius?.(val);
+                        if (layoutTemplateMode === 'instagram' && setInstaConfig) {
+                          setInstaConfig((prev: any) => ({ ...prev, holeRoundness: val }));
+                        }
+                      }}
+                    />
+                  </div>
+
+                  {/* 2. 외곽선 테두리 (Border / Stroke) */}
+                  <div className="space-y-2 p-2 bg-muted/20 border border-border rounded-[2px]">
+                    <div className="flex items-center justify-between text-[11px]">
+                      <span className="font-semibold text-foreground">외곽 테두리 (선)</span>
+                      <Switch
+                        checked={currentBorderEnabled}
+                        onCheckedChange={(chk) => {
+                          setVideoBorderEnabled?.(chk);
+                          if (layoutTemplateMode === 'instagram' && setInstaConfig) {
+                            setInstaConfig((prev: any) => ({ ...prev, holeBorderWidth: chk ? (prev?.holeBorderWidth || 1) : 0 }));
+                          }
+                        }}
+                      />
+                    </div>
+                    {currentBorderEnabled && (
+                      <div className="space-y-2 pt-1.5 border-t border-border/50">
+                        <UnitSliderControl
+                          label="테두리 두께"
+                          value={currentBorderWidth}
+                          min={1}
+                          max={12}
+                          step={1}
+                          unit="px"
+                          onChange={(val) => {
+                            setVideoBorderWidth?.(val);
+                            if (layoutTemplateMode === 'instagram' && setInstaConfig) {
+                              setInstaConfig((prev: any) => ({ ...prev, holeBorderWidth: val }));
+                            }
+                          }}
+                        />
+                        <ColorPicker8Preset
+                          label="테두리 색상"
+                          value={currentBorderColor}
+                          onChange={(val) => {
+                            setVideoBorderColor?.(val);
+                            if (layoutTemplateMode === 'instagram' && setInstaConfig) {
+                              setInstaConfig((prev: any) => ({ ...prev, holeBorderColor: val }));
+                            }
+                          }}
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 3. 외곽 입체 그림자 (Box Shadow) */}
+                  <div className="space-y-2 p-2 bg-muted/20 border border-border rounded-[2px]">
+                    <div className="flex items-center justify-between text-[11px]">
+                      <span className="font-semibold text-foreground">외곽 입체 그림자</span>
+                      <Switch
+                        checked={currentShadowEnabled}
+                        onCheckedChange={(chk) => {
+                          setVideoShadowEnabled?.(chk);
+                          if (layoutTemplateMode === 'instagram' && setInstaConfig) {
+                            setInstaConfig((prev: any) => ({ ...prev, holeShadow: chk }));
+                          }
+                        }}
+                      />
+                    </div>
+                    {currentShadowEnabled && (
+                      <div className="space-y-2 pt-1.5 border-t border-border/50">
+                        <UnitSliderControl
+                          label="그림자 크기 (Blur)"
+                          value={currentShadowBlur}
+                          min={1}
+                          max={30}
+                          step={1}
+                          unit="px"
+                          onChange={(val) => {
+                            setVideoShadowBlur?.(val);
+                          }}
+                        />
+                        <ColorPicker8Preset
+                          label="그림자 색상"
+                          value={currentShadowColor}
+                          onChange={(val) => {
+                            setVideoShadowColor?.(val);
+                          }}
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 4. 외곽 여백 (Margin / Inset) */}
+                  <div className="p-2 bg-muted/20 border border-border rounded-[2px]">
+                    <UnitSliderControl
+                      label="외곽 프레임 여백"
+                      value={videoPaddingPct ?? 0}
+                      min={0}
+                      max={15}
+                      step={0.5}
+                      unit="%"
+                      onChange={(val) => setVideoPaddingPct?.(val)}
+                    />
                   </div>
                 </div>
               </div>

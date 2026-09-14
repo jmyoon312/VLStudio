@@ -196,6 +196,110 @@ export const TitleSourceInspectorForm: React.FC<TitleSourceInspectorFormProps> =
                 </div>
               </div>
             )}
+
+            {/* 🎨 글자 테두리 (외곽선) */}
+            <div className="space-y-2 p-2 bg-muted/20 border border-border rounded-[2px]">
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="font-semibold text-foreground">글자 테두리 (외곽선)</span>
+                <Switch checked={titleStroke} onCheckedChange={setTitleStroke} />
+              </div>
+              {titleStroke && (
+                <div className="space-y-2 pt-1.5 border-t border-border/50">
+                  <UnitSliderControl
+                    label="테두리 두께"
+                    value={titleStrokeWidth ?? 2}
+                    min={1}
+                    max={10}
+                    step={1}
+                    unit="px"
+                    onChange={setTitleStrokeWidth}
+                  />
+                  <ColorPicker8Preset
+                    label="테두리 색상"
+                    value={titleStrokeColor}
+                    onChange={setTitleStrokeColor}
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* 🌌 글자 그림자 (Shadow) */}
+            <div className="space-y-2 p-2 bg-muted/20 border border-border rounded-[2px]">
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="font-semibold text-foreground">글자 그림자 (Shadow)</span>
+                <Switch checked={titleShadow} onCheckedChange={setTitleShadow} />
+              </div>
+              {titleShadow && (
+                <div className="space-y-2 pt-1.5 border-t border-border/50">
+                  <UnitSliderControl
+                    label="그림자 흐림 (Blur)"
+                    value={titleShadowBlur ?? 4}
+                    min={0}
+                    max={20}
+                    step={1}
+                    unit="px"
+                    onChange={setTitleShadowBlur}
+                  />
+                  <ColorPicker8Preset
+                    label="그림자 색상"
+                    value={titleShadowColor || '#000000'}
+                    onChange={setTitleShadowColor}
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* 🔲 배경 박스 & 모서리 둥글기 */}
+            <div className="space-y-2 p-2 bg-muted/20 border border-border rounded-[2px]">
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="font-semibold text-foreground">배경 박스</span>
+                <div className="flex gap-1">
+                  {(['none', 'box', 'pill'] as const).map((m) => (
+                    <button
+                      key={m}
+                      type="button"
+                      onClick={() => setTitleBgMode(m)}
+                      className={cn(
+                        "px-2 py-0.5 text-[10px] rounded font-medium cursor-pointer transition",
+                        titleBgMode === m ? "bg-primary text-primary-foreground shadow-2xs font-bold" : "bg-muted text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      {m === 'none' ? '없음' : m === 'box' ? '박스' : '알약'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {titleBgMode !== 'none' && (
+                <div className="space-y-2 pt-1.5 border-t border-border/50">
+                  <ColorPicker8Preset
+                    label="배경 색상"
+                    value={titleBgColor || '#000000'}
+                    onChange={setTitleBgColor}
+                  />
+                  {titleBgMode === 'box' && (
+                    <UnitSliderControl
+                      label="모서리 모양 (둥글기)"
+                      value={titleBorderRadius ?? 4}
+                      min={0}
+                      max={30}
+                      step={1}
+                      unit="px"
+                      onChange={setTitleBorderRadius}
+                    />
+                  )}
+                  <UnitSliderControl
+                    label="내부 패딩"
+                    value={titlePaddingX ?? 8}
+                    min={2}
+                    max={24}
+                    step={1}
+                    unit="px"
+                    onChange={setTitlePaddingX}
+                  />
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -301,6 +405,110 @@ export const TitleSourceInspectorForm: React.FC<TitleSourceInspectorFormProps> =
                 />
               </div>
             </div>
+
+            {/* 🎨 글자 테두리 (외곽선) */}
+            <div className="space-y-2 p-2 bg-muted/20 border border-border rounded-[2px]">
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="font-semibold text-foreground">글자 테두리 (외곽선)</span>
+                <Switch checked={titleStroke} onCheckedChange={setTitleStroke} />
+              </div>
+              {titleStroke && (
+                <div className="space-y-2 pt-1.5 border-t border-border/50">
+                  <UnitSliderControl
+                    label="테두리 두께"
+                    value={titleStrokeWidth ?? 2}
+                    min={1}
+                    max={10}
+                    step={1}
+                    unit="px"
+                    onChange={setTitleStrokeWidth}
+                  />
+                  <ColorPicker8Preset
+                    label="테두리 색상"
+                    value={titleStrokeColor}
+                    onChange={setTitleStrokeColor}
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* 🌌 글자 그림자 (Shadow) */}
+            <div className="space-y-2 p-2 bg-muted/20 border border-border rounded-[2px]">
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="font-semibold text-foreground">글자 그림자 (Shadow)</span>
+                <Switch checked={titleShadow} onCheckedChange={setTitleShadow} />
+              </div>
+              {titleShadow && (
+                <div className="space-y-2 pt-1.5 border-t border-border/50">
+                  <UnitSliderControl
+                    label="그림자 흐림 (Blur)"
+                    value={titleShadowBlur ?? 4}
+                    min={0}
+                    max={20}
+                    step={1}
+                    unit="px"
+                    onChange={setTitleShadowBlur}
+                  />
+                  <ColorPicker8Preset
+                    label="그림자 색상"
+                    value={titleShadowColor || '#000000'}
+                    onChange={setTitleShadowColor}
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* 🔲 배경 박스 & 모서리 둥글기 */}
+            <div className="space-y-2 p-2 bg-muted/20 border border-border rounded-[2px]">
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="font-semibold text-foreground">배경 박스</span>
+                <div className="flex gap-1">
+                  {(['none', 'box', 'pill'] as const).map((m) => (
+                    <button
+                      key={m}
+                      type="button"
+                      onClick={() => setTitleBgMode(m)}
+                      className={cn(
+                        "px-2 py-0.5 text-[10px] rounded font-medium cursor-pointer transition",
+                        titleBgMode === m ? "bg-primary text-primary-foreground shadow-2xs font-bold" : "bg-muted text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      {m === 'none' ? '없음' : m === 'box' ? '박스' : '알약'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {titleBgMode !== 'none' && (
+                <div className="space-y-2 pt-1.5 border-t border-border/50">
+                  <ColorPicker8Preset
+                    label="배경 색상"
+                    value={titleBgColor || '#000000'}
+                    onChange={setTitleBgColor}
+                  />
+                  {titleBgMode === 'box' && (
+                    <UnitSliderControl
+                      label="모서리 모양 (둥글기)"
+                      value={titleBorderRadius ?? 4}
+                      min={0}
+                      max={30}
+                      step={1}
+                      unit="px"
+                      onChange={setTitleBorderRadius}
+                    />
+                  )}
+                  <UnitSliderControl
+                    label="내부 패딩"
+                    value={titlePaddingX ?? 8}
+                    min={2}
+                    max={24}
+                    step={1}
+                    unit="px"
+                    onChange={setTitlePaddingX}
+                  />
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -362,6 +570,149 @@ export const TitleSourceInspectorForm: React.FC<TitleSourceInspectorFormProps> =
                   }));
                 }}
               />
+            </div>
+
+            {/* 🎨 글자 테두리 (외곽선) */}
+            <div className="space-y-2 p-2 bg-muted/20 border border-border rounded-[2px]">
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="font-semibold text-foreground">글자 테두리 (외곽선)</span>
+                <Switch
+                  checked={ssulConfig?.postTitle?.strokeEnabled ?? titleStroke}
+                  onCheckedChange={(chk) => {
+                    setTitleStroke(chk);
+                    setSsulConfig?.((prev: any) => ({
+                      ...prev,
+                      postTitle: { ...(prev?.postTitle || {}), strokeEnabled: chk },
+                    }));
+                  }}
+                />
+              </div>
+              {(ssulConfig?.postTitle?.strokeEnabled ?? titleStroke) && (
+                <div className="space-y-2 pt-1.5 border-t border-border/50">
+                  <UnitSliderControl
+                    label="테두리 두께"
+                    value={ssulConfig?.postTitle?.strokeWidth ?? titleStrokeWidth ?? 2}
+                    min={1}
+                    max={10}
+                    step={1}
+                    unit="px"
+                    onChange={(val) => {
+                      setTitleStrokeWidth(val);
+                      setSsulConfig?.((prev: any) => ({
+                        ...prev,
+                        postTitle: { ...(prev?.postTitle || {}), strokeWidth: val },
+                      }));
+                    }}
+                  />
+                  <ColorPicker8Preset
+                    label="테두리 색상"
+                    value={ssulConfig?.postTitle?.strokeColor || titleStrokeColor}
+                    onChange={(val) => {
+                      setTitleStrokeColor(val);
+                      setSsulConfig?.((prev: any) => ({
+                        ...prev,
+                        postTitle: { ...(prev?.postTitle || {}), strokeColor: val },
+                      }));
+                    }}
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* 🌌 글자 그림자 (Shadow) */}
+            <div className="space-y-2 p-2 bg-muted/20 border border-border rounded-[2px]">
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="font-semibold text-foreground">글자 그림자 (Shadow)</span>
+                <Switch
+                  checked={ssulConfig?.postTitle?.shadowEnabled ?? titleShadow}
+                  onCheckedChange={(chk) => {
+                    setTitleShadow(chk);
+                    setSsulConfig?.((prev: any) => ({
+                      ...prev,
+                      postTitle: { ...(prev?.postTitle || {}), shadowEnabled: chk },
+                    }));
+                  }}
+                />
+              </div>
+              {(ssulConfig?.postTitle?.shadowEnabled ?? titleShadow) && (
+                <div className="space-y-2 pt-1.5 border-t border-border/50">
+                  <UnitSliderControl
+                    label="그림자 흐림 (Blur)"
+                    value={ssulConfig?.postTitle?.shadowBlur ?? titleShadowBlur ?? 4}
+                    min={0}
+                    max={20}
+                    step={1}
+                    unit="px"
+                    onChange={(val) => {
+                      setTitleShadowBlur(val);
+                      setSsulConfig?.((prev: any) => ({
+                        ...prev,
+                        postTitle: { ...(prev?.postTitle || {}), shadowBlur: val },
+                      }));
+                    }}
+                  />
+                  <ColorPicker8Preset
+                    label="그림자 색상"
+                    value={ssulConfig?.postTitle?.shadowColor || titleShadowColor || '#000000'}
+                    onChange={(val) => {
+                      setTitleShadowColor(val);
+                      setSsulConfig?.((prev: any) => ({
+                        ...prev,
+                        postTitle: { ...(prev?.postTitle || {}), shadowColor: val },
+                      }));
+                    }}
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* 🔲 배경 박스 & 모서리 둥글기 */}
+            <div className="space-y-2 p-2 bg-muted/20 border border-border rounded-[2px]">
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="font-semibold text-foreground">배경 박스</span>
+                <Switch
+                  checked={(ssulConfig?.postTitle?.bgMode && ssulConfig.postTitle.bgMode !== 'none') || titleBgMode !== 'none'}
+                  onCheckedChange={(chk) => {
+                    const mode = chk ? 'box' : 'none';
+                    setTitleBgMode(mode);
+                    setSsulConfig?.((prev: any) => ({
+                      ...prev,
+                      postTitle: { ...(prev?.postTitle || {}), bgMode: mode },
+                    }));
+                  }}
+                />
+              </div>
+
+              {((ssulConfig?.postTitle?.bgMode && ssulConfig.postTitle.bgMode !== 'none') || titleBgMode !== 'none') && (
+                <div className="space-y-2 pt-1.5 border-t border-border/50">
+                  <ColorPicker8Preset
+                    label="배경 색상"
+                    value={ssulConfig?.postTitle?.bgColor || titleBgColor || '#F3F4F6'}
+                    onChange={(val) => {
+                      setTitleBgColor(val);
+                      setSsulConfig?.((prev: any) => ({
+                        ...prev,
+                        postTitle: { ...(prev?.postTitle || {}), bgColor: val },
+                      }));
+                    }}
+                  />
+                  <UnitSliderControl
+                    label="모서리 모양 (둥글기)"
+                    value={ssulConfig?.postTitle?.borderRadius ?? titleBorderRadius ?? 4}
+                    min={0}
+                    max={30}
+                    step={1}
+                    unit="px"
+                    onChange={(val) => {
+                      setTitleBorderRadius(val);
+                      setSsulConfig?.((prev: any) => ({
+                        ...prev,
+                        postTitle: { ...(prev?.postTitle || {}), borderRadius: val },
+                      }));
+                    }}
+                  />
+                </div>
+              )}
             </div>
           </div>
         </div>

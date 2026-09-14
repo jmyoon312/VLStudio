@@ -36,6 +36,13 @@ export const SsulObjectInspectorForm: React.FC<SsulObjectInspectorFormProps> = (
       logoUrl: ssulConfig?.ssulHeader?.logoUrl,
       leftIcon: ssulConfig?.ssulHeader?.leftIcon || 'arrow_back',
       rightIcon: ssulConfig?.ssulHeader?.rightIcon || 'menu',
+      strokeEnabled: ssulConfig?.ssulHeader?.strokeEnabled ?? false,
+      strokeWidth: ssulConfig?.ssulHeader?.strokeWidth ?? 2,
+      strokeColor: ssulConfig?.ssulHeader?.strokeColor || '#000000',
+      shadowEnabled: ssulConfig?.ssulHeader?.shadowEnabled ?? false,
+      shadowBlur: ssulConfig?.ssulHeader?.shadowBlur ?? 4,
+      shadowColor: ssulConfig?.ssulHeader?.shadowColor || 'rgba(0,0,0,0.5)',
+      borderRadius: ssulConfig?.ssulHeader?.borderRadius ?? 0,
     };
 
     const updateHeader = (patch: Partial<typeof header>) => {
@@ -88,6 +95,75 @@ export const SsulObjectInspectorForm: React.FC<SsulObjectInspectorFormProps> = (
                 label="글자 색상"
                 value={header.textColor}
                 onChange={(val) => updateHeader({ textColor: val })}
+              />
+
+              {/* 글자 테두리 (외곽선) */}
+              <div className="space-y-1.5 pt-1.5 border-t border-border/50">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-semibold text-muted-foreground">글자 테두리 (외곽선)</span>
+                  <Switch
+                    checked={!!header.strokeEnabled}
+                    onCheckedChange={(c) => updateHeader({ strokeEnabled: c })}
+                  />
+                </div>
+                {header.strokeEnabled && (
+                  <div className="space-y-1.5 pl-1 border-l-2 border-primary/30">
+                    <UnitSliderControl
+                      label="외곽선 두께"
+                      value={header.strokeWidth ?? 2}
+                      min={1}
+                      max={6}
+                      step={1}
+                      unit="px"
+                      onChange={(v) => updateHeader({ strokeWidth: v })}
+                    />
+                    <ColorPicker8Preset
+                      label="외곽선 색상"
+                      value={header.strokeColor || '#000000'}
+                      onChange={(c) => updateHeader({ strokeColor: c })}
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* 글자 입체 그림자 */}
+              <div className="space-y-1.5 pt-1.5 border-t border-border/50">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-semibold text-muted-foreground">글자 입체 그림자</span>
+                  <Switch
+                    checked={!!header.shadowEnabled}
+                    onCheckedChange={(c) => updateHeader({ shadowEnabled: c })}
+                  />
+                </div>
+                {header.shadowEnabled && (
+                  <div className="space-y-1.5 pl-1 border-l-2 border-primary/30">
+                    <UnitSliderControl
+                      label="그림자 흐림"
+                      value={header.shadowBlur ?? 4}
+                      min={0}
+                      max={16}
+                      step={1}
+                      unit="px"
+                      onChange={(v) => updateHeader({ shadowBlur: v })}
+                    />
+                    <ColorPicker8Preset
+                      label="그림자 색상"
+                      value={header.shadowColor || 'rgba(0,0,0,0.5)'}
+                      onChange={(c) => updateHeader({ shadowColor: c })}
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* 헤더 모서리 둥글기 */}
+              <UnitSliderControl
+                label="헤더 모서리 둥글기"
+                value={header.borderRadius ?? 0}
+                min={0}
+                max={24}
+                step={2}
+                unit="px"
+                onChange={(val) => updateHeader({ borderRadius: val })}
               />
 
               {/* 좌측 아이콘 선택 */}
@@ -145,6 +221,12 @@ export const SsulObjectInspectorForm: React.FC<SsulObjectInspectorFormProps> = (
       separator: ssulConfig?.metadata?.separator || 'dot',
       color: ssulConfig?.metadata?.color || '#71717A',
       bold: ssulConfig?.metadata?.bold ?? false,
+      strokeEnabled: ssulConfig?.metadata?.strokeEnabled ?? false,
+      strokeWidth: ssulConfig?.metadata?.strokeWidth ?? 1,
+      strokeColor: ssulConfig?.metadata?.strokeColor || '#000000',
+      shadowEnabled: ssulConfig?.metadata?.shadowEnabled ?? false,
+      shadowBlur: ssulConfig?.metadata?.shadowBlur ?? 3,
+      shadowColor: ssulConfig?.metadata?.shadowColor || 'rgba(0,0,0,0.5)',
     };
 
     const updateMeta = (patch: Partial<typeof meta>) => {
@@ -261,6 +343,64 @@ export const SsulObjectInspectorForm: React.FC<SsulObjectInspectorFormProps> = (
               value={meta.color}
               onChange={(val) => updateMeta({ color: val })}
             />
+
+            {/* 글자 테두리 (외곽선) */}
+            <div className="space-y-1.5 pt-1.5 border-t border-border/50">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-semibold text-muted-foreground">글자 테두리 (외곽선)</span>
+                <Switch
+                  checked={!!meta.strokeEnabled}
+                  onCheckedChange={(c) => updateMeta({ strokeEnabled: c })}
+                />
+              </div>
+              {meta.strokeEnabled && (
+                <div className="space-y-1.5 pl-1 border-l-2 border-primary/30">
+                  <UnitSliderControl
+                    label="외곽선 두께"
+                    value={meta.strokeWidth ?? 1}
+                    min={1}
+                    max={6}
+                    step={1}
+                    unit="px"
+                    onChange={(v) => updateMeta({ strokeWidth: v })}
+                  />
+                  <ColorPicker8Preset
+                    label="외곽선 색상"
+                    value={meta.strokeColor || '#000000'}
+                    onChange={(c) => updateMeta({ strokeColor: c })}
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* 글자 입체 그림자 */}
+            <div className="space-y-1.5 pt-1.5 border-t border-border/50">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-semibold text-muted-foreground">글자 입체 그림자</span>
+                <Switch
+                  checked={!!meta.shadowEnabled}
+                  onCheckedChange={(c) => updateMeta({ shadowEnabled: c })}
+                />
+              </div>
+              {meta.shadowEnabled && (
+                <div className="space-y-1.5 pl-1 border-l-2 border-primary/30">
+                  <UnitSliderControl
+                    label="그림자 흐림"
+                    value={meta.shadowBlur ?? 3}
+                    min={0}
+                    max={16}
+                    step={1}
+                    unit="px"
+                    onChange={(v) => updateMeta({ shadowBlur: v })}
+                  />
+                  <ColorPicker8Preset
+                    label="그림자 색상"
+                    value={meta.shadowColor || 'rgba(0,0,0,0.5)'}
+                    onChange={(c) => updateMeta({ shadowColor: c })}
+                  />
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>

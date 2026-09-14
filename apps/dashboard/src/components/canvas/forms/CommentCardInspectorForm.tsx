@@ -30,6 +30,18 @@ export interface CommentCardConfig {
   borderRadius?: number;
   offsetX?: number;
   offsetY?: number;
+  textStrokeEnabled?: boolean;
+  textStrokeWidth?: number;
+  textStrokeColor?: string;
+  textShadowEnabled?: boolean;
+  textShadowBlur?: number;
+  textShadowColor?: string;
+  borderEnabled?: boolean;
+  borderWidth?: number;
+  borderColor?: string;
+  cardShadowEnabled?: boolean;
+  cardShadowBlur?: number;
+  cardShadowColor?: string;
 }
 
 export interface CommentCardInspectorFormProps {
@@ -208,6 +220,122 @@ export const CommentCardInspectorForm: React.FC<CommentCardInspectorFormProps> =
                         unit="px"
                         onChange={(v) => setCommentCard(prev => ({ ...prev, borderRadius: v }))}
                       />
+
+                      {/* 1. 본문 글자 테두리 (외곽선) */}
+                      <div className="space-y-1.5 pt-1.5 border-t border-border/50">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-semibold text-muted-foreground">본문 글자 테두리 (외곽선)</span>
+                          <Switch
+                            checked={!!commentCard.textStrokeEnabled}
+                            onCheckedChange={(c) => setCommentCard(prev => ({ ...prev, textStrokeEnabled: c }))}
+                          />
+                        </div>
+                        {commentCard.textStrokeEnabled && (
+                          <div className="space-y-1.5 pl-1 border-l-2 border-primary/30">
+                            <UnitSliderControl
+                              label="외곽선 두께"
+                              value={commentCard.textStrokeWidth ?? 1}
+                              min={1}
+                              max={6}
+                              step={1}
+                              unit="px"
+                              onChange={(v) => setCommentCard(prev => ({ ...prev, textStrokeWidth: v }))}
+                            />
+                            <ColorPicker8Preset
+                              label="외곽선 색상"
+                              value={commentCard.textStrokeColor || '#000000'}
+                              onChange={(c) => setCommentCard(prev => ({ ...prev, textStrokeColor: c }))}
+                            />
+                          </div>
+                        )}
+                      </div>
+
+                      {/* 2. 본문 글자 입체 그림자 */}
+                      <div className="space-y-1.5 pt-1.5 border-t border-border/50">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-semibold text-muted-foreground">본문 글자 그림자</span>
+                          <Switch
+                            checked={!!commentCard.textShadowEnabled}
+                            onCheckedChange={(c) => setCommentCard(prev => ({ ...prev, textShadowEnabled: c }))}
+                          />
+                        </div>
+                        {commentCard.textShadowEnabled && (
+                          <div className="space-y-1.5 pl-1 border-l-2 border-primary/30">
+                            <UnitSliderControl
+                              label="그림자 흐림"
+                              value={commentCard.textShadowBlur ?? 4}
+                              min={0}
+                              max={16}
+                              step={1}
+                              unit="px"
+                              onChange={(v) => setCommentCard(prev => ({ ...prev, textShadowBlur: v }))}
+                            />
+                            <ColorPicker8Preset
+                              label="그림자 색상"
+                              value={commentCard.textShadowColor || 'rgba(0,0,0,0.6)'}
+                              onChange={(c) => setCommentCard(prev => ({ ...prev, textShadowColor: c }))}
+                            />
+                          </div>
+                        )}
+                      </div>
+
+                      {/* 3. 카드 외곽 테두리 (Border) */}
+                      <div className="space-y-1.5 pt-1.5 border-t border-border/50">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-semibold text-muted-foreground">카드 외곽 테두리 (Border)</span>
+                          <Switch
+                            checked={!!commentCard.borderEnabled}
+                            onCheckedChange={(c) => setCommentCard(prev => ({ ...prev, borderEnabled: c }))}
+                          />
+                        </div>
+                        {commentCard.borderEnabled && (
+                          <div className="space-y-1.5 pl-1 border-l-2 border-primary/30">
+                            <UnitSliderControl
+                              label="테두리 두께"
+                              value={commentCard.borderWidth ?? 1}
+                              min={1}
+                              max={6}
+                              step={1}
+                              unit="px"
+                              onChange={(v) => setCommentCard(prev => ({ ...prev, borderWidth: v }))}
+                            />
+                            <ColorPicker8Preset
+                              label="테두리 색상"
+                              value={commentCard.borderColor || '#E5E7EB'}
+                              onChange={(c) => setCommentCard(prev => ({ ...prev, borderColor: c }))}
+                            />
+                          </div>
+                        )}
+                      </div>
+
+                      {/* 4. 카드 외곽 입체 그림자 (Box Shadow) */}
+                      <div className="space-y-1.5 pt-1.5 border-t border-border/50">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-semibold text-muted-foreground">카드 외곽 입체 그림자</span>
+                          <Switch
+                            checked={!!commentCard.cardShadowEnabled}
+                            onCheckedChange={(c) => setCommentCard(prev => ({ ...prev, cardShadowEnabled: c }))}
+                          />
+                        </div>
+                        {commentCard.cardShadowEnabled && (
+                          <div className="space-y-1.5 pl-1 border-l-2 border-primary/30">
+                            <UnitSliderControl
+                              label="그림자 흐림"
+                              value={commentCard.cardShadowBlur ?? 16}
+                              min={0}
+                              max={32}
+                              step={2}
+                              unit="px"
+                              onChange={(v) => setCommentCard(prev => ({ ...prev, cardShadowBlur: v }))}
+                            />
+                            <ColorPicker8Preset
+                              label="그림자 색상"
+                              value={commentCard.cardShadowColor || 'rgba(0,0,0,0.25)'}
+                              onChange={(c) => setCommentCard(prev => ({ ...prev, cardShadowColor: c }))}
+                            />
+                          </div>
+                        )}
+                      </div>
 
                       {/* 위치 오프셋 */}
                       <div className="space-y-2 pt-2 border-t border-border/50">

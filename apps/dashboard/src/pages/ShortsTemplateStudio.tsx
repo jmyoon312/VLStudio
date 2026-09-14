@@ -340,6 +340,14 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
   const [videoRotationDeg, setVideoRotationDeg] = useState<number>(0);
   const [videoHorizontalFlip, setVideoHorizontalFlip] = useState<boolean>(false);
   const [videoVerticalFlip, setVideoVerticalFlip] = useState<boolean>(false);
+  const [videoBorderRadius, setVideoBorderRadius] = useState<number>(0);
+  const [videoBorderEnabled, setVideoBorderEnabled] = useState<boolean>(false);
+  const [videoBorderWidth, setVideoBorderWidth] = useState<number>(1);
+  const [videoBorderColor, setVideoBorderColor] = useState<string>('#FFFFFF');
+  const [videoShadowEnabled, setVideoShadowEnabled] = useState<boolean>(false);
+  const [videoShadowBlur, setVideoShadowBlur] = useState<number>(20);
+  const [videoShadowColor, setVideoShadowColor] = useState<string>('rgba(0,0,0,0.5)');
+  const [videoPaddingPct, setVideoPaddingPct] = useState<number>(0);
 
   // 상단 바 (Top Bar Bg)
   const [hasTopBarBg, setHasTopBarBg] = useState<boolean>(initialMode === 'classic');
@@ -2531,6 +2539,22 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
               setVideoHorizontalFlip={setVideoHorizontalFlip}
               videoVerticalFlip={videoVerticalFlip}
               videoFilter={videoFilter}
+              videoBorderRadius={videoBorderRadius}
+              setVideoBorderRadius={setVideoBorderRadius}
+              videoBorderEnabled={videoBorderEnabled}
+              setVideoBorderEnabled={setVideoBorderEnabled}
+              videoBorderWidth={videoBorderWidth}
+              setVideoBorderWidth={setVideoBorderWidth}
+              videoBorderColor={videoBorderColor}
+              setVideoBorderColor={setVideoBorderColor}
+              videoShadowEnabled={videoShadowEnabled}
+              setVideoShadowEnabled={setVideoShadowEnabled}
+              videoShadowBlur={videoShadowBlur}
+              setVideoShadowBlur={setVideoShadowBlur}
+              videoShadowColor={videoShadowColor}
+              setVideoShadowColor={setVideoShadowColor}
+              videoPaddingPct={videoPaddingPct}
+              setVideoPaddingPct={setVideoPaddingPct}
               currentTimeMs={currentTimeMs}
               instaConfig={instaConfig}
               setInstaConfig={setInstaConfig}
@@ -3285,6 +3309,25 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
                 setVideoVerticalFlip={setVideoVerticalFlip}
                 videoBlurBg={videoBlurBg}
                 setVideoBlurBg={setVideoBlurBg}
+                layoutTemplateMode={layoutTemplateMode}
+                instaConfig={instaConfig}
+                setInstaConfig={setInstaConfig}
+                videoBorderRadius={videoBorderRadius}
+                setVideoBorderRadius={setVideoBorderRadius}
+                videoBorderEnabled={videoBorderEnabled}
+                setVideoBorderEnabled={setVideoBorderEnabled}
+                videoBorderWidth={videoBorderWidth}
+                setVideoBorderWidth={setVideoBorderWidth}
+                videoBorderColor={videoBorderColor}
+                setVideoBorderColor={setVideoBorderColor}
+                videoShadowEnabled={videoShadowEnabled}
+                setVideoShadowEnabled={setVideoShadowEnabled}
+                videoShadowBlur={videoShadowBlur}
+                setVideoShadowBlur={setVideoShadowBlur}
+                videoShadowColor={videoShadowColor}
+                setVideoShadowColor={setVideoShadowColor}
+                videoPaddingPct={videoPaddingPct}
+                setVideoPaddingPct={setVideoPaddingPct}
               />
             )}
 

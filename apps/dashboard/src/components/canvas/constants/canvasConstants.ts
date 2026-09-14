@@ -123,6 +123,7 @@ export const MASTER_INSPECTOR_GROUPS = [
       { id: 'commentCard', label: '댓글' },
       { id: 'sourceCredit', label: '출처' },
       { id: 'topBottomBar', label: '상하단바' },
+      { id: 'videoCrop', label: '비디오' },
     ],
   },
   {
@@ -130,8 +131,7 @@ export const MASTER_INSPECTOR_GROUPS = [
     label: '영상 · 연출',
     icon: '🎬',
     subTabs: [
-      { id: 'videoCrop', label: '화면 맞춤 · 구도' },
-      { id: 'filterFx', label: '필터 · 영화 효과' },
+      { id: 'filterFx', label: '필터' },
     ],
   },
   {
@@ -153,11 +153,12 @@ export type InspectorSubTabId =
   | 'profile'
   | 'ssulHeader'
   | 'metadata'
-  | 'divider';
+  | 'divider'
+  | 'videoCrop';
 
 /**
  * 🎛️ 4대 폼팩터 독립 주권 인스펙터 그룹 및 서브탭 선택기 (Zero Cross-Format Noise)
- * - 캔버스에서 보이는 모든 객체의 설정은 '글자 · 자막' 탭 아래에 단일화 배치
+ * - 캔버스에서 보이는 모든 객체(비디오 포함)의 설정은 '글자 · 자막' 탭 아래에 단일화 배치
  */
 export function getInspectorGroupsForMode(mode: string = 'classic') {
   switch (mode) {
@@ -183,6 +184,7 @@ export function getInspectorGroupsForMode(mode: string = 'classic') {
             { id: 'commentCard' as const, label: '댓글' },
             { id: 'sourceCredit' as const, label: '출처' },
             { id: 'topBottomBar' as const, label: '상하단바' },
+            { id: 'videoCrop' as const, label: '비디오' },
           ],
         },
         {
@@ -190,7 +192,7 @@ export function getInspectorGroupsForMode(mode: string = 'classic') {
           label: '영상 · 연출',
           icon: '🎬',
           subTabs: [
-            { id: 'videoCrop' as const, label: '화면 맞춤 · 구도' },
+            { id: 'filterFx' as const, label: '필터' },
           ],
         },
         {
@@ -224,6 +226,7 @@ export function getInspectorGroupsForMode(mode: string = 'classic') {
             { id: 'commentCard' as const, label: '댓글' },
             { id: 'sourceCredit' as const, label: '출처' },
             { id: 'topBottomBar' as const, label: '상하단바' },
+            { id: 'videoCrop' as const, label: '비디오' },
           ],
         },
         {
@@ -231,7 +234,7 @@ export function getInspectorGroupsForMode(mode: string = 'classic') {
           label: '영상 · 연출',
           icon: '🎬',
           subTabs: [
-            { id: 'videoCrop' as const, label: '화면 맞춤 · 구도' },
+            { id: 'filterFx' as const, label: '필터' },
           ],
         },
         {
@@ -266,6 +269,7 @@ export function getInspectorGroupsForMode(mode: string = 'classic') {
             { id: 'style' as const, label: '자막' },
             { id: 'commentCard' as const, label: '댓글' },
             { id: 'sourceCredit' as const, label: '출처' },
+            { id: 'videoCrop' as const, label: '비디오' },
           ],
         },
         {
@@ -273,7 +277,7 @@ export function getInspectorGroupsForMode(mode: string = 'classic') {
           label: '영상 · 연출',
           icon: '🎬',
           subTabs: [
-            { id: 'videoCrop' as const, label: '화면 맞춤 · 구도' },
+            { id: 'filterFx' as const, label: '필터' },
           ],
         },
         {

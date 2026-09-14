@@ -141,6 +141,98 @@ export const JabHookInspectorForm: React.FC<JabHookInspectorFormProps> = (props)
                 />
               </div>
             </div>
+
+            {/* 🎨 글자 테두리 (외곽선) */}
+            <div className="space-y-2 p-2 bg-muted/20 border border-border rounded-[2px]">
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="font-semibold text-foreground">글자 테두리 (외곽선)</span>
+                <Switch
+                  checked={gConfig.strokeEnabled ?? jabStroke}
+                  onCheckedChange={(chk) => {
+                    setJabStroke(chk);
+                    setGConfig((prev: any) => ({ ...prev, strokeEnabled: chk }));
+                  }}
+                />
+              </div>
+              {(gConfig.strokeEnabled ?? jabStroke) && (
+                <div className="space-y-2 pt-1.5 border-t border-border/50">
+                  <UnitSliderControl
+                    label="테두리 두께"
+                    value={gConfig.strokeWidth ?? jabStrokeWidth ?? 2}
+                    min={1}
+                    max={12}
+                    step={1}
+                    unit="px"
+                    onChange={(val) => {
+                      setJabStrokeWidth(val);
+                      setGConfig((prev: any) => ({ ...prev, strokeWidth: val }));
+                    }}
+                  />
+                  <ColorPicker8Preset
+                    label="테두리 색상"
+                    value={gConfig.strokeColor || jabStrokeColor || '#000000'}
+                    onChange={(val) => {
+                      setJabStrokeColor(val);
+                      setGConfig((prev: any) => ({ ...prev, strokeColor: val }));
+                    }}
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* 🌌 입체 그림자 */}
+            <div className="space-y-2 p-2 bg-muted/20 border border-border rounded-[2px]">
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="font-semibold text-foreground">글자 그림자 (Shadow)</span>
+                <Switch
+                  checked={gConfig.shadowEnabled ?? jabShadow}
+                  onCheckedChange={(chk) => {
+                    setJabShadow(chk);
+                    setGConfig((prev: any) => ({ ...prev, shadowEnabled: chk }));
+                  }}
+                />
+              </div>
+              {(gConfig.shadowEnabled ?? jabShadow) && (
+                <div className="space-y-2 pt-1.5 border-t border-border/50">
+                  <UnitSliderControl
+                    label="그림자 흐림 (Blur)"
+                    value={gConfig.shadowBlur ?? jabShadowBlur ?? 4}
+                    min={0}
+                    max={20}
+                    step={1}
+                    unit="px"
+                    onChange={(val) => {
+                      setJabShadowBlur(val);
+                      setGConfig((prev: any) => ({ ...prev, shadowBlur: val }));
+                    }}
+                  />
+                  <ColorPicker8Preset
+                    label="그림자 색상"
+                    value={gConfig.shadowColor || jabShadowColor || '#000000'}
+                    onChange={(val) => {
+                      setJabShadowColor(val);
+                      setGConfig((prev: any) => ({ ...prev, shadowColor: val }));
+                    }}
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* 🔲 밴드 모서리 둥글기 */}
+            <div className="space-y-2 p-2 bg-muted/20 border border-border rounded-[2px]">
+              <UnitSliderControl
+                label="밴드 모서리 둥글기"
+                value={gConfig.borderRadius ?? jabBorderRadius ?? 0}
+                min={0}
+                max={24}
+                step={1}
+                unit="px"
+                onChange={(val) => {
+                  setJabBorderRadius(val);
+                  setGConfig((prev: any) => ({ ...prev, borderRadius: val }));
+                }}
+              />
+            </div>
           </div>
         </div>
       </div>
