@@ -1391,13 +1391,18 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                         {/* 🏷️ 군림보 상단 뱃지 태그 */}
                         {(gunlimboConfig?.hasTitleBadge ?? hasTitleBadge) && (
                           <span
-                            className="inline-block px-2.5 py-0.5 rounded-full font-black text-center shadow-xs select-none uppercase tracking-wider mb-1"
+                            onDoubleClick={(e) => {
+                              e.stopPropagation();
+                              setActiveFloating('badgeTag');
+                            }}
+                            className="font-black px-1.5 py-0.5 uppercase tracking-wider mb-1 rounded-[2px] shadow-xs cursor-pointer hover:opacity-90 inline-block leading-tight select-none"
                             style={{
                               backgroundColor: gunlimboConfig?.titleBadgeBg || titleBadgeBg || '#EF4444',
                               color: gunlimboConfig?.titleBadgeColor || titleBadgeColor || '#FFFFFF',
                               fontSize: `${gunlimboConfig?.titleBadgeSizePx || titleBadgeSizePx || 11}px`,
                               letterSpacing: '0.05em',
                             }}
+                            title="더블클릭하여 뱃지 속성 편집"
                           >
                             {gunlimboConfig?.titleBadgeText || titleBadgeText || 'HOT'}
                           </span>
@@ -2725,23 +2730,38 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                   isOpen={true}
                   onClose={() => setActiveFloating('none')}
                   config={{
-                    enabled: props.hasTitleBadge ?? true,
-                    text: props.titleBadgeText || 'HOT ISSUE',
-                    bgColor: props.titleBadgeBg || '#EF4444',
-                    textColor: props.titleBadgeColor || '#FFFFFF',
-                    fontSize: props.titleBadgeSizePx || 11,
-                    borderRadius: 4,
-                    paddingX: 8,
+                    enabled: gunlimboConfig?.hasTitleBadge ?? (props.hasTitleBadge ?? true),
+                    text: gunlimboConfig?.titleBadgeText || props.titleBadgeText || 'HOT ISSUE',
+                    bgColor: gunlimboConfig?.titleBadgeBg || props.titleBadgeBg || '#EF4444',
+                    textColor: gunlimboConfig?.titleBadgeColor || props.titleBadgeColor || '#FFFFFF',
+                    fontSize: gunlimboConfig?.titleBadgeSizePx || props.titleBadgeSizePx || 11,
+                    borderRadius: 2,
+                    paddingX: 6,
                     paddingY: 2,
                     offsetX: 0,
                     offsetY: 0,
                   }}
                   onChange={(patch) => {
-                    if (patch.enabled !== undefined && props.setHasTitleBadge) props.setHasTitleBadge(patch.enabled);
-                    if (patch.text !== undefined && props.setTitleBadgeText) props.setTitleBadgeText(patch.text);
-                    if (patch.bgColor !== undefined && props.setTitleBadgeBg) props.setTitleBadgeBg(patch.bgColor);
-                    if (patch.textColor !== undefined && props.setTitleBadgeColor) props.setTitleBadgeColor(patch.textColor);
-                    if (patch.fontSize !== undefined && props.setTitleBadgeSizePx) props.setTitleBadgeSizePx(patch.fontSize);
+                    if (patch.enabled !== undefined) {
+                      props.setHasTitleBadge?.(patch.enabled);
+                      props.setGunlimboConfig?.((prev: any) => ({ ...prev, hasTitleBadge: patch.enabled }));
+                    }
+                    if (patch.text !== undefined) {
+                      props.setTitleBadgeText?.(patch.text);
+                      props.setGunlimboConfig?.((prev: any) => ({ ...prev, titleBadgeText: patch.text }));
+                    }
+                    if (patch.bgColor !== undefined) {
+                      props.setTitleBadgeBg?.(patch.bgColor);
+                      props.setGunlimboConfig?.((prev: any) => ({ ...prev, titleBadgeBg: patch.bgColor }));
+                    }
+                    if (patch.textColor !== undefined) {
+                      props.setTitleBadgeColor?.(patch.textColor);
+                      props.setGunlimboConfig?.((prev: any) => ({ ...prev, titleBadgeColor: patch.textColor }));
+                    }
+                    if (patch.fontSize !== undefined) {
+                      props.setTitleBadgeSizePx?.(patch.fontSize);
+                      props.setGunlimboConfig?.((prev: any) => ({ ...prev, titleBadgeSizePx: patch.fontSize }));
+                    }
                   }}
                   onReset={() => {
                     props.setTitleBadgeText?.(masterGeo?.badgeTag?.text || 'HOT ISSUE');
