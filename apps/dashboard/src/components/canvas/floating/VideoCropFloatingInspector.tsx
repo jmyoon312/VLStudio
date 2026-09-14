@@ -22,6 +22,9 @@ export interface VideoCropFloatingInspectorProps {
   config: VideoCropConfig;
   onChange: (patch: Partial<VideoCropConfig>) => void;
   onReset: () => void;
+  layoutTemplateMode?: string;
+  instaConfig?: any;
+  setInstaConfig?: any;
   defaultPosition?: { x: number; y: number };
 }
 
@@ -31,17 +34,126 @@ export const VideoCropFloatingInspector: React.FC<VideoCropFloatingInspectorProp
   config,
   onChange,
   onReset,
+  layoutTemplateMode,
+  instaConfig,
+  setInstaConfig,
   defaultPosition,
 }) => {
   return (
     <BaseFloatingInspectorCard
-      title="비디오 화면 & 구도"
+      title={layoutTemplateMode === 'instagram' ? "인스타 비디오 창 & 구도" : "비디오 화면 & 구도"}
       icon={<Film className="w-4 h-4 text-cyan-500" />}
       isOpen={isOpen}
       onClose={onClose}
       onReset={onReset}
       defaultPosition={defaultPosition}
     >
+      {/* 📐 [인스타 전용] 비디오 창 프레임 크기 & 위치 */}
+      {layoutTemplateMode === 'instagram' && instaConfig && setInstaConfig && (
+        <div className="space-y-2 pb-2 mb-2 border-b border-border/50">
+          <span className="text-[11px] font-bold text-foreground block">인스타 창 크기 & 비율</span>
+          <div className="grid grid-cols-3 gap-1">
+            <button
+              type="button"
+              onClick={() => {
+                setInstaConfig((prev: any) => ({
+                  ...prev,
+                  holeRatio: '1:1',
+                  holeWidthPct: 88,
+                  holeHeightPct: 49.5,
+                  holeYPct: 42,
+                }));
+              }}
+              className={`py-1 text-[10px] rounded border transition font-medium ${
+                instaConfig.holeRatio === '1:1'
+                  ? 'bg-primary text-primary-foreground border-primary font-bold'
+                  : 'bg-muted/20 text-muted-foreground border-border hover:text-foreground'
+              }`}
+            >
+              1:1 정사각
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setInstaConfig((prev: any) => ({
+                  ...prev,
+                  holeRatio: '4:5',
+                  holeWidthPct: 88,
+                  holeHeightPct: 62,
+                  holeYPct: 46,
+                }));
+              }}
+              className={`py-1 text-[10px] rounded border transition font-medium ${
+                instaConfig.holeRatio === '4:5'
+                  ? 'bg-primary text-primary-foreground border-primary font-bold'
+                  : 'bg-muted/20 text-muted-foreground border-border hover:text-foreground'
+              }`}
+            >
+              4:5 세로형
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setInstaConfig((prev: any) => ({
+                  ...prev,
+                  holeRatio: 'fullscreen',
+                  holeWidthPct: 96,
+                  holeHeightPct: 54,
+                  holeYPct: 42,
+                }));
+              }}
+              className={`py-1 text-[10px] rounded border transition font-medium ${
+                instaConfig.holeRatio === 'fullscreen'
+                  ? 'bg-primary text-primary-foreground border-primary font-bold'
+                  : 'bg-muted/20 text-muted-foreground border-border hover:text-foreground'
+              }`}
+            >
+              풀너비 (96%)
+            </button>
+          </div>
+          <div className="grid grid-cols-2 gap-2 pt-1">
+            <UnitSliderControl
+              label="창 너비"
+              value={instaConfig.holeWidthPct ?? 88}
+              min={50}
+              max={100}
+              step={0.5}
+              unit="%"
+              onChange={(val) => setInstaConfig((prev: any) => ({ ...prev, holeRatio: 'custom', holeWidthPct: val }))}
+            />
+            <UnitSliderControl
+              label="창 높이"
+              value={instaConfig.holeHeightPct ?? 49.5}
+              min={20}
+              max={80}
+              step={0.5}
+              unit="%"
+              onChange={(val) => setInstaConfig((prev: any) => ({ ...prev, holeRatio: 'custom', holeHeightPct: val }))}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <UnitSliderControl
+              label="창 Y 위치"
+              value={instaConfig.holeYPct ?? 42}
+              min={20}
+              max={75}
+              step={0.5}
+              unit="%"
+              onChange={(val) => setInstaConfig((prev: any) => ({ ...prev, holeYPct: val }))}
+            />
+            <UnitSliderControl
+              label="모서리 둥글기"
+              value={instaConfig.holeRoundness ?? 16}
+              min={0}
+              max={48}
+              step={1}
+              unit="px"
+              onChange={(val) => setInstaConfig((prev: any) => ({ ...prev, holeRoundness: val }))}
+            />
+          </div>
+        </div>
+      )}
+
       {/* 1. 화면 맞춤 모드 */}
       <div className="space-y-1">
         <label className="text-[11px] font-semibold text-muted-foreground">화면 맞춤 방식</label>

@@ -308,6 +308,121 @@ export const VideoCropInspectorForm: React.FC<VideoCropInspectorFormProps> = ({
                   </div>
                 </div>
 
+                {/* 📐 [인스타형 전용] 비디오 창 프레임 크기 & 위치 (Window Frame Size & Position) */}
+                {layoutTemplateMode === 'instagram' && instaConfig && setInstaConfig && (
+                  <div className="p-2.5 border border-border bg-card rounded-[2px] space-y-3 shadow-2xs">
+                    <div className="flex items-center justify-between border-b border-border pb-1.5">
+                      <span className="text-[11px] font-bold text-foreground flex items-center gap-1.5">
+                        <Crop className="w-3.5 h-3.5 text-primary" />
+                        인스타 비디오 창 크기 & 위치
+                      </span>
+                      <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 bg-primary/10 text-primary border-primary/30 font-bold">
+                        프레임 크기
+                      </Badge>
+                    </div>
+
+                    {/* 창 비율 프리셋 버튼 */}
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-semibold text-muted-foreground">창 비율 프리셋</span>
+                      <div className="grid grid-cols-3 gap-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setInstaConfig((prev: any) => ({
+                              ...prev,
+                              holeRatio: '1:1',
+                              holeWidthPct: 88,
+                              holeHeightPct: 49.5,
+                              holeYPct: 42,
+                            }));
+                          }}
+                          className={cn(
+                            "py-1 text-[9.5px] rounded border transition cursor-pointer text-center",
+                            instaConfig.holeRatio === '1:1'
+                              ? "bg-primary text-primary-foreground border-primary font-bold shadow-2xs"
+                              : "border-border bg-background text-muted-foreground hover:text-foreground"
+                          )}
+                        >
+                          1:1 정사각 (88%)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setInstaConfig((prev: any) => ({
+                              ...prev,
+                              holeRatio: '4:5',
+                              holeWidthPct: 88,
+                              holeHeightPct: 62,
+                              holeYPct: 46,
+                            }));
+                          }}
+                          className={cn(
+                            "py-1 text-[9.5px] rounded border transition cursor-pointer text-center",
+                            instaConfig.holeRatio === '4:5'
+                              ? "bg-primary text-primary-foreground border-primary font-bold shadow-2xs"
+                              : "border-border bg-background text-muted-foreground hover:text-foreground"
+                          )}
+                        >
+                          4:5 세로 (88%)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setInstaConfig((prev: any) => ({
+                              ...prev,
+                              holeRatio: 'fullscreen',
+                              holeWidthPct: 96,
+                              holeHeightPct: 54,
+                              holeYPct: 42,
+                            }));
+                          }}
+                          className={cn(
+                            "py-1 text-[9.5px] rounded border transition cursor-pointer text-center",
+                            instaConfig.holeRatio === 'fullscreen'
+                              ? "bg-primary text-primary-foreground border-primary font-bold shadow-2xs"
+                              : "border-border bg-background text-muted-foreground hover:text-foreground"
+                          )}
+                        >
+                          풀너비 (96%)
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* 너비 & 높이 & Y위치 슬라이더 */}
+                    <div className="space-y-2 pt-1 border-t border-border/50">
+                      <div className="grid grid-cols-2 gap-2">
+                        <UnitSliderControl
+                          label="윈도우 가로 너비"
+                          value={instaConfig.holeWidthPct ?? 88}
+                          min={50}
+                          max={100}
+                          step={0.5}
+                          unit="%"
+                          onChange={(val) => setInstaConfig((prev: any) => ({ ...prev, holeRatio: 'custom', holeWidthPct: val }))}
+                        />
+                        <UnitSliderControl
+                          label="윈도우 세로 높이"
+                          value={instaConfig.holeHeightPct ?? 49.5}
+                          min={20}
+                          max={80}
+                          step={0.5}
+                          unit="%"
+                          onChange={(val) => setInstaConfig((prev: any) => ({ ...prev, holeRatio: 'custom', holeHeightPct: val }))}
+                        />
+                      </div>
+                      <UnitSliderControl
+                        label="윈도우 중심 Y 위치"
+                        value={instaConfig.holeYPct ?? 42}
+                        min={20}
+                        max={75}
+                        step={0.5}
+                        unit="%"
+                        onChange={(val) => setInstaConfig((prev: any) => ({ ...prev, holeYPct: val }))}
+                      />
+                    </div>
+                  </div>
+                )}
+
                 {/* 🖼️ 비디오 외곽 프레임 디자인 (라운드 & 테두리 & 그림자 & 여백) */}
                 <div className="p-2.5 border border-border bg-card rounded-[2px] space-y-3 shadow-2xs">
                   <div className="flex items-center justify-between border-b border-border pb-1.5">

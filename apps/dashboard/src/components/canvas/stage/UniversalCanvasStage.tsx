@@ -1079,6 +1079,10 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                       setSelectedLayerId('layer_video');
                       setActiveInspectorTab('videoCrop');
                     }}
+                    onDoubleClick={(e) => {
+                      e.stopPropagation();
+                      setActiveFloating('videoCrop');
+                    }}
                     className={cn(
                       "absolute cursor-pointer pointer-events-auto transition-all",
                       selectedLayerId === 'layer_video' && "ring-2 ring-sky-400 ring-offset-2"
@@ -2713,6 +2717,9 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                 <VideoCropFloatingInspector
                   isOpen={true}
                   onClose={() => setActiveFloating('none')}
+                  layoutTemplateMode={layoutTemplateMode}
+                  instaConfig={instaConfig}
+                  setInstaConfig={props.setInstaConfig}
                   config={{
                     fitMode: props.videoFitMode,
                     blurBg: props.videoBlurBg,
