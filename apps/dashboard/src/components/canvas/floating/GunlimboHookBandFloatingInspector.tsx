@@ -4,35 +4,48 @@ import { ColorPicker8Preset } from '../controls/ColorPicker8Preset';
 import { UnitSliderControl } from '../controls/UnitSliderControl';
 import { FontStyleAlignControl } from '../controls/FontStyleAlignControl';
 import { Switch } from '@/components/ui/switch';
-import { FONT_FAMILIES } from '../constants/canvasConstants';
-import { Layers, Type } from 'lucide-react';
+import { Layers, Type, Sparkles } from 'lucide-react';
 
 export interface GunlimboHookBandConfig {
   enabled: boolean;
-  bandColor: string;
-  bandHeightPct: number;
-  bandYPct: number;
-  headlineText: string;
-  headlineColor: string;
-  headlineFontSize: number;
-  headlineFont: string;
+  hookPhrase: string;
+  hookBgColor: string;
+  hookTextColor: string;
+  hookFontSize: number;
+  hookFont?: string;
+  hookBold?: boolean;
+  hookItalic?: boolean;
+  hookAlign?: 'left' | 'center' | 'right';
+  hookLetterSpacing?: number;
+  hookLineHeight?: number;
+  introDurationSec?: number;
+  borderRadius?: number;
+  showGuidelines?: boolean;
+  strokeEnabled?: boolean;
+  strokeColor?: string;
+  strokeWidth?: number;
+  shadowEnabled?: boolean;
+  shadowColor?: string;
+  shadowBlur?: number;
+  // 호환성 별칭 필드
+  bandColor?: string;
+  headlineText?: string;
+  headlineColor?: string;
+  headlineFontSize?: number;
+  headlineFont?: string;
   headlineBold?: boolean;
   headlineItalic?: boolean;
   headlineAlign?: 'left' | 'center' | 'right';
-  subheadlineText: string;
-  subheadlineColor: string;
-  subheadlineFontSize: number;
-  subheadlineFont: string;
+  subheadlineText?: string;
+  subheadlineColor?: string;
+  subheadlineFontSize?: number;
+  subheadlineFont?: string;
   subheadlineBold?: boolean;
   subheadlineItalic?: boolean;
   subheadlineAlign?: 'left' | 'center' | 'right';
-  showBorder: boolean;
-  borderColor: string;
-  borderWidth: number;
-  headlineLetterSpacing?: number;
-  headlineLineHeight?: number;
-  subheadlineLetterSpacing?: number;
-  subheadlineLineHeight?: number;
+  showBorder?: boolean;
+  borderColor?: string;
+  borderWidth?: number;
 }
 
 export interface GunlimboHookBandFloatingInspectorProps {
@@ -52,6 +65,17 @@ export const GunlimboHookBandFloatingInspector: React.FC<GunlimboHookBandFloatin
   onReset,
   defaultPosition,
 }) => {
+  const currentPhrase = config.hookPhrase ?? config.subheadlineText ?? '';
+  const currentBgColor = config.hookBgColor ?? config.bandColor ?? '#FFFFFF';
+  const currentTextColor = config.hookTextColor ?? config.subheadlineColor ?? '#000000';
+  const currentFontSize = config.hookFontSize ?? config.subheadlineFontSize ?? 19;
+  const currentFont = config.hookFont ?? config.subheadlineFont ?? 'Pretendard';
+  const currentBold = config.hookBold ?? config.subheadlineBold ?? true;
+  const currentItalic = config.hookItalic ?? config.subheadlineItalic ?? false;
+  const currentAlign = config.hookAlign ?? config.subheadlineAlign ?? 'center';
+  const currentLetterSpacing = config.hookLetterSpacing ?? -0.5;
+  const currentLineHeight = config.hookLineHeight ?? 1.25;
+
   return (
     <BaseFloatingInspectorCard
       title="군림보형 소재목 중간 띠 바"
@@ -70,151 +94,146 @@ export const GunlimboHookBandFloatingInspector: React.FC<GunlimboHookBandFloatin
         />
       </div>
 
-      {/* 2. 띠 바 배경 색상 */}
-      <ColorPicker8Preset
-        label="띠 바 배경 색상"
-        value={config.bandColor}
-        onChange={(c) => onChange({ bandColor: c })}
-      />
-
-      {/* 3. 띠 바 높이 및 Y 위치 비율 */}
-      <div className="grid grid-cols-2 gap-2">
-        <UnitSliderControl
-          label="띠 높이 비율"
-          value={config.bandHeightPct}
-          min={4}
-          max={20}
-          step={0.5}
-          unit="%"
-          onChange={(v) => onChange({ bandHeightPct: v })}
-        />
-        <UnitSliderControl
-          label="세로 위치 (Y)"
-          value={config.bandYPct}
-          min={15}
-          max={45}
-          step={0.5}
-          unit="%"
-          onChange={(v) => onChange({ bandYPct: v })}
-        />
-      </div>
-
-      {/* 4. 메인 헤드라인 텍스트 */}
-      <div className="space-y-1.5 pt-2 border-t border-border/50">
+      {/* 2. 후킹 소제목 텍스트 */}
+      <div className="space-y-1.5 pt-1">
         <label className="text-[11px] font-semibold text-muted-foreground flex items-center gap-1">
-          <Type className="w-3.5 h-3.5" />
-          <span>메인 헤드라인 문구</span>
+          <Type className="w-3.5 h-3.5 text-primary" />
+          <span>후킹 문구 (소제목 텍스트)</span>
         </label>
         <input
           type="text"
-          value={config.headlineText}
-          onChange={(e) => onChange({ headlineText: e.target.value })}
-          placeholder="예: 경찰도 경악한 범인의 정체"
-          className="w-full px-2.5 py-1.5 text-xs bg-muted/30 border border-border rounded-[4px] focus:outline-hidden focus:ring-1 focus:ring-primary"
-        />
-        <div className="grid grid-cols-2 gap-2">
-          <UnitSliderControl
-            label="헤드라인 크기"
-            value={config.headlineFontSize}
-            min={14}
-            max={48}
-            step={1}
-            unit="px"
-            onChange={(v) => onChange({ headlineFontSize: v })}
-          />
-          <ColorPicker8Preset
-            label="글자 색상"
-            value={config.headlineColor}
-            onChange={(c) => onChange({ headlineColor: c })}
-          />
-        </div>
-        <FontStyleAlignControl
-          label="헤드라인 글꼴"
-          font={config.headlineFont || 'Pretendard'}
-          setFont={(f) => onChange({ headlineFont: f })}
-          bold={config.headlineBold ?? true}
-          setBold={(b) => onChange({ headlineBold: b })}
-          italic={config.headlineItalic ?? false}
-          setItalic={(it) => onChange({ headlineItalic: it })}
-          align={config.headlineAlign || 'center'}
-          setAlign={(a) => onChange({ headlineAlign: a })}
-          letterSpacing={config.headlineLetterSpacing ?? -0.5}
-          setLetterSpacing={(ls) => onChange({ headlineLetterSpacing: ls })}
-          lineHeight={config.headlineLineHeight ?? 1.25}
-          setLineHeight={(lh) => onChange({ headlineLineHeight: lh })}
+          value={currentPhrase}
+          onChange={(e) => onChange({ hookPhrase: e.target.value, subheadlineText: e.target.value })}
+          placeholder="예: 1분 만에 밝혀진 진실"
+          className="w-full px-2.5 py-1.5 text-xs bg-muted/30 border border-border rounded-[4px] text-foreground font-bold focus:outline-hidden focus:ring-1 focus:ring-primary"
         />
       </div>
 
-      {/* 5. 서브 헤드라인 텍스트 */}
-      <div className="space-y-1.5 pt-2 border-t border-border/50">
-        <label className="text-[11px] font-semibold text-muted-foreground flex items-center gap-1">
-          <Type className="w-3.5 h-3.5" />
-          <span>서브 헤드라인 (소제목)</span>
-        </label>
-        <input
-          type="text"
-          value={config.subheadlineText}
-          onChange={(e) => onChange({ subheadlineText: e.target.value })}
-          placeholder="예: CCTV에 남겨진 마지막 단서"
-          className="w-full px-2.5 py-1.5 text-xs bg-muted/30 border border-border rounded-[4px] focus:outline-hidden focus:ring-1 focus:ring-primary"
-        />
-        <div className="grid grid-cols-2 gap-2">
-          <UnitSliderControl
-            label="서브 크기"
-            value={config.subheadlineFontSize}
-            min={10}
-            max={32}
-            step={1}
-            unit="px"
-            onChange={(v) => onChange({ subheadlineFontSize: v })}
-          />
-          <ColorPicker8Preset
-            label="글자 색상"
-            value={config.subheadlineColor}
-            onChange={(c) => onChange({ subheadlineColor: c })}
-          />
-        </div>
-        <FontStyleAlignControl
-          label="서브 헤드라인 글꼴"
-          font={config.subheadlineFont || 'Pretendard'}
-          setFont={(f) => onChange({ subheadlineFont: f })}
-          bold={config.subheadlineBold ?? true}
-          setBold={(b) => onChange({ subheadlineBold: b })}
-          italic={config.subheadlineItalic ?? false}
-          setItalic={(it) => onChange({ subheadlineItalic: it })}
-          align={config.subheadlineAlign || 'center'}
-          setAlign={(a) => onChange({ subheadlineAlign: a })}
-          letterSpacing={config.subheadlineLetterSpacing ?? 0}
-          setLetterSpacing={(ls) => onChange({ subheadlineLetterSpacing: ls })}
-          lineHeight={config.subheadlineLineHeight ?? 1.2}
-          setLineHeight={(lh) => onChange({ subheadlineLineHeight: lh })}
+      {/* 3. 띠 바 배경 색상 (독립 1열 전체 너비 배치) */}
+      <div className="space-y-1 pt-1">
+        <ColorPicker8Preset
+          label="띠 바 배경 색상"
+          value={currentBgColor}
+          onChange={(c) => onChange({ hookBgColor: c, bandColor: c })}
         />
       </div>
 
-      {/* 6. 상하단 경계선 */}
+      {/* 4. 띠 바 글자 색상 (독립 1열 전체 너비 배치) */}
+      <div className="space-y-1 pt-1">
+        <ColorPicker8Preset
+          label="글자 색상"
+          value={currentTextColor}
+          onChange={(c) => onChange({ hookTextColor: c, subheadlineColor: c })}
+        />
+      </div>
+
+      {/* 5. 글자 크기 */}
+      <div className="pt-1">
+        <UnitSliderControl
+          label="글자 크기"
+          value={currentFontSize}
+          min={14}
+          max={36}
+          step={1}
+          unit="px"
+          onChange={(v) => onChange({ hookFontSize: v, subheadlineFontSize: v })}
+        />
+      </div>
+
+      {/* 6. 서체 및 스타일 / 정렬 */}
+      <div className="pt-1">
+        <FontStyleAlignControl
+          label="훅 글꼴 및 정렬"
+          font={currentFont}
+          setFont={(f) => onChange({ hookFont: f, subheadlineFont: f })}
+          bold={currentBold}
+          setBold={(b) => onChange({ hookBold: b, subheadlineBold: b })}
+          italic={currentItalic}
+          setItalic={(it) => onChange({ hookItalic: it, subheadlineItalic: it })}
+          align={currentAlign}
+          setAlign={(a) => onChange({ hookAlign: a, subheadlineAlign: a })}
+          letterSpacing={currentLetterSpacing}
+          setLetterSpacing={(ls) => onChange({ hookLetterSpacing: ls })}
+          lineHeight={currentLineHeight}
+          setLineHeight={(lh) => onChange({ hookLineHeight: lh })}
+        />
+      </div>
+
+      {/* 7. 초반 노출 시간 및 모서리 둥글기 */}
+      <div className="space-y-2 pt-2 border-t border-border/50">
+        <UnitSliderControl
+          label="초반 노출 시간 (초)"
+          value={config.introDurationSec ?? 2.5}
+          min={1.0}
+          max={5.0}
+          step={0.1}
+          unit="초"
+          onChange={(v) => onChange({ introDurationSec: v })}
+        />
+        <UnitSliderControl
+          label="띠 바 모서리 둥글기"
+          value={config.borderRadius ?? 0}
+          min={0}
+          max={24}
+          step={1}
+          unit="px"
+          onChange={(v) => onChange({ borderRadius: v })}
+        />
+      </div>
+
+      {/* 8. 글자 외곽선 (Stroke) */}
       <div className="space-y-2 pt-2 border-t border-border/50">
         <div className="flex items-center justify-between">
-          <span className="text-[11.5px] font-semibold text-foreground">상하단 경계선 (Border)</span>
+          <span className="text-[11.5px] font-semibold text-foreground">글자 테두리 (외곽선)</span>
           <Switch
-            checked={config.showBorder}
-            onCheckedChange={(c) => onChange({ showBorder: c })}
+            checked={config.strokeEnabled ?? false}
+            onCheckedChange={(c) => onChange({ strokeEnabled: c })}
           />
         </div>
-        {config.showBorder && (
+        {config.strokeEnabled && (
           <div className="space-y-2 pl-2 border-l-2 border-primary/30">
-            <ColorPicker8Preset
-              label="경계선 색상"
-              value={config.borderColor}
-              onChange={(c) => onChange({ borderColor: c })}
-            />
             <UnitSliderControl
-              label="경계선 두께"
-              value={config.borderWidth}
+              label="테두리 두께"
+              value={config.strokeWidth ?? 2}
               min={1}
-              max={6}
+              max={10}
               step={0.5}
               unit="px"
-              onChange={(v) => onChange({ borderWidth: v })}
+              onChange={(v) => onChange({ strokeWidth: v })}
+            />
+            <ColorPicker8Preset
+              label="테두리 색상"
+              value={config.strokeColor ?? '#000000'}
+              onChange={(c) => onChange({ strokeColor: c })}
+            />
+          </div>
+        )}
+      </div>
+
+      {/* 9. 글자 그림자 (Shadow) */}
+      <div className="space-y-2 pt-2 border-t border-border/50">
+        <div className="flex items-center justify-between">
+          <span className="text-[11.5px] font-semibold text-foreground">글자 그림자 (Shadow)</span>
+          <Switch
+            checked={config.shadowEnabled ?? false}
+            onCheckedChange={(c) => onChange({ shadowEnabled: c })}
+          />
+        </div>
+        {config.shadowEnabled && (
+          <div className="space-y-2 pl-2 border-l-2 border-primary/30">
+            <UnitSliderControl
+              label="그림자 흐림 (Blur)"
+              value={config.shadowBlur ?? 4}
+              min={0}
+              max={20}
+              step={1}
+              unit="px"
+              onChange={(v) => onChange({ shadowBlur: v })}
+            />
+            <ColorPicker8Preset
+              label="그림자 색상"
+              value={config.shadowColor ?? '#000000'}
+              onChange={(c) => onChange({ shadowColor: c })}
             />
           </div>
         )}

@@ -103,12 +103,13 @@ export const JabHookInspectorForm: React.FC<JabHookInspectorFormProps> = (props)
     setJabLineHeight,
   } = props;
 
-  // 🎯 군림보형 독립 훅 밴드 인스펙터
-  if (layoutTemplateMode === 'gunlimbo') {
-    const gConfig = gunlimboConfig || {};
-    const setGConfig = setGunlimboConfig || (() => {});
-    return (
-      <div className="space-y-3">
+  const gConfig = gunlimboConfig || {};
+  const setGConfig = setGunlimboConfig || (() => {});
+
+  return (
+    <div className="space-y-3">
+      {/* 🎯 군림보형 독립 훅 밴드 (중앙 와이드 바) */}
+      {layoutTemplateMode === 'gunlimbo' && (
         <div className="p-2.5 border border-border bg-card rounded-[2px] space-y-3 shadow-2xs">
           <div className="flex items-center justify-between border-b border-border pb-1.5">
             <span className="text-[11px] font-bold text-foreground flex items-center gap-1.5">
@@ -269,25 +270,21 @@ export const JabHookInspectorForm: React.FC<JabHookInspectorFormProps> = (props)
             <div className="space-y-2 p-2 bg-muted/20 border border-border rounded-[2px]">
               <UnitSliderControl
                 label="밴드 모서리 둥글기"
-                value={gConfig.borderRadius ?? jabBorderRadius ?? 0}
+                value={gConfig.borderRadius ?? 0}
                 min={0}
                 max={24}
                 step={1}
                 unit="px"
                 onChange={(val) => {
-                  setJabBorderRadius(val);
                   setGConfig((prev: any) => ({ ...prev, borderRadius: val }));
                 }}
               />
             </div>
           </div>
         </div>
-      </div>
-    );
-  }
+      )}
 
-  return (
-<div className="space-y-3">
+      {/* 🥊 긴박 쨉쨉이 훅 (임팩트 텍스트) */}
                 <div className="p-2.5 border border-border bg-card rounded-[2px] space-y-3 shadow-2xs">
                   <div className="flex items-center justify-between border-b border-border pb-1.5">
                     <span className="text-[11px] font-bold text-foreground flex items-center gap-1.5">

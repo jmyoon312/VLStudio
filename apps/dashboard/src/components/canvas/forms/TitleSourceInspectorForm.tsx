@@ -692,10 +692,13 @@ export const TitleSourceInspectorForm: React.FC<TitleSourceInspectorFormProps> =
                     <button
                       key={m}
                       type="button"
-                      onClick={() => setTitleBgMode(m)}
+                      onClick={() => {
+                        setTitleBgMode(m);
+                        setGunlimboConfig?.((prev: any) => ({ ...prev, titleBgMode: m }));
+                      }}
                       className={cn(
                         "px-2 py-0.5 text-[10px] rounded font-medium cursor-pointer transition",
-                        titleBgMode === m ? "bg-primary text-primary-foreground shadow-2xs font-bold" : "bg-muted text-muted-foreground hover:text-foreground"
+                        (gunlimboConfig?.titleBgMode ?? titleBgMode) === m ? "bg-primary text-primary-foreground shadow-2xs font-bold" : "bg-muted text-muted-foreground hover:text-foreground"
                       )}
                     >
                       {m === 'none' ? '없음' : m === 'box' ? '박스' : '알약'}
@@ -704,32 +707,41 @@ export const TitleSourceInspectorForm: React.FC<TitleSourceInspectorFormProps> =
                 </div>
               </div>
 
-              {titleBgMode !== 'none' && (
+              {(gunlimboConfig?.titleBgMode ?? titleBgMode) !== 'none' && (
                 <div className="space-y-2 pt-1.5 border-t border-border/50">
                   <ColorPicker8Preset
                     label="배경 색상"
-                    value={titleBgColor || '#000000'}
-                    onChange={setTitleBgColor}
+                    value={gunlimboConfig?.titleBgColor || titleBgColor || '#000000'}
+                    onChange={(val) => {
+                      setTitleBgColor(val);
+                      setGunlimboConfig?.((prev: any) => ({ ...prev, titleBgColor: val }));
+                    }}
                   />
-                  {titleBgMode === 'box' && (
+                  {(gunlimboConfig?.titleBgMode ?? titleBgMode) === 'box' && (
                     <UnitSliderControl
                       label="모서리 모양 (둥글기)"
-                      value={titleBorderRadius ?? 4}
+                      value={gunlimboConfig?.titleBorderRadius ?? titleBorderRadius ?? 4}
                       min={0}
                       max={30}
                       step={1}
                       unit="px"
-                      onChange={setTitleBorderRadius}
+                      onChange={(val) => {
+                        setTitleBorderRadius(val);
+                        setGunlimboConfig?.((prev: any) => ({ ...prev, titleBorderRadius: val }));
+                      }}
                     />
                   )}
                   <UnitSliderControl
                     label="내부 패딩"
-                    value={titlePaddingX ?? 8}
+                    value={gunlimboConfig?.titlePaddingX ?? titlePaddingX ?? 8}
                     min={2}
                     max={24}
                     step={1}
                     unit="px"
-                    onChange={setTitlePaddingX}
+                    onChange={(val) => {
+                      setTitlePaddingX(val);
+                      setGunlimboConfig?.((prev: any) => ({ ...prev, titlePaddingX: val }));
+                    }}
                   />
                 </div>
               )}

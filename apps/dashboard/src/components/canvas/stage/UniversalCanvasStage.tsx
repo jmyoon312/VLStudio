@@ -1380,11 +1380,11 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                           e.stopPropagation();
                           setActiveFloating('title');
                         }}
-                        className="flex flex-col items-center text-center leading-tight cursor-pointer px-4 select-none"
+                        className="flex flex-col w-[360px] max-w-[380px] leading-tight cursor-pointer px-4 select-none"
                         style={{
-                          backgroundColor: (titleBgMode !== 'none') ? titleBgColor : 'transparent',
-                          borderRadius: `${titleBorderRadius}px`,
-                          padding: (titleBgMode !== 'none') ? `${titlePaddingY}px ${titlePaddingX}px` : undefined,
+                          backgroundColor: ((gunlimboConfig?.titleBgMode ?? titleBgMode) !== 'none') ? (gunlimboConfig?.titleBgColor || titleBgColor) : 'transparent',
+                          borderRadius: `${gunlimboConfig?.titleBorderRadius ?? titleBorderRadius}px`,
+                          padding: ((gunlimboConfig?.titleBgMode ?? titleBgMode) !== 'none') ? `${gunlimboConfig?.titlePaddingY ?? titlePaddingY}px ${gunlimboConfig?.titlePaddingX ?? titlePaddingX}px` : undefined,
                         }}
                         title="더블클릭하여 상단 대제목 설정"
                       >
@@ -1397,6 +1397,7 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                             }}
                             className="font-black px-1.5 py-0.5 uppercase tracking-wider mb-1 rounded-[2px] shadow-xs cursor-pointer hover:opacity-90 inline-block leading-tight select-none"
                             style={{
+                              alignSelf: (gunlimboConfig?.titleLine1Align || titleLine1Align || titleAlign) === 'left' ? 'flex-start' : (gunlimboConfig?.titleLine1Align || titleLine1Align || titleAlign) === 'right' ? 'flex-end' : 'center',
                               backgroundColor: gunlimboConfig?.titleBadgeBg || titleBadgeBg || '#EF4444',
                               color: gunlimboConfig?.titleBadgeColor || titleBadgeColor || '#FFFFFF',
                               fontSize: `${gunlimboConfig?.titleBadgeSizePx || titleBadgeSizePx || 11}px`,
@@ -1410,7 +1411,7 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
 
                         {/* 1단 대제목 */}
                         <span
-                          className="font-black drop-shadow-sm whitespace-pre-line text-center"
+                          className="font-black drop-shadow-sm whitespace-pre-line block w-full"
                           style={{
                             color: gunlimboConfig.titleLine1Color || '#FFFFFF',
                             fontSize: `${gunlimboConfig.titleLine1FontSize || gunlimboConfig.titleFontSize || titleLine1SizePx || 34}px`,
@@ -1431,7 +1432,7 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                         {/* 2단 대제목 (double 모드일 때만 표시!) */}
                         {(gunlimboConfig?.titleLinesMode ?? titleLinesMode ?? 'double') === 'double' && (gunlimboConfig?.hasTitleLine2 ?? hasTitleLine2 ?? true) && (
                           <span
-                            className="font-black drop-shadow-sm whitespace-pre-line text-center"
+                            className="font-black drop-shadow-sm whitespace-pre-line block w-full"
                             style={{
                               color: gunlimboConfig.titleLine2Color || '#FFE500',
                               fontSize: `${gunlimboConfig.titleLine2FontSize || gunlimboConfig.titleFontSize || titleLine2SizePx || 34}px`,
@@ -1488,23 +1489,29 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                           setActiveFloating('gunlimboHook');
                         }}
                         className={cn(
-                          "w-full min-w-[300px] max-w-[380px] py-2 px-6 flex items-center shadow-xl cursor-pointer transition-all rounded-xs border-y border-white/20",
+                          "w-full min-w-[300px] max-w-[380px] py-2 px-6 flex items-center shadow-xl cursor-pointer transition-all border-y border-white/20",
                           gunlimboConfig.hookAlign === 'left' ? "justify-start" : gunlimboConfig.hookAlign === 'right' ? "justify-end" : "justify-center"
                         )}
-                        style={{ backgroundColor: gunlimboConfig.hookBgColor || '#FFFFFF' }}
+                        style={{
+                          backgroundColor: gunlimboConfig.hookBgColor || '#FFFFFF',
+                          borderRadius: `${gunlimboConfig.borderRadius ?? 0}px`,
+                        }}
                         title="더블클릭하여 소제목 훅 문구 설정"
                       >
                         <span
                           className="tracking-tight leading-snug break-keep select-none uppercase w-full"
                           style={{
                             color: gunlimboConfig.hookTextColor || '#000000',
-                            fontSize: `${gunlimboConfig.hookFontSize || 22}px`,
+                            fontSize: `${gunlimboConfig.hookFontSize || 19}px`,
                             fontFamily: resolveFontFamily(gunlimboConfig.hookFont || titleFontFamily),
                             fontWeight: gunlimboConfig.hookBold === false ? 400 : 900,
                             fontStyle: gunlimboConfig.hookItalic ? 'italic' : 'normal',
                             textAlign: gunlimboConfig.hookAlign || 'center',
                             letterSpacing: `${gunlimboConfig.hookLetterSpacing ?? jabLetterSpacing ?? -0.5}px`,
                             lineHeight: gunlimboConfig.hookLineHeight ?? jabLineHeight ?? 1.25,
+                            WebkitTextStroke: gunlimboConfig.strokeEnabled ? `${gunlimboConfig.strokeWidth ?? 2}px ${gunlimboConfig.strokeColor || '#000000'}` : 'none',
+                            paintOrder: 'stroke fill',
+                            textShadow: gunlimboConfig.shadowEnabled ? `0 2px ${gunlimboConfig.shadowBlur ?? 4}px ${gunlimboConfig.shadowColor || '#000000'}` : 'none',
                           }}
                         >
                           {gunlimboConfig.hookPhrase || jabText || '*출격작전 반전 순간!*'}
@@ -2518,10 +2525,22 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                     if (patch.titleShadow !== undefined && props.setTitleShadow) props.setTitleShadow(patch.titleShadow);
                     if (patch.titleShadowBlur !== undefined && props.setTitleShadowBlur) props.setTitleShadowBlur(patch.titleShadowBlur);
                     if (patch.titleShadowColor !== undefined && props.setTitleShadowColor) props.setTitleShadowColor(patch.titleShadowColor);
-                    if (patch.titleBgMode !== undefined && props.setTitleBgMode) props.setTitleBgMode(patch.titleBgMode);
-                    if (patch.titleBgColor !== undefined && props.setTitleBgColor) props.setTitleBgColor(patch.titleBgColor);
-                    if (patch.titlePaddingX !== undefined && props.setTitlePaddingX) props.setTitlePaddingX(patch.titlePaddingX);
-                    if (patch.titleBorderRadius !== undefined && props.setTitleBorderRadius) props.setTitleBorderRadius(patch.titleBorderRadius);
+                    if (patch.titleBgMode !== undefined) {
+                      props.setTitleBgMode?.(patch.titleBgMode);
+                      props.setGunlimboConfig?.((prev: any) => ({ ...prev, titleBgMode: patch.titleBgMode }));
+                    }
+                    if (patch.titleBgColor !== undefined) {
+                      props.setTitleBgColor?.(patch.titleBgColor);
+                      props.setGunlimboConfig?.((prev: any) => ({ ...prev, titleBgColor: patch.titleBgColor }));
+                    }
+                    if (patch.titlePaddingX !== undefined) {
+                      props.setTitlePaddingX?.(patch.titlePaddingX);
+                      props.setGunlimboConfig?.((prev: any) => ({ ...prev, titlePaddingX: patch.titlePaddingX }));
+                    }
+                    if (patch.titleBorderRadius !== undefined) {
+                      props.setTitleBorderRadius?.(patch.titleBorderRadius);
+                      props.setGunlimboConfig?.((prev: any) => ({ ...prev, titleBorderRadius: patch.titleBorderRadius }));
+                    }
                   }}
                   onReset={() => {
                     if (masterGeo?.titleLine1) {
@@ -2834,66 +2853,71 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                   onClose={() => setActiveFloating('none')}
                   config={{
                     enabled: true,
-                    bandColor: props.gunlimboConfig?.hookBgColor || '#FFFFFF',
-                    bandHeightPct: 10,
-                    bandYPct: 24,
-                    headlineText: props.gunlimboConfig?.titleLine1 || '경찰도 경악한 범인의 정체',
-                    headlineColor: props.gunlimboConfig?.titleLine1Color || '#FFFFFF',
-                    headlineFontSize: props.gunlimboConfig?.titleFontSize || 34,
-                    headlineFont: props.gunlimboConfig?.titleFontFamily || props.titleFontFamily || 'Pretendard',
-                    headlineBold: props.gunlimboConfig?.titleBold ?? true,
-                    headlineItalic: props.gunlimboConfig?.titleItalic ?? false,
-                    headlineAlign: props.gunlimboConfig?.titleAlign || 'center',
-                    subheadlineText: props.gunlimboConfig?.hookPhrase || '1분 만에 밝혀진 진실',
-                    subheadlineColor: props.gunlimboConfig?.hookTextColor || '#000000',
-                    subheadlineFontSize: props.gunlimboConfig?.hookFontSize || 22,
-                    subheadlineFont: props.gunlimboConfig?.hookFont || props.titleFontFamily || 'Pretendard',
-                    subheadlineBold: props.gunlimboConfig?.hookBold ?? true,
-                    subheadlineItalic: props.gunlimboConfig?.hookItalic ?? false,
-                    subheadlineAlign: props.gunlimboConfig?.hookAlign || 'center',
-                    headlineLetterSpacing: props.gunlimboConfig?.titleLetterSpacing ?? props.titleLetterSpacing ?? -0.5,
-                    headlineLineHeight: props.gunlimboConfig?.titleLineHeight ?? props.titleLineHeight ?? 1.25,
-                    subheadlineLetterSpacing: props.gunlimboConfig?.hookLetterSpacing ?? props.jabLetterSpacing ?? -0.5,
-                    subheadlineLineHeight: props.gunlimboConfig?.hookLineHeight ?? props.jabLineHeight ?? 1.25,
-                    showBorder: true,
-                    borderColor: '#3F3F46',
-                    borderWidth: 1,
+                    hookPhrase: props.gunlimboConfig?.hookPhrase || props.jabText || '1분 만에 밝혀진 진실',
+                    hookBgColor: props.gunlimboConfig?.hookBgColor || '#FFFFFF',
+                    hookTextColor: props.gunlimboConfig?.hookTextColor || '#000000',
+                    hookFontSize: props.gunlimboConfig?.hookFontSize || 19,
+                    hookFont: props.gunlimboConfig?.hookFont || props.titleFontFamily || 'Pretendard',
+                    hookBold: props.gunlimboConfig?.hookBold ?? true,
+                    hookItalic: props.gunlimboConfig?.hookItalic ?? false,
+                    hookAlign: props.gunlimboConfig?.hookAlign || 'center',
+                    hookLetterSpacing: props.gunlimboConfig?.hookLetterSpacing ?? props.jabLetterSpacing ?? -0.5,
+                    hookLineHeight: props.gunlimboConfig?.hookLineHeight ?? props.jabLineHeight ?? 1.25,
+                    introDurationSec: props.gunlimboConfig?.introDurationSec ?? 2.5,
+                    borderRadius: props.gunlimboConfig?.borderRadius ?? 0,
+                    strokeEnabled: props.gunlimboConfig?.strokeEnabled ?? false,
+                    strokeColor: props.gunlimboConfig?.strokeColor || '#000000',
+                    strokeWidth: props.gunlimboConfig?.strokeWidth ?? 2,
+                    shadowEnabled: props.gunlimboConfig?.shadowEnabled ?? false,
+                    shadowColor: props.gunlimboConfig?.shadowColor || '#000000',
+                    shadowBlur: props.gunlimboConfig?.shadowBlur ?? 4,
                   }}
                   onChange={(patch) => {
                     props.setGunlimboConfig?.((prev: any) => ({
                       ...prev,
-                      titleLine1: patch.headlineText !== undefined ? patch.headlineText : prev.titleLine1,
-                      titleLine1Color: patch.headlineColor !== undefined ? patch.headlineColor : prev.titleLine1Color,
-                      titleFontSize: patch.headlineFontSize !== undefined ? patch.headlineFontSize : prev.titleFontSize,
-                      titleFontFamily: patch.headlineFont !== undefined ? patch.headlineFont : prev.titleFontFamily,
-                      titleBold: patch.headlineBold !== undefined ? patch.headlineBold : prev.titleBold,
-                      titleItalic: patch.headlineItalic !== undefined ? patch.headlineItalic : prev.titleItalic,
-                      titleAlign: patch.headlineAlign !== undefined ? patch.headlineAlign : prev.titleAlign,
-                      titleLetterSpacing: patch.headlineLetterSpacing !== undefined ? patch.headlineLetterSpacing : prev.titleLetterSpacing,
-                      titleLineHeight: patch.headlineLineHeight !== undefined ? patch.headlineLineHeight : prev.titleLineHeight,
-                      hookPhrase: patch.subheadlineText !== undefined ? patch.subheadlineText : prev.hookPhrase,
-                      hookBgColor: patch.bandColor !== undefined ? patch.bandColor : prev.hookBgColor,
-                      hookTextColor: patch.subheadlineColor !== undefined ? patch.subheadlineColor : prev.hookTextColor,
-                      hookFontSize: patch.subheadlineFontSize !== undefined ? patch.subheadlineFontSize : prev.hookFontSize,
-                      hookFont: patch.subheadlineFont !== undefined ? patch.subheadlineFont : prev.hookFont,
-                      hookBold: patch.subheadlineBold !== undefined ? patch.subheadlineBold : prev.hookBold,
-                      hookItalic: patch.subheadlineItalic !== undefined ? patch.subheadlineItalic : prev.hookItalic,
-                      hookAlign: patch.subheadlineAlign !== undefined ? patch.subheadlineAlign : prev.hookAlign,
-                      hookLetterSpacing: patch.subheadlineLetterSpacing !== undefined ? patch.subheadlineLetterSpacing : prev.hookLetterSpacing,
-                      hookLineHeight: patch.subheadlineLineHeight !== undefined ? patch.subheadlineLineHeight : prev.hookLineHeight,
+                      ...(patch.hookPhrase !== undefined && { hookPhrase: patch.hookPhrase }),
+                      ...(patch.subheadlineText !== undefined && { hookPhrase: patch.subheadlineText }),
+                      ...(patch.hookBgColor !== undefined && { hookBgColor: patch.hookBgColor }),
+                      ...(patch.bandColor !== undefined && { hookBgColor: patch.bandColor }),
+                      ...(patch.hookTextColor !== undefined && { hookTextColor: patch.hookTextColor }),
+                      ...(patch.subheadlineColor !== undefined && { hookTextColor: patch.subheadlineColor }),
+                      ...(patch.hookFontSize !== undefined && { hookFontSize: patch.hookFontSize }),
+                      ...(patch.subheadlineFontSize !== undefined && { hookFontSize: patch.subheadlineFontSize }),
+                      ...(patch.hookFont !== undefined && { hookFont: patch.hookFont }),
+                      ...(patch.subheadlineFont !== undefined && { hookFont: patch.subheadlineFont }),
+                      ...(patch.hookBold !== undefined && { hookBold: patch.hookBold }),
+                      ...(patch.subheadlineBold !== undefined && { hookBold: patch.subheadlineBold }),
+                      ...(patch.hookItalic !== undefined && { hookItalic: patch.hookItalic }),
+                      ...(patch.subheadlineItalic !== undefined && { hookItalic: patch.subheadlineItalic }),
+                      ...(patch.hookAlign !== undefined && { hookAlign: patch.hookAlign }),
+                      ...(patch.subheadlineAlign !== undefined && { hookAlign: patch.subheadlineAlign }),
+                      ...(patch.hookLetterSpacing !== undefined && { hookLetterSpacing: patch.hookLetterSpacing }),
+                      ...(patch.hookLineHeight !== undefined && { hookLineHeight: patch.hookLineHeight }),
+                      ...(patch.introDurationSec !== undefined && { introDurationSec: patch.introDurationSec }),
+                      ...(patch.borderRadius !== undefined && { borderRadius: patch.borderRadius }),
+                      ...(patch.strokeEnabled !== undefined && { strokeEnabled: patch.strokeEnabled }),
+                      ...(patch.strokeColor !== undefined && { strokeColor: patch.strokeColor }),
+                      ...(patch.strokeWidth !== undefined && { strokeWidth: patch.strokeWidth }),
+                      ...(patch.shadowEnabled !== undefined && { shadowEnabled: patch.shadowEnabled }),
+                      ...(patch.shadowColor !== undefined && { shadowColor: patch.shadowColor }),
+                      ...(patch.shadowBlur !== undefined && { shadowBlur: patch.shadowBlur }),
                     }));
                   }}
                   onReset={() => {
-                    const defaultHook = masterGunlimboCfg || {
-                      titleLine1: masterGeo?.titleLine1 || '충격 실화 사건',
-                      titleLine2: masterGeo?.titleLine2 || '상상도 못한 결말',
+                    props.setGunlimboConfig?.((prev: any) => ({
+                      ...prev,
                       hookPhrase: '1분 만에 밝혀진 진실',
                       hookBgColor: '#FFFFFF',
                       hookTextColor: '#000000',
-                    };
-                    props.setGunlimboConfig?.((prev: any) => ({
-                      ...prev,
-                      ...defaultHook,
+                      hookFontSize: 19,
+                      hookFont: 'Pretendard',
+                      hookBold: true,
+                      hookItalic: false,
+                      hookAlign: 'center',
+                      hookLetterSpacing: -0.5,
+                      hookLineHeight: 1.25,
+                      introDurationSec: 2.5,
+                      borderRadius: 0,
                     }));
                   }}
                 />
