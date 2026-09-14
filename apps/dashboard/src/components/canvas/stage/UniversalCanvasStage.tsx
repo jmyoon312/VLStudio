@@ -1696,6 +1696,9 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                       yPct: layoutTemplateMode === 'instagram'
                         ? (subTransform.yPct !== undefined && subTransform.yPct !== 78 && subTransform.yPct !== 75 && subTransform.yPct <= 75 ? subTransform.yPct : 71.5)
                         : (subTransform.yPct ?? 75),
+                      widthPct: layoutTemplateMode === 'instagram'
+                        ? (subTransform.widthPct ?? 88)
+                        : subTransform.widthPct,
                     }}
                     selected={isSubSelected}
                     name="본문 자막"
@@ -1718,10 +1721,10 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                         setActiveFloating(layoutTemplateMode === 'ssul' ? 'ssulSubtitle' : 'subtitle');
                       }}
                       className={cn(
-                        "inline-block whitespace-pre-line transition-all cursor-move",
+                        "whitespace-pre-line transition-all cursor-move",
                         layoutTemplateMode === 'instagram'
-                          ? "text-left font-medium max-w-[88%] break-words"
-                          : "font-black leading-snug tracking-tight text-center px-2",
+                          ? "w-full text-left font-medium break-keep [overflow-wrap:anywhere]"
+                          : "inline-block font-black leading-snug tracking-tight text-center px-2",
                         isBoxOn && "px-3 py-1.5"
                       )}
                       style={{
@@ -1847,71 +1850,85 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
 
 
               {/* 💬 LAYER 7: 하단 바이럴 댓글 카드 (TransformGizmo 연동) */}
-              {(hasCommentCard || layoutTemplateMode === 'instagram') && commentCard && (
-                <TransformGizmo
-                  transform={commentTransform}
-                  onDoubleClick={() => setActiveFloating('commentCard')}
-                  selected={selectedLayerId === 'layer_comment_card'}
-                  name="하단 바이럴 댓글 카드"
-                  canvasScale={canvasScale}
-                  anchor="center"
-                  onSelect={() => {
-                    setSelectedLayerId('layer_comment_card');
-                    setActiveInspectorTab('commentCard');
-                  }}
-                  onChange={(newT) => setCommentTransform?.(newT)}
-                >
-                  <div
-                    onDoubleClick={(e) => {
-                      e.stopPropagation();
-                      setActiveFloating('commentCard');
+              {hasCommentCard && commentCard && (() => {
+                const isBlurred = commentCard.blurId || commentCard.isBlurred;
+                const isAnon = commentCard.anonymous || commentCard.isAnonymous;
+                const displayAuthor = isAnon ? '익명_유저' : (commentCard.author || 'User');
+                const displayHandle = isAnon ? '@user_***' : (commentCard.handle || '@user');
+
+                return (
+                  <TransformGizmo
+                    transform={commentTransform}
+                    onDoubleClick={() => setActiveFloating('commentCard')}
+                    selected={selectedLayerId === 'layer_comment_card'}
+                    name="하단 바이럴 댓글 카드"
+                    canvasScale={canvasScale}
+                    anchor="center"
+                    onSelect={() => {
+                      setSelectedLayerId('layer_comment_card');
+                      setActiveInspectorTab('commentCard');
                     }}
-                    className="p-3 transition-all cursor-move select-none min-w-[200px] max-w-[88%] w-fit inline-block"
-                    style={{
-                      backgroundColor: commentCard.bgColor || ((commentCard.theme === 'insta' || layoutTemplateMode === 'instagram') ? 'rgba(245, 245, 245, 0.95)' : commentCard.theme === 'yt-dark' ? 'rgba(15, 15, 15, 0.9)' : 'rgba(255, 255, 255, 0.95)'),
-                      color: commentCard.textColor || ((commentCard.theme === 'insta' || layoutTemplateMode === 'instagram') ? '#171717' : commentCard.theme === 'yt-dark' ? '#ffffff' : '#171717'),
-                      borderRadius: `${commentCard.borderRadius !== undefined ? commentCard.borderRadius : ((commentCard.theme === 'insta' || layoutTemplateMode === 'instagram') ? 16 : 8)}px`,
-                      border: commentCard.borderEnabled
-                        ? `${commentCard.borderWidth || 1}px solid ${commentCard.borderColor || '#E5E7EB'}`
-                        : ((commentCard.theme === 'insta' || layoutTemplateMode === 'instagram') ? '1px solid rgba(229, 231, 235, 0.9)' : commentCard.theme === 'yt-dark' ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid rgba(0, 0, 0, 0.1)'),
-                      boxShadow: commentCard.cardShadowEnabled
-                        ? `0 10px ${commentCard.cardShadowBlur || 20}px ${commentCard.cardShadowColor || 'rgba(0,0,0,0.25)'}`
-                        : ((commentCard.theme === 'insta' || layoutTemplateMode === 'instagram') ? '0 4px 12px rgba(0,0,0,0.06)' : commentCard.theme === 'yt-dark' ? '0 10px 25px rgba(0,0,0,0.5)' : '0 10px 20px rgba(0,0,0,0.1)'),
-                    }}
+                    onChange={(newT) => setCommentTransform?.(newT)}
                   >
-                    <div className="flex items-center justify-between gap-2 mb-1.5">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-primary to-amber-500 flex items-center justify-center text-[11px] font-black text-white shrink-0 overflow-hidden">
-                          {commentCard.author ? commentCard.author.charAt(0) : 'U'}
-                        </div>
-                        <div className="flex flex-col min-w-0">
-                          <span className="text-[11px] font-bold leading-tight truncate">{commentCard.author || 'User'}</span>
-                          <span className="text-[9px] opacity-60 font-mono truncate">{commentCard.handle || '@user'}</span>
-                        </div>
-                      </div>
-                      <span className="text-[9px] opacity-50 shrink-0">{commentCard.timeText || '방금 전'}</span>
-                    </div>
-                    <p
-                      className="text-[12px] font-medium leading-relaxed break-words px-0.5 mb-2 whitespace-pre-line text-left"
+                    <div
+                      onDoubleClick={(e) => {
+                        e.stopPropagation();
+                        setActiveFloating('commentCard');
+                      }}
+                      className="p-3 transition-all cursor-move select-none min-w-[200px] max-w-[88%] w-fit inline-block"
                       style={{
-                        color: commentCard.textColor || undefined,
-                        WebkitTextStroke: commentCard.textStrokeEnabled ? `${commentCard.textStrokeWidth || 1}px ${commentCard.textStrokeColor || '#000000'}` : 'none',
-                        textShadow: commentCard.textShadowEnabled ? `0 2px ${commentCard.textShadowBlur || 4}px ${commentCard.textShadowColor || 'rgba(0,0,0,0.5)'}` : 'none',
+                        backgroundColor: commentCard.bgColor || ((commentCard.theme === 'insta' || layoutTemplateMode === 'instagram') ? 'rgba(245, 245, 245, 0.95)' : commentCard.theme === 'yt-dark' ? 'rgba(15, 15, 15, 0.9)' : 'rgba(255, 255, 255, 0.95)'),
+                        color: commentCard.textColor || ((commentCard.theme === 'insta' || layoutTemplateMode === 'instagram') ? '#171717' : commentCard.theme === 'yt-dark' ? '#ffffff' : '#171717'),
+                        borderRadius: `${commentCard.borderRadius !== undefined ? commentCard.borderRadius : ((commentCard.theme === 'insta' || layoutTemplateMode === 'instagram') ? 16 : 8)}px`,
+                        border: commentCard.borderEnabled
+                          ? `${commentCard.borderWidth || 1}px solid ${commentCard.borderColor || '#E5E7EB'}`
+                          : ((commentCard.theme === 'insta' || layoutTemplateMode === 'instagram') ? '1px solid rgba(229, 231, 235, 0.9)' : commentCard.theme === 'yt-dark' ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid rgba(0, 0, 0, 0.1)'),
+                        boxShadow: commentCard.cardShadowEnabled
+                          ? `0 10px ${commentCard.cardShadowBlur || 20}px ${commentCard.cardShadowColor || 'rgba(0,0,0,0.25)'}`
+                          : ((commentCard.theme === 'insta' || layoutTemplateMode === 'instagram') ? '0 4px 12px rgba(0,0,0,0.06)' : commentCard.theme === 'yt-dark' ? '0 10px 25px rgba(0,0,0,0.5)' : '0 10px 20px rgba(0,0,0,0.1)'),
                       }}
                     >
-                      {commentCard.text || '댓글 내용'}
-                    </p>
-                    <div className="flex items-center justify-between text-[10px] opacity-75 pt-1 border-t border-current/10">
-                      <span className="flex items-center gap-1 font-semibold text-rose-500">
-                        ❤️ {commentCard.likes || '0'}
-                      </span>
-                      <span className="text-[9px] bg-primary/20 text-primary font-bold px-1.5 py-0.2 rounded-xs">
-                        📌 베댓
-                      </span>
+                      <div className="flex items-center justify-between gap-2 mb-1.5">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div className={cn(
+                            "w-6 h-6 rounded-full bg-gradient-to-tr from-primary to-amber-500 flex items-center justify-center text-[11px] font-black text-white shrink-0 overflow-hidden",
+                            isBlurred && "blur-[2px]"
+                          )}>
+                            {displayAuthor.charAt(0)}
+                          </div>
+                          <div className="flex flex-col min-w-0">
+                            <span className={cn("text-[11px] font-bold leading-tight truncate", isBlurred && "blur-[3px]")}>
+                              {displayAuthor}
+                            </span>
+                            <span className={cn("text-[9px] opacity-60 font-mono truncate", isBlurred && "blur-[3px]")}>
+                              {displayHandle}
+                            </span>
+                          </div>
+                        </div>
+                        <span className="text-[9px] opacity-50 shrink-0">{commentCard.timeText || commentCard.timeAgo || '방금 전'}</span>
+                      </div>
+                      <p
+                        className="text-[12px] font-medium leading-relaxed break-keep px-0.5 mb-2 whitespace-pre-line text-left"
+                        style={{
+                          color: commentCard.textColor || undefined,
+                          WebkitTextStroke: commentCard.textStrokeEnabled ? `${commentCard.textStrokeWidth || 1}px ${commentCard.textStrokeColor || '#000000'}` : 'none',
+                          textShadow: commentCard.textShadowEnabled ? `0 2px ${commentCard.textShadowBlur || 4}px ${commentCard.textShadowColor || 'rgba(0,0,0,0.5)'}` : 'none',
+                        }}
+                      >
+                        {commentCard.text || commentCard.content || '댓글 내용'}
+                      </p>
+                      <div className="flex items-center justify-between text-[10px] opacity-75 pt-1 border-t border-current/10">
+                        <span className="flex items-center gap-1 font-semibold text-rose-500">
+                          ❤️ {commentCard.likes || '0'}
+                        </span>
+                        <span className="text-[9px] bg-primary/20 text-primary font-bold px-1.5 py-0.2 rounded-xs">
+                          📌 베댓
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                </TransformGizmo>
-              )}
+                  </TransformGizmo>
+                );
+              })()}
 
               {/* 📐 프로 3분할선 및 센터 십자선 가이드 */}
               {showGrid && (
@@ -2661,17 +2678,28 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                 <CommentCardFloatingInspector
                   isOpen={true}
                   onClose={() => setActiveFloating('none')}
+                  hasCommentCard={props.hasCommentCard ?? true}
+                  setHasCommentCard={props.setHasCommentCard}
                   config={props.commentCard}
                   onChange={(patch) => {
                     props.setCommentCard?.((prev: any) => ({ ...prev, ...patch }));
                   }}
                   onReset={() => {
-                    const defaultC = masterGeo?.commentCard || {
-                      authorName: '알고리즘의노예',
-                      commentText: '이거 보고 제 인생이 바뀌었습니다 ㄷㄷ',
-                      likesCount: '1.4만',
+                    const defaultC = {
+                      author: '알고리즘의노예',
+                      handle: '@algo_slave',
+                      text: '이거 보고 제 인생이 바뀌었습니다 ㄷㄷ',
+                      likes: '1.4만',
+                      theme: 'insta',
                       bgColor: '#FFFFFF',
                       textColor: '#18181B',
+                      borderRadius: 16,
+                      borderEnabled: true,
+                      borderWidth: 1,
+                      borderColor: '#E5E7EB',
+                      cardShadowEnabled: true,
+                      cardShadowBlur: 12,
+                      cardShadowColor: 'rgba(0,0,0,0.06)',
                     };
                     props.setCommentCard?.((prev: any) => ({
                       ...prev,

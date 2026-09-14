@@ -49,6 +49,8 @@ export interface CommentCardInspectorFormProps {
   setCommentCard: React.Dispatch<React.SetStateAction<CommentCardConfig>>;
   hasCommentCard: boolean;
   setHasCommentCard: (val: boolean | ((prev: boolean) => boolean)) => void;
+  commentTransform?: any;
+  setCommentTransform?: any;
   handleGenerateViralComment?: () => void;
 }
 
@@ -57,6 +59,8 @@ export const CommentCardInspectorForm: React.FC<CommentCardInspectorFormProps> =
   setCommentCard,
   hasCommentCard,
   setHasCommentCard,
+  commentTransform,
+  setCommentTransform,
   handleGenerateViralComment,
 }) => {
   const { toast } = useToast();
@@ -143,16 +147,26 @@ export const CommentCardInspectorForm: React.FC<CommentCardInspectorFormProps> =
                         <span className="text-[10px] font-semibold text-muted-foreground">카드 테마</span>
                         <div className="grid grid-cols-3 gap-1">
                           {[
-                            { id: 'yt-dark', label: '유튜브 다크' },
-                            { id: 'yt-light', label: '유튜브 라이트' },
                             { id: 'insta', label: '인스타그램' },
+                            { id: 'yt-light', label: '유튜브 라이트' },
+                            { id: 'yt-dark', label: '유튜브 다크' },
                           ].map((t) => (
                             <button
                               key={t.id}
                               type="button"
-                              onClick={() => setCommentCard(prev => ({ ...prev, theme: t.id as any }))}
+                              onClick={() => {
+                                const isInsta = t.id === 'insta';
+                                const isDark = t.id === 'yt-dark';
+                                setCommentCard(prev => ({
+                                  ...prev,
+                                  theme: t.id as any,
+                                  bgColor: isInsta ? 'rgba(245, 245, 245, 0.95)' : isDark ? 'rgba(15, 15, 15, 0.9)' : 'rgba(255, 255, 255, 0.95)',
+                                  textColor: isDark ? '#ffffff' : '#171717',
+                                  borderRadius: isInsta ? 16 : 8,
+                                }));
+                              }}
                               className={cn(
-                                "py-1 text-[10px] font-semibold rounded-[2px] border transition cursor-pointer",
+                                "py-1 text-[10px] font-semibold rounded-[2px] border transition cursor-pointer text-center",
                                 commentCard.theme === t.id
                                   ? "bg-primary text-primary-foreground border-primary font-bold shadow-2xs"
                                   : "border-border bg-background text-muted-foreground hover:text-foreground"
@@ -337,29 +351,50 @@ export const CommentCardInspectorForm: React.FC<CommentCardInspectorFormProps> =
                         )}
                       </div>
 
-                      {/* 위치 오프셋 */}
+                      {/* 위치 미세 조정 (X, Y) */}
                       <div className="space-y-2 pt-2 border-t border-border/50">
-                        <span className="text-[11px] font-semibold text-muted-foreground">위치 미세 조정 (X, Y)</span>
+                        <span className="text-[11px] font-semibold text-muted-foreground">위치 및 크기 미세 조정</span>
                         <div className="grid grid-cols-2 gap-2">
                           <UnitSliderControl
-                            label="X 오프셋"
-                            value={commentCard.offsetX || 0}
-                            min={-100}
-                            max={100}
-                            step={1}
-                            unit="px"
-                            onChange={(v) => setCommentCard(prev => ({ ...prev, offsetX: v }))}
+                            label="댓글 X 위치"
+                            value={commentTransform?.xPct ?? (commentCard.offsetX || 50)}
+                            min={4}
+                            max={90}
+                            step={0.5}
+                            unit="%"
+                            onChange={(v) => {
+                              if (setCommentTransform) setCommentTransform((prev: any) => ({ ...(prev || commentTransform), xPct: v }));
+                              setCommentCard(prev => ({ ...prev, offsetX: v }));
+                            }}
                           />
                           <UnitSliderControl
-                            label="Y 오프셋"
-                            value={commentCard.offsetY || 0}
-                            min={-100}
-                            max={100}
-                            step={1}
-                            unit="px"
-                            onChange={(v) => setCommentCard(prev => ({ ...prev, offsetY: v }))}
+                            label="댓글 Y 위치"
+                            value={commentTransform?.yPct ?? (commentCard.offsetY || 80)}
+                            min={50}
+                            max={95}
+                            step={0.5}
+                            unit="%"
+                            onChange={(v) => {
+                              if (setCommentTransform) setCommentTransform((prev: any) => ({ ...(prev || commentTransform), yPct: v }));
+                              setCommentCard(prev => ({ ...prev, offsetY: v }));
+                            }}
                           />
                         </div>
+                        {commentTransform && (
+                          <div className="pt-1">
+                            <UnitSliderControl
+                              label="댓글 카드 크기 배율"
+                              value={commentTransform?.scale ?? 1.0}
+                              min={0.6}
+                              max={1.6}
+                              step={0.05}
+                              unit="x"
+                              onChange={(v) => {
+                                if (setCommentTransform) setCommentTransform((prev: any) => ({ ...(prev || commentTransform), scale: v }));
+                              }}
+                            />
+                          </div>
+                        )}
                       </div>
                     </>
                   )}

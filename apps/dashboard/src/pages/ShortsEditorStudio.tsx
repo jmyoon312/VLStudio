@@ -6276,6 +6276,8 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                 setCommentCard={setCommentCard as any}
                 hasCommentCard={hasCommentCard}
                 setHasCommentCard={setHasCommentCard}
+                commentTransform={commentTransform}
+                setCommentTransform={setCommentTransform}
                 handleGenerateViralComment={handleGenerateViralComment}
               />
             )}

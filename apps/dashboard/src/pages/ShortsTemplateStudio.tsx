@@ -3344,6 +3344,8 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
                 setCommentCard={setCommentCard}
                 hasCommentCard={hasCommentCard}
                 setHasCommentCard={setHasCommentCard}
+                commentTransform={commentTransform}
+                setCommentTransform={setCommentTransform}
               />
             )}
 
