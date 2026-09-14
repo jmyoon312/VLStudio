@@ -88,6 +88,18 @@ export const TitleSourceInspectorForm: React.FC<TitleSourceInspectorFormProps> =
     titleLineHeight = 1.2, setTitleLineHeight,
     bottomSourceLetterSpacing = 0, setBottomSourceLetterSpacing,
     bottomSourceLineHeight = 1.2, setBottomSourceLineHeight,
+    titleLine1FontFamily, setTitleLine1FontFamily,
+    titleLine1Bold, setTitleLine1Bold,
+    titleLine1Italic, setTitleLine1Italic,
+    titleLine1Align, setTitleLine1Align,
+    titleLine1LetterSpacing, setTitleLine1LetterSpacing,
+    titleLine1LineHeight, setTitleLine1LineHeight,
+    titleLine2FontFamily, setTitleLine2FontFamily,
+    titleLine2Bold, setTitleLine2Bold,
+    titleLine2Italic, setTitleLine2Italic,
+    titleLine2Align, setTitleLine2Align,
+    titleLine2LetterSpacing, setTitleLine2LetterSpacing,
+    titleLine2LineHeight, setTitleLine2LineHeight,
   } = props;
 
   const showTitle = mode === 'all' || mode === 'title';
@@ -337,7 +349,7 @@ export const TitleSourceInspectorForm: React.FC<TitleSourceInspectorFormProps> =
             </div>
           </div>
           <div className="space-y-3">
-            {/* 1단 문구 및 색상 */}
+            {/* 1단 문구, 색상, 크기, 서체 및 스타일/정렬 */}
             <div className="space-y-2 p-2 bg-muted/20 border border-border rounded-[2px]">
               <div className="space-y-1">
                 <label className="text-[10px] font-semibold text-muted-foreground">1단 타이틀 문구 (위)</label>
@@ -353,17 +365,64 @@ export const TitleSourceInspectorForm: React.FC<TitleSourceInspectorFormProps> =
                   placeholder="제목 1행"
                 />
               </div>
-              <ColorPicker8Preset
-                label="1단 글자 색상"
-                value={gunlimboConfig?.titleLine1Color || titleLine1Color || '#FFFFFF'}
-                onChange={(val) => {
-                  setTitleLine1Color?.(val);
-                  setGunlimboConfig?.((prev: any) => ({ ...prev, titleLine1Color: val }));
+              <div className="grid grid-cols-2 gap-2">
+                <ColorPicker8Preset
+                  label="1단 글자 색상"
+                  value={gunlimboConfig?.titleLine1Color || titleLine1Color || '#FFFFFF'}
+                  onChange={(val) => {
+                    setTitleLine1Color?.(val);
+                    setGunlimboConfig?.((prev: any) => ({ ...prev, titleLine1Color: val }));
+                  }}
+                />
+                <UnitSliderControl
+                  label="1단 글자 크기"
+                  value={gunlimboConfig?.titleLine1FontSize || gunlimboConfig?.titleFontSize || titleLine1SizePx || 34}
+                  min={16}
+                  max={50}
+                  step={1}
+                  unit="px"
+                  onChange={(val) => {
+                    setTitleLine1SizePx?.(val);
+                    setGunlimboConfig?.((prev: any) => ({ ...prev, titleLine1FontSize: val, titleFontSize: val }));
+                  }}
+                />
+              </div>
+              <FontStyleAlignControl
+                label="1단 글꼴 & 스타일/정렬"
+                font={gunlimboConfig?.titleLine1Font || gunlimboConfig?.titleFont || titleLine1FontFamily || titleFontFamily || 'Pretendard'}
+                setFont={(f) => {
+                  setTitleLine1FontFamily?.(f);
+                  setGunlimboConfig?.((prev: any) => ({ ...prev, titleLine1Font: f }));
+                }}
+                bold={gunlimboConfig?.titleLine1Bold !== undefined ? gunlimboConfig.titleLine1Bold : (titleLine1Bold !== undefined ? titleLine1Bold : (titleBold !== false))}
+                setBold={(b) => {
+                  setTitleLine1Bold?.(b);
+                  setGunlimboConfig?.((prev: any) => ({ ...prev, titleLine1Bold: b }));
+                }}
+                italic={gunlimboConfig?.titleLine1Italic !== undefined ? gunlimboConfig.titleLine1Italic : (titleLine1Italic ?? titleItalic ?? false)}
+                setItalic={(i) => {
+                  setTitleLine1Italic?.(i);
+                  setGunlimboConfig?.((prev: any) => ({ ...prev, titleLine1Italic: i }));
+                }}
+                align={gunlimboConfig?.titleLine1Align || titleLine1Align || titleAlign || 'center'}
+                setAlign={(a) => {
+                  setTitleLine1Align?.(a);
+                  setGunlimboConfig?.((prev: any) => ({ ...prev, titleLine1Align: a }));
+                }}
+                letterSpacing={gunlimboConfig?.titleLine1LetterSpacing ?? gunlimboConfig?.titleLetterSpacing ?? titleLine1LetterSpacing ?? titleLetterSpacing ?? -0.5}
+                setLetterSpacing={(ls) => {
+                  setTitleLine1LetterSpacing?.(ls);
+                  setGunlimboConfig?.((prev: any) => ({ ...prev, titleLine1LetterSpacing: ls, titleLetterSpacing: ls }));
+                }}
+                lineHeight={gunlimboConfig?.titleLine1LineHeight ?? gunlimboConfig?.titleLineHeight ?? titleLine1LineHeight ?? titleLineHeight ?? 1.2}
+                setLineHeight={(lh) => {
+                  setTitleLine1LineHeight?.(lh);
+                  setGunlimboConfig?.((prev: any) => ({ ...prev, titleLine1LineHeight: lh, titleLineHeight: lh }));
                 }}
               />
             </div>
 
-            {/* 2단 문구 및 색상 */}
+            {/* 2단 문구, 색상, 크기, 서체 및 스타일/정렬 */}
             <div className="space-y-2 p-2 bg-muted/20 border border-border rounded-[2px]">
               <div className="space-y-1">
                 <label className="text-[10px] font-semibold text-muted-foreground">2단 타이틀 문구 (아래 포인트)</label>
@@ -379,66 +438,66 @@ export const TitleSourceInspectorForm: React.FC<TitleSourceInspectorFormProps> =
                   placeholder="제목 2행"
                 />
               </div>
-              <ColorPicker8Preset
-                label="2단 포인트 색상"
-                value={gunlimboConfig?.titleLine2Color || titleLine2Color || '#FFE500'}
-                onChange={(val) => {
-                  setTitleLine2Color?.(val);
-                  setGunlimboConfig?.((prev: any) => ({ ...prev, titleLine2Color: val }));
+              <div className="grid grid-cols-2 gap-2">
+                <ColorPicker8Preset
+                  label="2단 포인트 색상"
+                  value={gunlimboConfig?.titleLine2Color || titleLine2Color || '#FFE500'}
+                  onChange={(val) => {
+                    setTitleLine2Color?.(val);
+                    setGunlimboConfig?.((prev: any) => ({ ...prev, titleLine2Color: val }));
+                  }}
+                />
+                <UnitSliderControl
+                  label="2단 글자 크기"
+                  value={gunlimboConfig?.titleLine2FontSize || gunlimboConfig?.titleFontSize || titleLine2SizePx || 34}
+                  min={16}
+                  max={50}
+                  step={1}
+                  unit="px"
+                  onChange={(val) => {
+                    setTitleLine2SizePx?.(val);
+                    setGunlimboConfig?.((prev: any) => ({ ...prev, titleLine2FontSize: val }));
+                  }}
+                />
+              </div>
+              <FontStyleAlignControl
+                label="2단 글꼴 & 스타일/정렬"
+                font={gunlimboConfig?.titleLine2Font || gunlimboConfig?.titleFont || titleLine2FontFamily || titleFontFamily || 'Pretendard'}
+                setFont={(f) => {
+                  setTitleLine2FontFamily?.(f);
+                  setGunlimboConfig?.((prev: any) => ({ ...prev, titleLine2Font: f }));
+                }}
+                bold={gunlimboConfig?.titleLine2Bold !== undefined ? gunlimboConfig.titleLine2Bold : (titleLine2Bold !== undefined ? titleLine2Bold : (titleBold !== false))}
+                setBold={(b) => {
+                  setTitleLine2Bold?.(b);
+                  setGunlimboConfig?.((prev: any) => ({ ...prev, titleLine2Bold: b }));
+                }}
+                italic={gunlimboConfig?.titleLine2Italic !== undefined ? gunlimboConfig.titleLine2Italic : (titleLine2Italic ?? titleItalic ?? false)}
+                setItalic={(i) => {
+                  setTitleLine2Italic?.(i);
+                  setGunlimboConfig?.((prev: any) => ({ ...prev, titleLine2Italic: i }));
+                }}
+                align={gunlimboConfig?.titleLine2Align || titleLine2Align || titleAlign || 'center'}
+                setAlign={(a) => {
+                  setTitleLine2Align?.(a);
+                  setGunlimboConfig?.((prev: any) => ({ ...prev, titleLine2Align: a }));
+                }}
+                letterSpacing={gunlimboConfig?.titleLine2LetterSpacing ?? gunlimboConfig?.titleLetterSpacing ?? titleLine2LetterSpacing ?? titleLetterSpacing ?? -0.5}
+                setLetterSpacing={(ls) => {
+                  setTitleLine2LetterSpacing?.(ls);
+                  setGunlimboConfig?.((prev: any) => ({ ...prev, titleLine2LetterSpacing: ls }));
+                }}
+                lineHeight={gunlimboConfig?.titleLine2LineHeight ?? gunlimboConfig?.titleLineHeight ?? titleLine2LineHeight ?? titleLineHeight ?? 1.2}
+                setLineHeight={(lh) => {
+                  setTitleLine2LineHeight?.(lh);
+                  setGunlimboConfig?.((prev: any) => ({ ...prev, titleLine2LineHeight: lh }));
                 }}
               />
             </div>
 
-            {/* 글자 크기 및 폰트 */}
-            <div className="space-y-2 p-2 bg-muted/20 border border-border rounded-[2px]">
-              <UnitSliderControl
-                label="대제목 글자 크기"
-                value={gunlimboConfig?.titleFontSize || titleLine1SizePx || 34}
-                min={20}
-                max={50}
-                step={1}
-                unit="px"
-                onChange={(val) => {
-                  setTitleLine1SizePx?.(val);
-                  setGunlimboConfig?.((prev: any) => ({ ...prev, titleFontSize: val }));
-                }}
-              />
-              {/* 글꼴 (Font) & 스타일 및 정렬 (Bold, Italic, Align) */}
-              <FontStyleAlignControl
-                label="대제목 글꼴 (Font)"
-                font={titleFontFamily || gunlimboConfig?.titleFont || 'Pretendard'}
-                setFont={(f) => {
-                  setTitleFontFamily?.(f);
-                  setGunlimboConfig?.((prev: any) => ({ ...prev, titleFont: f }));
-                }}
-                bold={titleBold !== false}
-                setBold={(b) => {
-                  setTitleBold?.(b);
-                  setGunlimboConfig?.((prev: any) => ({ ...prev, titleBold: b }));
-                }}
-                italic={titleItalic ?? false}
-                setItalic={(i) => {
-                  setTitleItalic?.(i);
-                  setGunlimboConfig?.((prev: any) => ({ ...prev, titleItalic: i }));
-                }}
-                align={titleAlign || 'center'}
-                setAlign={(a) => {
-                  setTitleAlign?.(a);
-                  setGunlimboConfig?.((prev: any) => ({ ...prev, titleAlign: a }));
-                }}
-                letterSpacing={gunlimboConfig?.titleLetterSpacing ?? titleLetterSpacing ?? -0.5}
-                setLetterSpacing={(ls) => {
-                  setTitleLetterSpacing?.(ls);
-                  setGunlimboConfig?.((prev: any) => ({ ...prev, titleLetterSpacing: ls }));
-                }}
-                lineHeight={gunlimboConfig?.titleLineHeight ?? titleLineHeight ?? 1.2}
-                setLineHeight={(lh) => {
-                  setTitleLineHeight?.(lh);
-                  setGunlimboConfig?.((prev: any) => ({ ...prev, titleLineHeight: lh }));
-                }}
-              />
-
-              <div className="flex items-center justify-between pt-1">
+            {/* 노출 설정 */}
+            <div className="p-2 bg-muted/20 border border-border rounded-[2px]">
+              <div className="flex items-center justify-between">
                 <span className="text-[10px] font-semibold text-muted-foreground">영상 전체에서 계속 표시</span>
                 <Switch
                   checked={gunlimboConfig?.keepTitleThroughout ?? true}
@@ -957,6 +1016,41 @@ export const TitleSourceInspectorForm: React.FC<TitleSourceInspectorFormProps> =
                     unit="px"
                     onChange={setTitleLine1SizePx}
                   />
+
+                  {/* 1단 글꼴 & 스타일 및 정렬 & 자간/줄간격 */}
+                  <FontStyleAlignControl
+                    label="1단 글꼴 & 스타일/정렬"
+                    font={titleLine1FontFamily || titleFontFamily}
+                    setFont={(f) => {
+                      setTitleLine1FontFamily?.(f);
+                      if (titleLinesMode === 'single') setTitleFontFamily?.(f);
+                    }}
+                    bold={titleLine1Bold !== undefined ? titleLine1Bold : (titleBold !== false)}
+                    setBold={(b) => {
+                      setTitleLine1Bold?.(b);
+                      if (titleLinesMode === 'single') setTitleBold?.(b);
+                    }}
+                    italic={titleLine1Italic !== undefined ? titleLine1Italic : (titleItalic ?? false)}
+                    setItalic={(i) => {
+                      setTitleLine1Italic?.(i);
+                      if (titleLinesMode === 'single') setTitleItalic?.(i);
+                    }}
+                    align={titleLine1Align || titleAlign || 'center'}
+                    setAlign={(a) => {
+                      setTitleLine1Align?.(a);
+                      if (titleLinesMode === 'single') setTitleAlign?.(a);
+                    }}
+                    letterSpacing={titleLine1LetterSpacing !== undefined ? titleLine1LetterSpacing : (titleLetterSpacing ?? -0.5)}
+                    setLetterSpacing={(ls) => {
+                      setTitleLine1LetterSpacing?.(ls);
+                      if (titleLinesMode === 'single') setTitleLetterSpacing?.(ls);
+                    }}
+                    lineHeight={titleLine1LineHeight !== undefined ? titleLine1LineHeight : (titleLineHeight ?? 1.2)}
+                    setLineHeight={(lh) => {
+                      setTitleLine1LineHeight?.(lh);
+                      if (titleLinesMode === 'single') setTitleLineHeight?.(lh);
+                    }}
+                  />
                 </div>
               )}
             </div>
@@ -1004,27 +1098,27 @@ export const TitleSourceInspectorForm: React.FC<TitleSourceInspectorFormProps> =
                       unit="px"
                       onChange={setTitleLine2SizePx}
                     />
+
+                    {/* 2단 글꼴 & 스타일 및 정렬 & 자간/줄간격 */}
+                    <FontStyleAlignControl
+                      label="2단 글꼴 & 스타일/정렬"
+                      font={titleLine2FontFamily || titleFontFamily}
+                      setFont={setTitleLine2FontFamily}
+                      bold={titleLine2Bold !== undefined ? titleLine2Bold : (titleBold !== false)}
+                      setBold={setTitleLine2Bold}
+                      italic={titleLine2Italic !== undefined ? titleLine2Italic : (titleItalic ?? false)}
+                      setItalic={setTitleLine2Italic}
+                      align={titleLine2Align || titleAlign || 'center'}
+                      setAlign={setTitleLine2Align}
+                      letterSpacing={titleLine2LetterSpacing !== undefined ? titleLine2LetterSpacing : (titleLetterSpacing ?? -0.5)}
+                      setLetterSpacing={setTitleLine2LetterSpacing}
+                      lineHeight={titleLine2LineHeight !== undefined ? titleLine2LineHeight : (titleLineHeight ?? 1.2)}
+                      setLineHeight={setTitleLine2LineHeight}
+                    />
                   </div>
                 )}
               </div>
             )}
-
-            {/* 5. 글꼴 및 서체 스타일 / 정렬 */}
-            <FontStyleAlignControl
-              label="글꼴 (Font)"
-              font={titleFontFamily}
-              setFont={setTitleFontFamily}
-              bold={titleBold !== false}
-              setBold={setTitleBold}
-              italic={titleItalic ?? false}
-              setItalic={setTitleItalic}
-              align={titleAlign || 'center'}
-              setAlign={setTitleAlign}
-              letterSpacing={titleLetterSpacing ?? -0.5}
-              setLetterSpacing={setTitleLetterSpacing}
-              lineHeight={titleLineHeight ?? 1.2}
-              setLineHeight={setTitleLineHeight}
-            />
 
             {/* 6. 🎨 테두리(외곽선) 상세 제어 */}
             <div className="space-y-2 p-2 bg-muted/20 border border-border rounded-[2px]">

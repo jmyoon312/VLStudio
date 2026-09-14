@@ -29,6 +29,18 @@ export interface TitleFloatingConfig {
   titleBold?: boolean;
   titleItalic?: boolean;
   titleAlign?: 'left' | 'center' | 'right';
+  titleLine1FontFamily?: string;
+  titleLine1Bold?: boolean;
+  titleLine1Italic?: boolean;
+  titleLine1Align?: 'left' | 'center' | 'right';
+  titleLine1LetterSpacing?: number;
+  titleLine1LineHeight?: number;
+  titleLine2FontFamily?: string;
+  titleLine2Bold?: boolean;
+  titleLine2Italic?: boolean;
+  titleLine2Align?: 'left' | 'center' | 'right';
+  titleLine2LetterSpacing?: number;
+  titleLine2LineHeight?: number;
   titleStroke?: boolean;
   titleStrokeWidth?: number;
   titleStrokeColor?: string;
@@ -80,6 +92,18 @@ export const TitleFloatingInspector: React.FC<TitleFloatingInspectorProps> = ({
     titleBold = true,
     titleItalic = false,
     titleAlign = 'center',
+    titleLine1FontFamily,
+    titleLine1Bold,
+    titleLine1Italic,
+    titleLine1Align,
+    titleLine1LetterSpacing,
+    titleLine1LineHeight,
+    titleLine2FontFamily,
+    titleLine2Bold,
+    titleLine2Italic,
+    titleLine2Align,
+    titleLine2LetterSpacing,
+    titleLine2LineHeight,
     titleStroke = true,
     titleStrokeWidth = 2,
     titleStrokeColor = '#000000',
@@ -238,6 +262,43 @@ export const TitleFloatingInspector: React.FC<TitleFloatingInspectorProps> = ({
                 unit="px"
                 onChange={(v) => onChange({ titleLine1SizePx: v })}
               />
+
+              {/* 1단 글꼴 & 스타일 및 정렬 */}
+              <div className="pt-1.5 border-t border-border/50">
+                <FontStyleAlignControl
+                  label="1단 글꼴 & 스타일/정렬"
+                  font={titleLine1FontFamily || titleFontFamily}
+                  setFont={(f) => {
+                    onChange({ titleLine1FontFamily: f });
+                    if (titleLinesMode === 'single') onChange({ titleFontFamily: f });
+                  }}
+                  bold={titleLine1Bold !== undefined ? titleLine1Bold : titleBold}
+                  setBold={(b) => {
+                    onChange({ titleLine1Bold: b });
+                    if (titleLinesMode === 'single') onChange({ titleBold: b });
+                  }}
+                  italic={titleLine1Italic !== undefined ? titleLine1Italic : titleItalic}
+                  setItalic={(it) => {
+                    onChange({ titleLine1Italic: it });
+                    if (titleLinesMode === 'single') onChange({ titleItalic: it });
+                  }}
+                  align={titleLine1Align || titleAlign}
+                  setAlign={(a) => {
+                    onChange({ titleLine1Align: a });
+                    if (titleLinesMode === 'single') onChange({ titleAlign: a });
+                  }}
+                  letterSpacing={titleLine1LetterSpacing !== undefined ? titleLine1LetterSpacing : titleLetterSpacing}
+                  setLetterSpacing={(ls) => {
+                    onChange({ titleLine1LetterSpacing: ls });
+                    if (titleLinesMode === 'single') onChange({ titleLetterSpacing: ls });
+                  }}
+                  lineHeight={titleLine1LineHeight !== undefined ? titleLine1LineHeight : titleLineHeight}
+                  setLineHeight={(lh) => {
+                    onChange({ titleLine1LineHeight: lh });
+                    if (titleLinesMode === 'single') onChange({ titleLineHeight: lh });
+                  }}
+                />
+              </div>
             </div>
           )}
         </div>
@@ -288,26 +349,29 @@ export const TitleFloatingInspector: React.FC<TitleFloatingInspectorProps> = ({
                   unit="px"
                   onChange={(v) => onChange({ titleLine2SizePx: v })}
                 />
+
+                {/* 2단 글꼴 & 스타일 및 정렬 */}
+                <div className="pt-1.5 border-t border-border/50">
+                  <FontStyleAlignControl
+                    label="2단 글꼴 & 스타일/정렬"
+                    font={titleLine2FontFamily || titleFontFamily}
+                    setFont={(f) => onChange({ titleLine2FontFamily: f })}
+                    bold={titleLine2Bold !== undefined ? titleLine2Bold : titleBold}
+                    setBold={(b) => onChange({ titleLine2Bold: b })}
+                    italic={titleLine2Italic !== undefined ? titleLine2Italic : titleItalic}
+                    setItalic={(it) => onChange({ titleLine2Italic: it })}
+                    align={titleLine2Align || titleAlign}
+                    setAlign={(a) => onChange({ titleLine2Align: a })}
+                    letterSpacing={titleLine2LetterSpacing !== undefined ? titleLine2LetterSpacing : titleLetterSpacing}
+                    setLetterSpacing={(ls) => onChange({ titleLine2LetterSpacing: ls })}
+                    lineHeight={titleLine2LineHeight !== undefined ? titleLine2LineHeight : titleLineHeight}
+                    setLineHeight={(lh) => onChange({ titleLine2LineHeight: lh })}
+                  />
+                </div>
               </div>
             )}
           </div>
         )}
-
-        {/* 5. 글꼴 및 서체 스타일 / 정렬 */}
-        <FontStyleAlignControl
-          font={titleFontFamily}
-          setFont={(f) => onChange({ titleFontFamily: f })}
-          bold={titleBold}
-          setBold={(b) => onChange({ titleBold: b })}
-          italic={titleItalic}
-          setItalic={(it) => onChange({ titleItalic: it })}
-          align={titleAlign}
-          setAlign={(a) => onChange({ titleAlign: a })}
-          letterSpacing={titleLetterSpacing}
-          setLetterSpacing={(ls) => onChange({ titleLetterSpacing: ls })}
-          lineHeight={titleLineHeight}
-          setLineHeight={(lh) => onChange({ titleLineHeight: lh })}
-        />
 
         {/* 6. 🎨 테두리(외곽선) 상세 제어 */}
         <div className="space-y-2 p-2 bg-muted/20 border border-border rounded-[2px]">

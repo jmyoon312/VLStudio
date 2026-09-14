@@ -178,6 +178,30 @@ export interface UniversalCanvasStageProps {
   setTitleLetterSpacing?: (val: number) => void;
   titleLineHeight?: number;
   setTitleLineHeight?: (val: number) => void;
+  titleLine1FontFamily?: string;
+  setTitleLine1FontFamily?: (val: string) => void;
+  titleLine1Bold?: boolean;
+  setTitleLine1Bold?: (val: boolean) => void;
+  titleLine1Italic?: boolean;
+  setTitleLine1Italic?: (val: boolean) => void;
+  titleLine1Align?: 'left' | 'center' | 'right';
+  setTitleLine1Align?: (val: 'left' | 'center' | 'right') => void;
+  titleLine1LetterSpacing?: number;
+  setTitleLine1LetterSpacing?: (val: number) => void;
+  titleLine1LineHeight?: number;
+  setTitleLine1LineHeight?: (val: number) => void;
+  titleLine2FontFamily?: string;
+  setTitleLine2FontFamily?: (val: string) => void;
+  titleLine2Bold?: boolean;
+  setTitleLine2Bold?: (val: boolean) => void;
+  titleLine2Italic?: boolean;
+  setTitleLine2Italic?: (val: boolean) => void;
+  titleLine2Align?: 'left' | 'center' | 'right';
+  setTitleLine2Align?: (val: 'left' | 'center' | 'right') => void;
+  titleLine2LetterSpacing?: number;
+  setTitleLine2LetterSpacing?: (val: number) => void;
+  titleLine2LineHeight?: number;
+  setTitleLine2LineHeight?: (val: number) => void;
 
   // Jab Hook
   hasJab: boolean;
@@ -642,6 +666,30 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
     setTitleLetterSpacing,
     titleLineHeight = 1.2,
     setTitleLineHeight,
+    titleLine1FontFamily,
+    setTitleLine1FontFamily,
+    titleLine1Bold,
+    setTitleLine1Bold,
+    titleLine1Italic,
+    setTitleLine1Italic,
+    titleLine1Align,
+    setTitleLine1Align,
+    titleLine1LetterSpacing,
+    setTitleLine1LetterSpacing,
+    titleLine1LineHeight,
+    setTitleLine1LineHeight,
+    titleLine2FontFamily,
+    setTitleLine2FontFamily,
+    titleLine2Bold,
+    setTitleLine2Bold,
+    titleLine2Italic,
+    setTitleLine2Italic,
+    titleLine2Align,
+    setTitleLine2Align,
+    titleLine2LetterSpacing,
+    setTitleLine2LetterSpacing,
+    titleLine2LineHeight,
+    setTitleLine2LineHeight,
     jabLetterSpacing = 0,
     setJabLetterSpacing,
     jabLineHeight = 1.2,
@@ -1311,7 +1359,7 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                         ...titleTransform,
                         xPct: (titleTransform.xPct !== undefined && titleTransform.xPct >= 20 && titleTransform.xPct <= 80) ? titleTransform.xPct : 50,
                       }}
-                      onDoubleClick={() => setActiveFloating('postTitle')}
+                      onDoubleClick={() => setActiveFloating('title')}
                       selected={selectedLayerId === 'layer_gunlimbo_title' || selectedLayerId === 'layer_title'}
                       name="군림보 상단 대제목"
                       canvasScale={canvasScale}
@@ -1328,18 +1376,22 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                       <div
                         onDoubleClick={(e) => {
                           e.stopPropagation();
-                          setActiveFloating('postTitle');
+                          setActiveFloating('title');
                         }}
                         className="flex flex-col items-center text-center leading-tight cursor-pointer px-4 select-none"
                         title="더블클릭하여 상단 대제목 설정"
                       >
                         <span
-                          className="font-black tracking-tight drop-shadow-sm whitespace-pre-line text-center"
+                          className="font-black drop-shadow-sm whitespace-pre-line text-center"
                           style={{
                             color: gunlimboConfig.titleLine1Color || '#FFFFFF',
-                            fontSize: `${gunlimboConfig.titleFontSize || 34}px`,
-                            fontFamily: titleFontFamily,
-                            lineHeight: 1.15,
+                            fontSize: `${gunlimboConfig.titleLine1FontSize || gunlimboConfig.titleFontSize || titleLine1SizePx || 34}px`,
+                            fontFamily: resolveFontFamily(gunlimboConfig.titleLine1Font || gunlimboConfig.titleFont || titleLine1FontFamily || titleFontFamily),
+                            fontWeight: (gunlimboConfig.titleLine1Bold ?? gunlimboConfig.titleBold ?? titleLine1Bold ?? titleBold) !== false ? 900 : 400,
+                            fontStyle: (gunlimboConfig.titleLine1Italic ?? gunlimboConfig.titleItalic ?? titleLine1Italic ?? titleItalic) ? 'italic' : 'normal',
+                            textAlign: gunlimboConfig.titleLine1Align || titleLine1Align || titleAlign || 'center',
+                            letterSpacing: `${gunlimboConfig.titleLine1LetterSpacing ?? gunlimboConfig.titleLetterSpacing ?? titleLine1LetterSpacing ?? titleLetterSpacing ?? -0.5}px`,
+                            lineHeight: gunlimboConfig.titleLine1LineHeight ?? gunlimboConfig.titleLineHeight ?? titleLine1LineHeight ?? titleLineHeight ?? 1.15,
                             WebkitTextStroke: '2px rgba(0,0,0,0.6)',
                             paintOrder: 'stroke fill',
                           }}
@@ -1347,12 +1399,17 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                           {gunlimboConfig.titleLine1 || '제목을'}
                         </span>
                         <span
-                          className="font-black tracking-tight drop-shadow-sm whitespace-pre-line mt-1 text-center"
+                          className="font-black drop-shadow-sm whitespace-pre-line text-center"
                           style={{
                             color: gunlimboConfig.titleLine2Color || '#FFE500',
-                            fontSize: `${gunlimboConfig.titleFontSize || 34}px`,
-                            fontFamily: titleFontFamily,
-                            lineHeight: 1.15,
+                            fontSize: `${gunlimboConfig.titleLine2FontSize || gunlimboConfig.titleFontSize || titleLine2SizePx || 34}px`,
+                            fontFamily: resolveFontFamily(gunlimboConfig.titleLine2Font || gunlimboConfig.titleFont || titleLine2FontFamily || titleFontFamily),
+                            fontWeight: (gunlimboConfig.titleLine2Bold ?? gunlimboConfig.titleBold ?? titleLine2Bold ?? titleBold) !== false ? 900 : 400,
+                            fontStyle: (gunlimboConfig.titleLine2Italic ?? gunlimboConfig.titleItalic ?? titleLine2Italic ?? titleItalic) ? 'italic' : 'normal',
+                            textAlign: gunlimboConfig.titleLine2Align || titleLine2Align || titleAlign || 'center',
+                            letterSpacing: `${gunlimboConfig.titleLine2LetterSpacing ?? gunlimboConfig.titleLetterSpacing ?? titleLine2LetterSpacing ?? titleLetterSpacing ?? -0.5}px`,
+                            lineHeight: gunlimboConfig.titleLine2LineHeight ?? gunlimboConfig.titleLineHeight ?? titleLine2LineHeight ?? titleLineHeight ?? 1.15,
+                            marginTop: `${Math.round(((gunlimboConfig.titleLine1LineHeight ?? gunlimboConfig.titleLineHeight ?? titleLine1LineHeight ?? titleLineHeight ?? 1.15) - 1.0) * 16 + 4)}px`,
                             WebkitTextStroke: '2px rgba(0,0,0,0.6)',
                             paintOrder: 'stroke fill',
                           }}
@@ -1406,8 +1463,8 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                             fontWeight: gunlimboConfig.hookBold === false ? 400 : 900,
                             fontStyle: gunlimboConfig.hookItalic ? 'italic' : 'normal',
                             textAlign: gunlimboConfig.hookAlign || 'center',
-                            letterSpacing: `${gunlimboConfig.hookLetterSpacing ?? -0.5}px`,
-                            lineHeight: gunlimboConfig.hookLineHeight ?? 1.25,
+                            letterSpacing: `${gunlimboConfig.hookLetterSpacing ?? jabLetterSpacing ?? -0.5}px`,
+                            lineHeight: gunlimboConfig.hookLineHeight ?? jabLineHeight ?? 1.25,
                           }}
                         >
                           {gunlimboConfig.hookPhrase || jabText || '*출격작전 반전 순간!*'}
@@ -1618,20 +1675,20 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                           <div
                             className={cn(
                               "leading-tight tracking-tight whitespace-nowrap w-full",
-                              titleItalic && "italic"
+                              (titleLine1Italic ?? titleItalic) && "italic"
                             )}
                             style={{
                               color: titleLine1Color,
-                              fontFamily: resolveFontFamily(titleFontFamily),
-                              fontWeight: titleBold !== false ? 900 : 400,
+                              fontFamily: resolveFontFamily(titleLine1FontFamily || titleFontFamily),
+                              fontWeight: (titleLine1Bold ?? titleBold) !== false ? 900 : 400,
                               fontSize: `${Math.round((titleLine1SizePx || 20) * aspectScale)}px`,
-                              lineHeight: titleLineHeight !== undefined ? titleLineHeight : 1.2,
-                              letterSpacing: `${titleLetterSpacing !== undefined ? titleLetterSpacing : -0.5}px`,
+                              lineHeight: titleLine1LineHeight !== undefined ? titleLine1LineHeight : (titleLineHeight !== undefined ? titleLineHeight : 1.2),
+                              letterSpacing: `${titleLine1LetterSpacing !== undefined ? titleLine1LetterSpacing : (titleLetterSpacing !== undefined ? titleLetterSpacing : -0.5)}px`,
                               WebkitTextStroke: titleStroke ? `${titleStrokeWidth}px ${titleStrokeColor}` : 'none',
                               paintOrder: 'stroke fill',
                               WebkitFontSmoothing: 'antialiased',
                               textShadow: titleShadow ? `0 2px ${titleShadowBlur}px ${titleShadowColor}` : 'none',
-                              textAlign: titleAlign || 'center',
+                              textAlign: titleLine1Align || titleAlign || 'center',
                             }}
                           >
                             {titleLine1}
@@ -1642,21 +1699,22 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                         {titleLinesMode === 'double' && hasTitleLine2 && titleLine2 && (
                           <div
                             className={cn(
-                              "leading-tight tracking-tight whitespace-nowrap mt-0.5 w-full",
-                              titleItalic && "italic"
+                              "leading-tight tracking-tight whitespace-nowrap w-full",
+                              (titleLine2Italic ?? titleItalic) && "italic"
                             )}
                             style={{
                               color: titleLine2Color,
-                              fontFamily: resolveFontFamily(titleFontFamily),
-                              fontWeight: titleBold !== false ? 900 : 400,
+                              fontFamily: resolveFontFamily(titleLine2FontFamily || titleFontFamily),
+                              fontWeight: (titleLine2Bold ?? titleBold) !== false ? 900 : 400,
                               fontSize: `${Math.round((titleLine2SizePx || 24) * aspectScale)}px`,
-                              lineHeight: titleLineHeight !== undefined ? titleLineHeight : 1.2,
-                              letterSpacing: `${titleLetterSpacing !== undefined ? titleLetterSpacing : -0.5}px`,
+                              lineHeight: titleLine2LineHeight !== undefined ? titleLine2LineHeight : (titleLineHeight !== undefined ? titleLineHeight : 1.2),
+                              letterSpacing: `${titleLine2LetterSpacing !== undefined ? titleLine2LetterSpacing : (titleLetterSpacing !== undefined ? titleLetterSpacing : -0.5)}px`,
+                              marginTop: `${Math.round(((titleLine1LineHeight !== undefined ? titleLine1LineHeight : (titleLineHeight !== undefined ? titleLineHeight : 1.2)) - 1.0) * 10 + 2)}px`,
                               WebkitTextStroke: titleStroke ? `${titleStrokeWidth}px ${titleStrokeColor}` : 'none',
                               paintOrder: 'stroke fill',
                               WebkitFontSmoothing: 'antialiased',
                               textShadow: titleShadow ? `0 2px ${titleShadowBlur}px ${titleShadowColor}` : 'none',
-                              textAlign: titleAlign || 'center',
+                              textAlign: titleLine2Align || titleAlign || 'center',
                             }}
                           >
                             {titleLine2}
@@ -2244,17 +2302,31 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                     titleBadgeColor,
                     titleBadgeSizePx,
                     hasTitleLine1,
-                    titleLine1,
-                    titleLine1SizePx,
-                    titleLine1Color,
+                    titleLine1: gunlimboConfig?.titleLine1 || titleLine1,
+                    titleLine1SizePx: gunlimboConfig?.titleLine1FontSize || gunlimboConfig?.titleFontSize || titleLine1SizePx,
+                    titleLine1Color: gunlimboConfig?.titleLine1Color || titleLine1Color,
                     hasTitleLine2,
-                    titleLine2,
-                    titleLine2SizePx,
-                    titleLine2Color,
-                    titleFontFamily,
-                    titleBold: props.titleBold ?? true,
-                    titleItalic: props.titleItalic ?? false,
-                    titleAlign: props.titleAlign ?? 'center',
+                    titleLine2: gunlimboConfig?.titleLine2 || titleLine2,
+                    titleLine2SizePx: gunlimboConfig?.titleLine2FontSize || gunlimboConfig?.titleFontSize || titleLine2SizePx,
+                    titleLine2Color: gunlimboConfig?.titleLine2Color || titleLine2Color,
+                    titleFontFamily: gunlimboConfig?.titleFont || titleFontFamily,
+                    titleBold: gunlimboConfig?.titleBold ?? (props.titleBold ?? true),
+                    titleItalic: gunlimboConfig?.titleItalic ?? (props.titleItalic ?? false),
+                    titleAlign: gunlimboConfig?.titleAlign || (props.titleAlign ?? 'center'),
+                    titleLine1FontFamily: gunlimboConfig?.titleLine1Font || titleLine1FontFamily || titleFontFamily,
+                    titleLine1Bold: gunlimboConfig?.titleLine1Bold ?? titleLine1Bold ?? (props.titleBold ?? true),
+                    titleLine1Italic: gunlimboConfig?.titleLine1Italic ?? titleLine1Italic ?? (props.titleItalic ?? false),
+                    titleLine1Align: gunlimboConfig?.titleLine1Align || titleLine1Align || (props.titleAlign ?? 'center'),
+                    titleLine1LetterSpacing: gunlimboConfig?.titleLine1LetterSpacing ?? gunlimboConfig?.titleLetterSpacing ?? titleLine1LetterSpacing ?? titleLetterSpacing ?? -0.5,
+                    titleLine1LineHeight: gunlimboConfig?.titleLine1LineHeight ?? gunlimboConfig?.titleLineHeight ?? titleLine1LineHeight ?? titleLineHeight ?? 1.2,
+                    titleLine2FontFamily: gunlimboConfig?.titleLine2Font || titleLine2FontFamily || titleFontFamily,
+                    titleLine2Bold: gunlimboConfig?.titleLine2Bold ?? titleLine2Bold ?? (props.titleBold ?? true),
+                    titleLine2Italic: gunlimboConfig?.titleLine2Italic ?? titleLine2Italic ?? (props.titleItalic ?? false),
+                    titleLine2Align: gunlimboConfig?.titleLine2Align || titleLine2Align || (props.titleAlign ?? 'center'),
+                    titleLine2LetterSpacing: gunlimboConfig?.titleLine2LetterSpacing ?? gunlimboConfig?.titleLetterSpacing ?? titleLine2LetterSpacing ?? titleLetterSpacing ?? -0.5,
+                    titleLine2LineHeight: gunlimboConfig?.titleLine2LineHeight ?? gunlimboConfig?.titleLineHeight ?? titleLine2LineHeight ?? titleLineHeight ?? 1.2,
+                    titleLetterSpacing: gunlimboConfig?.titleLetterSpacing ?? titleLetterSpacing ?? -0.5,
+                    titleLineHeight: gunlimboConfig?.titleLineHeight ?? titleLineHeight ?? 1.2,
                     titleStroke,
                     titleStrokeWidth,
                     titleStrokeColor,
@@ -2278,20 +2350,102 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                     if (patch.titleLine1 !== undefined) {
                       props.setTitleLine1?.(patch.titleLine1);
                       props.setTopTitleText?.(patch.titleLine1);
+                      props.setGunlimboConfig?.((prev: any) => ({ ...prev, titleLine1: patch.titleLine1 }));
                     }
-                    if (patch.titleLine1SizePx !== undefined && props.setTitleLine1SizePx) props.setTitleLine1SizePx(patch.titleLine1SizePx);
+                    if (patch.titleLine1SizePx !== undefined && props.setTitleLine1SizePx) {
+                      props.setTitleLine1SizePx(patch.titleLine1SizePx);
+                      props.setGunlimboConfig?.((prev: any) => ({ ...prev, titleLine1FontSize: patch.titleLine1SizePx, titleFontSize: patch.titleLine1SizePx }));
+                    }
                     if (patch.titleLine1Color !== undefined) {
                       props.setTitleLine1Color?.(patch.titleLine1Color);
                       props.setTopTitleColor?.(patch.titleLine1Color);
+                      props.setGunlimboConfig?.((prev: any) => ({ ...prev, titleLine1Color: patch.titleLine1Color }));
                     }
                     if (patch.hasTitleLine2 !== undefined && props.setHasTitleLine2) props.setHasTitleLine2(patch.hasTitleLine2);
-                    if (patch.titleLine2 !== undefined && props.setTitleLine2) props.setTitleLine2(patch.titleLine2);
-                    if (patch.titleLine2SizePx !== undefined && props.setTitleLine2SizePx) props.setTitleLine2SizePx(patch.titleLine2SizePx);
-                    if (patch.titleLine2Color !== undefined && props.setTitleLine2Color) props.setTitleLine2Color(patch.titleLine2Color);
-                    if (patch.titleFontFamily !== undefined && props.setTitleFontFamily) props.setTitleFontFamily(patch.titleFontFamily);
-                    if (patch.titleBold !== undefined && props.setTitleBold) props.setTitleBold(patch.titleBold);
-                    if (patch.titleItalic !== undefined && props.setTitleItalic) props.setTitleItalic(patch.titleItalic);
-                    if (patch.titleAlign !== undefined && props.setTitleAlign) props.setTitleAlign(patch.titleAlign);
+                    if (patch.titleLine2 !== undefined && props.setTitleLine2) {
+                      props.setTitleLine2(patch.titleLine2);
+                      props.setGunlimboConfig?.((prev: any) => ({ ...prev, titleLine2: patch.titleLine2 }));
+                    }
+                    if (patch.titleLine2SizePx !== undefined && props.setTitleLine2SizePx) {
+                      props.setTitleLine2SizePx(patch.titleLine2SizePx);
+                      props.setGunlimboConfig?.((prev: any) => ({ ...prev, titleLine2FontSize: patch.titleLine2SizePx }));
+                    }
+                    if (patch.titleLine2Color !== undefined && props.setTitleLine2Color) {
+                      props.setTitleLine2Color(patch.titleLine2Color);
+                      props.setGunlimboConfig?.((prev: any) => ({ ...prev, titleLine2Color: patch.titleLine2Color }));
+                    }
+                    if (patch.titleFontFamily !== undefined && props.setTitleFontFamily) {
+                      props.setTitleFontFamily(patch.titleFontFamily);
+                      props.setGunlimboConfig?.((prev: any) => ({ ...prev, titleFont: patch.titleFontFamily }));
+                    }
+                    if (patch.titleBold !== undefined && props.setTitleBold) {
+                      props.setTitleBold(patch.titleBold);
+                      props.setGunlimboConfig?.((prev: any) => ({ ...prev, titleBold: patch.titleBold }));
+                    }
+                    if (patch.titleItalic !== undefined && props.setTitleItalic) {
+                      props.setTitleItalic(patch.titleItalic);
+                      props.setGunlimboConfig?.((prev: any) => ({ ...prev, titleItalic: patch.titleItalic }));
+                    }
+                    if (patch.titleAlign !== undefined && props.setTitleAlign) {
+                      props.setTitleAlign(patch.titleAlign);
+                      props.setGunlimboConfig?.((prev: any) => ({ ...prev, titleAlign: patch.titleAlign }));
+                    }
+                    if (patch.titleLine1FontFamily !== undefined) {
+                      props.setTitleLine1FontFamily?.(patch.titleLine1FontFamily);
+                      props.setGunlimboConfig?.((prev: any) => ({ ...prev, titleLine1Font: patch.titleLine1FontFamily }));
+                    }
+                    if (patch.titleLine1Bold !== undefined) {
+                      props.setTitleLine1Bold?.(patch.titleLine1Bold);
+                      props.setGunlimboConfig?.((prev: any) => ({ ...prev, titleLine1Bold: patch.titleLine1Bold }));
+                    }
+                    if (patch.titleLine1Italic !== undefined) {
+                      props.setTitleLine1Italic?.(patch.titleLine1Italic);
+                      props.setGunlimboConfig?.((prev: any) => ({ ...prev, titleLine1Italic: patch.titleLine1Italic }));
+                    }
+                    if (patch.titleLine1Align !== undefined) {
+                      props.setTitleLine1Align?.(patch.titleLine1Align);
+                      props.setGunlimboConfig?.((prev: any) => ({ ...prev, titleLine1Align: patch.titleLine1Align }));
+                    }
+                    if (patch.titleLine1LetterSpacing !== undefined) {
+                      props.setTitleLine1LetterSpacing?.(patch.titleLine1LetterSpacing);
+                      props.setGunlimboConfig?.((prev: any) => ({ ...prev, titleLine1LetterSpacing: patch.titleLine1LetterSpacing, titleLetterSpacing: patch.titleLine1LetterSpacing }));
+                    }
+                    if (patch.titleLine1LineHeight !== undefined) {
+                      props.setTitleLine1LineHeight?.(patch.titleLine1LineHeight);
+                      props.setGunlimboConfig?.((prev: any) => ({ ...prev, titleLine1LineHeight: patch.titleLine1LineHeight, titleLineHeight: patch.titleLine1LineHeight }));
+                    }
+                    if (patch.titleLine2FontFamily !== undefined) {
+                      props.setTitleLine2FontFamily?.(patch.titleLine2FontFamily);
+                      props.setGunlimboConfig?.((prev: any) => ({ ...prev, titleLine2Font: patch.titleLine2FontFamily }));
+                    }
+                    if (patch.titleLine2Bold !== undefined) {
+                      props.setTitleLine2Bold?.(patch.titleLine2Bold);
+                      props.setGunlimboConfig?.((prev: any) => ({ ...prev, titleLine2Bold: patch.titleLine2Bold }));
+                    }
+                    if (patch.titleLine2Italic !== undefined) {
+                      props.setTitleLine2Italic?.(patch.titleLine2Italic);
+                      props.setGunlimboConfig?.((prev: any) => ({ ...prev, titleLine2Italic: patch.titleLine2Italic }));
+                    }
+                    if (patch.titleLine2Align !== undefined) {
+                      props.setTitleLine2Align?.(patch.titleLine2Align);
+                      props.setGunlimboConfig?.((prev: any) => ({ ...prev, titleLine2Align: patch.titleLine2Align }));
+                    }
+                    if (patch.titleLine2LetterSpacing !== undefined) {
+                      props.setTitleLine2LetterSpacing?.(patch.titleLine2LetterSpacing);
+                      props.setGunlimboConfig?.((prev: any) => ({ ...prev, titleLine2LetterSpacing: patch.titleLine2LetterSpacing }));
+                    }
+                    if (patch.titleLine2LineHeight !== undefined) {
+                      props.setTitleLine2LineHeight?.(patch.titleLine2LineHeight);
+                      props.setGunlimboConfig?.((prev: any) => ({ ...prev, titleLine2LineHeight: patch.titleLine2LineHeight }));
+                    }
+                    if (patch.titleLetterSpacing !== undefined) {
+                      props.setTitleLetterSpacing?.(patch.titleLetterSpacing);
+                      props.setGunlimboConfig?.((prev: any) => ({ ...prev, titleLetterSpacing: patch.titleLetterSpacing }));
+                    }
+                    if (patch.titleLineHeight !== undefined) {
+                      props.setTitleLineHeight?.(patch.titleLineHeight);
+                      props.setGunlimboConfig?.((prev: any) => ({ ...prev, titleLineHeight: patch.titleLineHeight }));
+                    }
                     if (patch.titleStroke !== undefined && props.setTitleStroke) props.setTitleStroke(patch.titleStroke);
                     if (patch.titleStrokeWidth !== undefined && props.setTitleStrokeWidth) props.setTitleStrokeWidth(patch.titleStrokeWidth);
                     if (patch.titleStrokeColor !== undefined && props.setTitleStrokeColor) props.setTitleStrokeColor(patch.titleStrokeColor);
@@ -2616,6 +2770,10 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                     subheadlineBold: props.gunlimboConfig?.hookBold ?? true,
                     subheadlineItalic: props.gunlimboConfig?.hookItalic ?? false,
                     subheadlineAlign: props.gunlimboConfig?.hookAlign || 'center',
+                    headlineLetterSpacing: props.gunlimboConfig?.titleLetterSpacing ?? props.titleLetterSpacing ?? -0.5,
+                    headlineLineHeight: props.gunlimboConfig?.titleLineHeight ?? props.titleLineHeight ?? 1.25,
+                    subheadlineLetterSpacing: props.gunlimboConfig?.hookLetterSpacing ?? props.jabLetterSpacing ?? -0.5,
+                    subheadlineLineHeight: props.gunlimboConfig?.hookLineHeight ?? props.jabLineHeight ?? 1.25,
                     showBorder: true,
                     borderColor: '#3F3F46',
                     borderWidth: 1,
@@ -2630,6 +2788,8 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                       titleBold: patch.headlineBold !== undefined ? patch.headlineBold : prev.titleBold,
                       titleItalic: patch.headlineItalic !== undefined ? patch.headlineItalic : prev.titleItalic,
                       titleAlign: patch.headlineAlign !== undefined ? patch.headlineAlign : prev.titleAlign,
+                      titleLetterSpacing: patch.headlineLetterSpacing !== undefined ? patch.headlineLetterSpacing : prev.titleLetterSpacing,
+                      titleLineHeight: patch.headlineLineHeight !== undefined ? patch.headlineLineHeight : prev.titleLineHeight,
                       hookPhrase: patch.subheadlineText !== undefined ? patch.subheadlineText : prev.hookPhrase,
                       hookBgColor: patch.bandColor !== undefined ? patch.bandColor : prev.hookBgColor,
                       hookTextColor: patch.subheadlineColor !== undefined ? patch.subheadlineColor : prev.hookTextColor,
@@ -2638,6 +2798,8 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                       hookBold: patch.subheadlineBold !== undefined ? patch.subheadlineBold : prev.hookBold,
                       hookItalic: patch.subheadlineItalic !== undefined ? patch.subheadlineItalic : prev.hookItalic,
                       hookAlign: patch.subheadlineAlign !== undefined ? patch.subheadlineAlign : prev.hookAlign,
+                      hookLetterSpacing: patch.subheadlineLetterSpacing !== undefined ? patch.subheadlineLetterSpacing : prev.hookLetterSpacing,
+                      hookLineHeight: patch.subheadlineLineHeight !== undefined ? patch.subheadlineLineHeight : prev.hookLineHeight,
                     }));
                   }}
                   onReset={() => {
