@@ -120,6 +120,7 @@ export interface UniversalCanvasStageProps {
   titleTransform: NleLayerTransform;
   setTitleTransform?: any;
   titleLinesMode?: 'single' | 'double';
+  setTitleLinesMode?: (mode: 'single' | 'double') => void;
   titleLine1?: string;
   setTitleLine1?: (val: string) => void;
   titleLine2?: string;
@@ -547,6 +548,7 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
     titleTransform = { xPct: 50, yPct: 15, scale: 1.0, rotationDeg: 0, zIndex: 20 },
     setTitleTransform = () => {},
     titleLinesMode = 'single',
+    setTitleLinesMode = () => {},
     titleLine1 = '',
     titleLine2 = '',
     titleLine1SizePx = 20,
@@ -1379,8 +1381,29 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                           setActiveFloating('title');
                         }}
                         className="flex flex-col items-center text-center leading-tight cursor-pointer px-4 select-none"
+                        style={{
+                          backgroundColor: (titleBgMode !== 'none') ? titleBgColor : 'transparent',
+                          borderRadius: `${titleBorderRadius}px`,
+                          padding: (titleBgMode !== 'none') ? `${titlePaddingY}px ${titlePaddingX}px` : undefined,
+                        }}
                         title="더블클릭하여 상단 대제목 설정"
                       >
+                        {/* 🏷️ 군림보 상단 뱃지 태그 */}
+                        {(gunlimboConfig?.hasTitleBadge ?? hasTitleBadge) && (
+                          <span
+                            className="inline-block px-2.5 py-0.5 rounded-full font-black text-center shadow-xs select-none uppercase tracking-wider mb-1"
+                            style={{
+                              backgroundColor: gunlimboConfig?.titleBadgeBg || titleBadgeBg || '#EF4444',
+                              color: gunlimboConfig?.titleBadgeColor || titleBadgeColor || '#FFFFFF',
+                              fontSize: `${gunlimboConfig?.titleBadgeSizePx || titleBadgeSizePx || 11}px`,
+                              letterSpacing: '0.05em',
+                            }}
+                          >
+                            {gunlimboConfig?.titleBadgeText || titleBadgeText || 'HOT'}
+                          </span>
+                        )}
+
+                        {/* 1단 대제목 */}
                         <span
                           className="font-black drop-shadow-sm whitespace-pre-line text-center"
                           style={{
@@ -1392,44 +1415,52 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                             textAlign: gunlimboConfig.titleLine1Align || titleLine1Align || titleAlign || 'center',
                             letterSpacing: `${gunlimboConfig.titleLine1LetterSpacing !== undefined ? gunlimboConfig.titleLine1LetterSpacing : (titleLine1LetterSpacing ?? -0.5)}px`,
                             lineHeight: gunlimboConfig.titleLineHeight ?? titleLineHeight ?? 1.15,
-                            WebkitTextStroke: '2px rgba(0,0,0,0.6)',
+                            WebkitTextStroke: titleStroke ? `${titleStrokeWidth}px ${titleStrokeColor}` : '2px rgba(0,0,0,0.6)',
                             paintOrder: 'stroke fill',
+                            textShadow: titleShadow ? `0 2px ${titleShadowBlur}px ${titleShadowColor}` : 'none',
                           }}
                         >
                           {gunlimboConfig.titleLine1 || '제목을'}
                         </span>
-                        <span
-                          className="font-black drop-shadow-sm whitespace-pre-line text-center"
-                          style={{
-                            color: gunlimboConfig.titleLine2Color || '#FFE500',
-                            fontSize: `${gunlimboConfig.titleLine2FontSize || gunlimboConfig.titleFontSize || titleLine2SizePx || 34}px`,
-                            fontFamily: resolveFontFamily(gunlimboConfig.titleLine2Font || gunlimboConfig.titleFont || titleLine2FontFamily || titleFontFamily),
-                            fontWeight: (gunlimboConfig.titleLine2Bold ?? gunlimboConfig.titleBold ?? titleLine2Bold ?? titleBold) !== false ? 900 : 400,
-                            fontStyle: (gunlimboConfig.titleLine2Italic ?? gunlimboConfig.titleItalic ?? titleLine2Italic ?? titleItalic) ? 'italic' : 'normal',
-                            textAlign: gunlimboConfig.titleLine2Align || titleLine2Align || titleAlign || 'center',
-                            letterSpacing: `${gunlimboConfig.titleLine2LetterSpacing !== undefined ? gunlimboConfig.titleLine2LetterSpacing : (titleLine2LetterSpacing ?? -0.5)}px`,
-                            lineHeight: gunlimboConfig.titleLineHeight ?? titleLineHeight ?? 1.15,
-                            marginTop: `${Math.round(((gunlimboConfig.titleLineHeight ?? titleLineHeight ?? 1.15) - 1.0) * 16 + 4)}px`,
-                            WebkitTextStroke: '2px rgba(0,0,0,0.6)',
-                            paintOrder: 'stroke fill',
-                          }}
-                        >
-                          {gunlimboConfig.titleLine2 || '입력하세요'}
-                        </span>
+
+                        {/* 2단 대제목 (double 모드일 때만 표시!) */}
+                        {(gunlimboConfig?.titleLinesMode ?? titleLinesMode ?? 'double') === 'double' && (gunlimboConfig?.hasTitleLine2 ?? hasTitleLine2 ?? true) && (
+                          <span
+                            className="font-black drop-shadow-sm whitespace-pre-line text-center"
+                            style={{
+                              color: gunlimboConfig.titleLine2Color || '#FFE500',
+                              fontSize: `${gunlimboConfig.titleLine2FontSize || gunlimboConfig.titleFontSize || titleLine2SizePx || 34}px`,
+                              fontFamily: resolveFontFamily(gunlimboConfig.titleLine2Font || gunlimboConfig.titleFont || titleLine2FontFamily || titleFontFamily),
+                              fontWeight: (gunlimboConfig.titleLine2Bold ?? gunlimboConfig.titleBold ?? titleLine2Bold ?? titleBold) !== false ? 900 : 400,
+                              fontStyle: (gunlimboConfig.titleLine2Italic ?? gunlimboConfig.titleItalic ?? titleLine2Italic ?? titleItalic) ? 'italic' : 'normal',
+                              textAlign: gunlimboConfig.titleLine2Align || titleLine2Align || titleAlign || 'center',
+                              letterSpacing: `${gunlimboConfig.titleLine2LetterSpacing !== undefined ? gunlimboConfig.titleLine2LetterSpacing : (titleLine2LetterSpacing ?? -0.5)}px`,
+                              lineHeight: gunlimboConfig.titleLineHeight ?? titleLineHeight ?? 1.15,
+                              marginTop: `${Math.round(((gunlimboConfig.titleLineHeight ?? titleLineHeight ?? 1.15) - 1.0) * 16 + 4)}px`,
+                              WebkitTextStroke: titleStroke ? `${titleStrokeWidth}px ${titleStrokeColor}` : '2px rgba(0,0,0,0.6)',
+                              paintOrder: 'stroke fill',
+                              textShadow: titleShadow ? `0 2px ${titleShadowBlur}px ${titleShadowColor}` : 'none',
+                            }}
+                          >
+                            {gunlimboConfig.titleLine2 || '입력하세요'}
+                          </span>
+                        )}
                       </div>
                     </TransformGizmo>
                   )}
 
-                  {/* 2. 24~34% 수평 0도 와이드 순백색 띠 바 (TransformGizmo 지원) */}
+                  {/* 2. 24~34% 수평 0도 와이드 순백색 띠 바 (TransformGizmo 지원 - 쨉쨉이와 완전 분리) */}
                   {(currentTimeMs <= (gunlimboConfig.introDurationSec || 2.5) * 1000 || !isPlaying) && (
                     <TransformGizmo
                       transform={{
-                        ...jabTransform,
                         xPct: 50, // 🎯 군림보는 항상 가로폭 100% 수평 중앙 정렬
+                        yPct: gunlimboConfig.hookTransform?.yPct ?? gunlimboConfig.hookYPercent ?? 28,
+                        scale: gunlimboConfig.hookTransform?.scale ?? 1.0,
                         rotationDeg: 0, // 🎯 군림보형은 삐딱한 기울기(-3도) 없이 수평 0도 와이드 밴드로 고정
+                        zIndex: 26,
                       }}
                       onDoubleClick={() => setActiveFloating('gunlimboHook')}
-                      selected={selectedLayerId === 'layer_gunlimbo_hook' || selectedLayerId === 'layer_jab'}
+                      selected={selectedLayerId === 'layer_gunlimbo_hook'}
                       name="군림보 훅 밴드"
                       canvasScale={canvasScale}
                       anchor="center"
@@ -1438,8 +1469,12 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                         setActiveInspectorTab('jabHook');
                       }}
                       onChange={(newT) => {
-                        setJabTransform({ ...newT, rotationDeg: 0 });
-                        setJabYPercent(newT.yPct);
+                        const updated = { ...newT, xPct: 50, rotationDeg: 0 };
+                        props.setGunlimboConfig?.((prev: any) => ({
+                          ...prev,
+                          hookTransform: updated,
+                          hookYPercent: newT.yPct,
+                        }));
                       }}
                     >
                       <div
@@ -2295,17 +2330,17 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                   onClose={() => setActiveFloating('none')}
                   config={{
                     hasTopTitle,
-                    titleLinesMode,
-                    hasTitleBadge,
-                    titleBadgeText,
-                    titleBadgeBg,
-                    titleBadgeColor,
-                    titleBadgeSizePx,
+                    titleLinesMode: gunlimboConfig?.titleLinesMode || titleLinesMode,
+                    hasTitleBadge: gunlimboConfig?.hasTitleBadge ?? hasTitleBadge,
+                    titleBadgeText: gunlimboConfig?.titleBadgeText || titleBadgeText,
+                    titleBadgeBg: gunlimboConfig?.titleBadgeBg || titleBadgeBg,
+                    titleBadgeColor: gunlimboConfig?.titleBadgeColor || titleBadgeColor,
+                    titleBadgeSizePx: gunlimboConfig?.titleBadgeSizePx || titleBadgeSizePx,
                     hasTitleLine1,
                     titleLine1: gunlimboConfig?.titleLine1 || titleLine1,
                     titleLine1SizePx: gunlimboConfig?.titleLine1FontSize || gunlimboConfig?.titleFontSize || titleLine1SizePx,
                     titleLine1Color: gunlimboConfig?.titleLine1Color || titleLine1Color,
-                    hasTitleLine2,
+                    hasTitleLine2: gunlimboConfig?.hasTitleLine2 ?? hasTitleLine2,
                     titleLine2: gunlimboConfig?.titleLine2 || titleLine2,
                     titleLine2SizePx: gunlimboConfig?.titleLine2FontSize || gunlimboConfig?.titleFontSize || titleLine2SizePx,
                     titleLine2Color: gunlimboConfig?.titleLine2Color || titleLine2Color,
@@ -2339,12 +2374,30 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                   }}
                   onChange={(patch) => {
                     if (patch.hasTopTitle !== undefined && props.setHasTopTitle) props.setHasTopTitle(patch.hasTopTitle);
-                    if (patch.titleLinesMode !== undefined && props.setTitleLinesMode) props.setTitleLinesMode(patch.titleLinesMode);
-                    if (patch.hasTitleBadge !== undefined && props.setHasTitleBadge) props.setHasTitleBadge(patch.hasTitleBadge);
-                    if (patch.titleBadgeText !== undefined && props.setTitleBadgeText) props.setTitleBadgeText(patch.titleBadgeText);
-                    if (patch.titleBadgeBg !== undefined && props.setTitleBadgeBg) props.setTitleBadgeBg(patch.titleBadgeBg);
-                    if (patch.titleBadgeColor !== undefined && props.setTitleBadgeColor) props.setTitleBadgeColor(patch.titleBadgeColor);
-                    if (patch.titleBadgeSizePx !== undefined && props.setTitleBadgeSizePx) props.setTitleBadgeSizePx(patch.titleBadgeSizePx);
+                    if (patch.titleLinesMode !== undefined) {
+                      props.setTitleLinesMode?.(patch.titleLinesMode);
+                      props.setGunlimboConfig?.((prev: any) => ({ ...prev, titleLinesMode: patch.titleLinesMode }));
+                    }
+                    if (patch.hasTitleBadge !== undefined) {
+                      props.setHasTitleBadge?.(patch.hasTitleBadge);
+                      props.setGunlimboConfig?.((prev: any) => ({ ...prev, hasTitleBadge: patch.hasTitleBadge }));
+                    }
+                    if (patch.titleBadgeText !== undefined) {
+                      props.setTitleBadgeText?.(patch.titleBadgeText);
+                      props.setGunlimboConfig?.((prev: any) => ({ ...prev, titleBadgeText: patch.titleBadgeText }));
+                    }
+                    if (patch.titleBadgeBg !== undefined) {
+                      props.setTitleBadgeBg?.(patch.titleBadgeBg);
+                      props.setGunlimboConfig?.((prev: any) => ({ ...prev, titleBadgeBg: patch.titleBadgeBg }));
+                    }
+                    if (patch.titleBadgeColor !== undefined) {
+                      props.setTitleBadgeColor?.(patch.titleBadgeColor);
+                      props.setGunlimboConfig?.((prev: any) => ({ ...prev, titleBadgeColor: patch.titleBadgeColor }));
+                    }
+                    if (patch.titleBadgeSizePx !== undefined) {
+                      props.setTitleBadgeSizePx?.(patch.titleBadgeSizePx);
+                      props.setGunlimboConfig?.((prev: any) => ({ ...prev, titleBadgeSizePx: patch.titleBadgeSizePx }));
+                    }
                     if (patch.hasTitleLine1 !== undefined && props.setHasTitleLine1) props.setHasTitleLine1(patch.hasTitleLine1);
                     if (patch.titleLine1 !== undefined) {
                       props.setTitleLine1?.(patch.titleLine1);
@@ -2360,7 +2413,10 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                       props.setTopTitleColor?.(patch.titleLine1Color);
                       props.setGunlimboConfig?.((prev: any) => ({ ...prev, titleLine1Color: patch.titleLine1Color }));
                     }
-                    if (patch.hasTitleLine2 !== undefined && props.setHasTitleLine2) props.setHasTitleLine2(patch.hasTitleLine2);
+                    if (patch.hasTitleLine2 !== undefined) {
+                      props.setHasTitleLine2?.(patch.hasTitleLine2);
+                      props.setGunlimboConfig?.((prev: any) => ({ ...prev, hasTitleLine2: patch.hasTitleLine2 }));
+                    }
                     if (patch.titleLine2 !== undefined && props.setTitleLine2) {
                       props.setTitleLine2(patch.titleLine2);
                       props.setGunlimboConfig?.((prev: any) => ({ ...prev, titleLine2: patch.titleLine2 }));

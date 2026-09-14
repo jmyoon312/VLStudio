@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { Type, AlignLeft, AlignCenter, AlignRight, Bold, Italic } from 'lucide-react';
+import { Type, AlignLeft, AlignCenter, AlignRight, Bold, Italic, Tag } from 'lucide-react';
 import { BarGeometryControlGroup } from './shared';
 import { ColorPicker8Preset } from '../controls/ColorPicker8Preset';
 import { UnitSliderControl } from '../controls/UnitSliderControl';
@@ -349,6 +349,107 @@ export const TitleSourceInspectorForm: React.FC<TitleSourceInspectorFormProps> =
             </div>
           </div>
           <div className="space-y-3">
+            {/* 🏷️ 상단 뱃지 태그 (HOT, 특종 등) */}
+            <div className="space-y-2 p-2 bg-muted/20 border border-border rounded-[2px]">
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="font-semibold text-foreground flex items-center gap-1.5">
+                  <Tag className="w-3.5 h-3.5 text-amber-500" />
+                  <span>상단 뱃지 태그</span>
+                </span>
+                <Switch
+                  checked={gunlimboConfig?.hasTitleBadge ?? hasTitleBadge}
+                  onCheckedChange={(val) => {
+                    setHasTitleBadge?.(val);
+                    setGunlimboConfig?.((prev: any) => ({ ...prev, hasTitleBadge: val }));
+                  }}
+                />
+              </div>
+
+              {(gunlimboConfig?.hasTitleBadge ?? hasTitleBadge) && (
+                <div className="space-y-2 pt-1.5 border-t border-border/50">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-semibold text-muted-foreground">뱃지 문구</label>
+                    <input
+                      type="text"
+                      value={gunlimboConfig?.titleBadgeText ?? titleBadgeText ?? 'HOT'}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setTitleBadgeText?.(val);
+                        setGunlimboConfig?.((prev: any) => ({ ...prev, titleBadgeText: val }));
+                      }}
+                      className="w-full h-7 px-2 text-[11px] bg-background border border-border rounded-[2px] text-foreground font-bold"
+                      placeholder="뱃지 문구 (예: HOT, 특종, 속보)"
+                    />
+                  </div>
+                  <ColorPicker8Preset
+                    label="뱃지 배경색"
+                    value={gunlimboConfig?.titleBadgeBg || titleBadgeBg || '#EF4444'}
+                    onChange={(val) => {
+                      setTitleBadgeBg?.(val);
+                      setGunlimboConfig?.((prev: any) => ({ ...prev, titleBadgeBg: val }));
+                    }}
+                  />
+                  <ColorPicker8Preset
+                    label="뱃지 글자색"
+                    value={gunlimboConfig?.titleBadgeColor || titleBadgeColor || '#FFFFFF'}
+                    onChange={(val) => {
+                      setTitleBadgeColor?.(val);
+                      setGunlimboConfig?.((prev: any) => ({ ...prev, titleBadgeColor: val }));
+                    }}
+                  />
+                  <UnitSliderControl
+                    label="뱃지 크기"
+                    value={gunlimboConfig?.titleBadgeSizePx || titleBadgeSizePx || 11}
+                    min={9}
+                    max={18}
+                    step={1}
+                    unit="px"
+                    onChange={(val) => {
+                      setTitleBadgeSizePx?.(val);
+                      setGunlimboConfig?.((prev: any) => ({ ...prev, titleBadgeSizePx: val }));
+                    }}
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* 📏 타이틀 줄 수 선택 (1줄 고정 vs 2줄 포인트 후킹) */}
+            <div className="space-y-1.5 p-2 bg-muted/20 border border-border rounded-[2px]">
+              <label className="text-[10px] font-semibold text-muted-foreground">타이틀 줄 수 모드</label>
+              <div className="grid grid-cols-2 gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTitleLinesMode?.('single');
+                    setGunlimboConfig?.((prev: any) => ({ ...prev, titleLinesMode: 'single' }));
+                  }}
+                  className={cn(
+                    "h-7 rounded-[2px] text-[11px] font-bold border flex items-center justify-center transition-all cursor-pointer",
+                    (gunlimboConfig?.titleLinesMode ?? titleLinesMode) === 'single'
+                      ? "bg-primary text-primary-foreground border-primary shadow-xs"
+                      : "bg-background text-muted-foreground border-border hover:bg-muted"
+                  )}
+                >
+                  1줄 고정
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTitleLinesMode?.('double');
+                    setGunlimboConfig?.((prev: any) => ({ ...prev, titleLinesMode: 'double' }));
+                  }}
+                  className={cn(
+                    "h-7 rounded-[2px] text-[11px] font-bold border flex items-center justify-center transition-all cursor-pointer",
+                    (gunlimboConfig?.titleLinesMode ?? titleLinesMode) === 'double'
+                      ? "bg-primary text-primary-foreground border-primary shadow-xs"
+                      : "bg-background text-muted-foreground border-border hover:bg-muted"
+                  )}
+                >
+                  2줄 (포인트 후킹)
+                </button>
+              </div>
+            </div>
+
             {/* 1단 문구, 색상, 크기, 서체 및 스타일/정렬 */}
             <div className="space-y-2 p-2 bg-muted/20 border border-border rounded-[2px]">
               <div className="space-y-1">
@@ -422,78 +523,102 @@ export const TitleSourceInspectorForm: React.FC<TitleSourceInspectorFormProps> =
               />
             </div>
 
-            {/* 2단 문구, 색상, 크기, 서체 및 스타일/정렬 */}
-            <div className="space-y-2 p-2 bg-muted/20 border border-border rounded-[2px]">
-              <div className="space-y-1">
-                <label className="text-[10px] font-semibold text-muted-foreground">2단 타이틀 문구 (아래 포인트)</label>
-                <input
-                  type="text"
-                  value={gunlimboConfig?.titleLine2 || titleLine2 || ''}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    setTitleLine2?.(val);
-                    setGunlimboConfig?.((prev: any) => ({ ...prev, titleLine2: val }));
-                  }}
-                  className="w-full h-7 px-2 text-[11px] bg-background border border-border rounded-[2px] text-foreground font-bold"
-                  placeholder="제목 2행"
-                />
+            {/* 2단 문구, 색상, 크기, 서체 및 스타일/정렬 (double 모드일 때만 표시) */}
+            {(gunlimboConfig?.titleLinesMode ?? titleLinesMode ?? 'double') === 'double' && (
+              <div className="space-y-2 p-2 bg-muted/20 border border-border rounded-[2px]">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-semibold text-muted-foreground flex items-center gap-1">
+                    <span>2단 타이틀 문구 (아래 포인트)</span>
+                    {(gunlimboConfig?.hasTitleLine2 ?? hasTitleLine2 ?? true) && (
+                      <span className="font-mono text-amber-500 font-bold text-[9px]">
+                        {gunlimboConfig?.titleLine2FontSize || gunlimboConfig?.titleFontSize || titleLine2SizePx || 34}px
+                      </span>
+                    )}
+                  </span>
+                  <Switch
+                    checked={gunlimboConfig?.hasTitleLine2 ?? hasTitleLine2 ?? true}
+                    onCheckedChange={(val) => {
+                      setHasTitleLine2?.(val);
+                      setGunlimboConfig?.((prev: any) => ({ ...prev, hasTitleLine2: val }));
+                    }}
+                  />
+                </div>
+
+                {(gunlimboConfig?.hasTitleLine2 ?? hasTitleLine2 ?? true) && (
+                  <div className="space-y-2 pt-1.5 border-t border-border/50">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-semibold text-muted-foreground">2단 문구 내용</label>
+                      <input
+                        type="text"
+                        value={gunlimboConfig?.titleLine2 || titleLine2 || ''}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setTitleLine2?.(val);
+                          setGunlimboConfig?.((prev: any) => ({ ...prev, titleLine2: val }));
+                        }}
+                        className="w-full h-7 px-2 text-[11px] bg-background border border-border rounded-[2px] text-foreground font-bold"
+                        placeholder="제목 2행"
+                      />
+                    </div>
+                    <ColorPicker8Preset
+                      label="2단 포인트 색상"
+                      value={gunlimboConfig?.titleLine2Color || titleLine2Color || '#FFE500'}
+                      onChange={(val) => {
+                        setTitleLine2Color?.(val);
+                        setGunlimboConfig?.((prev: any) => ({ ...prev, titleLine2Color: val }));
+                      }}
+                    />
+                    <UnitSliderControl
+                      label="2단 글자 크기"
+                      value={gunlimboConfig?.titleLine2FontSize || gunlimboConfig?.titleFontSize || titleLine2SizePx || 34}
+                      min={16}
+                      max={50}
+                      step={1}
+                      unit="px"
+                      onChange={(val) => {
+                        setTitleLine2SizePx?.(val);
+                        setGunlimboConfig?.((prev: any) => ({ ...prev, titleLine2FontSize: val }));
+                      }}
+                    />
+                    <FontStyleAlignControl
+                      label="2단 글꼴 (Font)"
+                      font={gunlimboConfig?.titleLine2Font || gunlimboConfig?.titleFont || titleLine2FontFamily || titleFontFamily || 'Pretendard'}
+                      setFont={(f) => {
+                        setTitleLine2FontFamily?.(f);
+                        setGunlimboConfig?.((prev: any) => ({ ...prev, titleLine2Font: f }));
+                      }}
+                      bold={gunlimboConfig?.titleLine2Bold !== undefined ? gunlimboConfig.titleLine2Bold : (titleLine2Bold !== undefined ? titleLine2Bold : (titleBold !== false))}
+                      setBold={(b) => {
+                        setTitleLine2Bold?.(b);
+                        setGunlimboConfig?.((prev: any) => ({ ...prev, titleLine2Bold: b }));
+                      }}
+                      italic={gunlimboConfig?.titleLine2Italic !== undefined ? gunlimboConfig.titleLine2Italic : (titleLine2Italic ?? titleItalic ?? false)}
+                      setItalic={(i) => {
+                        setTitleLine2Italic?.(i);
+                        setGunlimboConfig?.((prev: any) => ({ ...prev, titleLine2Italic: i }));
+                      }}
+                      align={gunlimboConfig?.titleLine2Align || titleLine2Align || titleAlign || 'center'}
+                      setAlign={(a) => {
+                        setTitleLine2Align?.(a);
+                        setGunlimboConfig?.((prev: any) => ({ ...prev, titleLine2Align: a }));
+                      }}
+                      letterSpacing={gunlimboConfig?.titleLine2LetterSpacing !== undefined ? gunlimboConfig.titleLine2LetterSpacing : (titleLine2LetterSpacing ?? -0.5)}
+                      setLetterSpacing={(ls) => {
+                        setTitleLine2LetterSpacing?.(ls);
+                        setGunlimboConfig?.((prev: any) => ({ ...prev, titleLine2LetterSpacing: ls }));
+                      }}
+                      lineHeight={gunlimboConfig?.titleLineHeight ?? titleLineHeight ?? 1.2}
+                      setLineHeight={(lh) => {
+                        setTitleLineHeight?.(lh);
+                        setTitleLine1LineHeight?.(lh);
+                        setTitleLine2LineHeight?.(lh);
+                        setGunlimboConfig?.((prev: any) => ({ ...prev, titleLineHeight: lh, titleLine1LineHeight: lh, titleLine2LineHeight: lh }));
+                      }}
+                    />
+                  </div>
+                )}
               </div>
-              <ColorPicker8Preset
-                label="2단 포인트 색상"
-                value={gunlimboConfig?.titleLine2Color || titleLine2Color || '#FFE500'}
-                onChange={(val) => {
-                  setTitleLine2Color?.(val);
-                  setGunlimboConfig?.((prev: any) => ({ ...prev, titleLine2Color: val }));
-                }}
-              />
-              <UnitSliderControl
-                label="2단 글자 크기"
-                value={gunlimboConfig?.titleLine2FontSize || gunlimboConfig?.titleFontSize || titleLine2SizePx || 34}
-                min={16}
-                max={50}
-                step={1}
-                unit="px"
-                onChange={(val) => {
-                  setTitleLine2SizePx?.(val);
-                  setGunlimboConfig?.((prev: any) => ({ ...prev, titleLine2FontSize: val }));
-                }}
-              />
-              <FontStyleAlignControl
-                label="2단 글꼴 (Font)"
-                font={gunlimboConfig?.titleLine2Font || gunlimboConfig?.titleFont || titleLine2FontFamily || titleFontFamily || 'Pretendard'}
-                setFont={(f) => {
-                  setTitleLine2FontFamily?.(f);
-                  setGunlimboConfig?.((prev: any) => ({ ...prev, titleLine2Font: f }));
-                }}
-                bold={gunlimboConfig?.titleLine2Bold !== undefined ? gunlimboConfig.titleLine2Bold : (titleLine2Bold !== undefined ? titleLine2Bold : (titleBold !== false))}
-                setBold={(b) => {
-                  setTitleLine2Bold?.(b);
-                  setGunlimboConfig?.((prev: any) => ({ ...prev, titleLine2Bold: b }));
-                }}
-                italic={gunlimboConfig?.titleLine2Italic !== undefined ? gunlimboConfig.titleLine2Italic : (titleLine2Italic ?? titleItalic ?? false)}
-                setItalic={(i) => {
-                  setTitleLine2Italic?.(i);
-                  setGunlimboConfig?.((prev: any) => ({ ...prev, titleLine2Italic: i }));
-                }}
-                align={gunlimboConfig?.titleLine2Align || titleLine2Align || titleAlign || 'center'}
-                setAlign={(a) => {
-                  setTitleLine2Align?.(a);
-                  setGunlimboConfig?.((prev: any) => ({ ...prev, titleLine2Align: a }));
-                }}
-                letterSpacing={gunlimboConfig?.titleLine2LetterSpacing !== undefined ? gunlimboConfig.titleLine2LetterSpacing : (titleLine2LetterSpacing ?? -0.5)}
-                setLetterSpacing={(ls) => {
-                  setTitleLine2LetterSpacing?.(ls);
-                  setGunlimboConfig?.((prev: any) => ({ ...prev, titleLine2LetterSpacing: ls }));
-                }}
-                lineHeight={gunlimboConfig?.titleLineHeight ?? titleLineHeight ?? 1.2}
-                setLineHeight={(lh) => {
-                  setTitleLineHeight?.(lh);
-                  setTitleLine1LineHeight?.(lh);
-                  setTitleLine2LineHeight?.(lh);
-                  setGunlimboConfig?.((prev: any) => ({ ...prev, titleLineHeight: lh, titleLine1LineHeight: lh, titleLine2LineHeight: lh }));
-                }}
-              />
-            </div>
+            )}
 
             {/* 노출 설정 */}
             <div className="p-2 bg-muted/20 border border-border rounded-[2px]">

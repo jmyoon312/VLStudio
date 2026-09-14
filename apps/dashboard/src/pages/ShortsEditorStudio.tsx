@@ -5573,6 +5573,7 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
               titleTransform={titleTransform}
               setTitleTransform={setTitleTransform}
               titleLinesMode={titleLinesMode}
+              setTitleLinesMode={setTitleLinesMode}
               titleLine1={titleLine1}
               setTitleLine1={setTitleLine1}
               titleLine2={titleLine2}
