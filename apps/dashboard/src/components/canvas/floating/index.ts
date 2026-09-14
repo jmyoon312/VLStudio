@@ -11,3 +11,5 @@ export * from './SourceCreditFloatingInspector';
 export * from './TopBottomBarFloatingInspector';
 export * from './CommentCardFloatingInspector';
 export * from './VideoCropFloatingInspector';
+export * from './TitleFloatingInspector';
+

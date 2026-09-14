@@ -23,6 +23,7 @@ import {
   TopBottomBarFloatingInspector,
   CommentCardFloatingInspector,
   VideoCropFloatingInspector,
+  TitleFloatingInspector,
 } from '../floating';
 import { SsulCanvasLayout } from './layouts/SsulCanvasLayout';
 
@@ -149,6 +150,12 @@ export interface UniversalCanvasStageProps {
   setTitleBadgeBg?: (val: string) => void;
   titleBadgeColor?: string;
   setTitleBadgeColor?: (val: string) => void;
+  titleBadgeSizePx?: number;
+  setTitleBadgeSizePx?: (val: number) => void;
+  hasTitleLine1?: boolean;
+  setHasTitleLine1?: (val: boolean) => void;
+  hasTitleLine2?: boolean;
+  setHasTitleLine2?: (val: boolean) => void;
 
   // Jab Hook
   hasJab: boolean;
@@ -461,6 +468,12 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
     titleBadgeText = 'HOT',
     titleBadgeBg = '#EF4444',
     titleBadgeColor = '#FFFFFF',
+    titleBadgeSizePx = 11,
+    hasTitleLine1 = true,
+    hasTitleLine2 = true,
+    titleBold = true,
+    titleItalic = false,
+    titleAlign = 'center',
     hasJab,
     jabTransform = { xPct: 50, yPct: 50, scale: 1.0, rotationDeg: 0, zIndex: 25 },
     setJabTransform = () => {},
@@ -1368,7 +1381,10 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                       ? (titleTransform.yPct !== undefined && titleTransform.yPct !== 9.0 && titleTransform.yPct !== 15 && titleTransform.yPct <= 30 ? titleTransform.yPct : 14.0)
                       : titleTransform.yPct,
                   }}
-                  onDoubleClick={() => setActiveFloating('postTitle')}
+                  onDoubleClick={() => {
+                    if (layoutTemplateMode === 'ssul') setActiveFloating('postTitle');
+                    else setActiveFloating('title');
+                  }}
                   selected={selectedLayerId === 'layer_title' || selectedLayerId === 'layer_top_title'}
                   name="상단 타이틀"
                   canvasScale={canvasScale}
@@ -1386,7 +1402,8 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                   <div
                     onDoubleClick={(e) => {
                       e.stopPropagation();
-                      setActiveFloating('postTitle');
+                      if (layoutTemplateMode === 'ssul') setActiveFloating('postTitle');
+                      else setActiveFloating('title');
                     }}
                     className={cn(
                       "flex flex-col select-none cursor-move transition-all",
@@ -1426,8 +1443,12 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                               e.stopPropagation();
                               setActiveFloating('badgeTag');
                             }}
-                            className="text-white text-[8px] font-black px-1.5 py-0.2 uppercase tracking-wider mb-1 rounded-[1px] shadow-sm cursor-pointer hover:opacity-90"
-                            style={{ backgroundColor: titleBadgeColor }}
+                            className="font-black px-1.5 py-0.5 uppercase tracking-wider mb-1 rounded-[2px] shadow-sm cursor-pointer hover:opacity-90 inline-block leading-tight"
+                            style={{
+                              backgroundColor: titleBadgeBg || '#EF4444',
+                              color: titleBadgeColor || '#FFFFFF',
+                              fontSize: `${Math.round((titleBadgeSizePx || 11) * aspectScale)}px`,
+                            }}
                             title="더블클릭하여 뱃지 속성 편집"
                           >
                             {titleBadgeText}
@@ -1435,9 +1456,13 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                         )}
 
                         {/* 1단 타이틀 */}
-                        {titleLine1 && (
+                        {hasTitleLine1 && titleLine1 && (
                           <div
-                            className="font-black leading-tight tracking-tight whitespace-nowrap"
+                            className={cn(
+                              "leading-tight tracking-tight whitespace-nowrap",
+                              titleBold !== false ? "font-black" : "font-medium",
+                              titleItalic && "italic"
+                            )}
                             style={{
                               color: titleLine1Color,
                               fontSize: `${Math.round(titleLine1SizePx * aspectScale)}px`,
@@ -1445,6 +1470,7 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                               paintOrder: 'stroke fill',
                               WebkitFontSmoothing: 'antialiased',
                               textShadow: titleShadow ? `0 2px ${titleShadowBlur}px ${titleShadowColor}` : 'none',
+                              textAlign: titleAlign || 'center',
                             }}
                           >
                             {titleLine1}
@@ -1452,9 +1478,13 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                         )}
 
                         {/* 2단 타이틀 (double 모드일 때만 표시) */}
-                        {titleLinesMode === 'double' && titleLine2 && (
+                        {titleLinesMode === 'double' && hasTitleLine2 && titleLine2 && (
                           <div
-                            className="font-black leading-tight tracking-tight whitespace-nowrap mt-0.5"
+                            className={cn(
+                              "leading-tight tracking-tight whitespace-nowrap mt-0.5",
+                              titleBold !== false ? "font-black" : "font-medium",
+                              titleItalic && "italic"
+                            )}
                             style={{
                               color: titleLine2Color,
                               fontSize: `${Math.round(titleLine2SizePx * aspectScale)}px`,
@@ -1462,6 +1492,7 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                               paintOrder: 'stroke fill',
                               WebkitFontSmoothing: 'antialiased',
                               textShadow: titleShadow ? `0 2px ${titleShadowBlur}px ${titleShadowColor}` : 'none',
+                              textAlign: titleAlign || 'center',
                             }}
                           >
                             {titleLine2}
@@ -1475,11 +1506,11 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
 
               {/* ⚡ LAYER 3: 긴박 쨉쨉이 훅 (타임라인 시간대 동기화 & 고스트 노출 완벽 차단) */}
               {(() => {
-                // 재생 중일 때는 현재 타임코드에 위치한 activeJab만 표시! 비시간대 고스트 쨉쨉이 영구 차단
+                // 재생 중일 때는 현재 타임코드에 위치한 activeJab만 표시! 정지 중(편집/프리뷰)에는 hasJab이면 상시 노출
                 const isExplicitJabClipSelected = !isPlaying && selectedLayer?.type === 'jab' && selectedLayer.id !== 'layer_audio_bgm';
                 const displayJab = activeJab || (isExplicitJabClipSelected ? selectedLayer : null);
                 const isJabSelected = selectedLayerId === 'layer_jab' || selectedLayer?.type === 'jab' || (displayJab ? selectedLayerId === displayJab.id : false);
-                const shouldShowJab = !isSsul && hasJab && trackVisibility.t2Jab !== false && !!displayJab;
+                const shouldShowJab = !isSsul && hasJab && trackVisibility.t2Jab !== false && (isPlaying ? !!activeJab : true);
 
                 if (!shouldShowJab) return null;
 
@@ -1993,6 +2024,104 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                 />
               )}
 
+              {activeFloating === 'title' && (
+                <TitleFloatingInspector
+                  isOpen={true}
+                  onClose={() => setActiveFloating('none')}
+                  config={{
+                    hasTopTitle,
+                    titleLinesMode,
+                    hasTitleBadge,
+                    titleBadgeText,
+                    titleBadgeBg,
+                    titleBadgeColor,
+                    titleBadgeSizePx,
+                    hasTitleLine1,
+                    titleLine1,
+                    titleLine1SizePx,
+                    titleLine1Color,
+                    hasTitleLine2,
+                    titleLine2,
+                    titleLine2SizePx,
+                    titleLine2Color,
+                    titleFontFamily,
+                    titleBold: props.titleBold ?? true,
+                    titleItalic: props.titleItalic ?? false,
+                    titleAlign: props.titleAlign ?? 'center',
+                    titleStroke,
+                    titleStrokeWidth,
+                    titleStrokeColor,
+                    titleShadow,
+                    titleShadowBlur,
+                    titleShadowColor,
+                    titleBgMode: (titleBgMode as any) || 'none',
+                    titleBgColor,
+                    titlePaddingX,
+                    titleBorderRadius,
+                  }}
+                  onChange={(patch) => {
+                    if (patch.hasTopTitle !== undefined && props.setHasTopTitle) props.setHasTopTitle(patch.hasTopTitle);
+                    if (patch.titleLinesMode !== undefined && props.setTitleLinesMode) props.setTitleLinesMode(patch.titleLinesMode);
+                    if (patch.hasTitleBadge !== undefined && props.setHasTitleBadge) props.setHasTitleBadge(patch.hasTitleBadge);
+                    if (patch.titleBadgeText !== undefined && props.setTitleBadgeText) props.setTitleBadgeText(patch.titleBadgeText);
+                    if (patch.titleBadgeBg !== undefined && props.setTitleBadgeBg) props.setTitleBadgeBg(patch.titleBadgeBg);
+                    if (patch.titleBadgeColor !== undefined && props.setTitleBadgeColor) props.setTitleBadgeColor(patch.titleBadgeColor);
+                    if (patch.titleBadgeSizePx !== undefined && props.setTitleBadgeSizePx) props.setTitleBadgeSizePx(patch.titleBadgeSizePx);
+                    if (patch.hasTitleLine1 !== undefined && props.setHasTitleLine1) props.setHasTitleLine1(patch.hasTitleLine1);
+                    if (patch.titleLine1 !== undefined) {
+                      props.setTitleLine1?.(patch.titleLine1);
+                      props.setTopTitleText?.(patch.titleLine1);
+                    }
+                    if (patch.titleLine1SizePx !== undefined && props.setTitleLine1SizePx) props.setTitleLine1SizePx(patch.titleLine1SizePx);
+                    if (patch.titleLine1Color !== undefined) {
+                      props.setTitleLine1Color?.(patch.titleLine1Color);
+                      props.setTopTitleColor?.(patch.titleLine1Color);
+                    }
+                    if (patch.hasTitleLine2 !== undefined && props.setHasTitleLine2) props.setHasTitleLine2(patch.hasTitleLine2);
+                    if (patch.titleLine2 !== undefined && props.setTitleLine2) props.setTitleLine2(patch.titleLine2);
+                    if (patch.titleLine2SizePx !== undefined && props.setTitleLine2SizePx) props.setTitleLine2SizePx(patch.titleLine2SizePx);
+                    if (patch.titleLine2Color !== undefined && props.setTitleLine2Color) props.setTitleLine2Color(patch.titleLine2Color);
+                    if (patch.titleFontFamily !== undefined && props.setTitleFontFamily) props.setTitleFontFamily(patch.titleFontFamily);
+                    if (patch.titleBold !== undefined && props.setTitleBold) props.setTitleBold(patch.titleBold);
+                    if (patch.titleItalic !== undefined && props.setTitleItalic) props.setTitleItalic(patch.titleItalic);
+                    if (patch.titleAlign !== undefined && props.setTitleAlign) props.setTitleAlign(patch.titleAlign);
+                    if (patch.titleStroke !== undefined && props.setTitleStroke) props.setTitleStroke(patch.titleStroke);
+                    if (patch.titleStrokeWidth !== undefined && props.setTitleStrokeWidth) props.setTitleStrokeWidth(patch.titleStrokeWidth);
+                    if (patch.titleStrokeColor !== undefined && props.setTitleStrokeColor) props.setTitleStrokeColor(patch.titleStrokeColor);
+                    if (patch.titleShadow !== undefined && props.setTitleShadow) props.setTitleShadow(patch.titleShadow);
+                    if (patch.titleShadowBlur !== undefined && props.setTitleShadowBlur) props.setTitleShadowBlur(patch.titleShadowBlur);
+                    if (patch.titleShadowColor !== undefined && props.setTitleShadowColor) props.setTitleShadowColor(patch.titleShadowColor);
+                    if (patch.titleBgMode !== undefined && props.setTitleBgMode) props.setTitleBgMode(patch.titleBgMode);
+                    if (patch.titleBgColor !== undefined && props.setTitleBgColor) props.setTitleBgColor(patch.titleBgColor);
+                    if (patch.titlePaddingX !== undefined && props.setTitlePaddingX) props.setTitlePaddingX(patch.titlePaddingX);
+                    if (patch.titleBorderRadius !== undefined && props.setTitleBorderRadius) props.setTitleBorderRadius(patch.titleBorderRadius);
+                  }}
+                  onReset={() => {
+                    if (masterGeo?.titleLine1) {
+                      props.setTitleLine1?.(masterGeo.titleLine1);
+                      props.setTopTitleText?.(masterGeo.titleLine1);
+                    }
+                    if (masterGeo?.titleLine2) props.setTitleLine2?.(masterGeo.titleLine2);
+                    if (masterSty?.titleFont) props.setTitleFontFamily?.(masterSty.titleFont);
+                    if (masterSty?.titleLine1Color) props.setTitleLine1Color?.(masterSty.titleLine1Color);
+                    if (masterSty?.titleLine2Color) props.setTitleLine2Color?.(masterSty.titleLine2Color);
+                    if (masterSty?.titleFontSize) props.setTitleLine1SizePx?.(masterSty.titleFontSize);
+                    if (masterSty?.titleLine2FontSize) props.setTitleLine2SizePx?.(masterSty.titleLine2FontSize);
+                    if (masterSty?.titleStroke !== undefined) props.setTitleStroke?.(masterSty.titleStroke);
+                    if (masterSty?.titleStrokeWidth !== undefined) props.setTitleStrokeWidth?.(masterSty.titleStrokeWidth);
+                    if (masterSty?.titleStrokeColor) props.setTitleStrokeColor?.(masterSty.titleStrokeColor);
+                    if (masterSty?.titleShadow !== undefined) props.setTitleShadow?.(masterSty.titleShadow);
+                    if (masterSty?.titleShadowBlur !== undefined) props.setTitleShadowBlur?.(masterSty.titleShadowBlur);
+                    if (masterSty?.titleShadowColor) props.setTitleShadowColor?.(masterSty.titleShadowColor);
+                    if (masterSty?.titleBgMode) props.setTitleBgMode?.(masterSty.titleBgMode);
+                    if (masterSty?.titleBgColor) props.setTitleBgColor?.(masterSty.titleBgColor);
+                    if (masterSty?.titleBorderRadius !== undefined) props.setTitleBorderRadius?.(masterSty.titleBorderRadius);
+                    if (masterSty?.titleBadgeText) props.setTitleBadgeText?.(masterSty.titleBadgeText);
+                    if (masterSty?.titleBadgeColor) props.setTitleBadgeColor?.(masterSty.titleBadgeColor);
+                  }}
+                />
+              )}
+
               {activeFloating === 'metadata' && (
                 <MetadataFloatingInspector
                   isOpen={true}
@@ -2106,7 +2235,7 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                     text: props.titleBadgeText || 'HOT ISSUE',
                     bgColor: props.titleBadgeBg || '#EF4444',
                     textColor: props.titleBadgeColor || '#FFFFFF',
-                    fontSize: 12,
+                    fontSize: props.titleBadgeSizePx || 11,
                     borderRadius: 4,
                     paddingX: 8,
                     paddingY: 2,
@@ -2118,11 +2247,13 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                     if (patch.text !== undefined && props.setTitleBadgeText) props.setTitleBadgeText(patch.text);
                     if (patch.bgColor !== undefined && props.setTitleBadgeBg) props.setTitleBadgeBg(patch.bgColor);
                     if (patch.textColor !== undefined && props.setTitleBadgeColor) props.setTitleBadgeColor(patch.textColor);
+                    if (patch.fontSize !== undefined && props.setTitleBadgeSizePx) props.setTitleBadgeSizePx(patch.fontSize);
                   }}
                   onReset={() => {
                     props.setTitleBadgeText?.(masterGeo?.badgeTag?.text || 'HOT ISSUE');
                     props.setTitleBadgeBg?.(masterGeo?.badgeTag?.bgColor || '#EF4444');
                     props.setTitleBadgeColor?.(masterGeo?.badgeTag?.textColor || '#FFFFFF');
+                    props.setTitleBadgeSizePx?.(11);
                   }}
                 />
               )}

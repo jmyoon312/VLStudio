@@ -258,6 +258,8 @@ export interface TemplateCanvasState {
   hasTopTitle?: boolean;
   topTitleText?: string;
   titleLinesMode?: 'single' | 'double';
+  hasTitleLine1?: boolean;
+  hasTitleLine2?: boolean;
   titleLine1?: string;
   titleLine2?: string;
   titleLine1Color?: string;
@@ -281,6 +283,7 @@ export interface TemplateCanvasState {
   titleBadgeText?: string;
   titleBadgeBg?: string;
   titleBadgeColor?: string;
+  titleBadgeSizePx?: number;
   hasJab?: boolean;
   jabText?: string;
   jabTiltDeg?: number;

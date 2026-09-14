@@ -395,7 +395,13 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
   const [titleBorderRadius, setTitleBorderRadius] = useState<number>(4);
   const [hasTitleBadge, setHasTitleBadge] = useState<boolean>(false);
   const [titleBadgeText, setTitleBadgeText] = useState<string>('속보');
-  const [titleBadgeColor, setTitleBadgeColor] = useState<string>('#EF4444');
+  const [titleBadgeColor, setTitleBadgeColor] = useState<string>('#FFFFFF');
+  const [titleBadgeSizePx, setTitleBadgeSizePx] = useState<number>(11);
+  const [hasTitleLine1, setHasTitleLine1] = useState<boolean>(true);
+  const [hasTitleLine2, setHasTitleLine2] = useState<boolean>(true);
+  const [titleBold, setTitleBold] = useState<boolean>(true);
+  const [titleItalic, setTitleItalic] = useState<boolean>(false);
+  const [titleAlign, setTitleAlign] = useState<'left' | 'center' | 'right'>('center');
 
   // ⚡ 긴박 쨉쨉이 훅
   const [hasJab, setHasJab] = useState<boolean>(true);
@@ -1079,6 +1085,12 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
       if (cs.titleBadgeText !== undefined) setTitleBadgeText(cs.titleBadgeText);
       if (cs.titleBadgeBg) setTitleBadgeBg(cs.titleBadgeBg);
       if (cs.titleBadgeColor) setTitleBadgeColor(cs.titleBadgeColor);
+      if (cs.titleBadgeSizePx !== undefined) setTitleBadgeSizePx(cs.titleBadgeSizePx);
+      if (cs.hasTitleLine1 !== undefined) setHasTitleLine1(cs.hasTitleLine1);
+      if (cs.hasTitleLine2 !== undefined) setHasTitleLine2(cs.hasTitleLine2);
+      if (cs.titleBold !== undefined) setTitleBold(cs.titleBold);
+      if (cs.titleItalic !== undefined) setTitleItalic(cs.titleItalic);
+      if (cs.titleAlign !== undefined) setTitleAlign(cs.titleAlign);
 
       // 🏛️ 6. 긴박 쨉쨉이 훅
       if (cs.hasJab !== undefined) setHasJab(cs.hasJab);
@@ -1361,6 +1373,12 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
         titleBadgeText,
         titleBadgeBg,
         titleBadgeColor,
+        titleBadgeSizePx,
+        hasTitleLine1,
+        hasTitleLine2,
+        titleBold,
+        titleItalic,
+        titleAlign,
         hasJab,
         jabText,
         jabTiltDeg,
@@ -1509,6 +1527,12 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
         titleBadgeText,
         titleBadgeBg,
         titleBadgeColor,
+        titleBadgeSizePx,
+        hasTitleLine1,
+        hasTitleLine2,
+        titleBold,
+        titleItalic,
+        titleAlign,
         hasJab,
         jabText,
         jabTiltDeg,
@@ -2624,6 +2648,18 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
               setTitleBadgeBg={setTitleBadgeBg}
               titleBadgeColor={titleBadgeColor}
               setTitleBadgeColor={setTitleBadgeColor}
+              titleBadgeSizePx={titleBadgeSizePx}
+              setTitleBadgeSizePx={setTitleBadgeSizePx}
+              hasTitleLine1={hasTitleLine1}
+              setHasTitleLine1={setHasTitleLine1}
+              hasTitleLine2={hasTitleLine2}
+              setHasTitleLine2={setHasTitleLine2}
+              titleBold={titleBold}
+              setTitleBold={setTitleBold}
+              titleItalic={titleItalic}
+              setTitleItalic={setTitleItalic}
+              titleAlign={titleAlign}
+              setTitleAlign={setTitleAlign}
               hasJab={hasJab}
               setHasJab={setHasJab}
               jabTransform={jabTransform}
@@ -3084,12 +3120,28 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
                 setHasTitleBadge={setHasTitleBadge}
                 titleBadgeText={titleBadgeText}
                 setTitleBadgeText={setTitleBadgeText}
+                titleBadgeBg={titleBadgeBg}
+                setTitleBadgeBg={setTitleBadgeBg}
                 titleBadgeColor={titleBadgeColor}
                 setTitleBadgeColor={setTitleBadgeColor}
+                titleBadgeSizePx={titleBadgeSizePx}
+                setTitleBadgeSizePx={setTitleBadgeSizePx}
+                hasTitleLine1={hasTitleLine1}
+                setHasTitleLine1={setHasTitleLine1}
                 titleLine1={titleLine1}
                 setTitleLine1={setTitleLine1}
+                hasTitleLine2={hasTitleLine2}
+                setHasTitleLine2={setHasTitleLine2}
                 titleLine2={titleLine2}
                 setTitleLine2={setTitleLine2}
+                titleFontFamily={titleFontFamily}
+                setTitleFontFamily={setTitleFontFamily}
+                titleBold={titleBold}
+                setTitleBold={setTitleBold}
+                titleItalic={titleItalic}
+                setTitleItalic={setTitleItalic}
+                titleAlign={titleAlign}
+                setTitleAlign={setTitleAlign}
                 titleLine1SizePx={titleLine1SizePx}
                 setTitleLine1SizePx={setTitleLine1SizePx}
                 titleLine2SizePx={titleLine2SizePx}
