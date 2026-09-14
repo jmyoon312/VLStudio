@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { NleLayerTransform } from '@/types/nle';
-import { RotateCw, FlipHorizontal } from 'lucide-react';
+import { RotateCw, FlipHorizontal, SlidersHorizontal } from 'lucide-react';
 
 interface TransformGizmoProps {
   transform: NleLayerTransform;
@@ -323,6 +323,19 @@ export const TransformGizmo: React.FC<TransformGizmoProps> = ({
             >
               <RotateCw className="w-2.5 h-2.5 text-white" />
             </button>
+            {onDoubleClick && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDoubleClick(e);
+                }}
+                className="p-0.5 hover:bg-sky-700 rounded cursor-pointer transition ml-0.5 bg-sky-700/60"
+                title="상세 속성 팝업창 열기"
+              >
+                <SlidersHorizontal className="w-2.5 h-2.5 text-white" />
+              </button>
+            )}
           </div>
 
           {/* 🌟 4대 모서리 핸들 (슬림 10px 화이트 박스) */}

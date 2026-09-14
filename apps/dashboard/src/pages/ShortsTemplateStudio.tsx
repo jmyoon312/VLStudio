@@ -2694,11 +2694,19 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
               setSubtitleYPercent={(y: number) => setSubTransform(prev => ({ ...prev, yPct: y }))}
               currentSubtitleText={currentSubtitleText}
               subtitleConfig={subtitleConfig}
+              setSubtitleConfig={setSubtitleConfig}
               subtitleStrokeEnabled={subtitleStrokeEnabled}
+              setSubtitleStrokeEnabled={setSubtitleStrokeEnabled}
               subtitleStrokeWidth={subtitleStrokeWidth}
+              setSubtitleStrokeWidth={setSubtitleStrokeWidth}
               subtitleStrokeColor={subtitleStrokeColor}
+              setSubtitleStrokeColor={setSubtitleStrokeColor}
               subtitleShadowEnabled={subtitleShadowEnabled}
+              setSubtitleShadowEnabled={setSubtitleShadowEnabled}
               subtitleShadowBlur={subtitleShadowBlur}
+              setSubtitleShadowBlur={setSubtitleShadowBlur}
+              subtitleShadowColor={subtitleShadowColor}
+              setSubtitleShadowColor={setSubtitleShadowColor}
               subtitleUseBox={subtitleConfig.useBox ?? subtitleUseBox}
               setSubtitleUseBox={(val: boolean) => {
                 setSubtitleUseBox(val);
@@ -2712,7 +2720,11 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
               subtitleBorderRadius={subtitleBorderRadius}
               setSubtitleBorderRadius={setSubtitleBorderRadius}
               subtitleMaxChars={subtitleMaxChars}
+              setSubtitleMaxChars={setSubtitleMaxChars}
               selectedHighlightColor={selectedHighlightColor}
+              setSelectedHighlightColor={setSelectedHighlightColor}
+              selectedSubtitlePresetId={selectedSubtitlePresetId}
+              setSelectedSubtitlePresetId={setSelectedSubtitlePresetId}
               hasBottomSource={hasBottomSource}
               setHasBottomSource={setHasBottomSource}
               sourceTransform={sourceTransform}

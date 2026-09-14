@@ -5620,11 +5620,19 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
               setSubtitleYPercent={(y) => setSubTransform((prev) => ({ ...prev, yPct: y }))}
               currentSubtitleText={activeSub?.data || (typeof subtitleLayers[0]?.data === 'string' ? subtitleLayers[0]?.data : '자막 텍스트')}
               subtitleConfig={subtitleConfig}
+              setSubtitleConfig={setSubtitleConfig}
               subtitleStrokeEnabled={subtitleConfig.outlineSize > 0}
-              subtitleStrokeWidth={subtitleConfig.outlineSize}
-              subtitleStrokeColor={subtitleConfig.outlineColor}
+              setSubtitleStrokeEnabled={setSubtitleStrokeEnabled}
+              subtitleStrokeWidth={subtitleConfig.outlineSize || subtitleStrokeWidth}
+              setSubtitleStrokeWidth={setSubtitleStrokeWidth}
+              subtitleStrokeColor={subtitleConfig.outlineColor || subtitleStrokeColor}
+              setSubtitleStrokeColor={setSubtitleStrokeColor}
               subtitleShadowEnabled={subtitleConfig.shadowSize > 0}
-              subtitleShadowBlur={subtitleConfig.shadowSize}
+              setSubtitleShadowEnabled={setSubtitleShadowEnabled}
+              subtitleShadowBlur={subtitleConfig.shadowSize || subtitleShadowBlur}
+              setSubtitleShadowBlur={setSubtitleShadowBlur}
+              subtitleShadowColor={subtitleShadowColor}
+              setSubtitleShadowColor={setSubtitleShadowColor}
               subtitleUseBox={subtitleConfig.useBox ?? subtitleUseBox}
               setSubtitleUseBox={(val: boolean) => {
                 setSubtitleUseBox(val);
@@ -5637,7 +5645,14 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
               }}
               subtitleBorderRadius={subtitleBorderRadius}
               setSubtitleBorderRadius={setSubtitleBorderRadius}
+              subtitleMaxChars={subtitleMaxChars}
+              setSubtitleMaxChars={setSubtitleMaxChars}
+              selectedSubtitlePresetId={selectedSubtitlePresetId}
+              setSelectedSubtitlePresetId={setSelectedSubtitlePresetId}
               selectedHighlightColor={channelDna.secondaryColor || '#FFE500'}
+              setSelectedHighlightColor={(col: string) => {
+                setChannelDna(prev => ({ ...prev, secondaryColor: col }));
+              }}
               hasBottomSource={hasBottomSource}
               setHasBottomSource={setHasBottomSource}
               sourceTransform={sourceTransform}

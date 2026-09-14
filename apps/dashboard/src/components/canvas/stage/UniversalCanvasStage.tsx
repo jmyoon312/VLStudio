@@ -24,6 +24,7 @@ import {
   CommentCardFloatingInspector,
   VideoCropFloatingInspector,
   TitleFloatingInspector,
+  SubtitleFloatingInspector,
 } from '../floating';
 import { SsulCanvasLayout } from './layouts/SsulCanvasLayout';
 
@@ -193,18 +194,32 @@ export interface UniversalCanvasStageProps {
   setSubTransform?: any;
   currentSubtitleText?: string;
   subtitleConfig?: SubtitleConfig;
+  setSubtitleConfig?: React.Dispatch<React.SetStateAction<SubtitleConfig>> | ((updater: any) => void);
   setSubtitleYPercent?: (y: number) => void;
   subtitleStrokeEnabled?: boolean;
+  setSubtitleStrokeEnabled?: (val: boolean) => void;
   subtitleStrokeWidth?: number;
+  setSubtitleStrokeWidth?: (val: number) => void;
   subtitleStrokeColor?: string;
+  setSubtitleStrokeColor?: (val: string) => void;
   subtitleShadowEnabled?: boolean;
+  setSubtitleShadowEnabled?: (val: boolean) => void;
   subtitleShadowBlur?: number;
+  setSubtitleShadowBlur?: (val: number) => void;
   subtitleShadowColor?: string;
+  setSubtitleShadowColor?: (val: string) => void;
   subtitleUseBox?: boolean;
+  setSubtitleUseBox?: (val: boolean) => void;
   subtitleBoxColor?: string;
+  setSubtitleBoxColor?: (val: string) => void;
   subtitleBorderRadius?: number;
+  setSubtitleBorderRadius?: (val: number) => void;
   subtitleMaxChars?: number;
+  setSubtitleMaxChars?: (val: number) => void;
   selectedHighlightColor?: string;
+  setSelectedHighlightColor?: (val: string) => void;
+  selectedSubtitlePresetId?: string;
+  setSelectedSubtitlePresetId?: (id: string) => void;
 
   // Bottom Source
   hasBottomSource: boolean;
@@ -590,7 +605,7 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
   const activeJab = layers.find(l => l.type === 'jab' && l.visible && currentTimeMs >= l.startMs && currentTimeMs <= l.endMs);
   const activeSub = layers.find(l => l.type === 'subtitle' && l.visible && currentTimeMs >= l.startMs && currentTimeMs <= l.endMs);
   const subtitleLayers = layers.filter(l => l.type === 'subtitle');
-  const activeSplitLimit = aspectRatio === '16:9' ? 24 : ((subtitleConfig as any)?.splitLimit || 14);
+  const activeSplitLimit = aspectRatio === '16:9' ? 24 : (props.subtitleMaxChars || (subtitleConfig as any)?.splitLimit || 14);
   const [internalActiveFloating, setInternalActiveFloating] = useState<string>('none');
   const activeFloating = props.activeFloatingInspector !== undefined ? props.activeFloatingInspector : internalActiveFloating;
   const setActiveFloating = (insp: string) => {
@@ -1589,6 +1604,10 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
 
                 if (!shouldShowSub || isSsul) return null;
 
+                const isStrokeOn = subCfg?.outlineSize !== undefined ? (subCfg.outlineSize > 0) : subtitleStrokeEnabled;
+                const isShadowOn = subCfg?.shadowSize !== undefined ? (subCfg.shadowSize > 0) : subtitleShadowEnabled;
+                const isBoxOn = subCfg?.useBox !== undefined ? subCfg.useBox : subtitleUseBox;
+
                 return (
                   <TransformGizmo
                     transform={{
@@ -1602,7 +1621,7 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                     }}
                     selected={isSubSelected}
                     name="본문 자막"
-                    onDoubleClick={() => setActiveFloating('ssulSubtitle')}
+                    onDoubleClick={() => setActiveFloating(layoutTemplateMode === 'ssul' ? 'ssulSubtitle' : 'subtitle')}
                     canvasScale={canvasScale}
                     anchor={layoutTemplateMode === 'instagram' ? 'left' : 'center'}
                     onSelect={() => {
@@ -1617,25 +1636,29 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                     }}
                   >
                     <div
+                      onDoubleClick={(e) => {
+                        e.stopPropagation();
+                        setActiveFloating(layoutTemplateMode === 'ssul' ? 'ssulSubtitle' : 'subtitle');
+                      }}
                       className={cn(
                         "inline-block whitespace-pre-line transition-all cursor-move",
                         layoutTemplateMode === 'instagram'
                           ? "text-left font-medium max-w-[88%] break-words"
                           : "font-black leading-snug tracking-tight text-center px-2",
-                        layoutTemplateMode !== 'instagram' && (subCfg?.useBox ?? subtitleUseBox) && "px-3 py-1.5"
+                        layoutTemplateMode !== 'instagram' && isBoxOn && "px-3 py-1.5"
                       )}
                       style={{
                         backgroundColor: layoutTemplateMode === 'instagram'
                           ? 'transparent'
-                          : ((subCfg?.useBox ?? subtitleUseBox)
+                          : (isBoxOn
                               ? (subCfg?.boxColor || subtitleBoxColor)
                               : 'transparent'),
                         borderRadius: layoutTemplateMode === 'instagram'
                           ? 0
-                          : ((subCfg?.useBox ?? subtitleUseBox) ? `${subtitleBorderRadius}px` : 0),
+                          : (isBoxOn ? `${props.subtitleBorderRadius ?? subtitleBorderRadius}px` : 0),
                         boxShadow: layoutTemplateMode === 'instagram'
                           ? 'none'
-                          : ((((subCfg?.shadowSize ?? 0) > 0) || subtitleShadowEnabled) && (subCfg?.useBox ?? subtitleUseBox)
+                          : (isShadowOn && isBoxOn
                               ? '0 4px 14px rgba(0,0,0,0.7)'
                               : 'none'),
                       }}
@@ -1661,22 +1684,18 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                             ? '0 transparent'
                             : layoutTemplateMode === 'gunlimbo'
                             ? `${subCfg?.outlineSize || 4}px ${subCfg?.outlineColor || '#000000'}`
-                            : ((subCfg?.outlineSize && subCfg.outlineSize > 0)
-                                ? `${subCfg.outlineSize}px ${subCfg.outlineColor || '#000000'}`
-                                : subtitleStrokeEnabled
-                                  ? `${subtitleStrokeWidth}px ${subtitleStrokeColor}`
-                                  : '0 transparent'),
+                            : (isStrokeOn
+                                ? `${subCfg?.outlineSize || subtitleStrokeWidth || 3}px ${subCfg?.outlineColor || subtitleStrokeColor || '#000000'}`
+                                : '0 transparent'),
                           paintOrder: layoutTemplateMode === 'instagram' ? 'normal' : 'stroke fill',
                           WebkitFontSmoothing: 'antialiased',
                           textShadow: layoutTemplateMode === 'instagram'
                             ? 'none'
                             : layoutTemplateMode === 'gunlimbo'
                             ? '0 3px 6px rgba(0,0,0,0.95)'
-                            : ((subCfg?.shadowSize && subCfg.shadowSize > 0)
-                                ? `0 2px ${(subCfg.shadowSize * 3)}px ${subCfg.shadowColor || 'rgba(0,0,0,0.95)'}`
-                                : subtitleShadowEnabled
-                                  ? `0 2px ${subtitleShadowBlur || 8}px ${subtitleShadowColor}`
-                                  : 'none'),
+                            : (isShadowOn
+                                ? `0 2px ${subCfg?.shadowSize ? subCfg.shadowSize * 3 : (subtitleShadowBlur || 8)}px ${subCfg?.shadowColor || subtitleShadowColor || 'rgba(0,0,0,0.95)'}`
+                                : 'none'),
                         }}
                       >
                         {layoutTemplateMode === 'instagram'
@@ -2223,6 +2242,78 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                       ssulSubtitle: { ...targetSub },
                     }));
                   }}
+                />
+              )}
+
+              {activeFloating === 'subtitle' && (
+                <SubtitleFloatingInspector
+                  isOpen={true}
+                  onClose={() => setActiveFloating('none')}
+                  config={subCfg || props.subtitleConfig || {}}
+                  onChange={(patch) => {
+                    props.setSubtitleConfig?.((prev: any) => ({ ...(prev || {}), ...patch }));
+                    if (layoutTemplateMode === 'instagram') {
+                      if (patch.textColor || (patch as any).fillColor || (patch as any).color) {
+                        props.setInstaConfig?.((prev: any) => ({
+                          ...prev,
+                          subColor: patch.textColor || (patch as any).fillColor || (patch as any).color,
+                        }));
+                      }
+                      if (patch.fontFamily || (patch as any).font) {
+                        props.setInstaConfig?.((prev: any) => ({
+                          ...prev,
+                          subFont: patch.fontFamily || (patch as any).font,
+                        }));
+                      }
+                    }
+                  }}
+                  onReset={() => {
+                    const defaultSub = masterSty?.subtitle || {
+                      fontFamily: 'Pretendard',
+                      textColor: '#FFFFFF',
+                      fontSize: 20,
+                      outlineSize: 4,
+                      outlineColor: '#000000',
+                      shadowSize: 3,
+                      shadowColor: '#000000',
+                      useBox: false,
+                      boxColor: '#000000',
+                      splitLimit: 14,
+                    };
+                    props.setSubtitleConfig?.((prev: any) => ({ ...(prev || {}), ...defaultSub }));
+                    props.setSubtitleStrokeEnabled?.(defaultSub.outlineSize > 0);
+                    props.setSubtitleStrokeWidth?.(defaultSub.outlineSize || 4);
+                    props.setSubtitleStrokeColor?.(defaultSub.outlineColor || '#000000');
+                    props.setSubtitleShadowEnabled?.(defaultSub.shadowSize > 0);
+                    props.setSubtitleShadowBlur?.(defaultSub.shadowSize || 6);
+                    props.setSubtitleShadowColor?.(defaultSub.shadowColor || '#000000');
+                    props.setSubtitleUseBox?.(defaultSub.useBox || false);
+                    props.setSubtitleBoxColor?.(defaultSub.boxColor || '#000000');
+                    props.setSubtitleBorderRadius?.(4);
+                    props.setSubtitleMaxChars?.(defaultSub.splitLimit || 14);
+                  }}
+                  subtitleStrokeEnabled={props.subtitleStrokeEnabled}
+                  setSubtitleStrokeEnabled={props.setSubtitleStrokeEnabled}
+                  subtitleStrokeWidth={props.subtitleStrokeWidth}
+                  setSubtitleStrokeWidth={props.setSubtitleStrokeWidth}
+                  subtitleStrokeColor={props.subtitleStrokeColor}
+                  setSubtitleStrokeColor={props.setSubtitleStrokeColor}
+                  subtitleShadowEnabled={props.subtitleShadowEnabled}
+                  setSubtitleShadowEnabled={props.setSubtitleShadowEnabled}
+                  subtitleShadowBlur={props.subtitleShadowBlur}
+                  setSubtitleShadowBlur={props.setSubtitleShadowBlur}
+                  subtitleShadowColor={props.subtitleShadowColor}
+                  setSubtitleShadowColor={props.setSubtitleShadowColor}
+                  subtitleUseBox={props.subtitleUseBox}
+                  setSubtitleUseBox={props.setSubtitleUseBox}
+                  subtitleBoxColor={props.subtitleBoxColor}
+                  setSubtitleBoxColor={props.setSubtitleBoxColor}
+                  subtitleBorderRadius={props.subtitleBorderRadius}
+                  setSubtitleBorderRadius={props.setSubtitleBorderRadius}
+                  subtitleMaxChars={props.subtitleMaxChars}
+                  setSubtitleMaxChars={props.setSubtitleMaxChars}
+                  selectedSubtitlePresetId={props.selectedSubtitlePresetId}
+                  setSelectedSubtitlePresetId={props.setSelectedSubtitlePresetId}
                 />
               )}
 
