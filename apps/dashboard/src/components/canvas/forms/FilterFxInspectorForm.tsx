@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/components/ui/use-toast';
 import { CAPCUT_FILTER_PRESETS } from '../constants/canvasConstants';
+import UnitSliderControl from '../controls/UnitSliderControl';
 
 export interface VideoFilterConfig {
   preset: string;
@@ -91,84 +92,60 @@ export const FilterFxInspectorForm: React.FC<FilterFxInspectorFormProps> = ({
                   </div>
 
                   {/* 🎞️ 영화 필름 노이즈 / 그레인 슬라이더 */}
-                  <div className="space-y-1 p-2 bg-muted/20 border border-border rounded-[2px]">
-                    <div className="flex justify-between text-[10px]">
-                      <span className="text-foreground font-semibold flex items-center gap-1">
-                        <Film className="w-3 h-3 text-amber-500" />
-                        35mm 영화 필름 노이즈 (Grain)
-                      </span>
-                      <span className="font-mono text-amber-500 font-bold">{videoFilter.filmGrain}%</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="0"
-                      max="100"
+                  <div className="p-2 bg-muted/20 border border-border rounded-[2px]">
+                    <UnitSliderControl
+                      label="35mm 영화 필름 노이즈 (Grain)"
                       value={videoFilter.filmGrain}
-                      onChange={(e) => setVideoFilter(prev => ({ ...prev, filmGrain: parseInt(e.target.value) }))}
-                      className="w-full accent-amber-500 cursor-pointer h-1 bg-muted"
+                      unit="%"
+                      min={0}
+                      max={100}
+                      step={1}
+                      onChange={(val) => setVideoFilter(prev => ({ ...prev, filmGrain: val }))}
                     />
                   </div>
 
                   {/* 🎬 시네마틱 비네팅 */}
-                  <div className="space-y-1 p-2 bg-muted/20 border border-border rounded-[2px]">
-                    <div className="flex justify-between text-[10px]">
-                      <span className="text-foreground font-semibold">시네마틱 비네트 (Vignette)</span>
-                      <span className="font-mono text-primary font-bold">{videoFilter.vignette}%</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="0"
-                      max="100"
+                  <div className="p-2 bg-muted/20 border border-border rounded-[2px]">
+                    <UnitSliderControl
+                      label="시네마틱 비네트 (Vignette)"
                       value={videoFilter.vignette}
-                      onChange={(e) => setVideoFilter(prev => ({ ...prev, vignette: parseInt(e.target.value) }))}
-                      className="w-full accent-primary cursor-pointer h-1 bg-muted"
+                      unit="%"
+                      min={0}
+                      max={100}
+                      step={1}
+                      onChange={(val) => setVideoFilter(prev => ({ ...prev, vignette: val }))}
                     />
                   </div>
 
                   {/* 밝기, 대비, 채도, 색온도 정밀 슬라이더 */}
-                  <div className="space-y-2 pt-1 border-t border-border">
-                    <div className="space-y-1">
-                      <div className="flex justify-between text-[9.5px]">
-                        <span className="text-muted-foreground">대비 (Contrast)</span>
-                        <span className="font-mono font-bold text-foreground">{videoFilter.contrast}%</span>
-                      </div>
-                      <input
-                        type="range"
-                        min="60"
-                        max="150"
-                        value={videoFilter.contrast}
-                        onChange={(e) => setVideoFilter(prev => ({ ...prev, contrast: parseInt(e.target.value) }))}
-                        className="w-full accent-primary cursor-pointer h-1 bg-muted"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <div className="flex justify-between text-[9.5px]">
-                        <span className="text-muted-foreground">채도 (Saturation)</span>
-                        <span className="font-mono font-bold text-foreground">{videoFilter.saturation}%</span>
-                      </div>
-                      <input
-                        type="range"
-                        min="0"
-                        max="180"
-                        value={videoFilter.saturation}
-                        onChange={(e) => setVideoFilter(prev => ({ ...prev, saturation: parseInt(e.target.value) }))}
-                        className="w-full accent-primary cursor-pointer h-1 bg-muted"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <div className="flex justify-between text-[9.5px]">
-                        <span className="text-muted-foreground">색온도 (Warmth)</span>
-                        <span className="font-mono font-bold text-foreground">{videoFilter.temperature > 0 ? `+${videoFilter.temperature}` : videoFilter.temperature}</span>
-                      </div>
-                      <input
-                        type="range"
-                        min="-40"
-                        max="40"
-                        value={videoFilter.temperature}
-                        onChange={(e) => setVideoFilter(prev => ({ ...prev, temperature: parseInt(e.target.value) }))}
-                        className="w-full accent-amber-500 cursor-pointer h-1 bg-muted"
-                      />
-                    </div>
+                  <div className="space-y-3 pt-2 border-t border-border">
+                    <UnitSliderControl
+                      label="대비 (Contrast)"
+                      value={videoFilter.contrast}
+                      unit="%"
+                      min={60}
+                      max={150}
+                      step={1}
+                      onChange={(val) => setVideoFilter(prev => ({ ...prev, contrast: val }))}
+                    />
+                    <UnitSliderControl
+                      label="채도 (Saturation)"
+                      value={videoFilter.saturation}
+                      unit="%"
+                      min={0}
+                      max={180}
+                      step={1}
+                      onChange={(val) => setVideoFilter(prev => ({ ...prev, saturation: val }))}
+                    />
+                    <UnitSliderControl
+                      label="색온도 (Warmth)"
+                      value={videoFilter.temperature ?? 0}
+                      unit=""
+                      min={-40}
+                      max={40}
+                      step={1}
+                      onChange={(val) => setVideoFilter(prev => ({ ...prev, temperature: val }))}
+                    />
                   </div>
 
                   <div className="p-2 bg-emerald-500/10 border border-emerald-500/30 rounded-[2px] text-[9.5px] text-emerald-600 dark:text-emerald-400">

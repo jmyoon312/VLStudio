@@ -10,6 +10,8 @@ import { SubtitleConfig } from '@/types/subtitle';
 import { NleLayerObject } from '@/types/nle';
 import { useToast } from '@/components/ui/use-toast';
 import { SHORTS_SUBTITLE_DESIGN_PRESETS, rgbaToHex } from '../constants/canvasConstants';
+import { ColorPicker8Preset } from '../controls/ColorPicker8Preset';
+import { UnitSliderControl } from '../controls/UnitSliderControl';
 
 export interface SubtitleStyleInspectorFormProps {
   subtitleConfig: SubtitleConfig;
@@ -278,59 +280,47 @@ export const SubtitleStyleInspectorForm: React.FC<SubtitleStyleInspectorFormProp
                     본문 자막 스타일 & 배경 효과
                   </span>
 
-                  {/* 자막 글자 크기 & 색상 */}
-                  <div className="space-y-1 p-2 bg-muted/20 border border-border rounded-[2px]">
-                    <div className="flex justify-between text-[10px]">
-                      <span className="text-foreground font-semibold">글자 크기 & 색상</span>
-                      <span className="font-mono text-emerald-500 font-bold">{subtitleConfig.fontSize || 18}px</span>
-                    </div>
-                    <div className="flex gap-1.5 items-center">
-                      <input
-                        type="range"
-                        min="12"
-                        max="36"
-                        value={subtitleConfig.fontSize || 18}
-                        onChange={(e) => {
-                          const val = parseInt(e.target.value);
-                          setSubtitleConfig(prev => ({ ...prev, fontSize: val }));
-                        }}
-                        className="flex-1 accent-emerald-500 cursor-pointer h-1 bg-muted"
-                      />
-                      <input
-                        type="color"
-                        value={rgbaToHex(subtitleConfig.textColor || '#FFFFFF', '#FFFFFF')}
-                        onChange={(e) => {
-                          setSubtitleConfig(prev => ({ ...prev, textColor: e.target.value, fillColor: e.target.value }));
-                        }}
-                        className="w-7 h-7 p-0 border border-border rounded cursor-pointer bg-transparent"
-                        title="자막 글자 색상"
-                      />
-                    </div>
+                  {/* 자막 글자 색상 & 크기 */}
+                  <div className="space-y-2 p-2 bg-muted/20 border border-border rounded-[2px]">
+                    <ColorPicker8Preset
+                      label="자막 글자 색상"
+                      value={rgbaToHex(subtitleConfig.textColor || '#FFFFFF', '#FFFFFF')}
+                      onChange={(val) => {
+                        setSubtitleConfig(prev => ({ ...prev, textColor: val, fillColor: val }));
+                      }}
+                    />
+                    <UnitSliderControl
+                      label="자막 글자 크기"
+                      value={subtitleConfig.fontSize || 18}
+                      min={12}
+                      max={48}
+                      step={1}
+                      unit="px"
+                      onChange={(val) => {
+                        setSubtitleConfig(prev => ({ ...prev, fontSize: val }));
+                      }}
+                    />
                   </div>
 
                   {/* 자동 내려쓰기 글자 수 */}
-                  <div className="space-y-1 p-2 bg-muted/20 border border-border rounded-[2px]">
-                    <div className="flex justify-between text-[10px]">
-                      <span className="text-foreground font-semibold">자동 줄바꿈 (내려쓰기 글자 수)</span>
-                      <span className="font-mono text-emerald-500 font-bold">{subtitleConfig.splitLimit || subtitleMaxChars}자</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="6"
-                      max="24"
+                  <div className="p-2 bg-muted/20 border border-border rounded-[2px]">
+                    <UnitSliderControl
+                      label="자동 줄바꿈 (내려쓰기 글자 수)"
                       value={subtitleConfig.splitLimit || subtitleMaxChars}
-                      onChange={(e) => {
-                        const val = parseInt(e.target.value);
+                      min={6}
+                      max={24}
+                      step={1}
+                      unit="자"
+                      onChange={(val) => {
                         setSubtitleMaxChars(val);
                         setSubtitleConfig(prev => ({ ...prev, splitLimit: val }));
                       }}
-                      className="w-full accent-emerald-500 cursor-pointer h-1 bg-muted"
                     />
                   </div>
 
                   {/* 외곽선(스트로크) 제어 */}
-                  <div className="space-y-1.5 p-2 bg-muted/20 border border-border rounded-[2px]">
-                    <div className="flex items-center justify-between text-[10px]">
+                  <div className="space-y-2 p-2 bg-muted/20 border border-border rounded-[2px]">
+                    <div className="flex items-center justify-between text-[11px]">
                       <span className="font-semibold text-foreground">자막 테두리 (외곽선)</span>
                       <Switch
                         checked={((subtitleConfig.outlineSize ?? 0) > 0) || subtitleStrokeEnabled}
@@ -341,39 +331,34 @@ export const SubtitleStyleInspectorForm: React.FC<SubtitleStyleInspectorFormProp
                       />
                     </div>
                     {(((subtitleConfig.outlineSize ?? 0) > 0) || subtitleStrokeEnabled) && (
-                      <div className="space-y-1 pt-1">
-                        <div className="flex items-center justify-between text-[10px]">
-                          <span className="text-muted-foreground">두께: {subtitleConfig.outlineSize ?? subtitleStrokeWidth}px</span>
-                          <input
-                            type="color"
-                            value={rgbaToHex(subtitleConfig.outlineColor || subtitleStrokeColor, '#000000')}
-                            onChange={(e) => {
-                              setSubtitleStrokeColor(e.target.value);
-                              setSubtitleConfig(prev => ({ ...prev, outlineColor: e.target.value, strokeColor: e.target.value }));
-                            }}
-                            className="w-5 h-5 p-0 border border-border rounded cursor-pointer bg-transparent"
-                            title="테두리 색상"
-                          />
-                        </div>
-                        <input
-                          type="range"
-                          min="1"
-                          max="10"
+                      <div className="space-y-2 pt-1.5 border-t border-border/50">
+                        <UnitSliderControl
+                          label="테두리 두께"
                           value={subtitleConfig.outlineSize ?? subtitleStrokeWidth}
-                          onChange={(e) => {
-                            const val = parseInt(e.target.value);
+                          min={1}
+                          max={12}
+                          step={1}
+                          unit="px"
+                          onChange={(val) => {
                             setSubtitleStrokeWidth(val);
                             setSubtitleConfig(prev => ({ ...prev, outlineSize: val, strokeWidth: val }));
                           }}
-                          className="w-full accent-emerald-500 cursor-pointer h-1 bg-muted"
+                        />
+                        <ColorPicker8Preset
+                          label="테두리 색상"
+                          value={rgbaToHex(subtitleConfig.outlineColor || subtitleStrokeColor, '#000000')}
+                          onChange={(val) => {
+                            setSubtitleStrokeColor(val);
+                            setSubtitleConfig(prev => ({ ...prev, outlineColor: val, strokeColor: val }));
+                          }}
                         />
                       </div>
                     )}
                   </div>
 
                   {/* 입체 그림자 제어 */}
-                  <div className="space-y-1.5 p-2 bg-muted/20 border border-border rounded-[2px]">
-                    <div className="flex items-center justify-between text-[10px]">
+                  <div className="space-y-2 p-2 bg-muted/20 border border-border rounded-[2px]">
+                    <div className="flex items-center justify-between text-[11px]">
                       <span className="font-semibold text-foreground">자막 입체 그림자</span>
                       <Switch
                         checked={((subtitleConfig.shadowSize ?? 0) > 0) || subtitleShadowEnabled}
@@ -384,73 +369,61 @@ export const SubtitleStyleInspectorForm: React.FC<SubtitleStyleInspectorFormProp
                       />
                     </div>
                     {(((subtitleConfig.shadowSize ?? 0) > 0) || subtitleShadowEnabled) && (
-                      <div className="space-y-1 pt-1">
-                        <div className="flex items-center justify-between text-[10px]">
-                          <span className="text-muted-foreground">크기: {subtitleConfig.shadowSize ?? 3}</span>
-                          <input
-                            type="color"
-                            value={rgbaToHex(subtitleConfig.shadowColor || subtitleShadowColor, '#000000')}
-                            onChange={(e) => {
-                              setSubtitleShadowColor(e.target.value);
-                              setSubtitleConfig(prev => ({ ...prev, shadowColor: e.target.value }));
-                            }}
-                            className="w-5 h-5 p-0 border border-border rounded cursor-pointer bg-transparent"
-                            title="그림자 색상"
-                          />
-                        </div>
-                        <input
-                          type="range"
-                          min="1"
-                          max="10"
+                      <div className="space-y-2 pt-1.5 border-t border-border/50">
+                        <UnitSliderControl
+                          label="그림자 크기"
                           value={subtitleConfig.shadowSize ?? 3}
-                          onChange={(e) => {
-                            const val = parseInt(e.target.value);
+                          min={1}
+                          max={12}
+                          step={1}
+                          unit="px"
+                          onChange={(val) => {
                             setSubtitleShadowBlur(val * 2);
                             setSubtitleConfig(prev => ({ ...prev, shadowSize: val }));
                           }}
-                          className="w-full accent-emerald-500 cursor-pointer h-1 bg-muted"
+                        />
+                        <ColorPicker8Preset
+                          label="그림자 색상"
+                          value={rgbaToHex(subtitleConfig.shadowColor || subtitleShadowColor, '#000000')}
+                          onChange={(val) => {
+                            setSubtitleShadowColor(val);
+                            setSubtitleConfig(prev => ({ ...prev, shadowColor: val }));
+                          }}
                         />
                       </div>
                     )}
                   </div>
 
                   {/* 🔲 자막 배경 필 박스 & 모서리 둥글기 */}
-                  <div className="space-y-1.5 p-2 bg-muted/20 border border-border rounded-[2px]">
-                    <div className="flex items-center justify-between text-[10px]">
+                  <div className="space-y-2 p-2 bg-muted/20 border border-border rounded-[2px]">
+                    <div className="flex items-center justify-between text-[11px]">
                       <span className="font-semibold text-foreground">배경 필 박스 (Pill Box)</span>
-                      <div className="flex items-center gap-1.5">
-                        <input
-                          type="color"
-                          value={rgbaToHex(subtitleConfig.boxColor || subtitleBoxColor, '#000000')}
-                          onChange={(e) => {
-                            setSubtitleBoxColor(e.target.value);
-                            setSubtitleConfig(prev => ({ ...prev, boxColor: e.target.value }));
-                          }}
-                          className="w-5 h-5 p-0 border border-border rounded cursor-pointer bg-transparent"
-                          title="배경 박스 색상"
-                        />
-                        <Switch
-                          checked={subtitleConfig.useBox ?? subtitleUseBox}
-                          onCheckedChange={(chk) => {
-                            setSubtitleUseBox(chk);
-                            setSubtitleConfig(prev => ({ ...prev, useBox: chk }));
-                          }}
-                        />
-                      </div>
+                      <Switch
+                        checked={subtitleConfig.useBox ?? subtitleUseBox}
+                        onCheckedChange={(chk) => {
+                          setSubtitleUseBox(chk);
+                          setSubtitleConfig(prev => ({ ...prev, useBox: chk }));
+                        }}
+                      />
                     </div>
                     {(subtitleConfig.useBox ?? subtitleUseBox) && (
-                      <div className="space-y-1 pt-1 border-t border-border/50">
-                        <div className="flex justify-between text-[10px]">
-                          <span className="text-muted-foreground">모서리 모양 (둥글기)</span>
-                          <span className="font-mono text-emerald-500 font-bold">{subtitleBorderRadius}px</span>
-                        </div>
-                        <input
-                          type="range"
-                          min="0"
-                          max="30"
+                      <div className="space-y-2 pt-1.5 border-t border-border/50">
+                        <ColorPicker8Preset
+                          label="배경 박스 색상"
+                          value={rgbaToHex(subtitleConfig.boxColor || subtitleBoxColor, '#000000')}
+                          onChange={(val) => {
+                            setSubtitleBoxColor(val);
+                            setSubtitleConfig(prev => ({ ...prev, boxColor: val }));
+                          }}
+                        />
+                        <UnitSliderControl
+                          label="모서리 모양 (둥글기)"
                           value={subtitleBorderRadius}
-                          onChange={(e) => setSubtitleBorderRadius(parseInt(e.target.value))}
-                          className="w-full accent-emerald-500 cursor-pointer h-1 bg-muted"
+                          min={0}
+                          max={30}
+                          step={1}
+                          unit="px"
+                          onChange={setSubtitleBorderRadius}
                         />
                       </div>
                     )}

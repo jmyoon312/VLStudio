@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/components/ui/use-toast';
+import { UnitSliderControl } from '../controls/UnitSliderControl';
 
 export type VideoFitMode = 'sandwich' | 'fullscreen' | 'fit-center' | 'fit-top' | 'center' | 'top_heavy' | 'bottom_heavy' | 'custom';
 
@@ -161,69 +162,49 @@ export const VideoCropInspectorForm: React.FC<VideoCropInspectorFormProps> = ({
 
                   {/* 가로 X & 세로 Y 정밀 오프셋 슬라이더 */}
                   <div className="grid grid-cols-2 gap-2 pt-1 border-t border-border">
-                    <div className="space-y-1">
-                      <div className="flex justify-between text-[10px]">
-                        <span className="text-muted-foreground font-semibold">가로 위치 (X)</span>
-                        <span className="font-mono text-primary font-bold">{videoFocusXPct}%</span>
-                      </div>
-                      <input
-                        type="range"
-                        min="0"
-                        max="100"
-                        step="1"
-                        value={videoFocusXPct}
-                        onChange={(e) => setVideoFocusXPct(parseInt(e.target.value))}
-                        className="w-full accent-primary cursor-pointer h-1 bg-muted"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <div className="flex justify-between text-[10px]">
-                        <span className="text-muted-foreground font-semibold">세로 위치 (Y)</span>
-                        <span className="font-mono text-primary font-bold">{videoFocusYPct}%</span>
-                      </div>
-                      <input
-                        type="range"
-                        min="0"
-                        max="100"
-                        step="1"
-                        value={videoFocusYPct}
-                        onChange={(e) => setVideoFocusYPct(parseInt(e.target.value))}
-                        className="w-full accent-primary cursor-pointer h-1 bg-muted"
-                      />
-                    </div>
+                    <UnitSliderControl
+                      label="가로 위치 (X)"
+                      value={videoFocusXPct}
+                      min={0}
+                      max={100}
+                      step={1}
+                      unit="%"
+                      onChange={setVideoFocusXPct}
+                    />
+                    <UnitSliderControl
+                      label="세로 위치 (Y)"
+                      value={videoFocusYPct}
+                      min={0}
+                      max={100}
+                      step={1}
+                      unit="%"
+                      onChange={setVideoFocusYPct}
+                    />
                   </div>
 
                   {/* 비디오 줌 / 크롭 스케일 */}
-                  <div className="space-y-1 pt-1 border-t border-border">
-                    <div className="flex justify-between text-[10px]">
-                      <span className="text-muted-foreground font-semibold">비디오 줌 / 크롭 (Scale)</span>
-                      <span className="font-mono text-primary font-bold">{videoZoomScale}%</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="50"
-                      max="300"
-                      step="1"
+                  <div className="pt-1 border-t border-border">
+                    <UnitSliderControl
+                      label="비디오 줌 / 크롭 (Scale)"
                       value={videoZoomScale}
-                      onChange={(e) => setVideoZoomScale(parseInt(e.target.value))}
-                      className="w-full accent-primary cursor-pointer h-1 bg-muted"
+                      min={50}
+                      max={300}
+                      step={1}
+                      unit="%"
+                      onChange={setVideoZoomScale}
                     />
                   </div>
 
                   {/* 회전 & 반전 제어 */}
-                  <div className="space-y-1.5 pt-1 border-t border-border">
-                    <div className="flex justify-between text-[10px]">
-                      <span className="text-muted-foreground font-semibold">회전 각도 (Rotation)</span>
-                      <span className="font-mono text-primary font-bold">{videoRotationDeg}°</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="-180"
-                      max="180"
-                      step="1"
+                  <div className="pt-1 border-t border-border">
+                    <UnitSliderControl
+                      label="회전 각도 (Rotation)"
                       value={videoRotationDeg}
-                      onChange={(e) => setVideoRotationDeg(parseInt(e.target.value))}
-                      className="w-full accent-primary cursor-pointer h-1 bg-muted"
+                      min={-180}
+                      max={180}
+                      step={1}
+                      unit="°"
+                      onChange={setVideoRotationDeg}
                     />
                     <div className="grid grid-cols-4 gap-1 pt-1">
                       <button

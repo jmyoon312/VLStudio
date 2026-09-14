@@ -5,6 +5,8 @@ import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/components/ui/use-toast';
 import { cn } from '@/lib/utils';
+import { ColorPicker8Preset } from '../controls/ColorPicker8Preset';
+import { UnitSliderControl } from '../controls/UnitSliderControl';
 
 export interface CommentCardConfig {
   author: string;
@@ -23,6 +25,11 @@ export interface CommentCardConfig {
   isPinned?: boolean;
   pinBadgeText?: string;
   yPct?: number;
+  bgColor?: string;
+  textColor?: string;
+  borderRadius?: number;
+  offsetX?: number;
+  offsetY?: number;
 }
 
 export interface CommentCardInspectorFormProps {
@@ -173,6 +180,56 @@ export const CommentCardInspectorForm: React.FC<CommentCardInspectorFormProps> =
                             value={commentCard.likes}
                             onChange={(e) => setCommentCard(prev => ({ ...prev, likes: e.target.value }))}
                             className="w-full h-7 px-2 text-xs bg-background border border-border rounded text-foreground"
+                          />
+                        </div>
+                      </div>
+
+                      {/* 🎨 카드 배경색 & 글자색 */}
+                      <div className="space-y-2 pt-2 border-t border-border/50">
+                        <ColorPicker8Preset
+                          label="카드 배경 색상"
+                          value={commentCard.bgColor || '#18181B'}
+                          onChange={(c) => setCommentCard(prev => ({ ...prev, bgColor: c }))}
+                        />
+                        <ColorPicker8Preset
+                          label="본문 글자 색상"
+                          value={commentCard.textColor || '#FFFFFF'}
+                          onChange={(c) => setCommentCard(prev => ({ ...prev, textColor: c }))}
+                        />
+                      </div>
+
+                      {/* 모서리 둥글기 */}
+                      <UnitSliderControl
+                        label="카드 모서리 둥글기"
+                        value={commentCard.borderRadius ?? 8}
+                        min={0}
+                        max={24}
+                        step={2}
+                        unit="px"
+                        onChange={(v) => setCommentCard(prev => ({ ...prev, borderRadius: v }))}
+                      />
+
+                      {/* 위치 오프셋 */}
+                      <div className="space-y-2 pt-2 border-t border-border/50">
+                        <span className="text-[11px] font-semibold text-muted-foreground">위치 미세 조정 (X, Y)</span>
+                        <div className="grid grid-cols-2 gap-2">
+                          <UnitSliderControl
+                            label="X 오프셋"
+                            value={commentCard.offsetX || 0}
+                            min={-100}
+                            max={100}
+                            step={1}
+                            unit="px"
+                            onChange={(v) => setCommentCard(prev => ({ ...prev, offsetX: v }))}
+                          />
+                          <UnitSliderControl
+                            label="Y 오프셋"
+                            value={commentCard.offsetY || 0}
+                            min={-100}
+                            max={100}
+                            step={1}
+                            unit="px"
+                            onChange={(v) => setCommentCard(prev => ({ ...prev, offsetY: v }))}
                           />
                         </div>
                       </div>

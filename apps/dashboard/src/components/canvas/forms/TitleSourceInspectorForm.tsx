@@ -432,36 +432,27 @@ export const TitleSourceInspectorForm: React.FC<TitleSourceInspectorFormProps> =
               onChange={(e) => setBottomSourceText(e.target.value)}
               className="w-full h-7 px-2 text-[11px] bg-background border border-border rounded-[2px] text-foreground font-medium"
             />
-            <div className="flex items-center justify-between text-[10px]">
-              <span className="text-muted-foreground">글자 색상</span>
-              <input
-                type="color"
-                value={bottomSourceColor}
-                onChange={(e) => setBottomSourceColor(e.target.value)}
-                className="w-6 h-6 p-0 border border-border rounded cursor-pointer bg-transparent shrink-0"
-              />
-            </div>
+            <ColorPicker8Preset
+              label="출처 글자 색상"
+              value={bottomSourceColor || '#94A3B8'}
+              onChange={setBottomSourceColor}
+            />
 
             {/* 하단 출처 표기 세부 위치 & 높낮이 */}
-            <div className="space-y-2 pt-2 border-t border-border/80">
-              <div className="flex items-center justify-between text-[10px]">
-                <span className="font-bold text-foreground">🏷️ 하단 출처 표기 바닥 위치 (Y)</span>
-                <span className="font-mono text-primary font-bold">{bottomSourceBottomPct.toFixed(1)}%</span>
-              </div>
-              <input
-                type="range"
-                min="0"
-                max="25"
-                step="0.5"
+            <div className="pt-2 border-t border-border/80">
+              <UnitSliderControl
+                label="🏷️ 하단 출처 표기 바닥 위치 (Y)"
                 value={bottomSourceBottomPct}
-                onChange={(e) => {
-                  const val = parseFloat(e.target.value);
+                min={0}
+                max={25}
+                step={0.5}
+                unit="%"
+                onChange={(val) => {
                   setBottomSourceBottomPct(val);
                   setSourceTransform?.((prev: any) => ({ ...prev, yPct: 100 - val }));
                 }}
-                className="w-full accent-primary cursor-pointer h-1 bg-muted"
               />
-              <div className="flex justify-between text-[9px] text-muted-foreground">
+              <div className="flex justify-between text-[9px] text-muted-foreground pt-1">
                 <span>0% (맨 바닥)</span>
                 <span>하단 바 위/안쪽 자유 배치</span>
                 <span>25%</span>

@@ -3,6 +3,9 @@ import { Type, Sparkles, Sliders, RotateCcw, Zap, Crosshair } from 'lucide-react
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
+import { ColorPicker8Preset } from '../controls/ColorPicker8Preset';
+import { UnitSliderControl } from '../controls/UnitSliderControl';
+import { FONT_FAMILIES } from '../constants/canvasConstants';
 
 export interface JabHookInspectorFormProps {
   hasJab: boolean;
@@ -107,128 +110,110 @@ export const JabHookInspectorForm: React.FC<JabHookInspectorFormProps> = ({
                         />
                       </div>
 
-                      {/* 회전 각도 (-15° ~ +15°) */}
-                      <div className="space-y-1 p-2 bg-muted/20 border border-border rounded-[2px]">
-                        <div className="flex justify-between text-[10px]">
-                          <span className="text-foreground font-semibold">회전 각도 (Tilt)</span>
-                          <span className="font-mono text-amber-500 font-bold">{jabTiltDeg}°</span>
-                        </div>
-                        <input
-                          type="range"
-                          min="-15"
-                          max="15"
+                      {/* 회전 각도 (-30° ~ +30°) */}
+                      <div className="p-2 bg-muted/20 border border-border rounded-[2px]">
+                        <UnitSliderControl
+                          label="기울기 각도 (Tilt)"
                           value={jabTiltDeg}
-                          onChange={(e) => setJabTiltDeg(parseInt(e.target.value))}
-                          className="w-full accent-amber-500 cursor-pointer h-1 bg-muted"
+                          min={-30}
+                          max={30}
+                          step={1}
+                          unit="deg"
+                          onChange={setJabTiltDeg}
                         />
                       </div>
 
-                      {/* 글자 크기 & 글자 색상 */}
-                      <div className="space-y-1 p-2 bg-muted/20 border border-border rounded-[2px]">
-                        <div className="flex justify-between text-[10px]">
-                          <span className="text-foreground font-semibold">글자 크기 & 색상</span>
-                          <span className="font-mono text-primary font-bold">{jabFontSize}px</span>
-                        </div>
-                        <div className="flex gap-1.5 items-center">
-                          <input
-                            type="range"
-                            min="10"
-                            max="36"
-                            value={jabFontSize}
-                            onChange={(e) => setJabFontSize(parseInt(e.target.value))}
-                            className="flex-1 accent-primary cursor-pointer h-1 bg-muted"
-                          />
-                          <input
-                            type="color"
-                            value={jabTextColor}
-                            onChange={(e) => setJabTextColor(e.target.value)}
-                            className="w-7 h-7 p-0 border border-border rounded cursor-pointer bg-transparent"
-                            title="글자 색상"
-                          />
-                        </div>
+                      {/* 글자 색상 & 크기 */}
+                      <div className="space-y-2 p-2 bg-muted/20 border border-border rounded-[2px]">
+                        <ColorPicker8Preset
+                          label="글자 색상"
+                          value={jabTextColor}
+                          onChange={setJabTextColor}
+                        />
+                        <UnitSliderControl
+                          label="글자 크기"
+                          value={jabFontSize}
+                          min={12}
+                          max={48}
+                          step={1}
+                          unit="px"
+                          onChange={setJabFontSize}
+                        />
                       </div>
 
                       {/* 🎨 글자 테두리(외곽선) */}
-                      <div className="space-y-1.5 p-2 bg-muted/20 border border-border rounded-[2px]">
-                        <div className="flex items-center justify-between text-[10px]">
+                      <div className="space-y-2 p-2 bg-muted/20 border border-border rounded-[2px]">
+                        <div className="flex items-center justify-between text-[11px]">
                           <span className="font-semibold text-foreground">글자 테두리 (외곽선)</span>
                           <Switch checked={jabStroke} onCheckedChange={setJabStroke} />
                         </div>
                         {jabStroke && (
-                          <div className="space-y-1 pt-1">
-                            <div className="flex items-center justify-between text-[10px]">
-                              <span className="text-muted-foreground">두께: {jabStrokeWidth}px</span>
-                              <input
-                                type="color"
-                                value={jabStrokeColor}
-                                onChange={(e) => setJabStrokeColor(e.target.value)}
-                                className="w-5 h-5 p-0 border border-border rounded cursor-pointer bg-transparent"
-                                title="테두리 색상"
-                              />
-                            </div>
-                            <input
-                              type="range"
-                              min="1"
-                              max="8"
+                          <div className="space-y-2 pt-1.5 border-t border-border/50">
+                            <UnitSliderControl
+                              label="테두리 두께"
                               value={jabStrokeWidth}
-                              onChange={(e) => setJabStrokeWidth(parseInt(e.target.value))}
-                              className="w-full accent-primary cursor-pointer h-1 bg-muted"
+                              min={1}
+                              max={12}
+                              step={1}
+                              unit="px"
+                              onChange={setJabStrokeWidth}
+                            />
+                            <ColorPicker8Preset
+                              label="테두리 색상"
+                              value={jabStrokeColor}
+                              onChange={setJabStrokeColor}
                             />
                           </div>
                         )}
                       </div>
 
                       {/* 🌌 입체 그림자 */}
-                      <div className="space-y-1.5 p-2 bg-muted/20 border border-border rounded-[2px]">
-                        <div className="flex items-center justify-between text-[10px]">
-                          <span className="font-semibold text-foreground">글자 입체 그림자</span>
+                      <div className="space-y-2 p-2 bg-muted/20 border border-border rounded-[2px]">
+                        <div className="flex items-center justify-between text-[11px]">
+                          <span className="font-semibold text-foreground">글자 그림자 (Shadow)</span>
                           <Switch checked={jabShadow} onCheckedChange={setJabShadow} />
                         </div>
                         {jabShadow && (
-                          <div className="space-y-1 pt-1">
-                            <div className="flex justify-between text-[10px]">
-                              <span className="text-muted-foreground">흐림: {jabShadowBlur}px</span>
-                            </div>
-                            <input
-                              type="range"
-                              min="1"
-                              max="16"
+                          <div className="space-y-2 pt-1.5 border-t border-border/50">
+                            <UnitSliderControl
+                              label="그림자 흐림 (Blur)"
                               value={jabShadowBlur}
-                              onChange={(e) => setJabShadowBlur(parseInt(e.target.value))}
-                              className="w-full accent-amber-500 cursor-pointer h-1 bg-muted"
+                              min={0}
+                              max={20}
+                              step={1}
+                              unit="px"
+                              onChange={setJabShadowBlur}
+                            />
+                            <ColorPicker8Preset
+                              label="그림자 색상"
+                              value={jabShadowBlur ? '#000000' : '#000000'}
+                              onChange={() => {}}
                             />
                           </div>
                         )}
                       </div>
 
                       {/* 🔲 배경 박스 & 모서리 둥글기 */}
-                      <div className="space-y-1.5 p-2 bg-muted/20 border border-border rounded-[2px]">
-                        <div className="flex items-center justify-between text-[10px]">
+                      <div className="space-y-2 p-2 bg-muted/20 border border-border rounded-[2px]">
+                        <div className="flex items-center justify-between text-[11px]">
                           <span className="font-semibold text-foreground">배경 박스</span>
-                          <div className="flex items-center gap-1.5">
-                            <input
-                              type="color"
-                              value={jabBgColor}
-                              onChange={(e) => setJabBgColor(e.target.value)}
-                              className="w-5 h-5 p-0 border border-border rounded cursor-pointer bg-transparent"
-                              title="배경색"
-                            />
-                            <Switch checked={jabBgEnabled} onCheckedChange={setJabBgEnabled} />
-                          </div>
+                          <Switch checked={jabBgEnabled} onCheckedChange={setJabBgEnabled} />
                         </div>
                         {jabBgEnabled && (
-                          <div className="space-y-1 pt-1 border-t border-border/50">
-                            <div className="flex justify-between text-[10px]">
-                              <span className="text-muted-foreground">모서리 모양 (둥글기)</span>
-                              <span className="font-mono text-amber-500 font-bold">{jabBorderRadius}px</span>
-                            </div>
-                            <input
-                              type="range"
-                              min="0"
-                              max="30"
+                          <div className="space-y-2 pt-1.5 border-t border-border/50">
+                            <ColorPicker8Preset
+                              label="배경 색상"
+                              value={jabBgColor}
+                              onChange={setJabBgColor}
+                            />
+                            <UnitSliderControl
+                              label="모서리 모양 (둥글기)"
                               value={jabBorderRadius}
-                              onChange={(e) => setJabBorderRadius(parseInt(e.target.value))}
-                              className="w-full accent-amber-500 cursor-pointer h-1 bg-muted"
+                              min={0}
+                              max={30}
+                              step={1}
+                              unit="px"
+                              onChange={setJabBorderRadius}
                             />
                           </div>
                         )}

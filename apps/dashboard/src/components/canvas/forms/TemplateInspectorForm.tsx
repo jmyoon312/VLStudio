@@ -19,9 +19,10 @@ import {
   INSTA_PROFILE_PRESETS,
   PEPE_MEMES,
   IRASUTOYA_MEMES,
-  rgbaToHex,
   getRandomSatiricalMetadata,
 } from '../constants/canvasConstants';
+import ColorPicker8Preset from '../controls/ColorPicker8Preset';
+import UnitSliderControl from '../controls/UnitSliderControl';
 
 type StateUpdater = (updater: (prev: any) => any) => void;
 
@@ -214,34 +215,21 @@ export const TemplateInspectorForm: React.FC<TemplateInspectorFormProps> = (prop
                           상세 설정 <ChevronRight className="w-3 h-3" />
                         </button>
                       </div>
-                      <div className="grid grid-cols-2 gap-2 text-[10px]">
-                        <div>
-                          <span className="text-muted-foreground block mb-0.5">상단 바 배경색</span>
-                          <div className="flex items-center gap-1.5">
-                            <input
-                              type="color"
-                              value={rgbaToHex(props.topBarBg, '#000000')}
-                              onChange={(e) => props.setTopBarBg?.(e.target.value)}
-                              className="w-5 h-5 p-0 border border-border rounded cursor-pointer"
-                            />
-                            <span className="font-mono text-muted-foreground">{props.topBarBg || '#000000'}</span>
-                          </div>
-                        </div>
-                        <div>
-                          <div className="flex items-center justify-between text-muted-foreground">
-                            <span>높이 비율</span>
-                            <span>{Math.round(props.topBarHeightPct || 18.3)}%</span>
-                          </div>
-                          <input
-                            type="range"
-                            min={5}
-                            max={35}
-                            step={0.5}
-                            value={props.topBarHeightPct || 18.3}
-                            onChange={(e) => props.setTopBarHeightPct?.(Number(e.target.value))}
-                            className="w-full cursor-pointer accent-primary h-1"
-                          />
-                        </div>
+                      <div className="space-y-2 text-[10px]">
+                        <ColorPicker8Preset
+                          label="상단 바 배경색"
+                          value={props.topBarBg || '#000000'}
+                          onChange={(val) => props.setTopBarBg?.(val)}
+                        />
+                        <UnitSliderControl
+                          label="높이 비율"
+                          value={props.topBarHeightPct || 18.3}
+                          min={5}
+                          max={35}
+                          step={0.5}
+                          unit="%"
+                          onChange={(val) => props.setTopBarHeightPct?.(val)}
+                        />
                       </div>
                       <div>
                         <span className="text-[9.5px] text-muted-foreground block mb-1">대제목 텍스트</span>
@@ -267,34 +255,21 @@ export const TemplateInspectorForm: React.FC<TemplateInspectorFormProps> = (prop
                           상세 설정 <ChevronRight className="w-3 h-3" />
                         </button>
                       </div>
-                      <div className="grid grid-cols-2 gap-2 text-[10px]">
-                        <div>
-                          <span className="text-muted-foreground block mb-0.5">하단 바 배경색</span>
-                          <div className="flex items-center gap-1.5">
-                            <input
-                              type="color"
-                              value={rgbaToHex(props.bottomBarBg, '#000000')}
-                              onChange={(e) => props.setBottomBarBg?.(e.target.value)}
-                              className="w-5 h-5 p-0 border border-border rounded cursor-pointer"
-                            />
-                            <span className="font-mono text-muted-foreground">{props.bottomBarBg || '#000000'}</span>
-                          </div>
-                        </div>
-                        <div>
-                          <div className="flex items-center justify-between text-muted-foreground">
-                            <span>높이 비율</span>
-                            <span>{Math.round(props.bottomBarHeightPct || 6.0)}%</span>
-                          </div>
-                          <input
-                            type="range"
-                            min={2}
-                            max={20}
-                            step={0.5}
-                            value={props.bottomBarHeightPct || 6.0}
-                            onChange={(e) => props.setBottomBarHeightPct?.(Number(e.target.value))}
-                            className="w-full cursor-pointer accent-primary h-1"
-                          />
-                        </div>
+                      <div className="space-y-2 text-[10px]">
+                        <ColorPicker8Preset
+                          label="하단 바 배경색"
+                          value={props.bottomBarBg || '#000000'}
+                          onChange={(val) => props.setBottomBarBg?.(val)}
+                        />
+                        <UnitSliderControl
+                          label="높이 비율"
+                          value={props.bottomBarHeightPct || 6.0}
+                          min={2}
+                          max={20}
+                          step={0.5}
+                          unit="%"
+                          onChange={(val) => props.setBottomBarHeightPct?.(val)}
+                        />
                       </div>
                       <div>
                         <span className="text-[9.5px] text-muted-foreground block mb-1">하단 출처 문구</span>
@@ -321,43 +296,29 @@ export const TemplateInspectorForm: React.FC<TemplateInspectorFormProps> = (prop
                         </button>
                       </div>
                       <div className="grid grid-cols-2 gap-2 text-[10px]">
-                        <div>
-                          <div className="flex items-center justify-between text-muted-foreground">
-                            <span>자막 Y 위치</span>
-                            <span>{Math.round(subTransform?.yPct ?? 78)}%</span>
-                          </div>
-                          <input
-                            type="range"
-                            min={50}
-                            max={90}
-                            step={0.5}
-                            value={subTransform?.yPct ?? 78}
-                            onChange={(e) => {
-                              const val = Number(e.target.value);
-                              setSubTransform((prev: any) => ({ ...(prev || subTransform), yPct: val }));
-                              setSubtitleYPercent(val);
-                            }}
-                            className="w-full cursor-pointer accent-primary h-1"
-                          />
-                        </div>
-                        <div>
-                          <div className="flex items-center justify-between text-muted-foreground">
-                            <span>자막 배율</span>
-                            <span>{(subTransform?.scale ?? 1.0).toFixed(2)}x</span>
-                          </div>
-                          <input
-                            type="range"
-                            min={0.7}
-                            max={1.6}
-                            step={0.05}
-                            value={subTransform?.scale ?? 1.0}
-                            onChange={(e) => {
-                              const val = Number(e.target.value);
-                              setSubTransform((prev: any) => ({ ...(prev || subTransform), scale: val }));
-                            }}
-                            className="w-full cursor-pointer accent-primary h-1"
-                          />
-                        </div>
+                        <UnitSliderControl
+                          label="자막 Y 위치"
+                          value={subTransform?.yPct ?? 78}
+                          min={50}
+                          max={90}
+                          step={0.5}
+                          unit="%"
+                          onChange={(val) => {
+                            setSubTransform((prev: any) => ({ ...(prev || subTransform), yPct: val }));
+                            setSubtitleYPercent(val);
+                          }}
+                        />
+                        <UnitSliderControl
+                          label="자막 배율"
+                          value={subTransform?.scale ?? 1.0}
+                          min={0.7}
+                          max={1.6}
+                          step={0.05}
+                          unit="x"
+                          onChange={(val) => {
+                            setSubTransform((prev: any) => ({ ...(prev || subTransform), scale: val }));
+                          }}
+                        />
                       </div>
                     </div>
                   </div>
@@ -577,59 +538,43 @@ export const TemplateInspectorForm: React.FC<TemplateInspectorFormProps> = (prop
                       </div>
 
                       {/* 인증 마크 & 프로필 크기/위치 */}
-                      <div className="pt-1.5 border-t border-border/50 grid grid-cols-4 gap-2 items-center">
-                        <label className="flex items-center gap-1.5 text-[10px] cursor-pointer col-span-1">
+                      <div className="pt-1.5 border-t border-border/50 space-y-2">
+                        <label className="flex items-center gap-1.5 text-[10px] cursor-pointer">
                           <input
                             type="checkbox"
                             checked={instaConfig.isVerified}
                             onChange={(e) => setInstaConfig(prev => ({ ...prev, isVerified: e.target.checked }))}
                             className="rounded accent-primary cursor-pointer"
                           />
-                          <span>인증 뱃지</span>
+                          <span className="font-semibold text-foreground">인증 뱃지 표시</span>
                         </label>
-                        <div className="col-span-1">
-                          <div className="flex items-center justify-between text-[9px] text-muted-foreground">
-                            <span>X 위치</span>
-                            <span>{Math.round(profileTransform.xPct)}%</span>
-                          </div>
-                          <input
-                            type="range"
+                        <div className="grid grid-cols-3 gap-2">
+                          <UnitSliderControl
+                            label="프로필 X"
+                            value={profileTransform.xPct}
                             min={5}
                             max={40}
                             step={0.5}
-                            value={profileTransform.xPct}
-                            onChange={(e) => setProfileTransform(prev => ({ ...prev, xPct: Number(e.target.value) }))}
-                            className="w-full cursor-pointer accent-primary h-1"
+                            unit="%"
+                            onChange={(val) => setProfileTransform(prev => ({ ...prev, xPct: val }))}
                           />
-                        </div>
-                        <div className="col-span-1">
-                          <div className="flex items-center justify-between text-[9px] text-muted-foreground">
-                            <span>Y 위치</span>
-                            <span>{Math.round(profileTransform.yPct)}%</span>
-                          </div>
-                          <input
-                            type="range"
+                          <UnitSliderControl
+                            label="프로필 Y"
+                            value={profileTransform.yPct}
                             min={2}
                             max={20}
                             step={0.5}
-                            value={profileTransform.yPct}
-                            onChange={(e) => setProfileTransform(prev => ({ ...prev, yPct: Number(e.target.value) }))}
-                            className="w-full cursor-pointer accent-primary h-1"
+                            unit="%"
+                            onChange={(val) => setProfileTransform(prev => ({ ...prev, yPct: val }))}
                           />
-                        </div>
-                        <div className="col-span-1">
-                          <div className="flex items-center justify-between text-[9px] text-muted-foreground">
-                            <span>크기</span>
-                            <span>{profileTransform.scale.toFixed(2)}x</span>
-                          </div>
-                          <input
-                            type="range"
+                          <UnitSliderControl
+                            label="프로필 크기"
+                            value={profileTransform.scale}
                             min={0.7}
                             max={1.4}
                             step={0.05}
-                            value={profileTransform.scale}
-                            onChange={(e) => setProfileTransform(prev => ({ ...prev, scale: Number(e.target.value) }))}
-                            className="w-full cursor-pointer accent-primary h-1"
+                            unit="x"
+                            onChange={(val) => setProfileTransform(prev => ({ ...prev, scale: val }))}
                           />
                         </div>
                       </div>
@@ -653,54 +598,37 @@ export const TemplateInspectorForm: React.FC<TemplateInspectorFormProps> = (prop
                         placeholder="제목을\n입력하세요"
                         className="w-full px-2 py-1 text-xs bg-background border border-border rounded-[2px] resize-none font-bold leading-tight"
                       />
-                      <div className="grid grid-cols-2 gap-2">
-                        <div>
-                          <div className="flex items-center justify-between text-[9px] text-muted-foreground">
-                            <span>대제목 X 위치</span>
-                            <span>{Math.round(titleTransform.xPct)}%</span>
-                          </div>
-                          <input
-                            type="range"
+                      <div className="space-y-2">
+                        <div className="grid grid-cols-3 gap-2">
+                          <UnitSliderControl
+                            label="대제목 X"
+                            value={titleTransform.xPct}
                             min={5}
                             max={40}
                             step={0.5}
-                            value={titleTransform.xPct}
-                            onChange={(e) => setTitleTransform(prev => ({ ...prev, xPct: Number(e.target.value) }))}
-                            className="w-full cursor-pointer accent-primary h-1"
+                            unit="%"
+                            onChange={(val) => setTitleTransform(prev => ({ ...prev, xPct: val }))}
                           />
-                        </div>
-                        <div>
-                          <div className="flex items-center justify-between text-[9px] text-muted-foreground">
-                            <span>대제목 Y 위치</span>
-                            <span>{Math.round(titleTransform.yPct)}%</span>
-                          </div>
-                          <input
-                            type="range"
+                          <UnitSliderControl
+                            label="대제목 Y"
+                            value={titleTransform.yPct}
                             min={8}
                             max={26}
                             step={0.5}
-                            value={titleTransform.yPct}
-                            onChange={(e) => {
-                              const val = Number(e.target.value);
+                            unit="%"
+                            onChange={(val) => {
                               setTitleTransform(prev => ({ ...prev, yPct: val }));
                               setTopTitleYPct(val);
                             }}
-                            className="w-full cursor-pointer accent-primary h-1"
                           />
-                        </div>
-                        <div>
-                          <div className="flex items-center justify-between text-[9px] text-muted-foreground">
-                            <span>글자 크기</span>
-                            <span>{titleTransform.scale.toFixed(2)}x</span>
-                          </div>
-                          <input
-                            type="range"
+                          <UnitSliderControl
+                            label="글자 크기"
+                            value={titleTransform.scale}
                             min={0.7}
                             max={1.5}
                             step={0.05}
-                            value={titleTransform.scale}
-                            onChange={(e) => setTitleTransform(prev => ({ ...prev, scale: Number(e.target.value) }))}
-                            className="w-full cursor-pointer accent-primary h-1"
+                            unit="x"
+                            onChange={(val) => setTitleTransform(prev => ({ ...prev, scale: val }))}
                           />
                         </div>
                         <div>
@@ -808,95 +736,72 @@ export const TemplateInspectorForm: React.FC<TemplateInspectorFormProps> = (prop
 
                       {/* 슬라이더 4종: Y위치, 너비, 높이, 라운드 */}
                       <div className="grid grid-cols-2 gap-2 pt-1">
-                        <div>
-                          <div className="flex items-center justify-between text-[9px] text-muted-foreground">
-                            <span>중심 Y 위치</span>
-                            <span>{instaConfig.holeYPct}%</span>
-                          </div>
-                          <input
-                            type="range"
-                            min={25}
-                            max={65}
-                            step={0.5}
-                            value={instaConfig.holeYPct}
-                            onChange={(e) => setInstaConfig(prev => ({ ...prev, holeYPct: Number(e.target.value) }))}
-                            className="w-full cursor-pointer accent-primary h-1"
-                          />
-                        </div>
-                        <div>
-                          <div className="flex items-center justify-between text-[9px] text-muted-foreground">
-                            <span>모서리 라운드</span>
-                            <span>{instaConfig.holeRoundness}px</span>
-                          </div>
-                          <input
-                            type="range"
-                            min={0}
-                            max={36}
-                            value={instaConfig.holeRoundness}
-                            onChange={(e) => setInstaConfig(prev => ({ ...prev, holeRoundness: Number(e.target.value) }))}
-                            className="w-full cursor-pointer accent-primary h-1"
-                          />
-                        </div>
-                        <div>
-                          <div className="flex items-center justify-between text-[9px] text-muted-foreground">
-                            <span>윈도우 너비</span>
-                            <span>{instaConfig.holeWidthPct}%</span>
-                          </div>
-                          <input
-                            type="range"
-                            min={60}
-                            max={98}
-                            step={0.5}
-                            value={instaConfig.holeWidthPct}
-                            onChange={(e) => setInstaConfig(prev => ({ ...prev, holeRatio: 'custom', holeWidthPct: Number(e.target.value) }))}
-                            className="w-full cursor-pointer accent-primary h-1"
-                          />
-                        </div>
-                        <div>
-                          <div className="flex items-center justify-between text-[9px] text-muted-foreground">
-                            <span>윈도우 높이</span>
-                            <span>{instaConfig.holeHeightPct}%</span>
-                          </div>
-                          <input
-                            type="range"
-                            min={20}
-                            max={65}
-                            step={0.5}
-                            value={instaConfig.holeHeightPct}
-                            onChange={(e) => setInstaConfig(prev => ({ ...prev, holeRatio: 'custom', holeHeightPct: Number(e.target.value) }))}
-                            className="w-full cursor-pointer accent-primary h-1"
-                          />
-                        </div>
+                        <UnitSliderControl
+                          label="중심 Y 위치"
+                          value={instaConfig.holeYPct}
+                          min={25}
+                          max={65}
+                          step={0.5}
+                          unit="%"
+                          onChange={(val) => setInstaConfig(prev => ({ ...prev, holeYPct: val }))}
+                        />
+                        <UnitSliderControl
+                          label="모서리 라운드"
+                          value={instaConfig.holeRoundness}
+                          min={0}
+                          max={36}
+                          step={1}
+                          unit="px"
+                          onChange={(val) => setInstaConfig(prev => ({ ...prev, holeRoundness: val }))}
+                        />
+                        <UnitSliderControl
+                          label="윈도우 너비"
+                          value={instaConfig.holeWidthPct}
+                          min={60}
+                          max={98}
+                          step={0.5}
+                          unit="%"
+                          onChange={(val) => setInstaConfig(prev => ({ ...prev, holeRatio: 'custom', holeWidthPct: val }))}
+                        />
+                        <UnitSliderControl
+                          label="윈도우 높이"
+                          value={instaConfig.holeHeightPct}
+                          min={20}
+                          max={65}
+                          step={0.5}
+                          unit="%"
+                          onChange={(val) => setInstaConfig(prev => ({ ...prev, holeRatio: 'custom', holeHeightPct: val }))}
+                        />
                       </div>
 
                       {/* 테두리 & 그림자 옵션 */}
-                      <div className="flex items-center justify-between pt-1 border-t border-border/50 text-[10px]">
-                        <div className="flex items-center gap-2">
-                          <span className="text-muted-foreground">테두리:</span>
-                          <input
-                            type="number"
+                      <div className="pt-2 border-t border-border/50 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <UnitSliderControl
+                            label="테두리 두께"
+                            value={instaConfig.holeBorderWidth}
                             min={0}
                             max={4}
-                            value={instaConfig.holeBorderWidth}
-                            onChange={(e) => setInstaConfig(prev => ({ ...prev, holeBorderWidth: Number(e.target.value) }))}
-                            className="w-10 px-1 py-0.5 text-xs bg-background border border-border rounded"
+                            step={1}
+                            unit="px"
+                            className="flex-1 mr-3"
+                            onChange={(val) => setInstaConfig(prev => ({ ...prev, holeBorderWidth: val }))}
                           />
-                          <input
-                            type="color"
-                            value={rgbaToHex(instaConfig.holeBorderColor, '#E5E7EB')}
-                            onChange={(e) => setInstaConfig(prev => ({ ...prev, holeBorderColor: e.target.value }))}
-                            className="w-5 h-5 p-0 border border-border rounded cursor-pointer shrink-0"
-                          />
+                          <label className="flex items-center gap-1 cursor-pointer pt-3">
+                            <input
+                              type="checkbox"
+                              checked={instaConfig.holeShadow}
+                              onChange={(e) => setInstaConfig(prev => ({ ...prev, holeShadow: e.target.checked }))}
+                              className="rounded accent-primary cursor-pointer"
+                            />
+                            <span className="text-[10px]">입체 그림자</span>
+                          </label>
                         </div>
-                        <label className="flex items-center gap-1 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={instaConfig.holeShadow}
-                            onChange={(e) => setInstaConfig(prev => ({ ...prev, holeShadow: e.target.checked }))}
-                            className="rounded accent-primary cursor-pointer"
-                          />
-                          <span>입체 그림자</span>
-                        </label>
+                        <ColorPicker8Preset
+                          label="테두리 색상"
+                          value={instaConfig.holeBorderColor || '#E5E7EB'}
+                          onChange={(val) => setInstaConfig(prev => ({ ...prev, holeBorderColor: val }))}
+                        />
                       </div>
                     </div>
 
@@ -908,7 +813,7 @@ export const TemplateInspectorForm: React.FC<TemplateInspectorFormProps> = (prop
                         </label>
                         <span className="text-[9px] text-muted-foreground">윈도우 하단 도킹</span>
                       </div>
-                      <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-2">
                         <div>
                           <span className="text-[9px] text-muted-foreground block mb-0.5">자막 서체 (폰트)</span>
                           <select
@@ -922,77 +827,48 @@ export const TemplateInspectorForm: React.FC<TemplateInspectorFormProps> = (prop
                             <option value="NanumSquareRound">NanumSquareRound (둥근 고딕)</option>
                           </select>
                         </div>
-                        <div>
-                          <span className="text-[9px] text-muted-foreground block mb-0.5">글자 색상</span>
-                          <div className="flex items-center gap-1.5 pt-0.5">
-                            <input
-                              type="color"
-                              value={rgbaToHex(instaConfig.subColor, '#374151')}
-                              onChange={(e) => {
-                                const val = e.target.value;
-                                setInstaConfig(prev => ({ ...prev, subColor: val }));
-                                setSubtitleConfig(prev => ({ ...prev, textColor: val }));
-                              }}
-                              className="w-5 h-5 p-0 border border-border rounded cursor-pointer shrink-0"
-                            />
-                            <span className="text-[10px] text-muted-foreground font-mono">
-                              {instaConfig.subColor || '#374151'}
-                            </span>
-                          </div>
-                        </div>
-                        <div>
-                          <div className="flex items-center justify-between text-[9px] text-muted-foreground">
-                            <span>자막 X 위치</span>
-                            <span>{Math.round(subTransform?.xPct ?? 6)}%</span>
-                          </div>
-                          <input
-                            type="range"
+                        <ColorPicker8Preset
+                          label="자막 글자 색상"
+                          value={instaConfig.subColor || '#374151'}
+                          onChange={(val) => {
+                            setInstaConfig(prev => ({ ...prev, subColor: val }));
+                            setSubtitleConfig(prev => ({ ...prev, textColor: val }));
+                          }}
+                        />
+                        <div className="grid grid-cols-3 gap-2 pt-1">
+                          <UnitSliderControl
+                            label="자막 X 위치"
+                            value={subTransform?.xPct ?? 6}
                             min={2}
                             max={60}
                             step={0.5}
-                            value={subTransform?.xPct ?? 6}
-                            onChange={(e) => {
-                              const val = Number(e.target.value);
+                            unit="%"
+                            onChange={(val) => {
                               setSubTransform((prev: any) => ({ ...(prev || subTransform), xPct: val }));
                             }}
-                            className="w-full cursor-pointer accent-primary h-1"
                           />
-                        </div>
-                        <div>
-                          <div className="flex items-center justify-between text-[9px] text-muted-foreground">
-                            <span>자막 Y 위치</span>
-                            <span>{Math.round(subTransform?.yPct ?? 71.5)}%</span>
-                          </div>
-                          <input
-                            type="range"
+                          <UnitSliderControl
+                            label="자막 Y 위치"
+                            value={subTransform?.yPct ?? 71.5}
                             min={55}
                             max={85}
                             step={0.5}
-                            value={subTransform?.yPct ?? 71.5}
-                            onChange={(e) => {
-                              const val = Number(e.target.value);
+                            unit="%"
+                            onChange={(val) => {
                               setSubTransform((prev: any) => ({ ...(prev || subTransform), yPct: val }));
                               setSubtitleYPercent(val);
                             }}
-                            className="w-full cursor-pointer accent-primary h-1"
                           />
-                        </div>
-                        <div className="col-span-2">
-                          <div className="flex items-center justify-between text-[9px] text-muted-foreground">
-                            <span>자막 크기 배율</span>
-                            <span>{(subTransform?.scale ?? 1.0).toFixed(2)}x</span>
-                          </div>
-                          <input
-                            type="range"
+                          <UnitSliderControl
+                            label="자막 크기 배율"
+                            value={subTransform?.scale ?? 1.0}
                             min={0.7}
                             max={1.5}
                             step={0.05}
-                            value={subTransform?.scale ?? 1.0}
-                            onChange={(e) => {
-                              const val = Number(e.target.value);
+                            unit="x"
+                            onChange={(val) => {
                               setSubTransform((prev: any) => ({ ...(prev || subTransform), scale: val }));
                             }}
-                            className="w-full cursor-pointer accent-primary h-1"
                           />
                         </div>
                       </div>
@@ -1160,34 +1036,24 @@ export const TemplateInspectorForm: React.FC<TemplateInspectorFormProps> = (prop
                               />
                               <span>아이디 블러</span>
                             </label>
-                            <div>
-                              <div className="flex items-center justify-between text-[8.5px] text-muted-foreground">
-                                <span>X 위치</span>
-                                <span>{Math.round(commentTransform.xPct)}%</span>
-                              </div>
-                              <input
-                                type="range"
+                            <div className="grid grid-cols-2 gap-2">
+                              <UnitSliderControl
+                                label="댓글 X 위치"
+                                value={commentTransform.xPct}
                                 min={4}
                                 max={80}
                                 step={0.5}
-                                value={commentTransform.xPct}
-                                onChange={(e) => setCommentTransform(prev => ({ ...prev, xPct: Number(e.target.value) }))}
-                                className="w-full cursor-pointer accent-primary h-1"
+                                unit="%"
+                                onChange={(val) => setCommentTransform(prev => ({ ...prev, xPct: val }))}
                               />
-                            </div>
-                            <div>
-                              <div className="flex items-center justify-between text-[8.5px] text-muted-foreground">
-                                <span>Y 위치</span>
-                                <span>{Math.round(commentTransform.yPct)}%</span>
-                              </div>
-                              <input
-                                type="range"
+                              <UnitSliderControl
+                                label="댓글 Y 위치"
+                                value={commentTransform.yPct}
                                 min={70}
                                 max={95}
                                 step={0.5}
-                                value={commentTransform.yPct}
-                                onChange={(e) => setCommentTransform(prev => ({ ...prev, yPct: Number(e.target.value) }))}
-                                className="w-full cursor-pointer accent-primary h-1"
+                                unit="%"
+                                onChange={(val) => setCommentTransform(prev => ({ ...prev, yPct: val }))}
                               />
                             </div>
                           </div>
@@ -1196,10 +1062,10 @@ export const TemplateInspectorForm: React.FC<TemplateInspectorFormProps> = (prop
                     </div>
 
                     {/* 6. 전체 카드 배경색 */}
-                    <div className="p-2.5 rounded-[4px] bg-muted/40 border border-border/80 flex items-center justify-between">
-                      <div>
+                    <div className="p-2.5 rounded-[4px] bg-muted/40 border border-border/80 space-y-2">
+                      <div className="flex items-center justify-between">
                         <label className="text-[10px] font-bold text-foreground block">전체 카드 배경색</label>
-                        <div className="flex items-center gap-1 mt-1">
+                        <div className="flex items-center gap-1">
                           {[
                             { name: '화이트', val: '#FFFFFF' },
                             { name: '슬레이트', val: '#F8FAFC' },
@@ -1222,15 +1088,11 @@ export const TemplateInspectorForm: React.FC<TemplateInspectorFormProps> = (prop
                           ))}
                         </div>
                       </div>
-                      <div className="flex items-center gap-1.5">
-                        <input
-                          type="color"
-                          value={rgbaToHex(instaConfig.bgColor, '#FFFFFF')}
-                          onChange={(e) => setInstaConfig(prev => ({ ...prev, bgColor: e.target.value }))}
-                          className="w-7 h-7 p-0 border border-border rounded cursor-pointer shrink-0"
-                        />
-                        <span className="text-[9.5px] font-mono">{instaConfig.bgColor}</span>
-                      </div>
+                      <ColorPicker8Preset
+                        label="커스텀 배경색"
+                        value={instaConfig.bgColor || '#FFFFFF'}
+                        onChange={(val) => setInstaConfig(prev => ({ ...prev, bgColor: val }))}
+                      />
                     </div>
                   </div>
                 )}
@@ -1253,60 +1115,53 @@ export const TemplateInspectorForm: React.FC<TemplateInspectorFormProps> = (prop
                         👑 상단 2줄 대제목 (0% ~ 33.3% 블랙 레터박스)
                       </span>
                       <div className="space-y-1.5">
-                        {/* 1번째 줄 (기본 노란색) */}
-                        <div className="flex items-center gap-1.5">
+                        {/* 1번째 줄 */}
+                        <div className="space-y-1">
                           <input
                             type="text"
                             value={gunlimboConfig.titleLine1}
                             onChange={(e) => setGunlimboConfig(prev => ({ ...prev, titleLine1: e.target.value }))}
                             placeholder="1번째 줄 (예: 제목을)"
-                            className="flex-1 px-2 py-1 text-xs bg-background border border-border rounded-[2px] font-bold"
+                            className="w-full px-2 py-1 text-xs bg-background border border-border rounded-[2px] font-bold"
                             style={{ color: gunlimboConfig.titleLine1Color }}
                           />
-                          <input
-                            type="color"
-                            value={rgbaToHex(gunlimboConfig.titleLine1Color, '#FFFFFF')}
-                            onChange={(e) => setGunlimboConfig(prev => ({ ...prev, titleLine1Color: e.target.value }))}
-                            className="w-7 h-7 p-0 border border-border rounded cursor-pointer shrink-0"
-                            title="1번째 줄 색상"
+                          <ColorPicker8Preset
+                            label="1번째 줄 글자색"
+                            value={gunlimboConfig.titleLine1Color || '#FFFFFF'}
+                            onChange={(val) => setGunlimboConfig(prev => ({ ...prev, titleLine1Color: val }))}
                           />
                         </div>
 
-                        {/* 2번째 줄 (기본 옐로우) */}
-                        <div className="flex items-center gap-1.5">
+                        {/* 2번째 줄 */}
+                        <div className="space-y-1">
                           <input
                             type="text"
                             value={gunlimboConfig.titleLine2}
                             onChange={(e) => setGunlimboConfig(prev => ({ ...prev, titleLine2: e.target.value }))}
                             placeholder="2번째 줄 (예: 입력해주세요)"
-                            className="flex-1 px-2 py-1 text-xs bg-background border border-border rounded-[2px] font-bold"
+                            className="w-full px-2 py-1 text-xs bg-background border border-border rounded-[2px] font-bold"
                             style={{ color: gunlimboConfig.titleLine2Color }}
                           />
-                          <input
-                            type="color"
-                            value={rgbaToHex(gunlimboConfig.titleLine2Color, '#FFE500')}
-                            onChange={(e) => setGunlimboConfig(prev => ({ ...prev, titleLine2Color: e.target.value }))}
-                            className="w-7 h-7 p-0 border border-border rounded cursor-pointer shrink-0"
-                            title="2번째 줄 색상"
+                          <ColorPicker8Preset
+                            label="2번째 줄 글자색"
+                            value={gunlimboConfig.titleLine2Color || '#FFE500'}
+                            onChange={(val) => setGunlimboConfig(prev => ({ ...prev, titleLine2Color: val }))}
                           />
                         </div>
                       </div>
 
                       {/* 대제목 글자 크기 & 전체 유지 토글 */}
-                      <div className="grid grid-cols-2 gap-2 pt-1 border-t border-border/40 text-[10px]">
-                        <div>
-                          <label className="text-muted-foreground block mb-0.5">글자 크기: {gunlimboConfig.titleFontSize}px</label>
-                          <input
-                            type="range"
-                            min={24}
-                            max={48}
-                            step={1}
-                            value={gunlimboConfig.titleFontSize}
-                            onChange={(e) => setGunlimboConfig(prev => ({ ...prev, titleFontSize: Number(e.target.value) }))}
-                            className="w-full cursor-pointer accent-amber-500"
-                          />
-                        </div>
-                        <div className="flex items-center gap-1.5 pt-3">
+                      <div className="space-y-2 pt-1 border-t border-border/40 text-[10px]">
+                        <UnitSliderControl
+                          label="글자 크기"
+                          value={gunlimboConfig.titleFontSize}
+                          min={24}
+                          max={48}
+                          step={1}
+                          unit="px"
+                          onChange={(val) => setGunlimboConfig(prev => ({ ...prev, titleFontSize: val }))}
+                        />
+                        <div className="flex items-center gap-1.5 pt-1">
                           <input
                             type="checkbox"
                             id="gunlimbo-keep-title"
@@ -1368,52 +1223,37 @@ export const TemplateInspectorForm: React.FC<TemplateInspectorFormProps> = (prop
                       />
 
                       {/* 후킹 구간 노출 시간 & 색상 & 글자 크기 */}
-                      <div className="grid grid-cols-2 gap-2 pt-1 border-t border-border/40 text-[10px]">
-                        <div>
-                          <label className="text-muted-foreground block mb-0.5">후킹 노출 시간: {gunlimboConfig.introDurationSec}초</label>
-                          <input
-                            type="range"
+                      <div className="space-y-2 pt-1 border-t border-border/40 text-[10px]">
+                        <div className="grid grid-cols-2 gap-2">
+                          <UnitSliderControl
+                            label="후킹 노출 시간"
+                            value={gunlimboConfig.introDurationSec}
                             min={1.0}
                             max={5.0}
                             step={0.5}
-                            value={gunlimboConfig.introDurationSec}
-                            onChange={(e) => setGunlimboConfig(prev => ({ ...prev, introDurationSec: Number(e.target.value) }))}
-                            className="w-full cursor-pointer accent-amber-500"
+                            unit="초"
+                            onChange={(val) => setGunlimboConfig(prev => ({ ...prev, introDurationSec: val }))}
                           />
-                        </div>
-                        <div>
-                          <label className="text-muted-foreground block mb-0.5">후킹 글자 크기: {gunlimboConfig.hookFontSize}px</label>
-                          <input
-                            type="range"
+                          <UnitSliderControl
+                            label="후킹 글자 크기"
+                            value={gunlimboConfig.hookFontSize}
                             min={16}
                             max={32}
                             step={1}
-                            value={gunlimboConfig.hookFontSize}
-                            onChange={(e) => setGunlimboConfig(prev => ({ ...prev, hookFontSize: Number(e.target.value) }))}
-                            className="w-full cursor-pointer accent-amber-500"
+                            unit="px"
+                            onChange={(val) => setGunlimboConfig(prev => ({ ...prev, hookFontSize: val }))}
                           />
                         </div>
-                      </div>
-
-                      <div className="flex items-center justify-between pt-1 text-[10px]">
-                        <div className="flex items-center gap-2">
-                          <label className="text-muted-foreground">바 배경색</label>
-                          <input
-                            type="color"
-                            value={rgbaToHex(gunlimboConfig.hookBgColor, '#FFFFFF')}
-                            onChange={(e) => setGunlimboConfig(prev => ({ ...prev, hookBgColor: e.target.value }))}
-                            className="w-6 h-6 p-0 border border-border rounded cursor-pointer"
-                          />
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <label className="text-muted-foreground">글자색</label>
-                          <input
-                            type="color"
-                            value={rgbaToHex(gunlimboConfig.hookTextColor, '#000000')}
-                            onChange={(e) => setGunlimboConfig(prev => ({ ...prev, hookTextColor: e.target.value }))}
-                            className="w-6 h-6 p-0 border border-border rounded cursor-pointer"
-                          />
-                        </div>
+                        <ColorPicker8Preset
+                          label="후킹 바 배경색"
+                          value={gunlimboConfig.hookBgColor || '#FFFFFF'}
+                          onChange={(val) => setGunlimboConfig(prev => ({ ...prev, hookBgColor: val }))}
+                        />
+                        <ColorPicker8Preset
+                          label="후킹 글자색"
+                          value={gunlimboConfig.hookTextColor || '#000000'}
+                          onChange={(val) => setGunlimboConfig(prev => ({ ...prev, hookTextColor: val }))}
+                        />
                       </div>
                     </div>
 
