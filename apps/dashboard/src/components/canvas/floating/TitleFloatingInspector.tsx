@@ -287,15 +287,14 @@ export const TitleFloatingInspector: React.FC<TitleFloatingInspectorProps> = ({
                     onChange({ titleLine1Align: a });
                     if (titleLinesMode === 'single') onChange({ titleAlign: a });
                   }}
-                  letterSpacing={titleLine1LetterSpacing !== undefined ? titleLine1LetterSpacing : titleLetterSpacing}
+                  letterSpacing={titleLine1LetterSpacing !== undefined ? titleLine1LetterSpacing : -0.5}
                   setLetterSpacing={(ls) => {
                     onChange({ titleLine1LetterSpacing: ls });
                     if (titleLinesMode === 'single') onChange({ titleLetterSpacing: ls });
                   }}
-                  lineHeight={titleLine1LineHeight !== undefined ? titleLine1LineHeight : titleLineHeight}
+                  lineHeight={titleLineHeight !== undefined ? titleLineHeight : 1.2}
                   setLineHeight={(lh) => {
-                    onChange({ titleLine1LineHeight: lh });
-                    if (titleLinesMode === 'single') onChange({ titleLineHeight: lh });
+                    onChange({ titleLineHeight: lh, titleLine1LineHeight: lh, titleLine2LineHeight: lh });
                   }}
                 />
               </div>
@@ -362,10 +361,10 @@ export const TitleFloatingInspector: React.FC<TitleFloatingInspectorProps> = ({
                     setItalic={(it) => onChange({ titleLine2Italic: it })}
                     align={titleLine2Align || titleAlign}
                     setAlign={(a) => onChange({ titleLine2Align: a })}
-                    letterSpacing={titleLine2LetterSpacing !== undefined ? titleLine2LetterSpacing : titleLetterSpacing}
+                    letterSpacing={titleLine2LetterSpacing !== undefined ? titleLine2LetterSpacing : -0.5}
                     setLetterSpacing={(ls) => onChange({ titleLine2LetterSpacing: ls })}
-                    lineHeight={titleLine2LineHeight !== undefined ? titleLine2LineHeight : titleLineHeight}
-                    setLineHeight={(lh) => onChange({ titleLine2LineHeight: lh })}
+                    lineHeight={titleLineHeight !== undefined ? titleLineHeight : 1.2}
+                    setLineHeight={(lh) => onChange({ titleLineHeight: lh, titleLine1LineHeight: lh, titleLine2LineHeight: lh })}
                   />
                 </div>
               </div>

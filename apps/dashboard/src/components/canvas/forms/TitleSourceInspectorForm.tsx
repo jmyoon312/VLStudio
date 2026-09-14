@@ -407,15 +407,17 @@ export const TitleSourceInspectorForm: React.FC<TitleSourceInspectorFormProps> =
                   setTitleLine1Align?.(a);
                   setGunlimboConfig?.((prev: any) => ({ ...prev, titleLine1Align: a }));
                 }}
-                letterSpacing={gunlimboConfig?.titleLine1LetterSpacing ?? gunlimboConfig?.titleLetterSpacing ?? titleLine1LetterSpacing ?? titleLetterSpacing ?? -0.5}
+                letterSpacing={gunlimboConfig?.titleLine1LetterSpacing !== undefined ? gunlimboConfig.titleLine1LetterSpacing : (titleLine1LetterSpacing ?? -0.5)}
                 setLetterSpacing={(ls) => {
                   setTitleLine1LetterSpacing?.(ls);
-                  setGunlimboConfig?.((prev: any) => ({ ...prev, titleLine1LetterSpacing: ls, titleLetterSpacing: ls }));
+                  setGunlimboConfig?.((prev: any) => ({ ...prev, titleLine1LetterSpacing: ls }));
                 }}
-                lineHeight={gunlimboConfig?.titleLine1LineHeight ?? gunlimboConfig?.titleLineHeight ?? titleLine1LineHeight ?? titleLineHeight ?? 1.2}
+                lineHeight={gunlimboConfig?.titleLineHeight ?? titleLineHeight ?? 1.2}
                 setLineHeight={(lh) => {
+                  setTitleLineHeight?.(lh);
                   setTitleLine1LineHeight?.(lh);
-                  setGunlimboConfig?.((prev: any) => ({ ...prev, titleLine1LineHeight: lh, titleLineHeight: lh }));
+                  setTitleLine2LineHeight?.(lh);
+                  setGunlimboConfig?.((prev: any) => ({ ...prev, titleLineHeight: lh, titleLine1LineHeight: lh, titleLine2LineHeight: lh }));
                 }}
               />
             </div>
@@ -478,15 +480,17 @@ export const TitleSourceInspectorForm: React.FC<TitleSourceInspectorFormProps> =
                   setTitleLine2Align?.(a);
                   setGunlimboConfig?.((prev: any) => ({ ...prev, titleLine2Align: a }));
                 }}
-                letterSpacing={gunlimboConfig?.titleLine2LetterSpacing ?? gunlimboConfig?.titleLetterSpacing ?? titleLine2LetterSpacing ?? titleLetterSpacing ?? -0.5}
+                letterSpacing={gunlimboConfig?.titleLine2LetterSpacing !== undefined ? gunlimboConfig.titleLine2LetterSpacing : (titleLine2LetterSpacing ?? -0.5)}
                 setLetterSpacing={(ls) => {
                   setTitleLine2LetterSpacing?.(ls);
                   setGunlimboConfig?.((prev: any) => ({ ...prev, titleLine2LetterSpacing: ls }));
                 }}
-                lineHeight={gunlimboConfig?.titleLine2LineHeight ?? gunlimboConfig?.titleLineHeight ?? titleLine2LineHeight ?? titleLineHeight ?? 1.2}
+                lineHeight={gunlimboConfig?.titleLineHeight ?? titleLineHeight ?? 1.2}
                 setLineHeight={(lh) => {
+                  setTitleLineHeight?.(lh);
+                  setTitleLine1LineHeight?.(lh);
                   setTitleLine2LineHeight?.(lh);
-                  setGunlimboConfig?.((prev: any) => ({ ...prev, titleLine2LineHeight: lh }));
+                  setGunlimboConfig?.((prev: any) => ({ ...prev, titleLineHeight: lh, titleLine1LineHeight: lh, titleLine2LineHeight: lh }));
                 }}
               />
             </div>
@@ -1036,15 +1040,16 @@ export const TitleSourceInspectorForm: React.FC<TitleSourceInspectorFormProps> =
                       setTitleLine1Align?.(a);
                       if (titleLinesMode === 'single') setTitleAlign?.(a);
                     }}
-                    letterSpacing={titleLine1LetterSpacing !== undefined ? titleLine1LetterSpacing : (titleLetterSpacing ?? -0.5)}
+                    letterSpacing={titleLine1LetterSpacing !== undefined ? titleLine1LetterSpacing : -0.5}
                     setLetterSpacing={(ls) => {
                       setTitleLine1LetterSpacing?.(ls);
                       if (titleLinesMode === 'single') setTitleLetterSpacing?.(ls);
                     }}
-                    lineHeight={titleLine1LineHeight !== undefined ? titleLine1LineHeight : (titleLineHeight ?? 1.2)}
+                    lineHeight={titleLineHeight ?? 1.2}
                     setLineHeight={(lh) => {
+                      setTitleLineHeight?.(lh);
                       setTitleLine1LineHeight?.(lh);
-                      if (titleLinesMode === 'single') setTitleLineHeight?.(lh);
+                      setTitleLine2LineHeight?.(lh);
                     }}
                   />
                 </div>
@@ -1106,10 +1111,14 @@ export const TitleSourceInspectorForm: React.FC<TitleSourceInspectorFormProps> =
                       setItalic={setTitleLine2Italic}
                       align={titleLine2Align || titleAlign || 'center'}
                       setAlign={setTitleLine2Align}
-                      letterSpacing={titleLine2LetterSpacing !== undefined ? titleLine2LetterSpacing : (titleLetterSpacing ?? -0.5)}
+                      letterSpacing={titleLine2LetterSpacing !== undefined ? titleLine2LetterSpacing : -0.5}
                       setLetterSpacing={setTitleLine2LetterSpacing}
-                      lineHeight={titleLine2LineHeight !== undefined ? titleLine2LineHeight : (titleLineHeight ?? 1.2)}
-                      setLineHeight={setTitleLine2LineHeight}
+                      lineHeight={titleLineHeight ?? 1.2}
+                      setLineHeight={(lh) => {
+                        setTitleLineHeight?.(lh);
+                        setTitleLine1LineHeight?.(lh);
+                        setTitleLine2LineHeight?.(lh);
+                      }}
                     />
                   </div>
                 )}
