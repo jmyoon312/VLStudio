@@ -28,6 +28,8 @@ export interface JabHookConfig {
   borderRadius: number;
   offsetX: number;
   offsetY: number;
+  letterSpacing?: number;
+  lineHeight?: number;
 }
 
 export interface JabHookFloatingInspectorProps {
@@ -99,6 +101,10 @@ export const JabHookFloatingInspector: React.FC<JabHookFloatingInspectorProps> =
         setItalic={(italic) => onChange({ italic })}
         align={config.align || 'center'}
         setAlign={(align) => onChange({ align })}
+        letterSpacing={config.letterSpacing ?? 0}
+        setLetterSpacing={(ls) => onChange({ letterSpacing: ls })}
+        lineHeight={config.lineHeight ?? 1.2}
+        setLineHeight={(lh) => onChange({ lineHeight: lh })}
       />
 
       {/* 5. 글자 색상 & 크기 */}

@@ -28,6 +28,8 @@ export interface SourceCreditConfig {
   shadowBlur: number;
   offsetX: number;
   offsetY: number;
+  letterSpacing?: number;
+  lineHeight?: number;
 }
 
 export interface SourceCreditFloatingInspectorProps {
@@ -87,6 +89,10 @@ export const SourceCreditFloatingInspector: React.FC<SourceCreditFloatingInspect
         setItalic={(it) => onChange({ italic: it })}
         align={config.align || 'center'}
         setAlign={(a) => onChange({ align: a })}
+        letterSpacing={config.letterSpacing ?? 0}
+        setLetterSpacing={(ls) => onChange({ letterSpacing: ls })}
+        lineHeight={config.lineHeight ?? 1.2}
+        setLineHeight={(lh) => onChange({ lineHeight: lh })}
       />
 
       {/* 4. 글자 색상 & 크기 */}

@@ -380,6 +380,8 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
   const [titleBold, setTitleBold] = useState<boolean>(true);
   const [titleItalic, setTitleItalic] = useState<boolean>(false);
   const [titleAlign, setTitleAlign] = useState<'left' | 'center' | 'right'>('center');
+  const [titleLetterSpacing, setTitleLetterSpacing] = useState<number>(-0.5);
+  const [titleLineHeight, setTitleLineHeight] = useState<number>(1.2);
 
   // ⚡ 긴박 쨉쨉이 훅
   const [hasJab, setHasJab] = useState<boolean>(true);
@@ -391,6 +393,8 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
   const [jabBold, setJabBold] = useState<boolean>(true);
   const [jabItalic, setJabItalic] = useState<boolean>(false);
   const [jabAlign, setJabAlign] = useState<'left' | 'center' | 'right'>('center');
+  const [jabLetterSpacing, setJabLetterSpacing] = useState<number>(0);
+  const [jabLineHeight, setJabLineHeight] = useState<number>(1.2);
   const [jabBgEnabled, setJabBgEnabled] = useState<boolean>(true);
   const [jabBgColor, setJabBgColor] = useState<string>('#FFE500');
   const [jabBorderRadius, setJabBorderRadius] = useState<number>(4);
@@ -427,6 +431,8 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
   const [bottomSourceColor, setBottomSourceColor] = useState<string>('#CBD5E1');
   const [bottomSourceSizePx, setBottomSourceSizePx] = useState<number>(10);
   const [bottomSourceFontFamily, setBottomSourceFontFamily] = useState<string>('Pretendard');
+  const [bottomSourceLetterSpacing, setBottomSourceLetterSpacing] = useState<number>(0);
+  const [bottomSourceLineHeight, setBottomSourceLineHeight] = useState<number>(1.2);
 
   // 하단 바 (Bottom Bar Bg)
   const [hasBottomBarBg, setHasBottomBarBg] = useState<boolean>(initialMode === 'classic');
@@ -2648,6 +2654,10 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
               setTitleItalic={setTitleItalic}
               titleAlign={titleAlign}
               setTitleAlign={setTitleAlign}
+              titleLetterSpacing={titleLetterSpacing}
+              setTitleLetterSpacing={setTitleLetterSpacing}
+              titleLineHeight={titleLineHeight}
+              setTitleLineHeight={setTitleLineHeight}
               hasJab={hasJab}
               setHasJab={setHasJab}
               jabTransform={jabTransform}
@@ -2668,6 +2678,10 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
               setJabItalic={setJabItalic}
               jabAlign={jabAlign}
               setJabAlign={setJabAlign}
+              jabLetterSpacing={jabLetterSpacing}
+              setJabLetterSpacing={setJabLetterSpacing}
+              jabLineHeight={jabLineHeight}
+              setJabLineHeight={setJabLineHeight}
               jabStroke={jabStroke}
               setJabStroke={setJabStroke}
               jabStrokeWidth={jabStrokeWidth}
@@ -2759,6 +2773,10 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
               setBottomSourceShadowBlur={setBottomSourceShadowBlur}
               bottomSourceShadowColor={bottomSourceShadowColor}
               setBottomSourceShadowColor={setBottomSourceShadowColor}
+              bottomSourceLetterSpacing={bottomSourceLetterSpacing}
+              setBottomSourceLetterSpacing={setBottomSourceLetterSpacing}
+              bottomSourceLineHeight={bottomSourceLineHeight}
+              setBottomSourceLineHeight={setBottomSourceLineHeight}
               setBottomSourceBottomPct={setBottomSourceBottomPct}
               hasCommentCard={hasCommentCard}
               setHasCommentCard={setHasCommentCard}
@@ -3226,6 +3244,14 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
                 titleTransform={titleTransform}
                 setTitleTransform={setTitleTransform}
                 setTopTitleYPct={(val: number) => setTitleTransform(prev => ({ ...prev, yPct: val }))}
+                titleLetterSpacing={titleLetterSpacing}
+                setTitleLetterSpacing={setTitleLetterSpacing}
+                titleLineHeight={titleLineHeight}
+                setTitleLineHeight={setTitleLineHeight}
+                bottomSourceLetterSpacing={bottomSourceLetterSpacing}
+                setBottomSourceLetterSpacing={setBottomSourceLetterSpacing}
+                bottomSourceLineHeight={bottomSourceLineHeight}
+                setBottomSourceLineHeight={setBottomSourceLineHeight}
               />
             )}
 
@@ -3251,6 +3277,10 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
                 setBottomSourceItalic={setBottomSourceItalic}
                 bottomSourceAlign={bottomSourceAlign}
                 setBottomSourceAlign={setBottomSourceAlign}
+                bottomSourceLetterSpacing={bottomSourceLetterSpacing}
+                setBottomSourceLetterSpacing={setBottomSourceLetterSpacing}
+                bottomSourceLineHeight={bottomSourceLineHeight}
+                setBottomSourceLineHeight={setBottomSourceLineHeight}
                 bottomSourceBg={bottomSourceBg}
                 setBottomSourceBg={setBottomSourceBg}
                 bottomSourceBgColor={bottomSourceBgColor}
@@ -3400,6 +3430,10 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
                 layoutTemplateMode={layoutTemplateMode}
                 gunlimboConfig={gunlimboConfig}
                 setGunlimboConfig={setGunlimboConfig}
+                jabLetterSpacing={jabLetterSpacing}
+                setJabLetterSpacing={setJabLetterSpacing}
+                jabLineHeight={jabLineHeight}
+                setJabLineHeight={setJabLineHeight}
               />
             )}
 

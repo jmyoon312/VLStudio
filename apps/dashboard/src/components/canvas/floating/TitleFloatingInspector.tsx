@@ -39,6 +39,8 @@ export interface TitleFloatingConfig {
   titleBgColor?: string;
   titlePaddingX?: number;
   titleBorderRadius?: number;
+  titleLetterSpacing?: number;
+  titleLineHeight?: number;
 }
 
 export interface TitleFloatingInspectorProps {
@@ -88,6 +90,8 @@ export const TitleFloatingInspector: React.FC<TitleFloatingInspectorProps> = ({
     titleBgColor = '#000000',
     titlePaddingX = 8,
     titleBorderRadius = 4,
+    titleLetterSpacing = -0.5,
+    titleLineHeight = 1.2,
   } = config;
 
   return (
@@ -299,6 +303,10 @@ export const TitleFloatingInspector: React.FC<TitleFloatingInspectorProps> = ({
           setItalic={(it) => onChange({ titleItalic: it })}
           align={titleAlign}
           setAlign={(a) => onChange({ titleAlign: a })}
+          letterSpacing={titleLetterSpacing}
+          setLetterSpacing={(ls) => onChange({ titleLetterSpacing: ls })}
+          lineHeight={titleLineHeight}
+          setLineHeight={(lh) => onChange({ titleLineHeight: lh })}
         />
 
         {/* 6. 🎨 테두리(외곽선) 상세 제어 */}

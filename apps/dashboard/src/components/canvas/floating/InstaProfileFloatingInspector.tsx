@@ -21,6 +21,8 @@ export interface InstaProfileConfig {
   fontSizeMultiplier: number;
   offsetX: number;
   offsetY: number;
+  profileLetterSpacing?: number;
+  profileLineHeight?: number;
 }
 
 export interface InstaProfileFloatingInspectorProps {
@@ -159,6 +161,10 @@ export const InstaProfileFloatingInspector: React.FC<InstaProfileFloatingInspect
         setBold={(b) => onChange({ profileBold: b })}
         italic={!!config.profileItalic}
         setItalic={(i) => onChange({ profileItalic: i })}
+        letterSpacing={config.profileLetterSpacing ?? 0}
+        setLetterSpacing={(ls) => onChange({ profileLetterSpacing: ls })}
+        lineHeight={config.profileLineHeight ?? 1.2}
+        setLineHeight={(lh) => onChange({ profileLineHeight: lh })}
       />
 
       {/* 6. 위치 오프셋 */}

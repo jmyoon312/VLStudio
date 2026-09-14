@@ -84,6 +84,10 @@ export const TitleSourceInspectorForm: React.FC<TitleSourceInspectorFormProps> =
     topTitleText, setTopTitleText,
     titleTransform, setTitleTransform,
     setTopTitleYPct,
+    titleLetterSpacing = -0.5, setTitleLetterSpacing,
+    titleLineHeight = 1.2, setTitleLineHeight,
+    bottomSourceLetterSpacing = 0, setBottomSourceLetterSpacing,
+    bottomSourceLineHeight = 1.2, setBottomSourceLineHeight,
   } = props;
 
   const showTitle = mode === 'all' || mode === 'title';
@@ -169,6 +173,16 @@ export const TitleSourceInspectorForm: React.FC<TitleSourceInspectorFormProps> =
               setAlign={(a) => {
                 setTitleAlign?.(a);
                 setInstaConfig?.((prev: any) => ({ ...prev, titleAlign: a }));
+              }}
+              letterSpacing={titleLetterSpacing ?? instaConfig?.titleLetterSpacing ?? -0.5}
+              setLetterSpacing={(ls) => {
+                setTitleLetterSpacing?.(ls);
+                setInstaConfig?.((prev: any) => ({ ...prev, titleLetterSpacing: ls }));
+              }}
+              lineHeight={titleLineHeight ?? instaConfig?.titleLineHeight ?? 1.2}
+              setLineHeight={(lh) => {
+                setTitleLineHeight?.(lh);
+                setInstaConfig?.((prev: any) => ({ ...prev, titleLineHeight: lh }));
               }}
             />
 
@@ -412,6 +426,16 @@ export const TitleSourceInspectorForm: React.FC<TitleSourceInspectorFormProps> =
                   setTitleAlign?.(a);
                   setGunlimboConfig?.((prev: any) => ({ ...prev, titleAlign: a }));
                 }}
+                letterSpacing={gunlimboConfig?.titleLetterSpacing ?? titleLetterSpacing ?? -0.5}
+                setLetterSpacing={(ls) => {
+                  setTitleLetterSpacing?.(ls);
+                  setGunlimboConfig?.((prev: any) => ({ ...prev, titleLetterSpacing: ls }));
+                }}
+                lineHeight={gunlimboConfig?.titleLineHeight ?? titleLineHeight ?? 1.2}
+                setLineHeight={(lh) => {
+                  setTitleLineHeight?.(lh);
+                  setGunlimboConfig?.((prev: any) => ({ ...prev, titleLineHeight: lh }));
+                }}
               />
 
               <div className="flex items-center justify-between pt-1">
@@ -622,6 +646,22 @@ export const TitleSourceInspectorForm: React.FC<TitleSourceInspectorFormProps> =
                 setSsulConfig?.((prev: any) => ({
                   ...prev,
                   postTitle: { ...(prev?.postTitle || {}), align: a },
+                }));
+              }}
+              letterSpacing={ssulConfig?.postTitle?.letterSpacing ?? titleLetterSpacing ?? -0.5}
+              setLetterSpacing={(ls) => {
+                setTitleLetterSpacing?.(ls);
+                setSsulConfig?.((prev: any) => ({
+                  ...prev,
+                  postTitle: { ...(prev?.postTitle || {}), letterSpacing: ls },
+                }));
+              }}
+              lineHeight={ssulConfig?.postTitle?.lineHeight ?? titleLineHeight ?? 1.25}
+              setLineHeight={(lh) => {
+                setTitleLineHeight?.(lh);
+                setSsulConfig?.((prev: any) => ({
+                  ...prev,
+                  postTitle: { ...(prev?.postTitle || {}), lineHeight: lh },
                 }));
               }}
             />
@@ -980,6 +1020,10 @@ export const TitleSourceInspectorForm: React.FC<TitleSourceInspectorFormProps> =
               setItalic={setTitleItalic}
               align={titleAlign || 'center'}
               setAlign={setTitleAlign}
+              letterSpacing={titleLetterSpacing ?? -0.5}
+              setLetterSpacing={setTitleLetterSpacing}
+              lineHeight={titleLineHeight ?? 1.2}
+              setLineHeight={setTitleLineHeight}
             />
 
             {/* 6. 🎨 테두리(외곽선) 상세 제어 */}
@@ -1122,6 +1166,10 @@ export const TitleSourceInspectorForm: React.FC<TitleSourceInspectorFormProps> =
                 setItalic={(i) => setBottomSourceItalic?.(i)}
                 align={bottomSourceAlign}
                 setAlign={(a) => setBottomSourceAlign?.(a)}
+                letterSpacing={bottomSourceLetterSpacing ?? 0}
+                setLetterSpacing={setBottomSourceLetterSpacing}
+                lineHeight={bottomSourceLineHeight ?? 1.2}
+                setLineHeight={setBottomSourceLineHeight}
               />
 
               {/* 3. 글자 색상 & 크기 */}

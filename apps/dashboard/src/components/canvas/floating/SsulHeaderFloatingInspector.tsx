@@ -20,6 +20,8 @@ export interface SsulHeaderConfig {
   logoUrl?: string;
   leftIcon: 'arrow_back' | 'home' | 'close' | 'none';
   rightIcon: 'menu' | 'share' | 'bookmark' | 'none';
+  letterSpacing?: number;
+  lineHeight?: number;
 }
 
 export interface SsulHeaderFloatingInspectorProps {
@@ -141,6 +143,10 @@ export const SsulHeaderFloatingInspector: React.FC<SsulHeaderFloatingInspectorPr
             setBold={(bold) => onChange({ bold })}
             italic={config.italic}
             setItalic={(italic) => onChange({ italic })}
+            letterSpacing={config.letterSpacing ?? 0}
+            setLetterSpacing={(letterSpacing) => onChange({ letterSpacing })}
+            lineHeight={config.lineHeight ?? 1.2}
+            setLineHeight={(lineHeight) => onChange({ lineHeight })}
           />
 
           {/* 10. 좌/우 아이콘 설정 */}

@@ -174,6 +174,10 @@ export interface UniversalCanvasStageProps {
   setHasTitleLine1?: (val: boolean) => void;
   hasTitleLine2?: boolean;
   setHasTitleLine2?: (val: boolean) => void;
+  titleLetterSpacing?: number;
+  setTitleLetterSpacing?: (val: number) => void;
+  titleLineHeight?: number;
+  setTitleLineHeight?: (val: number) => void;
 
   // Jab Hook
   hasJab: boolean;
@@ -214,6 +218,10 @@ export interface UniversalCanvasStageProps {
   setJabBgColor?: (val: string) => void;
   jabBorderRadius: number;
   setJabBorderRadius?: (val: number) => void;
+  jabLetterSpacing?: number;
+  setJabLetterSpacing?: (val: number) => void;
+  jabLineHeight?: number;
+  setJabLineHeight?: (val: number) => void;
 
   // Subtitle
   hasSubtitle?: boolean;
@@ -286,6 +294,10 @@ export interface UniversalCanvasStageProps {
   bottomSourceAlign?: 'left' | 'center' | 'right';
   setBottomSourceAlign?: (val: 'left' | 'center' | 'right') => void;
   setBottomSourceBottomPct?: (val: number) => void;
+  bottomSourceLetterSpacing?: number;
+  setBottomSourceLetterSpacing?: (val: number) => void;
+  bottomSourceLineHeight?: number;
+  setBottomSourceLineHeight?: (val: number) => void;
 
   // Comment Card
   hasCommentCard: boolean;
@@ -626,6 +638,18 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
     commentTransform = { xPct: 50, yPct: 82, scale: 1.0, rotationDeg: 0, zIndex: 35 },
     setCommentTransform = () => {},
     layers = [],
+    titleLetterSpacing = -0.5,
+    setTitleLetterSpacing,
+    titleLineHeight = 1.2,
+    setTitleLineHeight,
+    jabLetterSpacing = 0,
+    setJabLetterSpacing,
+    jabLineHeight = 1.2,
+    setJabLineHeight,
+    bottomSourceLetterSpacing = 0,
+    setBottomSourceLetterSpacing,
+    bottomSourceLineHeight = 1.2,
+    setBottomSourceLineHeight,
   } = props;
 
   const internalCanvasRef = useRef<HTMLDivElement>(null);
@@ -1382,7 +1406,8 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                             fontWeight: gunlimboConfig.hookBold === false ? 400 : 900,
                             fontStyle: gunlimboConfig.hookItalic ? 'italic' : 'normal',
                             textAlign: gunlimboConfig.hookAlign || 'center',
-                            letterSpacing: '-0.02em',
+                            letterSpacing: `${gunlimboConfig.hookLetterSpacing ?? -0.5}px`,
+                            lineHeight: gunlimboConfig.hookLineHeight ?? 1.25,
                           }}
                         >
                           {gunlimboConfig.hookPhrase || jabText || '*출격작전 반전 순간!*'}
@@ -1453,6 +1478,8 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                             fontStyle: instaConfig.profileItalic ? 'italic' : 'normal',
                             WebkitTextStroke: instaConfig.profileStrokeEnabled ? `${instaConfig.profileStrokeWidth || 2}px ${instaConfig.profileStrokeColor || '#000000'}` : 'none',
                             textShadow: instaConfig.profileShadowEnabled ? `0 2px ${instaConfig.profileShadowBlur || 4}px ${instaConfig.profileShadowColor || 'rgba(0,0,0,0.6)'}` : 'none',
+                            letterSpacing: `${instaConfig.profileLetterSpacing ?? 0}px`,
+                            lineHeight: instaConfig.profileLineHeight ?? 1.2,
                           }}
                         >
                           {instaConfig.profileName || '사용자명'}
@@ -1551,8 +1578,8 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                         className="leading-tight tracking-tight whitespace-pre-line w-full"
                         style={{
                           fontSize: `${Math.round((titleLine1SizePx || 22) * (titleTransform.scale || 1.0) * aspectScale)}px`,
-                          lineHeight: '1.18',
-                          letterSpacing: '-0.035em',
+                          lineHeight: titleLineHeight !== undefined ? titleLineHeight : (instaConfig?.titleLineHeight ?? 1.18),
+                          letterSpacing: `${titleLetterSpacing !== undefined ? titleLetterSpacing : (instaConfig?.titleLetterSpacing ?? -0.5)}px`,
                           color: titleLine1Color || '#000000',
                           textAlign: titleAlign || instaConfig?.titleAlign || 'left',
                           fontWeight: titleBold !== false ? 900 : 400,
@@ -1598,6 +1625,8 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                               fontFamily: resolveFontFamily(titleFontFamily),
                               fontWeight: titleBold !== false ? 900 : 400,
                               fontSize: `${Math.round((titleLine1SizePx || 20) * aspectScale)}px`,
+                              lineHeight: titleLineHeight !== undefined ? titleLineHeight : 1.2,
+                              letterSpacing: `${titleLetterSpacing !== undefined ? titleLetterSpacing : -0.5}px`,
                               WebkitTextStroke: titleStroke ? `${titleStrokeWidth}px ${titleStrokeColor}` : 'none',
                               paintOrder: 'stroke fill',
                               WebkitFontSmoothing: 'antialiased',
@@ -1621,6 +1650,8 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                               fontFamily: resolveFontFamily(titleFontFamily),
                               fontWeight: titleBold !== false ? 900 : 400,
                               fontSize: `${Math.round((titleLine2SizePx || 24) * aspectScale)}px`,
+                              lineHeight: titleLineHeight !== undefined ? titleLineHeight : 1.2,
+                              letterSpacing: `${titleLetterSpacing !== undefined ? titleLetterSpacing : -0.5}px`,
                               WebkitTextStroke: titleStroke ? `${titleStrokeWidth}px ${titleStrokeColor}` : 'none',
                               paintOrder: 'stroke fill',
                               WebkitFontSmoothing: 'antialiased',
@@ -1690,6 +1721,8 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                           fontWeight: jabBold === false ? 400 : 900,
                           fontStyle: jabItalic ? 'italic' : 'normal',
                           textAlign: jabAlign || 'center',
+                          letterSpacing: `${jabLetterSpacing ?? 0}px`,
+                          lineHeight: jabLineHeight ?? 1.2,
                           WebkitTextStroke: jabStroke ? `${jabStrokeWidth}px ${jabStrokeColor}` : 'none',
                           paintOrder: 'stroke fill',
                           WebkitFontSmoothing: 'antialiased',
@@ -1804,6 +1837,8 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                           fontFamily: resolveFontFamily(subCfg?.font || subCfg?.fontFamily || instaConfig?.subFont || 'Pretendard'),
                           fontWeight: (subCfg?.isBold === false || (subCfg as any)?.bold === false) ? 400 : (layoutTemplateMode === 'instagram' ? 700 : 'bold'),
                           fontStyle: (subCfg?.isItalic || (subCfg as any)?.italic) ? 'italic' : 'normal',
+                          letterSpacing: `${subCfg?.letterSpacing ?? 0}px`,
+                          lineHeight: subCfg?.lineHeight ?? 1.35,
                           WebkitTextStroke: isStrokeOn
                             ? `${subCfg?.outlineSize || subtitleStrokeWidth || 3}px ${subCfg?.outlineColor || subtitleStrokeColor || '#000000'}`
                             : '0 transparent',
@@ -1869,6 +1904,8 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                         fontWeight: bottomSourceBold ? 800 : 400,
                         fontStyle: bottomSourceItalic ? 'italic' : 'normal',
                         textAlign: props.bottomSourceAlign || 'center',
+                        letterSpacing: `${bottomSourceLetterSpacing ?? 0}px`,
+                        lineHeight: bottomSourceLineHeight ?? 1.2,
                         WebkitTextStroke: bottomSourceStroke ? `${bottomSourceStrokeWidth || 1}px ${bottomSourceStrokeColor || '#000000'}` : 'none',
                         paintOrder: 'stroke fill',
                         textShadow: bottomSourceShadow ? `0 1px ${bottomSourceShadowBlur !== undefined ? bottomSourceShadowBlur : 4}px ${bottomSourceShadowColor || 'rgba(0,0,0,0.9)'}` : 'none',
@@ -1967,6 +2004,8 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                           fontWeight: commentCard.bold ? 800 : (commentCard.bold === false ? 400 : 500),
                           fontStyle: commentCard.italic ? 'italic' : 'normal',
                           textAlign: commentCard.align || 'left',
+                          letterSpacing: `${commentCard.letterSpacing ?? 0}px`,
+                          lineHeight: commentCard.lineHeight ?? 1.4,
                           WebkitTextStroke: commentCard.textStrokeEnabled ? `${commentCard.textStrokeWidth || 1}px ${commentCard.textStrokeColor || '#000000'}` : 'none',
                           textShadow: commentCard.textShadowEnabled ? `0 2px ${commentCard.textShadowBlur || 4}px ${commentCard.textShadowColor || 'rgba(0,0,0,0.5)'}` : 'none',
                         }}

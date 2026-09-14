@@ -292,6 +292,10 @@ export const SubtitleStyleInspectorForm: React.FC<SubtitleStyleInspectorFormProp
                     setItalic={(i) => setSubtitleConfig(prev => ({ ...prev, isItalic: i, italic: i }))}
                     align={subtitleConfig.textAlign || (subtitleConfig as any).align || 'center'}
                     setAlign={(a) => setSubtitleConfig(prev => ({ ...prev, textAlign: a, align: a }))}
+                    letterSpacing={subtitleConfig.letterSpacing ?? 0}
+                    setLetterSpacing={(ls) => setSubtitleConfig(prev => ({ ...prev, letterSpacing: ls }))}
+                    lineHeight={subtitleConfig.lineHeight ?? 1.35}
+                    setLineHeight={(lh) => setSubtitleConfig(prev => ({ ...prev, lineHeight: lh }))}
                   />
 
                   {/* 자막 글자 색상 & 크기 */}

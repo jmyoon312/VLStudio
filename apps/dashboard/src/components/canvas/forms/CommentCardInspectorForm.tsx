@@ -47,6 +47,8 @@ export interface CommentCardConfig {
   cardShadowEnabled?: boolean;
   cardShadowBlur?: number;
   cardShadowColor?: string;
+  letterSpacing?: number;
+  lineHeight?: number;
 }
 
 export interface CommentCardInspectorFormProps {
@@ -239,6 +241,10 @@ export const CommentCardInspectorForm: React.FC<CommentCardInspectorFormProps> =
                           setItalic={(i) => setCommentCard(prev => ({ ...prev, italic: i }))}
                           align={commentCard.align || 'left'}
                           setAlign={(a) => setCommentCard(prev => ({ ...prev, align: a }))}
+                          letterSpacing={commentCard.letterSpacing ?? 0}
+                          setLetterSpacing={(ls) => setCommentCard(prev => ({ ...prev, letterSpacing: ls }))}
+                          lineHeight={commentCard.lineHeight ?? 1.4}
+                          setLineHeight={(lh) => setCommentCard(prev => ({ ...prev, lineHeight: lh }))}
                         />
                       </div>
 

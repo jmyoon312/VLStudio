@@ -12,6 +12,8 @@ export interface SubtitleConfig {
     shadowSize: number;  // 0 ~ 10 (Drop Shadow)
     shadowColor: string;
     textAlign?: 'left' | 'center' | 'right'; // Alignment
+    letterSpacing?: number; // 자간 (-5px ~ 10px)
+    lineHeight?: number; // 줄간격 (0.8x ~ 2.5x)
 
     // Background Box
     useBox?: boolean;

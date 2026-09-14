@@ -21,6 +21,8 @@ export interface MetadataConfig {
   bold: boolean;
   offsetX: number;
   offsetY: number;
+  letterSpacing?: number;
+  lineHeight?: number;
 }
 
 export interface MetadataFloatingInspectorProps {
@@ -184,6 +186,10 @@ export const MetadataFloatingInspector: React.FC<MetadataFloatingInspectorProps>
         setBold={(b) => onChange({ bold: b })}
         italic={(config as any).italic}
         setItalic={(i) => onChange({ italic: i } as any)}
+        letterSpacing={config.letterSpacing ?? 0}
+        setLetterSpacing={(ls) => onChange({ letterSpacing: ls })}
+        lineHeight={config.lineHeight ?? 1.2}
+        setLineHeight={(lh) => onChange({ lineHeight: lh })}
       />
 
       {/* 6. 글자 색상 */}

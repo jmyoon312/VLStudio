@@ -45,6 +45,8 @@ export const SsulObjectInspectorForm: React.FC<SsulObjectInspectorFormProps> = (
       shadowBlur: ssulConfig?.ssulHeader?.shadowBlur ?? 4,
       shadowColor: ssulConfig?.ssulHeader?.shadowColor || 'rgba(0,0,0,0.5)',
       borderRadius: ssulConfig?.ssulHeader?.borderRadius ?? 0,
+      letterSpacing: ssulConfig?.ssulHeader?.letterSpacing ?? 0,
+      lineHeight: ssulConfig?.ssulHeader?.lineHeight ?? 1.2,
     };
 
     const updateHeader = (patch: Partial<typeof header>) => {
@@ -110,6 +112,10 @@ export const SsulObjectInspectorForm: React.FC<SsulObjectInspectorFormProps> = (
                 setItalic={(i) => updateHeader({ italic: i })}
                 align={header.align || 'center'}
                 setAlign={(a) => updateHeader({ align: a })}
+                letterSpacing={header.letterSpacing}
+                setLetterSpacing={(ls) => updateHeader({ letterSpacing: ls })}
+                lineHeight={header.lineHeight}
+                setLineHeight={(lh) => updateHeader({ lineHeight: lh })}
               />
 
               {/* 글자 테두리 (외곽선) */}
@@ -244,6 +250,8 @@ export const SsulObjectInspectorForm: React.FC<SsulObjectInspectorFormProps> = (
       shadowEnabled: ssulConfig?.metadata?.shadowEnabled ?? false,
       shadowBlur: ssulConfig?.metadata?.shadowBlur ?? 3,
       shadowColor: ssulConfig?.metadata?.shadowColor || 'rgba(0,0,0,0.5)',
+      letterSpacing: ssulConfig?.metadata?.letterSpacing ?? 0,
+      lineHeight: ssulConfig?.metadata?.lineHeight ?? 1.2,
     };
 
     const updateMeta = (patch: Partial<typeof meta>) => {
@@ -370,6 +378,10 @@ export const SsulObjectInspectorForm: React.FC<SsulObjectInspectorFormProps> = (
               setBold={(b) => updateMeta({ bold: b })}
               italic={meta.italic}
               setItalic={(i) => updateMeta({ italic: i })}
+              letterSpacing={meta.letterSpacing}
+              setLetterSpacing={(ls) => updateMeta({ letterSpacing: ls })}
+              lineHeight={meta.lineHeight}
+              setLineHeight={(lh) => updateMeta({ lineHeight: lh })}
             />
 
             {/* 글자 테두리 (외곽선) */}

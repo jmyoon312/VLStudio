@@ -29,6 +29,10 @@ export interface GunlimboHookBandConfig {
   showBorder: boolean;
   borderColor: string;
   borderWidth: number;
+  headlineLetterSpacing?: number;
+  headlineLineHeight?: number;
+  subheadlineLetterSpacing?: number;
+  subheadlineLineHeight?: number;
 }
 
 export interface GunlimboHookBandFloatingInspectorProps {
@@ -134,6 +138,10 @@ export const GunlimboHookBandFloatingInspector: React.FC<GunlimboHookBandFloatin
           setItalic={(it) => onChange({ headlineItalic: it })}
           align={config.headlineAlign || 'center'}
           setAlign={(a) => onChange({ headlineAlign: a })}
+          letterSpacing={config.headlineLetterSpacing ?? -0.5}
+          setLetterSpacing={(ls) => onChange({ headlineLetterSpacing: ls })}
+          lineHeight={config.headlineLineHeight ?? 1.25}
+          setLineHeight={(lh) => onChange({ headlineLineHeight: lh })}
         />
       </div>
 
@@ -176,6 +184,10 @@ export const GunlimboHookBandFloatingInspector: React.FC<GunlimboHookBandFloatin
           setItalic={(it) => onChange({ subheadlineItalic: it })}
           align={config.subheadlineAlign || 'center'}
           setAlign={(a) => onChange({ subheadlineAlign: a })}
+          letterSpacing={config.subheadlineLetterSpacing ?? 0}
+          setLetterSpacing={(ls) => onChange({ subheadlineLetterSpacing: ls })}
+          lineHeight={config.subheadlineLineHeight ?? 1.2}
+          setLineHeight={(lh) => onChange({ subheadlineLineHeight: lh })}
         />
       </div>
 

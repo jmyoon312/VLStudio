@@ -210,6 +210,10 @@ export const InstaProfileInspectorForm: React.FC<InstaProfileInspectorFormProps>
           setBold={(b) => setInstaConfig((prev: any) => ({ ...prev, profileBold: b }))}
           italic={!!instaConfig.profileItalic}
           setItalic={(i) => setInstaConfig((prev: any) => ({ ...prev, profileItalic: i }))}
+          letterSpacing={instaConfig.profileLetterSpacing ?? 0}
+          setLetterSpacing={(ls) => setInstaConfig((prev: any) => ({ ...prev, profileLetterSpacing: ls }))}
+          lineHeight={instaConfig.profileLineHeight ?? 1.2}
+          setLineHeight={(lh) => setInstaConfig((prev: any) => ({ ...prev, profileLineHeight: lh }))}
         />
 
         {/* 글자 외곽선 (테두리) */}

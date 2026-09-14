@@ -216,6 +216,10 @@ export const CommentCardFloatingInspector: React.FC<CommentCardFloatingInspector
           setItalic={(i) => handleUpdate({ italic: i })}
           align={config.align || 'left'}
           setAlign={(a) => handleUpdate({ align: a })}
+          letterSpacing={config.letterSpacing ?? 0}
+          setLetterSpacing={(ls) => handleUpdate({ letterSpacing: ls })}
+          lineHeight={config.lineHeight ?? 1.4}
+          setLineHeight={(lh) => handleUpdate({ lineHeight: lh })}
         />
         <UnitSliderControl
           label="카드 모서리 둥글기"

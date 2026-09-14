@@ -1,6 +1,7 @@
 import React from 'react';
 import { AlignLeft, AlignCenter, AlignRight, Bold, Italic } from 'lucide-react';
 import { FONT_FAMILIES } from '../constants/canvasConstants';
+import { UnitSliderControl } from './UnitSliderControl';
 import { cn } from '@/lib/utils';
 
 export interface FontOption {
@@ -20,6 +21,17 @@ export interface FontStyleAlignControlProps {
   setItalic?: (italic: boolean) => void;
   align?: 'left' | 'center' | 'right';
   setAlign?: (align: 'left' | 'center' | 'right') => void;
+  // 📐 자간 및 줄간격 확장
+  letterSpacing?: number;
+  setLetterSpacing?: (val: number) => void;
+  letterSpacingMin?: number;
+  letterSpacingMax?: number;
+  letterSpacingStep?: number;
+  lineHeight?: number;
+  setLineHeight?: (val: number) => void;
+  lineHeightMin?: number;
+  lineHeightMax?: number;
+  lineHeightStep?: number;
   className?: string;
   compact?: boolean;
 }
@@ -37,6 +49,16 @@ export const FontStyleAlignControl: React.FC<FontStyleAlignControlProps> = ({
   setItalic,
   align,
   setAlign,
+  letterSpacing,
+  setLetterSpacing,
+  letterSpacingMin,
+  letterSpacingMax,
+  letterSpacingStep,
+  lineHeight,
+  setLineHeight,
+  lineHeightMin,
+  lineHeightMax,
+  lineHeightStep,
   className,
   compact = false,
 }) => {
@@ -150,6 +172,34 @@ export const FontStyleAlignControl: React.FC<FontStyleAlignControlProps> = ({
               </>
             )}
           </div>
+        </div>
+      )}
+
+      {/* 3. 하단: 자간 & 줄간격 슬라이더 (setLetterSpacing or setLineHeight가 제공될 때) */}
+      {(setLetterSpacing || setLineHeight) && (
+        <div className={cn("pt-2 grid gap-2", setFont || hasStyleOrAlign ? "border-t border-border/50" : "", (setLetterSpacing && setLineHeight) ? "grid-cols-2" : "grid-cols-1")}>
+          {setLetterSpacing && (
+            <UnitSliderControl
+              label="자간"
+              value={letterSpacing ?? 0}
+              min={letterSpacingMin ?? -5}
+              max={letterSpacingMax ?? 10}
+              step={letterSpacingStep ?? 0.5}
+              unit="px"
+              onChange={setLetterSpacing}
+            />
+          )}
+          {setLineHeight && (
+            <UnitSliderControl
+              label="줄간격"
+              value={lineHeight ?? 1.2}
+              min={lineHeightMin ?? 0.8}
+              max={lineHeightMax ?? 2.5}
+              step={lineHeightStep ?? 0.05}
+              unit="x"
+              onChange={setLineHeight}
+            />
+          )}
         </div>
       )}
     </div>

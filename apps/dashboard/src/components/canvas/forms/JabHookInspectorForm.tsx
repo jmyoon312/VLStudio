@@ -49,6 +49,10 @@ export interface JabHookInspectorFormProps {
   layoutTemplateMode?: string;
   gunlimboConfig?: any;
   setGunlimboConfig?: any;
+  jabLetterSpacing?: number;
+  setJabLetterSpacing?: (val: number | ((prev: number) => number)) => void;
+  jabLineHeight?: number;
+  setJabLineHeight?: (val: number | ((prev: number) => number)) => void;
 }
 
 export const JabHookInspectorForm: React.FC<JabHookInspectorFormProps> = (props) => {
@@ -93,6 +97,10 @@ export const JabHookInspectorForm: React.FC<JabHookInspectorFormProps> = (props)
     layoutTemplateMode = 'classic',
     gunlimboConfig,
     setGunlimboConfig,
+    jabLetterSpacing = 0,
+    setJabLetterSpacing,
+    jabLineHeight = 1.2,
+    setJabLineHeight,
   } = props;
 
   // 🎯 군림보형 독립 훅 밴드 인스펙터
@@ -142,6 +150,16 @@ export const JabHookInspectorForm: React.FC<JabHookInspectorFormProps> = (props)
               setItalic={(it) => setGConfig((prev: any) => ({ ...prev, hookItalic: it }))}
               align={gConfig.hookAlign || 'center'}
               setAlign={(a) => setGConfig((prev: any) => ({ ...prev, hookAlign: a }))}
+              letterSpacing={gConfig.hookLetterSpacing ?? jabLetterSpacing ?? -0.5}
+              setLetterSpacing={(ls) => {
+                setJabLetterSpacing?.(ls);
+                setGConfig((prev: any) => ({ ...prev, hookLetterSpacing: ls }));
+              }}
+              lineHeight={gConfig.hookLineHeight ?? jabLineHeight ?? 1.25}
+              setLineHeight={(lh) => {
+                setJabLineHeight?.(lh);
+                setGConfig((prev: any) => ({ ...prev, hookLineHeight: lh }));
+              }}
             />
             <div className="space-y-2 p-2 bg-muted/20 border border-border rounded-[2px]">
               <UnitSliderControl
@@ -353,6 +371,10 @@ export const JabHookInspectorForm: React.FC<JabHookInspectorFormProps> = (props)
                         setItalic={setJabItalic}
                         align={jabAlign}
                         setAlign={setJabAlign}
+                        letterSpacing={jabLetterSpacing ?? 0}
+                        setLetterSpacing={setJabLetterSpacing}
+                        lineHeight={jabLineHeight ?? 1.2}
+                        setLineHeight={setJabLineHeight}
                       />
 
                       {/* 🎨 글자 테두리(외곽선) */}

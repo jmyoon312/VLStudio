@@ -503,6 +503,8 @@ const formatWrappedText = (text: string, splitLimit: number = 14, maxLines: numb
   const [titleBorderRadius, setTitleBorderRadius] = useState<number>(6);
   const [titlePaddingX, setTitlePaddingX] = useState<number>(12);
   const [titlePaddingY, setTitlePaddingY] = useState<number>(6);
+  const [titleLetterSpacing, setTitleLetterSpacing] = useState<number>(-0.5);
+  const [titleLineHeight, setTitleLineHeight] = useState<number>(1.2);
 
   // ⚡ Layer 3: 긴박 쨉쨉이 훅 (Jab Hook)
   const [hasJab, setHasJab] = useState<boolean>(true);
@@ -515,6 +517,8 @@ const formatWrappedText = (text: string, splitLimit: number = 14, maxLines: numb
   const [jabBold, setJabBold] = useState<boolean>(true);
   const [jabItalic, setJabItalic] = useState<boolean>(false);
   const [jabAlign, setJabAlign] = useState<'left' | 'center' | 'right'>('center');
+  const [jabLetterSpacing, setJabLetterSpacing] = useState<number>(0);
+  const [jabLineHeight, setJabLineHeight] = useState<number>(1.2);
   const [jabColor, setJabColor] = useState<string>('#000000');
   const [jabBgEnabled, setJabBgEnabled] = useState<boolean>(true);
   const [jabBgColor, setJabBgColor] = useState<string>('#FFE500');
@@ -550,6 +554,8 @@ const formatWrappedText = (text: string, splitLimit: number = 14, maxLines: numb
   const [bottomSourceBold, setBottomSourceBold] = useState<boolean>(false);
   const [bottomSourceItalic, setBottomSourceItalic] = useState<boolean>(false);
   const [bottomSourceAlign, setBottomSourceAlign] = useState<'left' | 'center' | 'right'>('center');
+  const [bottomSourceLetterSpacing, setBottomSourceLetterSpacing] = useState<number>(0);
+  const [bottomSourceLineHeight, setBottomSourceLineHeight] = useState<number>(1.2);
   const [bottomSourceBottomPct, setBottomSourceBottomPct] = useState<number>(3.5);
   const [bottomSourceStroke, setBottomSourceStroke] = useState<boolean>(false);
   const [bottomSourceStrokeWidth, setBottomSourceStrokeWidth] = useState<number>(1);
@@ -5612,6 +5618,10 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
               setTitleItalic={setTitleItalic}
               titleAlign={titleAlign}
               setTitleAlign={setTitleAlign}
+              titleLetterSpacing={titleLetterSpacing}
+              setTitleLetterSpacing={setTitleLetterSpacing}
+              titleLineHeight={titleLineHeight}
+              setTitleLineHeight={setTitleLineHeight}
               hasJab={hasJab}
               setHasJab={setHasJab}
               jabTransform={jabTransform}
@@ -5632,6 +5642,10 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
               setJabItalic={setJabItalic}
               jabAlign={jabAlign}
               setJabAlign={setJabAlign}
+              jabLetterSpacing={jabLetterSpacing}
+              setJabLetterSpacing={setJabLetterSpacing}
+              jabLineHeight={jabLineHeight}
+              setJabLineHeight={setJabLineHeight}
               jabStroke={jabStroke}
               setJabStroke={setJabStroke}
               jabStrokeWidth={jabStrokeWidth}
@@ -5725,6 +5739,10 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
               setBottomSourceShadowBlur={setBottomSourceShadowBlur}
               bottomSourceShadowColor={bottomSourceShadowColor}
               setBottomSourceShadowColor={setBottomSourceShadowColor}
+              bottomSourceLetterSpacing={bottomSourceLetterSpacing}
+              setBottomSourceLetterSpacing={setBottomSourceLetterSpacing}
+              bottomSourceLineHeight={bottomSourceLineHeight}
+              setBottomSourceLineHeight={setBottomSourceLineHeight}
               setBottomSourceBottomPct={setBottomSourceBottomPct}
               hasCommentCard={hasCommentCard}
               setHasCommentCard={setHasCommentCard}
@@ -6154,6 +6172,14 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                 titleTransform={titleTransform}
                 setTitleTransform={setTitleTransform}
                 setTopTitleYPct={setTopTitleYPct}
+                titleLetterSpacing={titleLetterSpacing}
+                setTitleLetterSpacing={setTitleLetterSpacing}
+                titleLineHeight={titleLineHeight}
+                setTitleLineHeight={setTitleLineHeight}
+                bottomSourceLetterSpacing={bottomSourceLetterSpacing}
+                setBottomSourceLetterSpacing={setBottomSourceLetterSpacing}
+                bottomSourceLineHeight={bottomSourceLineHeight}
+                setBottomSourceLineHeight={setBottomSourceLineHeight}
               />
             )}
 
@@ -6179,6 +6205,10 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                 setBottomSourceItalic={setBottomSourceItalic}
                 bottomSourceAlign={bottomSourceAlign}
                 setBottomSourceAlign={setBottomSourceAlign}
+                bottomSourceLetterSpacing={bottomSourceLetterSpacing}
+                setBottomSourceLetterSpacing={setBottomSourceLetterSpacing}
+                bottomSourceLineHeight={bottomSourceLineHeight}
+                setBottomSourceLineHeight={setBottomSourceLineHeight}
                 bottomSourceBg={bottomSourceBg}
                 setBottomSourceBg={setBottomSourceBg}
                 bottomSourceBgColor={bottomSourceBgColor}
@@ -6334,6 +6364,10 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                 layoutTemplateMode={layoutTemplateMode}
                 gunlimboConfig={gunlimboConfig}
                 setGunlimboConfig={setGunlimboConfig}
+                jabLetterSpacing={jabLetterSpacing}
+                setJabLetterSpacing={setJabLetterSpacing}
+                jabLineHeight={jabLineHeight}
+                setJabLineHeight={setJabLineHeight}
               />
             )}
 

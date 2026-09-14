@@ -161,6 +161,8 @@ export const SsulCanvasLayout: React.FC<SsulCanvasLayoutProps> = ({
     shadowBlur: ssulConfig?.ssulHeader?.shadowBlur ?? 4,
     shadowColor: ssulConfig?.ssulHeader?.shadowColor || 'rgba(0,0,0,0.5)',
     borderRadius: ssulConfig?.ssulHeader?.borderRadius ?? 0,
+    letterSpacing: ssulConfig?.ssulHeader?.letterSpacing ?? 0,
+    lineHeight: ssulConfig?.ssulHeader?.lineHeight ?? 1.2,
   };
 
   // 2. 게시글 제목 설정 (1줄 규격)
@@ -205,6 +207,8 @@ export const SsulCanvasLayout: React.FC<SsulCanvasLayoutProps> = ({
     shadowEnabled: ssulConfig?.metadata?.shadowEnabled ?? false,
     shadowBlur: ssulConfig?.metadata?.shadowBlur ?? 3,
     shadowColor: ssulConfig?.metadata?.shadowColor || 'rgba(0,0,0,0.5)',
+    letterSpacing: ssulConfig?.metadata?.letterSpacing ?? 0,
+    lineHeight: ssulConfig?.metadata?.lineHeight ?? 1.2,
   };
 
   // 4. 구분선 설정
@@ -225,8 +229,8 @@ export const SsulCanvasLayout: React.FC<SsulCanvasLayoutProps> = ({
     align: (ssulConfig?.ssulSubtitle?.align as 'left' | 'center' | 'right') || 'left',
     bold: (subtitleConfig?.isBold !== false && subtitleConfig?.bold !== false) ?? (ssulConfig?.ssulSubtitle?.bold ?? true),
     italic: (subtitleConfig?.isItalic || subtitleConfig?.italic) ?? (ssulConfig?.ssulSubtitle?.italic ?? false),
-    lineHeightMultiplier: ssulConfig?.ssulSubtitle?.lineHeightMultiplier ?? 1.4,
-    letterSpacingPx: ssulConfig?.ssulSubtitle?.letterSpacingPx ?? 0,
+    lineHeightMultiplier: subtitleConfig?.lineHeight ?? ssulConfig?.ssulSubtitle?.lineHeightMultiplier ?? 1.4,
+    letterSpacingPx: subtitleConfig?.letterSpacing ?? ssulConfig?.ssulSubtitle?.letterSpacingPx ?? 0,
     boxEnabled: subtitleConfig?.useBox !== undefined ? subtitleConfig.useBox : (ssulConfig?.ssulSubtitle?.boxEnabled ?? false),
     boxColor: subtitleConfig?.boxColor || ssulConfig?.ssulSubtitle?.boxColor || '#F3F4F6',
     boxRadius: subtitleConfig?.boxRadius ?? subtitleConfig?.borderRadius ?? ssulConfig?.ssulSubtitle?.boxRadius ?? 4,
@@ -355,6 +359,8 @@ export const SsulCanvasLayout: React.FC<SsulCanvasLayoutProps> = ({
                 fontSize: `${Math.round(15 * (ssulHeader.fontSizeMultiplier || 1.0))}px`,
                 fontWeight: ssulHeader.bold === false ? 400 : 800,
                 fontStyle: ssulHeader.italic ? 'italic' : 'normal',
+                letterSpacing: `${ssulHeader.letterSpacing ?? 0}px`,
+                lineHeight: ssulHeader.lineHeight ?? 1.2,
                 WebkitTextStroke: ssulHeader.strokeEnabled ? `${ssulHeader.strokeWidth}px ${ssulHeader.strokeColor}` : 'none',
                 textShadow: ssulHeader.shadowEnabled ? `0 2px ${ssulHeader.shadowBlur}px ${ssulHeader.shadowColor}` : 'none',
               }}
@@ -438,6 +444,8 @@ export const SsulCanvasLayout: React.FC<SsulCanvasLayoutProps> = ({
               fontSize: `${Math.round(12 * (metadataConfig.fontSizeMultiplier || 1.0))}px`,
               fontWeight: metadataConfig.bold ? 800 : 400,
               fontStyle: (metadataConfig as any).italic ? 'italic' : 'normal',
+              letterSpacing: `${metadataConfig.letterSpacing ?? 0}px`,
+              lineHeight: metadataConfig.lineHeight ?? 1.2,
               WebkitTextStroke: metadataConfig.strokeEnabled ? `${metadataConfig.strokeWidth}px ${metadataConfig.strokeColor}` : 'none',
               textShadow: metadataConfig.shadowEnabled ? `0 1px ${metadataConfig.shadowBlur}px ${metadataConfig.shadowColor}` : 'none',
             }}

@@ -179,6 +179,10 @@ export const SubtitleFloatingInspector: React.FC<SubtitleFloatingInspectorProps>
         setItalic={(val) => onChange({ isItalic: val, italic: val })}
         align={config.textAlign || (config as any).align || 'center'}
         setAlign={(val) => onChange({ textAlign: val, align: val })}
+        letterSpacing={config.letterSpacing ?? 0}
+        setLetterSpacing={(val) => onChange({ letterSpacing: val })}
+        lineHeight={config.lineHeight ?? 1.35}
+        setLineHeight={(val) => onChange({ lineHeight: val })}
       />
 
       {/* 3. 글자 색상 & 크기 */}
