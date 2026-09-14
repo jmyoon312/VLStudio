@@ -684,20 +684,6 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
   const [activeMasterGroup, setActiveMasterGroup] = useState<'layout' | 'text' | 'media' | 'viral'>('layout');
   const [activeFloatingInspector, setActiveFloatingInspector] = useState<string>('none');
 
-  const inspectorGroups = useMemo(() => getInspectorGroupsForMode(layoutTemplateMode), [layoutTemplateMode]);
-
-  useEffect(() => {
-    const group = inspectorGroups.find((g) => g.subTabs.some((t) => t.id === activeInspectorTab));
-    if (group && group.id !== activeMasterGroup) {
-      setActiveMasterGroup(group.id as any);
-    } else if (!group && inspectorGroups.length > 0) {
-      const firstGroup = inspectorGroups[0];
-      setActiveMasterGroup(firstGroup.id as any);
-      if (firstGroup.subTabs.length > 0) {
-        setActiveInspectorTab(firstGroup.subTabs[0].id as any);
-      }
-    }
-  }, [activeInspectorTab, inspectorGroups]);
 
   // 플로팅 인스펙터가 열릴 때 해당하는 우측 인스펙터 탭과 마스터 그룹 자동 동기화
   const handleOpenFloatingInspector = (insp: string) => {
@@ -847,6 +833,21 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
     }
   }, [sovereignMode]);
 
+  const inspectorGroups = useMemo(() => getInspectorGroupsForMode(layoutTemplateMode), [layoutTemplateMode]);
+
+  useEffect(() => {
+    const group = inspectorGroups.find((g) => g.subTabs.some((t) => t.id === activeInspectorTab));
+    if (group && group.id !== activeMasterGroup) {
+      setActiveMasterGroup(group.id as any);
+    } else if (!group && inspectorGroups.length > 0) {
+      const firstGroup = inspectorGroups[0];
+      setActiveMasterGroup(firstGroup.id as any);
+      if (firstGroup.subTabs.length > 0) {
+        setActiveInspectorTab(firstGroup.subTabs[0].id as any);
+      }
+    }
+  }, [activeInspectorTab, inspectorGroups]);
+
   useEffect(() => {
     const handleMasterUpdated = (e: any) => {
       const { archetype, manifest } = e.detail || {};
@@ -861,7 +862,7 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
 
   // 📸 인스타형 프로필 블록 독립 Transform (위치, 크기 - 좌측 6% 정렬)
   const [profileTransform, setProfileTransform] = useState<NleLayerTransform>(
-    createDefaultTransform({ xPct: 6.0, yPct: 5.5, scale: 1.0, zIndex: 45 })
+    createDefaultTransform({ xPct: 6.0, yPct: 4.5, scale: 1.0, zIndex: 45 })
   );
 
   // 📷 [인스타형 템플릿 원형] (화이트 배경 + 좌상단 프로필 + 대제목 + 중앙 구멍 윈도우 + 자막 + 댓글 카드)
@@ -874,10 +875,10 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
     subFont?: string;       // 본문 자막 서체 (기본 Pretendard)
     subColor?: string;      // 본문 자막 색상 (기본 #374151)
     holeRatio: '1:1' | '4:5' | 'custom';
-    holeYPct: number;      // 중앙 구멍 중심 Y (기본 45.0%)
+    holeYPct: number;      // 중앙 구멍 중심 Y (기본 44.5%)
     holeWidthPct: number;  // 중앙 구멍 너비 (기본 88%, 좌우 마진 6%)
-    holeHeightPct: number; // 중앙 구멍 높이 (기본 46%)
-    holeRoundness: number; // 모서리 라운드 (기본 16px)
+    holeHeightPct: number; // 중앙 구멍 높이 (기본 47%)
+    holeRoundness: number; // 모서리 라운드 (기본 14px)
     holeBorderWidth: number;
     holeBorderColor: string;
     holeShadow: boolean;
@@ -891,10 +892,10 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
     subFont: 'Pretendard',
     subColor: '#374151',
     holeRatio: '1:1',
-    holeYPct: 45.0,
+    holeYPct: 44.5,
     holeWidthPct: 88,
-    holeHeightPct: 46,
-    holeRoundness: 16,
+    holeHeightPct: 47,
+    holeRoundness: 14,
     holeBorderWidth: 1,
     holeBorderColor: '#E5E7EB',
     holeShadow: true,
