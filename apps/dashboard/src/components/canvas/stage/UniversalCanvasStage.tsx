@@ -1345,7 +1345,7 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                   anchor="left"
                   onSelect={() => {
                     setSelectedLayerId('layer_insta_profile');
-                    setActiveInspectorTab('template');
+                    setActiveInspectorTab('profile');
                   }}
                   onChange={(newT) => {
                     setProfileTransform(newT);

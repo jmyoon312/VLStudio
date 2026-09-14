@@ -109,7 +109,7 @@ export const MASTER_INSPECTOR_GROUPS = [
     label: '화면 구성',
     icon: '🏛️',
     subTabs: [
-      { id: 'template', label: '4대 양식 템플릿' },
+      { id: 'template', label: '화면 구성' },
     ],
   },
   {
@@ -117,11 +117,11 @@ export const MASTER_INSPECTOR_GROUPS = [
     label: '글자 · 자막',
     icon: '✍️',
     subTabs: [
-      { id: 'title', label: '제목' },
+      { id: 'title', label: '대제목' },
       { id: 'jabHook', label: '쨉쨉이' },
-      { id: 'style', label: '본문 자막' },
-      { id: 'commentCard', label: '댓글 카드' },
-      { id: 'sourceCredit', label: '하단 출처' },
+      { id: 'style', label: '자막' },
+      { id: 'commentCard', label: '댓글' },
+      { id: 'sourceCredit', label: '출처' },
       { id: 'topBottomBar', label: '상하단바' },
     ],
   },
@@ -149,11 +149,15 @@ export type MasterInspectorGroupId = typeof MASTER_INSPECTOR_GROUPS[number]['id'
 export type InspectorSubTabId =
   | typeof MASTER_INSPECTOR_GROUPS[number]['subTabs'][number]['id']
   | 'titleSource'
-  | 'subtitle';
+  | 'subtitle'
+  | 'profile'
+  | 'ssulHeader'
+  | 'metadata'
+  | 'divider';
 
 /**
  * 🎛️ 4대 폼팩터 독립 주권 인스펙터 그룹 및 서브탭 선택기 (Zero Cross-Format Noise)
- * - 각 폼팩터 전용 화면에 필요한 탭만 정갈하게 노출하여 타 형식의 UI 노이즈를 0% 격리
+ * - 캔버스에서 보이는 모든 객체의 설정은 '글자 · 자막' 탭 아래에 단일화 배치
  */
 export function getInspectorGroupsForMode(mode: string = 'classic') {
   switch (mode) {
@@ -164,7 +168,7 @@ export function getInspectorGroupsForMode(mode: string = 'classic') {
           label: '화면 구성',
           icon: '🏛️',
           subTabs: [
-            { id: 'template' as const, label: '프로필 & 홀' },
+            { id: 'template' as const, label: '화면 구성' },
           ],
         },
         {
@@ -172,10 +176,13 @@ export function getInspectorGroupsForMode(mode: string = 'classic') {
           label: '글자 · 자막',
           icon: '✍️',
           subTabs: [
-            { id: 'title' as const, label: '헤드라인 대제목' },
-            { id: 'jabHook' as const, label: '쨉쨉이 훅 (소제목)' },
-            { id: 'style' as const, label: '본문 자막' },
-            { id: 'commentCard' as const, label: '댓글 카드' },
+            { id: 'profile' as const, label: '프로필' },
+            { id: 'title' as const, label: '대제목' },
+            { id: 'jabHook' as const, label: '쨉쨉이' },
+            { id: 'style' as const, label: '자막' },
+            { id: 'commentCard' as const, label: '댓글' },
+            { id: 'sourceCredit' as const, label: '출처' },
+            { id: 'topBottomBar' as const, label: '상하단바' },
           ],
         },
         {
@@ -203,7 +210,7 @@ export function getInspectorGroupsForMode(mode: string = 'classic') {
           label: '화면 구성',
           icon: '🏛️',
           subTabs: [
-            { id: 'template' as const, label: '군림보 레이아웃' },
+            { id: 'template' as const, label: '화면 구성' },
           ],
         },
         {
@@ -211,10 +218,12 @@ export function getInspectorGroupsForMode(mode: string = 'classic') {
           label: '글자 · 자막',
           icon: '✍️',
           subTabs: [
-            { id: 'title' as const, label: '상단 2줄 대제목' },
-            { id: 'jabHook' as const, label: '훅 밴드 (소제목)' },
-            { id: 'style' as const, label: '본문 자막' },
-            { id: 'commentCard' as const, label: '댓글 카드' },
+            { id: 'title' as const, label: '대제목' },
+            { id: 'jabHook' as const, label: '훅 밴드' },
+            { id: 'style' as const, label: '자막' },
+            { id: 'commentCard' as const, label: '댓글' },
+            { id: 'sourceCredit' as const, label: '출처' },
+            { id: 'topBottomBar' as const, label: '상하단바' },
           ],
         },
         {
@@ -242,7 +251,7 @@ export function getInspectorGroupsForMode(mode: string = 'classic') {
           label: '화면 구성',
           icon: '🏛️',
           subTabs: [
-            { id: 'template' as const, label: '커뮤니티 헤더' },
+            { id: 'template' as const, label: '화면 구성' },
           ],
         },
         {
@@ -250,8 +259,13 @@ export function getInspectorGroupsForMode(mode: string = 'classic') {
           label: '글자 · 자막',
           icon: '✍️',
           subTabs: [
-            { id: 'title' as const, label: '게시글 제목' },
-            { id: 'style' as const, label: '자막 & 페페 말풍선' },
+            { id: 'ssulHeader' as const, label: '헤더' },
+            { id: 'title' as const, label: '제목' },
+            { id: 'metadata' as const, label: '메타' },
+            { id: 'divider' as const, label: '구분선' },
+            { id: 'style' as const, label: '자막' },
+            { id: 'commentCard' as const, label: '댓글' },
+            { id: 'sourceCredit' as const, label: '출처' },
           ],
         },
         {

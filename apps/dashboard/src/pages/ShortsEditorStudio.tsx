@@ -125,6 +125,8 @@ import { FilterFxInspectorForm } from "@/components/canvas/forms/FilterFxInspect
 import { CommentCardInspectorForm } from "@/components/canvas/forms/CommentCardInspectorForm";
 import { JabHookInspectorForm } from "@/components/canvas/forms/JabHookInspectorForm";
 import { SubtitleStyleInspectorForm } from "@/components/canvas/forms/SubtitleStyleInspectorForm";
+import { InstaProfileInspectorForm } from "@/components/canvas/forms/InstaProfileInspectorForm";
+import { SsulObjectInspectorForm } from "@/components/canvas/forms/SsulObjectInspectorForm";
 
 
 
@@ -689,21 +691,38 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
   const handleOpenFloatingInspector = (insp: string) => {
     setActiveFloatingInspector(insp);
     if (insp === 'none') return;
-    if (['ssulHeader', 'divider', 'instaProfile'].includes(insp)) {
-      setActiveInspectorTab('template');
+    if (insp === 'instaProfile' || insp === 'profile') {
+      setActiveMasterGroup('text');
+      setActiveInspectorTab('profile');
+    } else if (insp === 'ssulHeader') {
+      setActiveMasterGroup('text');
+      setActiveInspectorTab('ssulHeader');
+    } else if (insp === 'metadata') {
+      setActiveMasterGroup('text');
+      setActiveInspectorTab('metadata');
+    } else if (insp === 'divider') {
+      setActiveMasterGroup('text');
+      setActiveInspectorTab('divider');
     } else if (insp === 'topBottomBar') {
+      setActiveMasterGroup('text');
       setActiveInspectorTab('topBottomBar');
-    } else if (insp === 'postTitle') {
+    } else if (insp === 'postTitle' || insp === 'title') {
+      setActiveMasterGroup('text');
       setActiveInspectorTab('title');
     } else if (insp === 'sourceCredit') {
+      setActiveMasterGroup('text');
       setActiveInspectorTab('sourceCredit');
     } else if (['gunlimboHook', 'gunlimboHookBand', 'jabHook', 'badgeTag'].includes(insp)) {
+      setActiveMasterGroup('text');
       setActiveInspectorTab('jabHook');
     } else if (insp === 'ssulSubtitle') {
+      setActiveMasterGroup('text');
       setActiveInspectorTab('style');
     } else if (insp === 'videoCrop') {
+      setActiveMasterGroup('media');
       setActiveInspectorTab('videoCrop');
     } else if (insp === 'commentCard') {
+      setActiveMasterGroup('text');
       setActiveInspectorTab('commentCard');
     }
   };
@@ -6011,6 +6030,25 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                 setSelectedLayerId={setSelectedLayerId}
                 layers={layers}
                 setLayers={setLayers}
+              />
+            )}
+
+            {/* 📸 2-0. 인스타 프로필 탭 */}
+            {activeInspectorTab === 'profile' && (
+              <InstaProfileInspectorForm
+                instaConfig={instaConfig}
+                setInstaConfig={setInstaConfig}
+                profileTransform={profileTransform}
+                setProfileTransform={setProfileTransform}
+              />
+            )}
+
+            {/* 📜 2-0-1. 썰형 헤더 / 메타데이터 / 구분선 전용 탭 */}
+            {['ssulHeader', 'metadata', 'divider'].includes(activeInspectorTab) && (
+              <SsulObjectInspectorForm
+                mode={activeInspectorTab as 'ssulHeader' | 'metadata' | 'divider'}
+                ssulConfig={ssulConfig}
+                setSsulConfig={setSsulConfig}
               />
             )}
 

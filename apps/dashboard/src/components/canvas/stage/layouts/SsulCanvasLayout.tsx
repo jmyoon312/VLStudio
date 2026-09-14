@@ -249,7 +249,7 @@ export const SsulCanvasLayout: React.FC<SsulCanvasLayoutProps> = ({
             }}
             onClick={() => {
               setSelectedLayerId('layer_ssul_header');
-              setActiveInspectorTab('template');
+              setActiveInspectorTab('ssulHeader');
             }}
             className={cn(
               "w-full px-3.5 flex items-center justify-between shrink-0 cursor-pointer select-none transition-all border-b border-black/[0.06]",
@@ -354,7 +354,7 @@ export const SsulCanvasLayout: React.FC<SsulCanvasLayoutProps> = ({
             }}
             onClick={() => {
               setSelectedLayerId('layer_ssul_metadata');
-              setActiveInspectorTab('template');
+              setActiveInspectorTab('metadata');
             }}
             className={cn(
               "mt-1 px-1 py-0.5 flex items-center gap-1.5 text-xs cursor-pointer hover:bg-black/[0.02] rounded transition-colors select-none shrink-0",
@@ -405,7 +405,7 @@ export const SsulCanvasLayout: React.FC<SsulCanvasLayoutProps> = ({
               }}
               onClick={() => {
                 setSelectedLayerId('layer_ssul_divider');
-                setActiveInspectorTab('template');
+                setActiveInspectorTab('divider');
               }}
               className={cn(
                 "w-full my-2 py-0.5 flex items-center cursor-pointer hover:opacity-80 transition-opacity shrink-0",

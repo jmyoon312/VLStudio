@@ -9,6 +9,8 @@ import FilterFxInspectorForm from '@/components/canvas/forms/FilterFxInspectorFo
 import CommentCardInspectorForm from '@/components/canvas/forms/CommentCardInspectorForm';
 import JabHookInspectorForm from '@/components/canvas/forms/JabHookInspectorForm';
 import SubtitleStyleInspectorForm from '@/components/canvas/forms/SubtitleStyleInspectorForm';
+import { InstaProfileInspectorForm } from '@/components/canvas/forms/InstaProfileInspectorForm';
+import { SsulObjectInspectorForm } from '@/components/canvas/forms/SsulObjectInspectorForm';
 import ForensicUrlExtractModal from '@/components/canvas/dialogs/ForensicUrlExtractModal';
 import { MASTER_INSPECTOR_GROUPS, InspectorSubTabId, getInspectorGroupsForMode } from '@/components/canvas/constants/canvasConstants';
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
@@ -3100,6 +3102,25 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
                 setSelectedLayerId={setSelectedLayerId}
                 layers={[]}
                 setLayers={() => {}}
+              />
+            )}
+
+            {/* 📸 2-0. 인스타 프로필 탭 */}
+            {activeInspectorTab === 'profile' && (
+              <InstaProfileInspectorForm
+                instaConfig={instaConfig}
+                setInstaConfig={setInstaConfig}
+                profileTransform={profileTransform}
+                setProfileTransform={setProfileTransform}
+              />
+            )}
+
+            {/* 📜 2-0-1. 썰형 헤더 / 메타데이터 / 구분선 탭 */}
+            {['ssulHeader', 'metadata', 'divider'].includes(activeInspectorTab) && (
+              <SsulObjectInspectorForm
+                mode={activeInspectorTab as 'ssulHeader' | 'metadata' | 'divider'}
+                ssulConfig={ssulConfig}
+                setSsulConfig={setSsulConfig}
               />
             )}
 
