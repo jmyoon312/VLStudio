@@ -118,8 +118,9 @@ export const MASTER_INSPECTOR_GROUPS = [
     icon: '✍️',
     subTabs: [
       { id: 'title', label: '제목' },
-      { id: 'style', label: '본문 자막' },
       { id: 'jabHook', label: '쨉쨉이' },
+      { id: 'style', label: '본문 자막' },
+      { id: 'commentCard', label: '댓글 카드' },
       { id: 'sourceCredit', label: '하단 출처' },
       { id: 'topBottomBar', label: '상하단바' },
     ],
@@ -138,7 +139,6 @@ export const MASTER_INSPECTOR_GROUPS = [
     label: '바이럴 · 소리',
     icon: '⚡',
     subTabs: [
-      { id: 'commentCard', label: '댓글 카드' },
       { id: 'tts', label: '음성 (TTS)' },
       { id: 'channel', label: '채널 정보' },
     ],
@@ -173,7 +173,9 @@ export function getInspectorGroupsForMode(mode: string = 'classic') {
           icon: '✍️',
           subTabs: [
             { id: 'title' as const, label: '헤드라인 대제목' },
+            { id: 'jabHook' as const, label: '쨉쨉이 훅 (소제목)' },
             { id: 'style' as const, label: '본문 자막' },
+            { id: 'commentCard' as const, label: '댓글 카드' },
           ],
         },
         {
@@ -189,7 +191,6 @@ export function getInspectorGroupsForMode(mode: string = 'classic') {
           label: '바이럴 · 소리',
           icon: '⚡',
           subTabs: [
-            { id: 'commentCard' as const, label: '베스트 댓글 카드' },
             { id: 'tts' as const, label: '음성 (TTS)' },
             { id: 'channel' as const, label: '채널 정보' },
           ],
@@ -213,6 +214,7 @@ export function getInspectorGroupsForMode(mode: string = 'classic') {
             { id: 'title' as const, label: '상단 2줄 대제목' },
             { id: 'jabHook' as const, label: '훅 밴드 (소제목)' },
             { id: 'style' as const, label: '본문 자막' },
+            { id: 'commentCard' as const, label: '댓글 카드' },
           ],
         },
         {

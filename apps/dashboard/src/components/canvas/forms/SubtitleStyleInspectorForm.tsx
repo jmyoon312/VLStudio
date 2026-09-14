@@ -423,7 +423,10 @@ export const SubtitleStyleInspectorForm: React.FC<SubtitleStyleInspectorFormProp
                           max={30}
                           step={1}
                           unit="px"
-                          onChange={setSubtitleBorderRadius}
+                          onChange={(val) => {
+                            setSubtitleBorderRadius(val);
+                            setSubtitleConfig(prev => ({ ...prev, boxRadius: val, borderRadius: val }));
+                          }}
                         />
                       </div>
                     )}

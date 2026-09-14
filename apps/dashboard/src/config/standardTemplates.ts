@@ -508,50 +508,6 @@ export const normalizeTemplateManifest = (manifest: TemplateManifest): TemplateM
   if (!manifest) return manifest;
   try {
     const clone: TemplateManifest = JSON.parse(JSON.stringify(manifest));
-
-    // 1. style 영역 보정
-    if (clone.style) {
-      if (clone.style.titleFontSize && clone.style.titleFontSize > 24) {
-        clone.style.titleFontSize = 20;
-      }
-      if (clone.style.titleLine2FontSize && clone.style.titleLine2FontSize > 28) {
-        clone.style.titleLine2FontSize = 24;
-      }
-      if (clone.style.captionFontSize && clone.style.captionFontSize > 24) {
-        clone.style.captionFontSize = 18;
-      }
-      if (clone.style.hookFontSize && clone.style.hookFontSize > 18) {
-        clone.style.hookFontSize = 14;
-      }
-    }
-
-    // 2. geometry 영역 보정
-    if (clone.geometry?.sourceZone) {
-      if (clone.geometry.sourceZone.fontSize && clone.geometry.sourceZone.fontSize > 14) {
-        clone.geometry.sourceZone.fontSize = 10;
-      }
-    }
-
-    // 3. customState 영역 보정 (과거 저장된 커스텀 상태 치유)
-    if (clone.customState) {
-      const cs = clone.customState;
-      if (cs.titleLine1SizePx && cs.titleLine1SizePx > 24) {
-        cs.titleLine1SizePx = 20;
-      }
-      if (cs.titleLine2SizePx && cs.titleLine2SizePx > 28) {
-        cs.titleLine2SizePx = 24;
-      }
-      if (cs.jabFontSize && cs.jabFontSize > 18) {
-        cs.jabFontSize = 13;
-      }
-      if (cs.bottomSourceSizePx && cs.bottomSourceSizePx > 14) {
-        cs.bottomSourceSizePx = 10;
-      }
-      if (cs.subtitleConfig?.fontSize && cs.subtitleConfig.fontSize > 24) {
-        cs.subtitleConfig.fontSize = 18;
-      }
-    }
-
     return clone;
   } catch (e) {
     return manifest;

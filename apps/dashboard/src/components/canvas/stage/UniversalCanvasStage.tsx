@@ -1503,7 +1503,7 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                             )}
                             style={{
                               color: titleLine1Color,
-                              fontSize: `${Math.round((titleLine1SizePx && titleLine1SizePx <= 36 ? titleLine1SizePx : 20) * aspectScale)}px`,
+                              fontSize: `${Math.round((titleLine1SizePx || 20) * aspectScale)}px`,
                               WebkitTextStroke: titleStroke ? `${titleStrokeWidth}px ${titleStrokeColor}` : 'none',
                               paintOrder: 'stroke fill',
                               WebkitFontSmoothing: 'antialiased',
@@ -1525,7 +1525,7 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                             )}
                             style={{
                               color: titleLine2Color,
-                              fontSize: `${Math.round((titleLine2SizePx && titleLine2SizePx <= 40 ? titleLine2SizePx : 24) * aspectScale)}px`,
+                              fontSize: `${Math.round((titleLine2SizePx || 24) * aspectScale)}px`,
                               WebkitTextStroke: titleStroke ? `${titleStrokeWidth}px ${titleStrokeColor}` : 'none',
                               paintOrder: 'stroke fill',
                               WebkitFontSmoothing: 'antialiased',
@@ -1542,7 +1542,7 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                 </TransformGizmo>
               )}
 
-              {/* ⚡ LAYER 3: 긴박 쨉쨉이 훅 (타임라인 시간대 동기화 & 고스트 노출 완벽 차단) */}
+              {/* ⚡ LAYER 3: 긴박 쨉쨉이 훅 (타임라인 시간대 동기화 & 인스타 템플릿 포함 지원) */}
               {(() => {
                 // 재생 중일 때는 현재 타임코드에 위치한 activeJab만 표시! 정지 중(편집/프리뷰)에는 hasJab이면 상시 노출
                 const isExplicitJabClipSelected = !isPlaying && selectedLayer?.type === 'jab' && selectedLayer.id !== 'layer_audio_bgm';
@@ -1559,6 +1559,7 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                     selected={isJabSelected}
                     name="긴박 쨉쨉이 훅"
                     canvasScale={canvasScale}
+                    anchor={layoutTemplateMode === 'instagram' ? (jabTransform.xPct < 30 ? 'left' : 'center') : 'center'}
                     onSelect={() => {
                       if (displayJab) setSelectedLayerId(displayJab.id);
                       else setSelectedLayerId('layer_jab');
@@ -1585,7 +1586,7 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                     >
                       <span
                         style={{
-                          fontSize: `${Math.round((jabFontSize && jabFontSize <= 26 ? jabFontSize : 13) * aspectScale)}px`,
+                          fontSize: `${Math.round((jabFontSize || 13) * aspectScale)}px`,
                           color: jabTextColor,
                           fontFamily: titleFontFamily,
                           WebkitTextStroke: jabStroke ? `${jabStrokeWidth}px ${jabStrokeColor}` : 'none',
@@ -1601,7 +1602,7 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                 );
               })()}
 
-              {/* 💬 LAYER 4: 본문 자막 (타임라인 시간대 동기화 & 인스타형 상시 노출 & 고스트 자막 방지) */}
+              {/* 💬 LAYER 4: 본문 자막 (타임라인 시간대 동기화 & 인스타형 상시 노출 & 줄바꿈·스타일 완전 연동) */}
               {(() => {
                 const isSubSelected = selectedLayer?.type === 'subtitle' || selectedLayerId === 'layer_sub';
                 const displaySub = activeSub || (isSubSelected ? (selectedLayer?.type === 'subtitle' ? selectedLayer : subtitleLayers[0]) : (layoutTemplateMode === 'instagram' || layoutTemplateMode === 'gunlimbo' ? subtitleLayers[0] : null));
@@ -1667,31 +1668,27 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                         layoutTemplateMode === 'instagram'
                           ? "text-left font-medium max-w-[88%] break-words"
                           : "font-black leading-snug tracking-tight text-center px-2",
-                        layoutTemplateMode !== 'instagram' && isBoxOn && "px-3 py-1.5"
+                        isBoxOn && "px-3 py-1.5"
                       )}
                       style={{
-                        backgroundColor: layoutTemplateMode === 'instagram'
-                          ? 'transparent'
-                          : (isBoxOn
-                              ? (subCfg?.boxColor || subtitleBoxColor)
-                              : 'transparent'),
-                        borderRadius: layoutTemplateMode === 'instagram'
-                          ? 0
-                          : (isBoxOn ? `${props.subtitleBorderRadius ?? subtitleBorderRadius}px` : 0),
-                        boxShadow: layoutTemplateMode === 'instagram'
-                          ? 'none'
-                          : (isShadowOn && isBoxOn
-                              ? '0 4px 14px rgba(0,0,0,0.7)'
-                              : 'none'),
+                        backgroundColor: isBoxOn
+                          ? (subCfg?.boxColor || subtitleBoxColor || 'rgba(0,0,0,0.6)')
+                          : 'transparent',
+                        borderRadius: isBoxOn
+                          ? `${subCfg?.boxRadius ?? subCfg?.borderRadius ?? props.subtitleBorderRadius ?? subtitleBorderRadius}px`
+                          : 0,
+                        boxShadow: isShadowOn && isBoxOn
+                          ? '0 4px 14px rgba(0,0,0,0.7)'
+                          : 'none',
                       }}
                     >
                       <span
                         style={{
                           fontSize: layoutTemplateMode === 'instagram'
-                            ? `${Math.round(((subCfg?.fontSize && subCfg.fontSize <= 36 ? subCfg.fontSize : instaConfig.subSize || 15)) * (subTransform.scale || 1.0) * aspectScale)}px`
+                            ? `${Math.round(((subCfg?.fontSize || instaConfig.subSize || 15)) * (subTransform.scale || 1.0) * aspectScale)}px`
                             : layoutTemplateMode === 'gunlimbo'
-                            ? `${Math.round(((subCfg?.fontSize && subCfg.fontSize <= 24 ? subCfg.fontSize : 20)) * aspectScale)}px`
-                            : `${Math.round(((subCfg?.fontSize && subCfg.fontSize <= 24 ? subCfg.fontSize : 18)) * aspectScale)}px`,
+                            ? `${Math.round(((subCfg?.fontSize || 20)) * aspectScale)}px`
+                            : `${Math.round(((subCfg?.fontSize || 18)) * aspectScale)}px`,
                           color: layoutTemplateMode === 'instagram'
                             ? (subCfg?.textColor || subCfg?.fillColor || instaConfig.subColor || '#374151')
                             : layoutTemplateMode === 'gunlimbo'
@@ -1702,35 +1699,26 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                             : (subCfg?.font || subCfg?.fontFamily || 'Pretendard'),
                           fontWeight: layoutTemplateMode === 'instagram' ? 500 : (subCfg?.isBold !== false && subCfg?.bold !== false ? 'bold' : 'normal'),
                           fontStyle: (subCfg?.isItalic || subCfg?.italic) ? 'italic' : 'normal',
-                          WebkitTextStroke: layoutTemplateMode === 'instagram'
-                            ? '0 transparent'
-                            : layoutTemplateMode === 'gunlimbo'
-                            ? `${subCfg?.outlineSize || 4}px ${subCfg?.outlineColor || '#000000'}`
-                            : (isStrokeOn
-                                ? `${subCfg?.outlineSize || subtitleStrokeWidth || 3}px ${subCfg?.outlineColor || subtitleStrokeColor || '#000000'}`
-                                : '0 transparent'),
-                          paintOrder: layoutTemplateMode === 'instagram' ? 'normal' : 'stroke fill',
+                          WebkitTextStroke: isStrokeOn
+                            ? `${subCfg?.outlineSize || subtitleStrokeWidth || 3}px ${subCfg?.outlineColor || subtitleStrokeColor || '#000000'}`
+                            : '0 transparent',
+                          paintOrder: 'stroke fill',
                           WebkitFontSmoothing: 'antialiased',
-                          textShadow: layoutTemplateMode === 'instagram'
-                            ? 'none'
-                            : layoutTemplateMode === 'gunlimbo'
-                            ? '0 3px 6px rgba(0,0,0,0.95)'
-                            : (isShadowOn
-                                ? `0 2px ${subCfg?.shadowSize ? subCfg.shadowSize * 3 : (subtitleShadowBlur || 8)}px ${subCfg?.shadowColor || subtitleShadowColor || 'rgba(0,0,0,0.95)'}`
-                                : 'none'),
+                          textShadow: isShadowOn
+                            ? `0 2px ${subCfg?.shadowSize ? subCfg.shadowSize * 3 : (subtitleShadowBlur || 8)}px ${subCfg?.shadowColor || subtitleShadowColor || 'rgba(0,0,0,0.95)'}`
+                            : 'none',
                         }}
                       >
-                        {layoutTemplateMode === 'instagram'
-                          ? subText
-                          : renderHighlightedSubtitleText(
-                              formatWrappedText(subText, activeSplitLimit, subCfg?.maxLines || 2),
-                              displaySub?.styleProps?.highlights,
-                              layoutTemplateMode === 'gunlimbo'
-                                ? (subCfg?.textColor || subCfg?.fillColor || subCfg?.color || '#FFE500')
-                                : (subCfg?.textColor || subCfg?.fillColor || subCfg?.color || '#FFFFFF'),
-                              selectedHighlightColor
-                            )
-                        }
+                        {renderHighlightedSubtitleText(
+                          formatWrappedText(subText, activeSplitLimit, subCfg?.maxLines || 2),
+                          displaySub?.styleProps?.highlights,
+                          layoutTemplateMode === 'instagram'
+                            ? (subCfg?.textColor || subCfg?.fillColor || instaConfig.subColor || '#374151')
+                            : layoutTemplateMode === 'gunlimbo'
+                            ? (subCfg?.textColor || subCfg?.fillColor || subCfg?.color || '#FFE500')
+                            : (subCfg?.textColor || subCfg?.fillColor || subCfg?.color || '#FFFFFF'),
+                          selectedHighlightColor
+                        )}
                       </span>
                     </div>
                   </TransformGizmo>
@@ -1767,7 +1755,7 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                     <span
                       className="tracking-wide drop-shadow-md"
                       style={{
-                        fontSize: `${bottomSourceSizePx && bottomSourceSizePx <= 20 ? bottomSourceSizePx : 10}px`,
+                        fontSize: `${(bottomSourceSizePx || 10)}px`,
                         color: bottomSourceColor,
                         fontFamily: bottomSourceFontFamily || 'Pretendard',
                         fontWeight: bottomSourceBold ? 700 : 500,

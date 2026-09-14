@@ -1,4 +1,5 @@
 import React, { useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { NleLayerTransform } from '@/types/nle';
 import { RotateCw, FlipHorizontal, SlidersHorizontal } from 'lucide-react';
 
@@ -22,6 +23,7 @@ interface TransformGizmoProps {
  * - 4개 변 핸들 (tc, bc, lc, rc): 수직/수평 크기 리사이징
  * - 상단 360° 회전 핀 & HUD 명칭 뱃지
  * - anchor: 'center'(기본 중앙) 또는 'left'(좌측 정렬 텍스트/카드용 정밀 앵커)
+ * - 🧲 중앙 X/Y축 자석 스냅(Magnetic Snapping) & 풀 캔버스 정밀 가이드 라인 (CENTER X/Y)
  */
 export const TransformGizmo: React.FC<TransformGizmoProps> = ({
   transform,
@@ -39,12 +41,21 @@ export const TransformGizmo: React.FC<TransformGizmoProps> = ({
   const [activeAction, setActiveAction] = useState<string | null>(null);
   const lastPointerDownRef = useRef<number>(0);
 
-  // 1. 위치 이동 핸들러 (바디 또는 외곽선 라인 드래그)
+  const [dragGuide, setDragGuide] = useState<{
+    active: boolean;
+    snapX: boolean;
+    snapY: boolean;
+    xPct: number;
+    yPct: number;
+  } | null>(null);
+
+  // 1. 객체 본체 및 4대 외곽선 드래그 이동 (Translate + Magnetic Snap)
   const handleTranslatePointerDown = (e: React.PointerEvent) => {
     if (locked) return;
     if (e.button !== 0) return;
     e.stopPropagation();
     onSelect();
+
     const now = Date.now();
     if (now - lastPointerDownRef.current < 350) {
       lastPointerDownRef.current = 0;
@@ -54,38 +65,77 @@ export const TransformGizmo: React.FC<TransformGizmoProps> = ({
     lastPointerDownRef.current = now;
 
     setActiveAction('translate');
-
     const targetEl = e.currentTarget as HTMLElement;
     targetEl.setPointerCapture(e.pointerId);
 
     const startX = e.clientX;
     const startY = e.clientY;
-    const initialXPct = transform.xPct;
-    const initialYPct = transform.yPct;
+    const initialX = transform.xPct;
+    const initialY = transform.yPct;
 
     const parent = containerRef.current?.parentElement;
-    if (!parent) return;
-    const parentRect = parent.getBoundingClientRect();
+    const parentWidth = parent ? (parent.getBoundingClientRect().width / Math.max(0.1, canvasScale)) : 400;
+    const parentHeight = parent ? (parent.getBoundingClientRect().height / Math.max(0.1, canvasScale)) : 711;
+
+    setDragGuide({
+      active: true,
+      snapX: Math.abs(initialX - 50.0) <= 1.0,
+      snapY: Math.abs(initialY - 50.0) <= 1.0,
+      xPct: initialX,
+      yPct: initialY,
+    });
 
     const onPointerMove = (mv: PointerEvent) => {
-      const dxPx = (mv.clientX - startX) / Math.max(0.1, canvasScale);
-      const dyPx = (mv.clientY - startY) / Math.max(0.1, canvasScale);
+      const dx = (mv.clientX - startX) / Math.max(0.1, canvasScale);
+      const dy = (mv.clientY - startY) / Math.max(0.1, canvasScale);
 
-      const nativeWidth = parentRect.width / Math.max(0.1, canvasScale);
-      const nativeHeight = parentRect.height / Math.max(0.1, canvasScale);
+      let newXPct = initialX + (dx / Math.max(50, parentWidth)) * 100;
+      let newYPct = initialY + (dy / Math.max(50, parentHeight)) * 100;
 
-      const dxPct = (dxPx / nativeWidth) * 100;
-      const dyPct = (dyPx / nativeHeight) * 100;
+      let snapX = false;
+      let snapY = false;
+
+      // 🧲 중앙 X/Y축 자석 스냅 (Magnetic Snapping)
+      if (anchor === 'left') {
+        if (Math.abs(newXPct - 6.0) <= 1.5) {
+          newXPct = 6.0;
+        } else if (Math.abs(newXPct - 50.0) <= 1.8) {
+          newXPct = 50.0;
+          snapX = true;
+        }
+      } else {
+        if (Math.abs(newXPct - 50.0) <= 1.8) {
+          newXPct = 50.0;
+          snapX = true;
+        }
+      }
+
+      if (Math.abs(newYPct - 50.0) <= 1.8) {
+        newYPct = 50.0;
+        snapY = true;
+      }
+
+      newXPct = Math.round(newXPct * 10) / 10;
+      newYPct = Math.round(newYPct * 10) / 10;
+
+      setDragGuide({
+        active: true,
+        snapX,
+        snapY,
+        xPct: newXPct,
+        yPct: newYPct,
+      });
 
       onChange({
         ...transform,
-        xPct: Math.round((initialXPct + dxPct) * 10) / 10,
-        yPct: Math.round((initialYPct + dyPct) * 10) / 10,
+        xPct: newXPct,
+        yPct: newYPct,
       });
     };
 
     const onPointerUp = (upEv: PointerEvent) => {
       setActiveAction(null);
+      setDragGuide(null);
       try {
         targetEl.releasePointerCapture(upEv.pointerId);
       } catch (_) {}
@@ -308,7 +358,7 @@ export const TransformGizmo: React.FC<TransformGizmoProps> = ({
                 onChange({ ...transform, isFlippedH: !transform.isFlippedH });
               }}
               className="p-0.5 hover:bg-sky-700 rounded cursor-pointer transition"
-              title="좌우반전 (Flip H)"
+              title="좌우반전"
             >
               <FlipHorizontal className="w-2.5 h-2.5 text-white" />
             </button>
@@ -400,6 +450,52 @@ export const TransformGizmo: React.FC<TransformGizmoProps> = ({
             </>
           )}
         </div>
+      )}
+
+      {/* 🌟 캔버스 풀 스크린 중앙 X/Y 정밀 가이드 라인 & 실시간 자석 스냅 HUD */}
+      {dragGuide?.active && containerRef.current?.parentElement && createPortal(
+        <div className="absolute inset-0 pointer-events-none z-[999]">
+          {/* 수직 중앙 50% 가이드라인 (CENTER X) */}
+          <div
+            className={`absolute top-0 bottom-0 left-1/2 -translate-x-1/2 border-l border-dashed transition-colors ${
+              dragGuide.snapX
+                ? 'border-rose-500 border-[1.5px] opacity-100'
+                : 'border-rose-400/60 border-[1px] opacity-70'
+            }`}
+          >
+            {dragGuide.snapX && (
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-rose-500 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-md uppercase tracking-wider whitespace-nowrap">
+                CENTER X
+              </div>
+            )}
+          </div>
+
+          {/* 수평 중앙 50% 가이드라인 (CENTER Y) */}
+          <div
+            className={`absolute left-0 right-0 top-1/2 -translate-y-1/2 border-t border-dashed transition-colors ${
+              dragGuide.snapY
+                ? 'border-rose-500 border-[1.5px] opacity-100'
+                : 'border-rose-400/60 border-[1px] opacity-70'
+            }`}
+          >
+            {dragGuide.snapY && (
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-rose-500 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-md uppercase tracking-wider whitespace-nowrap">
+                CENTER Y
+              </div>
+            )}
+          </div>
+
+          {/* 실시간 위치 좌표 HUD */}
+          <div className="absolute bottom-2 right-2 bg-black/75 text-white text-[10px] font-mono px-2 py-1 rounded shadow pointer-events-none flex items-center gap-2">
+            <span className={dragGuide.snapX ? 'text-rose-400 font-bold' : 'text-zinc-300'}>
+              X: {dragGuide.xPct}%
+            </span>
+            <span className={dragGuide.snapY ? 'text-rose-400 font-bold' : 'text-zinc-300'}>
+              Y: {dragGuide.yPct}%
+            </span>
+          </div>
+        </div>,
+        containerRef.current.parentElement
       )}
     </div>
   );
