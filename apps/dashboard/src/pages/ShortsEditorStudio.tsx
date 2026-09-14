@@ -104,7 +104,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { cn, getMediaUrl } from '@/lib/utils';
 import api from '@/lib/api';
 import { TemplateManifest } from '@/types/templateDna';
-import { STANDARD_TEMPLATES, getStandardTemplateByArchetype } from '@/config/standardTemplates';
+import { STANDARD_TEMPLATES, getStandardTemplateByArchetype, getMasterTemplate } from '@/config/standardTemplates';
 import { NleLayerObject, NleLayerTransform, createDefaultTransform } from '@/types/nle';
 import { TransformGizmo } from '@/components/canvas/TransformGizmo';
 import { BgmLibraryModal, BgmTrackItem } from '@/components/BgmLibraryModal';
@@ -803,12 +803,27 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
 
   const initialMode = sovereignMode || (searchParams.get('mode') as LayoutTemplateMode) || 'classic';
   const [layoutTemplateMode, setLayoutTemplateMode] = useState<LayoutTemplateMode>(initialMode);
+  const [masterManifest, setMasterManifest] = useState<TemplateManifest | undefined>(() =>
+    getMasterTemplate(initialMode)
+  );
 
   useEffect(() => {
     if (sovereignMode && layoutTemplateMode !== sovereignMode) {
       setLayoutTemplateMode(sovereignMode);
     }
   }, [sovereignMode]);
+
+  useEffect(() => {
+    const handleMasterUpdated = (e: any) => {
+      const { archetype, manifest } = e.detail || {};
+      const currentMode = sovereignMode || layoutTemplateMode;
+      if (archetype === currentMode && manifest) {
+        setMasterManifest(manifest);
+      }
+    };
+    window.addEventListener('vl_master_template_updated', handleMasterUpdated);
+    return () => window.removeEventListener('vl_master_template_updated', handleMasterUpdated);
+  }, [sovereignMode, layoutTemplateMode]);
 
   // 📸 인스타형 프로필 블록 독립 Transform (위치, 크기 - 좌측 6% 정렬)
   const [profileTransform, setProfileTransform] = useState<NleLayerTransform>(
@@ -1911,6 +1926,23 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
     }, { replace: true });
   };
 
+  // ⟲ 공식 마스터 템플릿으로 원복 (하드코딩 배제, DB/골든 스탠다드 마스터 기준)
+  const handleResetToMaster = useCallback(() => {
+    const archetype = sovereignMode || layoutTemplateMode || 'classic';
+    const master = getMasterTemplate(archetype);
+    if (!master) {
+      toast({ title: '마스터 템플릿 없음', description: '기본 템플릿으로 복원합니다.', variant: 'default' });
+      handleSelectTemplateMode(archetype);
+      return;
+    }
+    handleApplyManifest(master);
+    setMasterManifest(master);
+    toast({
+      title: '마스터 템플릿 복원 완료',
+      description: `[${master.name || archetype.toUpperCase()}] 공식 마스터 설정값으로 원복되었습니다.`,
+    });
+  }, [sovereignMode, layoutTemplateMode, handleApplyManifest, toast]);
+
   // 🎯 URL Query (?mode=ssul|gunlimbo|classic|instagram) 최초 로드 및 변경 동기화
   useEffect(() => {
     if (sovereignMode) {
@@ -2375,11 +2407,12 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
       }
     }
 
-    // 🛡️ 만약 sovereignMode인데 일치하는 매니페스트가 적용되지 않았다면, 해당 폼팩터 표준 기본 템플릿을 즉시 로드하여 캔버스 완전 격리
+    // 🛡️ 만약 sovereignMode인데 일치하는 매니페스트가 적용되지 않았다면, 해당 폼팩터 마스터 템플릿을 즉시 로드하여 캔버스 완전 격리
     if (sovereignMode && !applied) {
-      const std = getStandardTemplateByArchetype(sovereignMode);
-      if (std) {
-        handleApplyManifest(std);
+      const master = getMasterTemplate(sovereignMode);
+      if (master) {
+        handleApplyManifest(master);
+        setMasterManifest(master);
       } else {
         handleSelectTemplateMode(sovereignMode);
       }
@@ -4216,6 +4249,16 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
         <div className="flex items-center gap-2">
           <button
             type="button"
+            onClick={handleResetToMaster}
+            className="h-7 px-2.5 text-xs font-semibold rounded-[2px] border border-border bg-card hover:bg-muted text-muted-foreground hover:text-foreground transition flex items-center gap-1.5 shadow-2xs cursor-pointer"
+            title="현재 폼팩터의 공식 마스터 템플릿 설정값으로 원복"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+            <span>⟲ 마스터 원복</span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => {
               const targetTpl = sovereignMode || layoutTemplateMode || 'classic';
               navigate(`/shorts-template/${targetTpl}`);
@@ -5395,6 +5438,7 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
             }}
           >
             <UniversalCanvasStage
+              masterManifest={masterManifest}
               aspectRatio={aspectRatio}
               canvasScale={canvasScale}
               canvasPan={canvasPan}

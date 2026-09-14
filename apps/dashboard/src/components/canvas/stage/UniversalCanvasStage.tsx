@@ -2,7 +2,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import { cn, getMediaUrl } from '@/lib/utils';
 import { TransformGizmo } from '@/components/canvas/TransformGizmo';
 import { NleLayerTransform, NleLayerObject } from '@/types/nle';
-import { LayoutTemplateMode } from '@/types/templateDna';
+import { LayoutTemplateMode, TemplateManifest } from '@/types/templateDna';
 import { SubtitleConfig } from '@/types/subtitle';
 import { VideoFilterConfig } from '../forms/FilterFxInspectorForm';
 import { CommentCardConfig } from '../forms/CommentCardInspectorForm';
@@ -255,6 +255,7 @@ export interface UniversalCanvasStageProps {
   safeZoneVisible?: boolean;
   safeZonePlatform?: 'youtube' | 'tiktok' | 'reels';
   deviceMockup?: 'none' | 'iphone16' | 'galaxy';
+  masterManifest?: TemplateManifest;
 }
 
 // ── 한글 자막 자동 줄바꿈 헬퍼 ──
@@ -1869,7 +1870,14 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
       </div>
 
       {/* ── 🌟 화면 뷰포트 최상위 비왜곡 플로팅 프로퍼티 인스펙터 (스케일 왜곡 0% 보장) ── */}
-      {activeFloating !== 'none' && (
+      {activeFloating !== 'none' && (() => {
+        const masterGeo = props.masterManifest?.geometry as any;
+        const masterSty = props.masterManifest?.style as any;
+        const masterSsulCfg = masterGeo?.ssulConfig || masterGeo?.layout?.ssulConfig;
+        const masterGunlimboCfg = masterGeo?.gunlimboConfig || masterGeo?.layout?.gunlimboConfig;
+        const masterInstaCfg = masterGeo?.instaConfig || masterGeo?.layout?.instaConfig;
+
+        return (
         <div className="fixed inset-0 pointer-events-none z-[99999] overflow-visible">
           {/* ── 🌟 인-캔버스 객체 지향 플로팅 프로퍼티 인스펙터 (Pixeling 규격 100% 동일 복제) ── */}
           {activeFloating === 'ssulHeader' && (
@@ -1884,21 +1892,22 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                     }));
                   }}
                   onReset={() => {
+                    const targetH = masterSsulCfg?.ssulHeader || {
+                      enabled: true,
+                      bgColor: '#FFFFFF',
+                      heightMultiplier: 1.0,
+                      text: currentBrandChannelName,
+                      textColor: '#18181B',
+                      font: 'Pretendard',
+                      fontSizeMultiplier: 1.0,
+                      bold: true,
+                      italic: false,
+                      leftIcon: 'arrow_back',
+                      rightIcon: 'menu',
+                    };
                     props.setSsulConfig?.((prev: any) => ({
                       ...prev,
-                      ssulHeader: {
-                        enabled: true,
-                        bgColor: '#FFFFFF',
-                        heightMultiplier: 1.0,
-                        text: currentBrandChannelName,
-                        textColor: '#18181B',
-                        font: 'Pretendard',
-                        fontSizeMultiplier: 1.0,
-                        bold: true,
-                        italic: false,
-                        leftIcon: 'arrow_back',
-                        rightIcon: 'menu',
-                      },
+                      ssulHeader: { ...targetH },
                     }));
                   }}
                   defaultChannelName={currentBrandChannelName}
@@ -1947,28 +1956,38 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                   }}
                   onReset={() => {
                     if (layoutTemplateMode === 'ssul') {
+                      const targetPT = masterSsulCfg?.postTitle || {
+                        text: '오늘자 역대급 레전드 실화 썰 푼다',
+                        color: '#111827',
+                        font: 'Pretendard',
+                        fontSizeMultiplier: 1.0,
+                        align: 'left',
+                        bold: true,
+                        italic: false,
+                        strokeEnabled: false,
+                        strokeColor: '#000000',
+                        strokeWidth: 2,
+                        shadowEnabled: false,
+                        shadowColor: '#000000',
+                        shadowBlur: 4,
+                        offsetX: 0,
+                        offsetY: 0,
+                        letterSpacing: -0.5,
+                        lineHeight: 1.3,
+                      };
                       props.setSsulConfig?.((prev: any) => ({
                         ...prev,
-                        postTitle: {
-                          text: '오늘자 역대급 레전드 실화 썰 푼다',
-                          color: '#111827',
-                          font: 'Pretendard',
-                          fontSizeMultiplier: 1.0,
-                          align: 'left',
-                          bold: true,
-                          italic: false,
-                          strokeEnabled: false,
-                          strokeColor: '#000000',
-                          strokeWidth: 2,
-                          shadowEnabled: false,
-                          shadowColor: '#000000',
-                          shadowBlur: 4,
-                          offsetX: 0,
-                          offsetY: 0,
-                          letterSpacing: -0.5,
-                          lineHeight: 1.3,
-                        },
+                        postTitle: { ...targetPT },
                       }));
+                    } else {
+                      if (masterSty?.titleFont) props.setTitleFontFamily?.(masterSty.titleFont);
+                      if (masterSty?.titleLine1Color) props.setTitleLine1Color?.(masterSty.titleLine1Color);
+                      if (masterSty?.titleLine2Color) props.setTitleLine2Color?.(masterSty.titleLine2Color);
+                      if (masterGeo?.titleLine1) {
+                        props.setTitleLine1?.(masterGeo.titleLine1);
+                        props.setTopTitleText?.(masterGeo.titleLine1);
+                      }
+                      if (masterGeo?.titleLine2) props.setTitleLine2?.(masterGeo.titleLine2);
                     }
                   }}
                 />
@@ -1986,23 +2005,24 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                     }));
                   }}
                   onReset={() => {
+                    const targetMeta = masterSsulCfg?.metadata || {
+                      showAuthor: true,
+                      authorText: '익명',
+                      showTime: true,
+                      timeText: '방금 전',
+                      showViews: true,
+                      viewsText: '조회 1.2만 · 추천 420',
+                      separator: 'dot',
+                      color: '#6B7280',
+                      font: 'Pretendard',
+                      fontSizeMultiplier: 1.0,
+                      bold: false,
+                      offsetX: 0,
+                      offsetY: 0,
+                    };
                     props.setSsulConfig?.((prev: any) => ({
                       ...prev,
-                      metadata: {
-                        showAuthor: true,
-                        authorText: '익명',
-                        showTime: true,
-                        timeText: '방금 전',
-                        showViews: true,
-                        viewsText: '조회 1.2만 · 추천 420',
-                        separator: 'dot',
-                        color: '#6B7280',
-                        font: 'Pretendard',
-                        fontSizeMultiplier: 1.0,
-                        bold: false,
-                        offsetX: 0,
-                        offsetY: 0,
-                      },
+                      metadata: { ...targetMeta },
                     }));
                   }}
                 />
@@ -2020,17 +2040,18 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                     }));
                   }}
                   onReset={() => {
+                    const targetDiv = masterSsulCfg?.divider || {
+                      enabled: true,
+                      style: 'solid',
+                      thickness: 1,
+                      widthPercent: 100,
+                      color: '#E5E7EB',
+                      opacity: 100,
+                      offsetY: 0,
+                    };
                     props.setSsulConfig?.((prev: any) => ({
                       ...prev,
-                      divider: {
-                        enabled: true,
-                        style: 'solid',
-                        thickness: 1,
-                        widthPercent: 100,
-                        color: '#E5E7EB',
-                        opacity: 100,
-                        offsetY: 0,
-                      },
+                      divider: { ...targetDiv },
                     }));
                   }}
                 />
@@ -2048,28 +2069,29 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                     }));
                   }}
                   onReset={() => {
+                    const targetSub = masterSsulCfg?.ssulSubtitle || {
+                      font: 'Pretendard',
+                      color: '#1F2937',
+                      fontSizeMultiplier: 1.0,
+                      align: 'left',
+                      bold: true,
+                      italic: false,
+                      lineHeightMultiplier: 1.6,
+                      letterSpacingPx: 0,
+                      marginTopPx: 10,
+                      strokeEnabled: false,
+                      strokeColor: '#000000',
+                      strokeWidth: 2,
+                      shadowEnabled: false,
+                      shadowColor: '#000000',
+                      shadowBlur: 4,
+                      boxEnabled: false,
+                      boxColor: '#F3F4F6',
+                      boxRadius: 4,
+                    };
                     props.setSsulConfig?.((prev: any) => ({
                       ...prev,
-                      ssulSubtitle: {
-                        font: 'Pretendard',
-                        color: '#1F2937',
-                        fontSizeMultiplier: 1.0,
-                        align: 'left',
-                        bold: true,
-                        italic: false,
-                        lineHeightMultiplier: 1.6,
-                        letterSpacingPx: 0,
-                        marginTopPx: 10,
-                        strokeEnabled: false,
-                        strokeColor: '#000000',
-                        strokeWidth: 2,
-                        shadowEnabled: false,
-                        shadowColor: '#000000',
-                        shadowBlur: 4,
-                        boxEnabled: false,
-                        boxColor: '#F3F4F6',
-                        boxRadius: 4,
-                      },
+                      ssulSubtitle: { ...targetSub },
                     }));
                   }}
                 />
@@ -2098,8 +2120,9 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                     if (patch.textColor !== undefined && props.setTitleBadgeColor) props.setTitleBadgeColor(patch.textColor);
                   }}
                   onReset={() => {
-                    props.setTitleBadgeText?.('HOT ISSUE');
-                    props.setTitleBadgeBg?.('#EF4444');
+                    props.setTitleBadgeText?.(masterGeo?.badgeTag?.text || 'HOT ISSUE');
+                    props.setTitleBadgeBg?.(masterGeo?.badgeTag?.bgColor || '#EF4444');
+                    props.setTitleBadgeColor?.(masterGeo?.badgeTag?.textColor || '#FFFFFF');
                   }}
                 />
               )}
@@ -2143,8 +2166,11 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                     if (patch.borderRadius !== undefined && props.setJabBorderRadius) props.setJabBorderRadius(patch.borderRadius);
                   }}
                   onReset={() => {
-                    props.setJabTiltDeg?.(-3);
-                    props.setJabBgColor?.('#FFE500');
+                    const jh = masterGeo?.jabHook;
+                    props.setJabText?.(jh?.text || masterGeo?.jabText || '마지막 반전 주의 ㄷㄷ');
+                    props.setJabTiltDeg?.(jh?.tiltDeg ?? masterGeo?.jabTiltDeg ?? -3);
+                    props.setJabBgColor?.(jh?.bgColor || masterGeo?.jabBgColor || '#FFE500');
+                    props.setJabTextColor?.(jh?.textColor || masterGeo?.jabTextColor || '#000000');
                   }}
                 />
               )}
@@ -2183,13 +2209,16 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                     }));
                   }}
                   onReset={() => {
-                    props.setGunlimboConfig?.((prev: any) => ({
-                      ...prev,
-                      titleLine1: '충격 실화 사건',
-                      titleLine2: '상상도 못한 결말',
+                    const defaultHook = masterGunlimboCfg || {
+                      titleLine1: masterGeo?.titleLine1 || '충격 실화 사건',
+                      titleLine2: masterGeo?.titleLine2 || '상상도 못한 결말',
                       hookPhrase: '1분 만에 밝혀진 진실',
                       hookBgColor: '#FFFFFF',
                       hookTextColor: '#000000',
+                    };
+                    props.setGunlimboConfig?.((prev: any) => ({
+                      ...prev,
+                      ...defaultHook,
                     }));
                   }}
                 />
@@ -2222,11 +2251,14 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                     }));
                   }}
                   onReset={() => {
-                    props.setInstaConfig?.((prev: any) => ({
-                      ...prev,
+                    const defaultProf = masterInstaCfg || {
                       profileName: '유머보따리',
                       profileHandle: '@humor_box',
                       isVerified: true,
+                    };
+                    props.setInstaConfig?.((prev: any) => ({
+                      ...prev,
+                      ...defaultProf,
                     }));
                   }}
                 />
@@ -2266,7 +2298,8 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                     if (patch.borderRadius !== undefined && props.setBottomSourceBorderRadius) props.setBottomSourceBorderRadius(patch.borderRadius);
                   }}
                   onReset={() => {
-                    props.setBottomSourceText?.('출처: YouTube @ViraLoop 공식 채널');
+                    props.setBottomSourceText?.(masterGeo?.sourceZone?.defaultText || masterGeo?.bottomSourceText || '출처: YouTube @ViraLoop 공식 채널');
+                    props.setBottomSourceColor?.(masterGeo?.sourceZone?.textColor || masterGeo?.bottomSourceColor || '#CBD5E1');
                   }}
                 />
               )}
@@ -2300,12 +2333,16 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                     if (patch.bottomBarRadius !== undefined && props.setBottomBarRadius) props.setBottomBarRadius(patch.bottomBarRadius);
                   }}
                   onReset={() => {
-                    props.setTopBarBg?.('#000000');
-                    props.setTopBarHeightPct?.(18.3);
+                    const topH = masterGeo?.topTitleZone?.heightPct ?? masterGeo?.topBarHeightPct ?? 18.3;
+                    const topB = masterGeo?.topTitleZone?.bgColor || masterGeo?.topBarBg || '#000000';
+                    const botH = masterGeo?.bottomBarHeightPct ?? 6.0;
+                    const botB = masterGeo?.bottomBarBg || '#000000';
+                    props.setTopBarBg?.(topB);
+                    props.setTopBarHeightPct?.(topH);
                     props.setTopBarOpacity?.(1.0);
                     props.setTopBarRadius?.(0);
-                    props.setBottomBarBg?.('#000000');
-                    props.setBottomBarHeightPct?.(6.0);
+                    props.setBottomBarBg?.(botB);
+                    props.setBottomBarHeightPct?.(botH);
                     props.setBottomBarOpacity?.(1.0);
                     props.setBottomBarRadius?.(0);
                   }}
@@ -2321,13 +2358,16 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                     props.setCommentCard?.((prev: any) => ({ ...prev, ...patch }));
                   }}
                   onReset={() => {
-                    props.setCommentCard?.((prev: any) => ({
-                      ...prev,
+                    const defaultC = masterGeo?.commentCard || {
                       authorName: '알고리즘의노예',
                       commentText: '이거 보고 제 인생이 바뀌었습니다 ㄷㄷ',
                       likesCount: '1.4만',
                       bgColor: '#FFFFFF',
                       textColor: '#18181B',
+                    };
+                    props.setCommentCard?.((prev: any) => ({
+                      ...prev,
+                      ...defaultC,
                     }));
                   }}
                 />
@@ -2357,15 +2397,18 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                     if (patch.horizontalFlip !== undefined && props.setVideoHorizontalFlip) props.setVideoHorizontalFlip(patch.horizontalFlip);
                   }}
                   onReset={() => {
-                    props.setVideoZoomScale?.(100);
+                    const zoom = masterGeo?.mediaZone?.kenBurnsScaleEnd ? Math.round(masterGeo.mediaZone.kenBurnsScaleEnd * 100) : (masterGeo?.videoZoomScale ?? 100);
+                    const focusY = masterGeo?.videoFocusYPct ?? 50;
+                    props.setVideoZoomScale?.(zoom);
                     props.setVideoFocusXPct?.(50);
-                    props.setVideoFocusYPct?.(50);
+                    props.setVideoFocusYPct?.(focusY);
                     props.setVideoRotationDeg?.(0);
                   }}
                 />
               )}
         </div>
-      )}
+        );
+      })()}
     </div>
   );
 };

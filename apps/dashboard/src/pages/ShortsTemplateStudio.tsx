@@ -29,7 +29,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { cn, getMediaUrl } from '@/lib/utils';
 import api from '@/lib/api';
 import { TemplateManifest, TemplateCanvasState } from '@/types/templateDna';
-import { STANDARD_TEMPLATES, getStandardTemplateByArchetype } from '@/config/standardTemplates';
+import { STANDARD_TEMPLATES, getStandardTemplateByArchetype, getMasterTemplate, saveMasterTemplateLocal } from '@/config/standardTemplates';
 import { NleLayerTransform, createDefaultTransform } from '@/types/nle';
 import { TransformGizmo } from '@/components/canvas/TransformGizmo';
 import { SubtitleConfig, DEFAULT_SUBTITLE_CONFIG } from '@/types/subtitle';
@@ -285,6 +285,22 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
   // 4대 폼팩터 모드 및 인스펙터 탭
   const initialMode = sovereignMode || (searchParams.get('mode') as LayoutTemplateMode) || 'classic';
   const [layoutTemplateMode, setLayoutTemplateMode] = useState<LayoutTemplateMode>(initialMode);
+  const [masterManifest, setMasterManifest] = useState<TemplateManifest>(() => getMasterTemplate(initialMode));
+
+  useEffect(() => {
+    const m = getMasterTemplate(layoutTemplateMode);
+    setMasterManifest(m);
+  }, [layoutTemplateMode]);
+
+  useEffect(() => {
+    const handleMasterUpdated = (e: any) => {
+      if (e.detail && (e.detail.archetype === layoutTemplateMode || !e.detail.archetype)) {
+        setMasterManifest(e.detail.manifest);
+      }
+    };
+    window.addEventListener('vl_master_template_updated', handleMasterUpdated);
+    return () => window.removeEventListener('vl_master_template_updated', handleMasterUpdated);
+  }, [layoutTemplateMode]);
 
   useEffect(() => {
     if (sovereignMode && layoutTemplateMode !== sovereignMode) {
@@ -1211,226 +1227,390 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
     setIsTemplateLibraryOpen(false);
   };
 
-  // 💾 템플릿 저장 (viral_loop.db 영구 저장)
+  // 📐 현재 캔버스 상태로부터 완벽한 TemplateManifest 객체 빌드
+  const buildCurrentManifest = (customId?: string, customName?: string, isMaster: boolean = false): TemplateManifest => {
+    const cleanName = (customName || templateName).trim() || (isMaster ? `${layoutTemplateMode.toUpperCase()} 마스터` : '커스텀 템플릿');
+    const id = customId || (isMaster ? `master_${layoutTemplateMode}` : `custom_${Date.now().toString(36)}`);
+    return {
+      id,
+      name: cleanName,
+      badge: isMaster ? '마스터 템플릿' : '커스텀',
+      description: isMaster
+        ? `${layoutTemplateMode} 폼팩터 공식 마스터 템플릿 (리셋 기준점)`
+        : '사용자 지정 숏폼 템플릿 디자인',
+      isSystem: isMaster,
+      version: Date.now(),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      archetype: layoutTemplateMode,
+      aspectRatio,
+      geometry: {
+        mediaZone: {
+          introTopPct: layoutTemplateMode === 'gunlimbo' ? 34.0 : 0,
+          introHeightPct: layoutTemplateMode === 'gunlimbo' ? 36.0 : 100,
+          normalTopPct: layoutTemplateMode === 'gunlimbo' ? 24.0 : 0,
+          normalHeightPct: layoutTemplateMode === 'gunlimbo' ? 46.0 : 100,
+          fitMode: videoFitMode === 'sandwich' ? 'sandwich' : 'fullscreen',
+          kenBurnsIntroZoom: true,
+          kenBurnsScaleEnd: 1.1,
+          introDurationSec: gunlimboConfig.introDurationSec || 2.5,
+        },
+        topTitleZone: {
+          enabled: hasTopTitle || hasTopBarBg,
+          topPct: 0,
+          heightPct: topBarHeightPct || 24.0,
+          bgColor: topBarBg || '#000000',
+          opacity: topBarOpacity,
+          keepThroughout: true,
+        },
+        holeWindowZone: layoutTemplateMode === 'instagram' ? {
+          enabled: true,
+          widthPct: instaConfig.holeWidthPct,
+          heightPct: instaConfig.holeHeightPct,
+          yPct: instaConfig.holeYPct,
+          roundness: instaConfig.holeRoundness,
+          borderWidth: 1,
+          borderColor: '#E5E7EB',
+          shadow: true,
+          cardBgColor: instaConfig.bgColor || '#FFFFFF',
+        } : undefined,
+        hookBandZone: layoutTemplateMode === 'gunlimbo' ? {
+          enabled: true,
+          topPct: 24.0,
+          heightPct: 10.0,
+          bgBarColor: '#000000',
+          boxColor: gunlimboConfig.hookBgColor,
+          textColor: gunlimboConfig.hookTextColor,
+          paddingX: 12,
+          paddingY: 6,
+          borderRadius: 0,
+        } : undefined,
+        captionZone: {
+          enabled: true,
+          topPct: 70.0,
+          heightPct: 25.0,
+          safeZoneYPct: 75.0,
+          bgColor: '#000000',
+          hideDuringIntro: layoutTemplateMode === 'gunlimbo',
+        },
+        sourceZone: hasBottomSource ? {
+          enabled: true,
+          yPct: 94.0,
+          defaultText: bottomSourceText,
+          textColor: bottomSourceColor,
+          fontSize: bottomSourceSizePx,
+        } : undefined,
+        canvasType: 'LETTERBOX_SOLID',
+        videoFitMode,
+        videoBlurBg,
+        videoFocusXPct,
+        videoFocusYPct,
+        videoZoomScale,
+        videoRotationDeg,
+        videoHorizontalFlip,
+        videoVerticalFlip,
+        videoFilter,
+        hasTopBarBg,
+        topBarBg,
+        topBarHeightPct,
+        topBarOpacity,
+        topBarRadius,
+        topBarZIndex,
+        hasBottomBarBg,
+        bottomBarBg,
+        bottomBarHeightPct,
+        bottomBarOpacity,
+        bottomBarRadius,
+        bottomBarZIndex,
+        hasTopTitle,
+        topTitleText,
+        titleLinesMode,
+        titleLine1,
+        titleLine2,
+        titleLine1Color,
+        titleLine2Color,
+        titleLine1SizePx,
+        titleLine2SizePx,
+        titleFontFamily,
+        titleStroke,
+        titleStrokeWidth,
+        titleStrokeColor,
+        titleShadow,
+        titleShadowBlur,
+        titleShadowColor,
+        titleBgMode,
+        titleBgColor,
+        titleBgOpacity,
+        titlePaddingX,
+        titlePaddingY,
+        titleBorderRadius,
+        hasTitleBadge,
+        titleBadgeText,
+        titleBadgeBg,
+        titleBadgeColor,
+        hasJab,
+        jabText,
+        jabTiltDeg,
+        jabFontSize,
+        jabTextColor,
+        jabStroke,
+        jabStrokeWidth,
+        jabStrokeColor,
+        jabShadow,
+        jabShadowBlur,
+        jabBgEnabled,
+        jabBgColor,
+        jabBorderRadius,
+        hasBottomSource,
+        bottomSourceText,
+        bottomSourceColor,
+        bottomSourceSizePx,
+        bottomSourceFontFamily,
+        bottomSourceBottomPct,
+        bottomSourceStroke,
+        bottomSourceShadow,
+        bottomSourceBg,
+        bottomSourceBorderRadius,
+        hasSubtitle: true,
+        subtitleConfig,
+        subtitleStrokeEnabled,
+        subtitleStrokeWidth,
+        subtitleStrokeColor,
+        subtitleShadowEnabled,
+        subtitleShadowBlur,
+        subtitleShadowColor,
+        subtitleUseBox,
+        subtitleBoxColor,
+        subtitleBorderRadius,
+        hasCommentCard,
+        commentCard,
+        instaConfig,
+        gunlimboConfig,
+        ssulConfig,
+      },
+      style: {
+        titleFont: titleFontFamily,
+        titleLinesMode: titleLinesMode,
+        titleBadgeText: titleBadgeText,
+        titleBadgeColor: titleBadgeColor,
+        titleFontSize: layoutTemplateMode === 'gunlimbo' ? gunlimboConfig.titleFontSize : titleLine1SizePx,
+        titleLine2FontSize: titleLine2SizePx,
+        titleLine1Color: layoutTemplateMode === 'gunlimbo' ? gunlimboConfig.titleLine1Color : titleLine1Color,
+        titleLine2Color: layoutTemplateMode === 'gunlimbo' ? gunlimboConfig.titleLine2Color : titleLine2Color,
+        titleBgMode: titleBgMode,
+        titleBgColor: titleBgColor,
+        titleBorderRadius: titleBorderRadius,
+        titleStroke: titleStroke,
+        titleStrokeWidth: titleStrokeWidth,
+        titleStrokeColor: titleStrokeColor,
+        titleShadow: titleShadow,
+        titleShadowBlur: titleShadowBlur,
+        titleShadowColor: titleShadowColor,
+        hookFont: 'Pretendard',
+        hookFontSize: gunlimboConfig.hookFontSize || 19,
+        captionFont: subtitleConfig.font || 'Pretendard',
+        captionFontSize: subtitleConfig.fontSize || 32,
+        captionDefaultColor: '#FFFFFF',
+        captionStrokeWidth: subtitleStrokeWidth,
+        captionStrokeColor: subtitleStrokeColor,
+        captionShadowBlur: subtitleShadowBlur,
+        captionShadowColor: subtitleShadowColor,
+        captionUseBox: subtitleUseBox,
+        captionBoxColor: subtitleBoxColor,
+        captionBoxOpacity: 0.8,
+        emotionColors: {
+          normal: '#FFE500',
+          highlight: '#00F0FF',
+          impact: '#FF3366',
+          white: '#FFFFFF',
+        },
+      },
+      sourcing: {
+        priority: 'video_crop_only',
+        promptPrefix: 'cinematic 4k shot',
+        enableMemeReactions: false,
+        memePlacement: 'bottom_left',
+        memeScale: 1.0,
+        memeDurationSec: 0.8,
+      },
+      capcut: {
+        titleMotion: 'fade_in',
+        hookMotion: 'word_pop',
+        captionMotion: 'karaoke',
+      },
+      canvasState: {
+        titleTransform,
+        jabTransform,
+        subTransform,
+        profileTransform,
+        commentTransform,
+        sourceTransform,
+        gunlimboConfig,
+        instaConfig,
+        ssulConfig,
+        commentCard,
+        videoFitMode,
+        videoBlurBg,
+        videoFocusXPct,
+        videoFocusYPct,
+        videoZoomScale,
+        videoRotationDeg,
+        videoHorizontalFlip,
+        videoVerticalFlip,
+        videoFilter,
+        hasTopBarBg,
+        topBarBg,
+        topBarHeightPct,
+        topBarOpacity,
+        topBarRadius,
+        topBarZIndex,
+        hasBottomBarBg,
+        bottomBarBg,
+        bottomBarHeightPct,
+        bottomBarOpacity,
+        bottomBarRadius,
+        bottomBarZIndex,
+        hasTopTitle,
+        topTitleText,
+        titleLinesMode,
+        titleLine1,
+        titleLine2,
+        titleLine1Color,
+        titleLine2Color,
+        titleLine1SizePx,
+        titleLine2SizePx,
+        titleFontFamily,
+        titleStroke,
+        titleStrokeWidth,
+        titleStrokeColor,
+        titleShadow,
+        titleShadowBlur,
+        titleShadowColor,
+        titleBgMode,
+        titleBgColor,
+        titleBgOpacity,
+        titlePaddingX,
+        titlePaddingY,
+        titleBorderRadius,
+        hasTitleBadge,
+        titleBadgeText,
+        titleBadgeBg,
+        titleBadgeColor,
+        hasJab,
+        jabText,
+        jabTiltDeg,
+        jabFontSize,
+        jabTextColor,
+        jabStroke,
+        jabStrokeWidth,
+        jabStrokeColor,
+        jabShadow,
+        jabShadowBlur,
+        jabBgEnabled,
+        jabBgColor,
+        jabBorderRadius,
+        hasBottomSource,
+        bottomSourceText,
+        bottomSourceColor,
+        bottomSourceSizePx,
+        bottomSourceFontFamily,
+        bottomSourceBottomPct,
+        bottomSourceStroke,
+        bottomSourceShadow,
+        bottomSourceBg,
+        bottomSourceBorderRadius,
+        hasSubtitle: true,
+        subtitleConfig,
+        subtitleStrokeEnabled,
+        subtitleStrokeWidth,
+        subtitleStrokeColor,
+        subtitleShadowEnabled,
+        subtitleShadowBlur,
+        subtitleShadowColor,
+        subtitleUseBox,
+        subtitleBoxColor,
+        subtitleBorderRadius,
+        hasCommentCard,
+      },
+    };
+  };
+
+  // ⭐ 공식 마스터 템플릿으로 영구 저장 (리셋의 단일 진실 공급원)
+  const handleSaveMasterTemplate = async () => {
+    setIsSaving(true);
+    try {
+      const manifest = buildCurrentManifest(`master_${layoutTemplateMode}`, `${templateName.trim() || layoutTemplateMode.toUpperCase()} 마스터`, true);
+      saveMasterTemplateLocal(layoutTemplateMode, manifest);
+      setMasterManifest(manifest);
+
+      const res = await api.post('/channel-dna/templates', {
+        name: `${templateName.trim() || layoutTemplateMode.toUpperCase()} 마스터`,
+        archetype: layoutTemplateMode,
+        aspect_ratio: aspectRatio,
+        description: `${layoutTemplateMode} 폼팩터 공식 마스터 템플릿 (리셋 기준점)`,
+        manifest: manifest,
+        layout: manifest.geometry,
+        is_master: true,
+      });
+
+      if (res.data?.template) {
+        setTemplateLibraryList(prev => [res.data.template, ...prev.filter(t => t.id !== res.data.template.id)]);
+      }
+
+      toast({
+        title: '⭐ 마스터 템플릿 저장 완료',
+        description: `'${manifest.name}'이(가) ${layoutTemplateMode.toUpperCase()} 공식 마스터 템플릿으로 저장되었습니다. 이제 언제든 리셋 시 이 형태로 복원됩니다.`
+      });
+    } catch (err: any) {
+      console.warn('마스터 템플릿 저장 예외 처리:', err);
+      toast({
+        title: '⭐ 마스터 템플릿 로컬 보관 완료',
+        description: `'${templateName}' 마스터 템플릿이 로컬에 저장되었습니다.`
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // ⟲ 마스터 템플릿으로 원복 (하드코딩 0% 완전 퇴출)
+  const handleResetToMaster = async () => {
+    try {
+      let targetMaster = masterManifest;
+      try {
+        const res = await api.get(`/channel-dna/templates/master/${layoutTemplateMode}`);
+        if (res.data?.template?.manifest) {
+          targetMaster = res.data.template.manifest;
+          saveMasterTemplateLocal(layoutTemplateMode, targetMaster);
+          setMasterManifest(targetMaster);
+        }
+      } catch (_) {}
+
+      if (!targetMaster) {
+        targetMaster = getMasterTemplate(layoutTemplateMode);
+      }
+
+      handleApplyManifest(targetMaster);
+      toast({
+        title: '⟲ 마스터 템플릿으로 원복 완료',
+        description: `${layoutTemplateMode.toUpperCase()} 공식 마스터 템플릿 규격으로 캔버스가 완벽하게 복원되었습니다.`
+      });
+    } catch (e) {
+      console.error('Failed to reset to master:', e);
+      handleSelectTemplateMode(layoutTemplateMode);
+    }
+  };
+
+  // 💾 커스텀 템플릿 저장 (동일 이름 시 덮어쓰기 지원)
   const handleSaveTemplate = async () => {
     setIsSaving(true);
     try {
-      const manifest: TemplateManifest = {
-        id: `template_${Date.now()}`,
-        name: templateName,
-        badge: '커스텀',
-        description: '사용자 지정 숏폼 템플릿 디자인',
-        isSystem: false,
-        version: 1,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        // author: 'ViraLoop User',
-        // tags: ['custom', layoutTemplateMode],
-        archetype: layoutTemplateMode,
-        aspectRatio: aspectRatio,
-        // safeZone: safeZoneVisible ? 'youtube_shorts' : 'none',
-        geometry: {
-          mediaZone: {
-            introTopPct: layoutTemplateMode === 'gunlimbo' ? 34.0 : 0,
-            introHeightPct: layoutTemplateMode === 'gunlimbo' ? 36.0 : 100,
-            normalTopPct: layoutTemplateMode === 'gunlimbo' ? 24.0 : 0,
-            normalHeightPct: layoutTemplateMode === 'gunlimbo' ? 46.0 : 100,
-            fitMode: videoFitMode === 'sandwich' ? 'sandwich' : 'fullscreen',
-            kenBurnsIntroZoom: true,
-            kenBurnsScaleEnd: 1.1,
-            introDurationSec: gunlimboConfig.introDurationSec || 2.5,
-          },
-          topTitleZone: {
-            enabled: hasTopTitle || hasTopBarBg,
-            topPct: 0,
-            heightPct: topBarHeightPct || 24.0,
-            bgColor: topBarBg || '#000000',
-            opacity: topBarOpacity,
-            keepThroughout: true,
-          },
-          holeWindowZone: layoutTemplateMode === 'instagram' ? {
-            enabled: true,
-            widthPct: instaConfig.holeWidthPct,
-            heightPct: instaConfig.holeHeightPct,
-            yPct: instaConfig.holeYPct,
-            roundness: instaConfig.holeRoundness,
-            borderWidth: 1,
-            borderColor: '#E5E7EB',
-            shadow: true,
-            cardBgColor: instaConfig.bgColor || '#FFFFFF',
-          } : undefined,
-          hookBandZone: layoutTemplateMode === 'gunlimbo' ? {
-            enabled: true,
-            topPct: 24.0,
-            heightPct: 10.0,
-            bgBarColor: '#000000',
-            boxColor: gunlimboConfig.hookBgColor,
-            textColor: gunlimboConfig.hookTextColor,
-            paddingX: 12,
-            paddingY: 6,
-            borderRadius: 0,
-          } : undefined,
-          captionZone: {
-            enabled: true,
-            topPct: 70.0,
-            heightPct: 25.0,
-            safeZoneYPct: 75.0,
-            bgColor: '#000000',
-            hideDuringIntro: layoutTemplateMode === 'gunlimbo',
-          },
-          sourceZone: hasBottomSource ? {
-            enabled: true,
-            yPct: 94.0,
-            defaultText: bottomSourceText,
-            textColor: bottomSourceColor,
-            fontSize: bottomSourceSizePx,
-          } : undefined,
-        },
-        style: {
-          titleFont: titleFontFamily,
-          titleLinesMode: titleLinesMode,
-          titleBadgeText: titleBadgeText,
-          titleBadgeColor: titleBadgeColor,
-          titleFontSize: layoutTemplateMode === 'gunlimbo' ? gunlimboConfig.titleFontSize : titleLine1SizePx,
-          titleLine2FontSize: titleLine2SizePx,
-          titleLine1Color: layoutTemplateMode === 'gunlimbo' ? gunlimboConfig.titleLine1Color : titleLine1Color,
-          titleLine2Color: layoutTemplateMode === 'gunlimbo' ? gunlimboConfig.titleLine2Color : titleLine2Color,
-          titleBgMode: titleBgMode,
-          titleBgColor: titleBgColor,
-          titleBorderRadius: titleBorderRadius,
-          titleStroke: titleStroke,
-          titleStrokeWidth: titleStrokeWidth,
-          titleStrokeColor: titleStrokeColor,
-          titleShadow: titleShadow,
-          titleShadowBlur: titleShadowBlur,
-          titleShadowColor: titleShadowColor,
-          hookFont: 'Pretendard',
-          hookFontSize: gunlimboConfig.hookFontSize || 19,
-          captionFont: subtitleConfig.font || 'Pretendard',
-          captionFontSize: subtitleConfig.fontSize || 32,
-          captionDefaultColor: '#FFFFFF',
-          captionStrokeWidth: subtitleStrokeWidth,
-          captionStrokeColor: subtitleStrokeColor,
-          captionShadowBlur: subtitleShadowBlur,
-          captionShadowColor: subtitleShadowColor,
-          captionUseBox: subtitleUseBox,
-          captionBoxColor: subtitleBoxColor,
-          captionBoxOpacity: 0.8,
-          emotionColors: {
-            normal: '#FFE500',
-            highlight: '#00F0FF',
-            impact: '#FF3366',
-            white: '#FFFFFF',
-          },
-        },
-        sourcing: {
-          priority: 'video_crop_only',
-          promptPrefix: 'cinematic 4k shot',
-          enableMemeReactions: false,
-          memePlacement: 'bottom_left',
-          memeScale: 1.0,
-          memeDurationSec: 0.8,
-        },
-        capcut: {
-          titleMotion: 'fade_in',
-          hookMotion: 'word_pop',
-          captionMotion: 'karaoke',
-        },
-        canvasState: {
-          titleTransform,
-          jabTransform,
-          subTransform,
-          profileTransform,
-          commentTransform,
-          sourceTransform,
-          gunlimboConfig,
-          instaConfig,
-          ssulConfig,
-          commentCard,
-          videoFitMode,
-          videoBlurBg,
-          videoFocusXPct,
-          videoFocusYPct,
-          videoZoomScale,
-          videoRotationDeg,
-          videoHorizontalFlip,
-          videoVerticalFlip,
-          videoFilter,
-          hasTopBarBg,
-          topBarBg,
-          topBarHeightPct,
-          topBarOpacity,
-          topBarRadius,
-          topBarZIndex,
-          hasBottomBarBg,
-          bottomBarBg,
-          bottomBarHeightPct,
-          bottomBarOpacity,
-          bottomBarRadius,
-          bottomBarZIndex,
-          hasTopTitle,
-          topTitleText,
-          titleLinesMode,
-          titleLine1,
-          titleLine2,
-          titleLine1Color,
-          titleLine2Color,
-          titleLine1SizePx,
-          titleLine2SizePx,
-          titleFontFamily,
-          titleStroke,
-          titleStrokeWidth,
-          titleStrokeColor,
-          titleShadow,
-          titleShadowBlur,
-          titleShadowColor,
-          titleBgMode,
-          titleBgColor,
-          titleBgOpacity,
-          titlePaddingX,
-          titlePaddingY,
-          titleBorderRadius,
-          hasTitleBadge,
-          titleBadgeText,
-          titleBadgeBg,
-          titleBadgeColor,
-          hasJab,
-          jabText,
-          jabTiltDeg,
-          jabFontSize,
-          jabTextColor,
-          jabStroke,
-          jabStrokeWidth,
-          jabStrokeColor,
-          jabShadow,
-          jabShadowBlur,
-          jabBgEnabled,
-          jabBgColor,
-          jabBorderRadius,
-          hasBottomSource,
-          bottomSourceText,
-          bottomSourceColor,
-          bottomSourceSizePx,
-          bottomSourceFontFamily,
-          bottomSourceBottomPct,
-          bottomSourceStroke,
-          bottomSourceShadow,
-          bottomSourceBg,
-          bottomSourceBorderRadius,
-          hasSubtitle: true,
-          subtitleConfig,
-          subtitleStrokeEnabled,
-          subtitleStrokeWidth,
-          subtitleStrokeColor,
-          subtitleShadowEnabled,
-          subtitleShadowBlur,
-          subtitleShadowColor,
-          subtitleUseBox,
-          subtitleBoxColor,
-          subtitleBorderRadius,
-          hasCommentCard,
-        },
-      };
+      const cleanName = templateName.trim() || '커스텀 템플릿';
+      const existingSameName = templateLibraryList.find(
+        (t) => t.archetype === layoutTemplateMode && t.name === cleanName && !t.id?.startsWith('master_')
+      );
+
+      const manifestId = existingSameName?.id || `custom_${Date.now().toString(36)}`;
+      const manifest = buildCurrentManifest(manifestId, cleanName, false);
 
       try {
         localStorage.setItem('applied_template_manifest', JSON.stringify(manifest));
@@ -1443,21 +1623,25 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
       } catch (_) {}
 
       const res = await api.post('/channel-dna/templates', {
-        name: templateName.trim() || '커스텀 템플릿',
+        name: cleanName,
         archetype: layoutTemplateMode,
         aspect_ratio: aspectRatio,
         description: '사용자 지정 숏폼 템플릿 디자인',
         manifest: manifest,
         layout: manifest.geometry,
+        is_master: false,
       });
 
       if (res.data?.template) {
         setTemplateLibraryList(prev => [res.data.template, ...prev.filter(t => t.id !== res.data.template.id)]);
       }
 
+      const isOverwrite = Boolean(existingSameName);
       toast({
-        title: '💾 템플릿 저장 완료',
-        description: `'${templateName}' 템플릿이 단일 DB(viral_loop.db)에 성공적으로 보관되었으며 정밀 편집기 연동이 완료되었습니다.`
+        title: isOverwrite ? '💾 템플릿 덮어쓰기 완료' : '💾 새 템플릿 저장 완료',
+        description: isOverwrite
+          ? `'${cleanName}' 기존 템플릿에 최신 디자인이 성공적으로 덮어씌워졌습니다.`
+          : `'${cleanName}' 템플릿이 단일 DB(viral_loop.db)에 신규 보관되었습니다.`
       });
     } catch (err: any) {
       console.warn('DB 저장 실패 시 로컬스토리지 보관:', err);
@@ -1796,6 +1980,17 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
           <Button
             variant="outline"
             size="sm"
+            onClick={handleResetToMaster}
+            className="h-7 text-xs px-2.5 gap-1 border-border font-semibold hover:bg-muted cursor-pointer text-muted-foreground hover:text-foreground"
+            title="현재 폼팩터의 공식 마스터 템플릿 설정값으로 원복"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+            <span>⟲ 마스터 원복</span>
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
             onClick={handleOpenTemplateLibrary}
             className="h-7 text-xs px-2.5 gap-1 border-border font-semibold hover:bg-muted cursor-pointer"
           >
@@ -1811,7 +2006,19 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
             className="h-7 text-xs px-2.5 gap-1 border-border font-semibold cursor-pointer"
           >
             <Save className="w-3.5 h-3.5 text-muted-foreground" />
-            <span>💾 템플릿 저장 (viral_loop.db)</span>
+            <span>💾 템플릿 저장</span>
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleSaveMasterTemplate}
+            disabled={isSaving}
+            className="h-7 text-xs px-2.5 gap-1 border-amber-500/50 bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 font-semibold cursor-pointer"
+            title="현재 설정을 해당 폼팩터의 영구 기본 마스터 템플릿으로 저장"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+            <span>⭐ 마스터로 저장</span>
           </Button>
 
           <Button
@@ -2299,6 +2506,7 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
 
             <UniversalCanvasStage
               currentProjectDisplayName="템플릿 미리보기"
+              masterManifest={masterManifest}
               aspectRatio={aspectRatio}
               canvasScale={canvasScale}
               canvasPan={canvasPan}

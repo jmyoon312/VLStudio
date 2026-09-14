@@ -494,3 +494,40 @@ export const getStandardTemplateByArchetype = (archetype: string): TemplateManif
   if (archetype === 'ssul') return STANDARD_TEMPLATES.ssul_community;
   return STANDARD_TEMPLATES.classic_standard;
 };
+
+/**
+ * 🏛️ 폼팩터별 마스터 템플릿 반환 헬퍼 (단일 진실 공급원 SSOT)
+ * 1. 사용자가 [⭐ 마스터로 저장]한 사용자 커스텀 마스터 템플릿 최우선
+ * 2. 없으면 ViraLoop 공식 표준 골든 스탠다드 템플릿 반환
+ */
+export const getMasterTemplate = (archetype: string): TemplateManifest => {
+  try {
+    const raw = localStorage.getItem(`master_manifest_${archetype}`);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && (parsed.archetype === archetype || !parsed.archetype)) {
+        return parsed;
+      }
+    }
+  } catch (e) {
+    console.warn(`[getMasterTemplate] Failed to load master manifest for ${archetype}:`, e);
+  }
+  return getStandardTemplateByArchetype(archetype);
+};
+
+/**
+ * 💾 폼팩터별 마스터 템플릿 로컬 캐시 저장 및 이벤트 발행
+ */
+export const saveMasterTemplateLocal = (archetype: string, manifest: TemplateManifest): void => {
+  try {
+    localStorage.setItem(`master_manifest_${archetype}`, JSON.stringify(manifest));
+    window.dispatchEvent(new CustomEvent('vl_master_template_updated', { detail: { archetype, manifest } }));
+    try {
+      const ch = new BroadcastChannel('vl_master_template_channel');
+      ch.postMessage({ archetype, manifest });
+      ch.close();
+    } catch (_) {}
+  } catch (e) {
+    console.error(`[saveMasterTemplateLocal] Failed to save master manifest for ${archetype}:`, e);
+  }
+};

@@ -117,6 +117,7 @@ class SaveTemplateRequest(BaseModel):
     archetype: Optional[str] = "classic"
     aspect_ratio: Optional[str] = "9:16"
     channel_id: Optional[int] = None
+    is_master: Optional[bool] = False
 
 class ApplyTemplateRequest(BaseModel):
     channel_id: int
@@ -134,6 +135,18 @@ def list_templates():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.get("/templates/master/{archetype}")
+def get_master_template(archetype: str):
+    try:
+        master = ChannelDNAService.get_master_template(archetype)
+        if not master:
+            raise HTTPException(status_code=404, detail=f"Master template for archetype '{archetype}' not found")
+        return {"success": True, "template": master}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.post("/templates")
 def save_template(req: SaveTemplateRequest):
     try:
@@ -144,9 +157,11 @@ def save_template(req: SaveTemplateRequest):
             manifest=req.manifest,
             archetype=req.archetype or "classic",
             channel_id=req.channel_id,
-            aspect_ratio=req.aspect_ratio or "9:16"
+            aspect_ratio=req.aspect_ratio or "9:16",
+            is_master=bool(req.is_master)
         )
-        return {"success": True, "message": f"템플릿 '{req.name}'이(가) 저장되었습니다.", "template": saved}
+        msg = f"'{req.name}' 마스터 템플릿이 성공적으로 저장되었습니다." if req.is_master else f"템플릿 '{req.name}'이(가) 저장되었습니다."
+        return {"success": True, "message": msg, "template": saved}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

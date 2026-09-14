@@ -842,6 +842,63 @@ class ChannelDNAService:
             db.close()
 
     @staticmethod
+    def get_master_template(archetype: str) -> Optional[Dict[str, Any]]:
+        """
+        [SSOT: viral_loop.db] 특정 폼팩터의 공식 마스터 템플릿 반환
+        1. master_{archetype} ID를 가진 사용자 지정 마스터 템플릿 우선
+        2. 없으면 해당 archetype의 시스템 기본 템플릿 반환
+        """
+        from app.database import SessionLocal
+        from app import models
+        import json
+
+        db = SessionLocal()
+        try:
+            # 1. 사용자가 지정한 마스터 템플릿 확인
+            master = db.query(models.ShortsTemplate).filter(
+                models.ShortsTemplate.id == f"master_{archetype}"
+            ).first()
+            if master:
+                return {
+                    "id": master.id,
+                    "name": master.name,
+                    "badge": master.badge or "마스터 템플릿",
+                    "description": master.description,
+                    "archetype": master.archetype,
+                    "aspect_ratio": master.aspect_ratio or "9:16",
+                    "is_system": bool(master.is_system),
+                    "is_master": True,
+                    "channel_id": master.channel_id,
+                    "layout": master.layout if isinstance(master.layout, dict) else json.loads(master.layout or "{}"),
+                    "manifest": master.manifest if (master.manifest and isinstance(master.manifest, dict)) else (json.loads(master.manifest) if master.manifest else None),
+                    "updated_at": master.updated_at.isoformat() if master.updated_at else None
+                }
+
+            # 2. 시스템 기본 프리셋 확인
+            sys_preset = db.query(models.ShortsTemplate).filter(
+                models.ShortsTemplate.archetype == archetype,
+                models.ShortsTemplate.is_system == True
+            ).first()
+            if sys_preset:
+                return {
+                    "id": sys_preset.id,
+                    "name": sys_preset.name,
+                    "badge": sys_preset.badge or "공식 프리셋",
+                    "description": sys_preset.description,
+                    "archetype": sys_preset.archetype,
+                    "aspect_ratio": sys_preset.aspect_ratio or "9:16",
+                    "is_system": True,
+                    "is_master": True,
+                    "channel_id": sys_preset.channel_id,
+                    "layout": sys_preset.layout if isinstance(sys_preset.layout, dict) else json.loads(sys_preset.layout or "{}"),
+                    "manifest": sys_preset.manifest if (sys_preset.manifest and isinstance(sys_preset.manifest, dict)) else (json.loads(sys_preset.manifest) if sys_preset.manifest else None),
+                    "updated_at": sys_preset.updated_at.isoformat() if sys_preset.updated_at else None
+                }
+            return None
+        finally:
+            db.close()
+
+    @staticmethod
     def save_template(
         name: str, 
         layout: Dict[str, Any] = None, 
@@ -849,24 +906,52 @@ class ChannelDNAService:
         manifest: Dict[str, Any] = None, 
         archetype: str = "classic", 
         channel_id: Optional[int] = None,
-        aspect_ratio: str = "9:16"
+        aspect_ratio: str = "9:16",
+        is_master: bool = False
     ) -> Dict[str, Any]:
         """
         [SSOT: viral_loop.db] 사용자 맞춤형 레이아웃 템플릿 영구 저장 (DB + JSON 듀얼 동기화)
+        - is_master=True: 해당 폼팩터의 공식 마스터 템플릿 (master_{archetype})으로 저장
+        - is_master=False: 동일 이름 존재 시 덮어쓰기(Overwrite), 없을 시 신규 생성
         """
         from app.database import SessionLocal
         from app import models
         import os, json, uuid
         from datetime import datetime
 
-        template_id = manifest.get("id") if (manifest and manifest.get("id")) else f"custom_{uuid.uuid4().hex[:8]}"
         template_aspect = aspect_ratio or (manifest.get("aspectRatio") if manifest else "9:16")
+        clean_name = name.strip() or f"{archetype.capitalize()} 템플릿"
 
         db = SessionLocal()
         try:
-            existing = db.query(models.ShortsTemplate).filter(models.ShortsTemplate.id == template_id).first()
+            if is_master:
+                template_id = f"master_{archetype}"
+                badge = "마스터 템플릿"
+                is_system = True
+                existing = db.query(models.ShortsTemplate).filter(models.ShortsTemplate.id == template_id).first()
+            else:
+                badge = "사용자 커스텀"
+                is_system = False
+                # 🎯 동일 이름 템플릿 존재 여부 확인 (동일 이름이면 덮어쓰기!)
+                existing_same_name = db.query(models.ShortsTemplate).filter(
+                    models.ShortsTemplate.archetype == archetype,
+                    models.ShortsTemplate.name == clean_name,
+                    models.ShortsTemplate.id != f"master_{archetype}"
+                ).first()
+
+                if existing_same_name:
+                    existing = existing_same_name
+                    template_id = existing_same_name.id
+                elif manifest and manifest.get("id") and not manifest.get("id").startswith("preset_") and not manifest.get("id").startswith("master_"):
+                    template_id = manifest.get("id")
+                    existing = db.query(models.ShortsTemplate).filter(models.ShortsTemplate.id == template_id).first()
+                else:
+                    template_id = f"custom_{uuid.uuid4().hex[:8]}"
+                    existing = None
+
             if existing:
-                existing.name = name
+                existing.name = clean_name
+                existing.badge = badge
                 existing.description = description or existing.description
                 existing.archetype = archetype
                 existing.aspect_ratio = template_aspect
@@ -877,12 +962,12 @@ class ChannelDNAService:
             else:
                 new_entry = models.ShortsTemplate(
                     id=template_id,
-                    name=name,
-                    badge="사용자 커스텀",
-                    description=description or "사용자가 직접 커스텀하여 저장한 템플릿",
+                    name=clean_name,
+                    badge=badge,
+                    description=description or ("공식 마스터 템플릿" if is_master else "사용자가 직접 커스텀하여 저장한 템플릿"),
                     archetype=archetype,
                     aspect_ratio=template_aspect,
-                    is_system=False,
+                    is_system=is_system,
                     channel_id=channel_id,
                     layout=layout or {},
                     manifest=manifest,
@@ -910,12 +995,13 @@ class ChannelDNAService:
                     templates = json.load(f)
             new_item = {
                 "id": template_id,
-                "name": name,
-                "badge": "사용자 커스텀",
-                "description": description,
+                "name": clean_name,
+                "badge": badge,
+                "description": description or ("공식 마스터 템플릿" if is_master else "사용자 커스텀 템플릿"),
                 "archetype": archetype,
                 "aspect_ratio": template_aspect,
-                "is_system": False,
+                "is_system": is_system,
+                "is_master": is_master,
                 "channel_id": channel_id,
                 "layout": layout or {},
                 "manifest": manifest,
@@ -933,12 +1019,13 @@ class ChannelDNAService:
 
         return {
             "id": template_id,
-            "name": name,
-            "badge": "사용자 커스텀",
-            "description": description,
+            "name": clean_name,
+            "badge": badge,
+            "description": description or ("공식 마스터 템플릿" if is_master else "사용자 커스텀"),
             "archetype": archetype,
             "aspect_ratio": template_aspect,
-            "is_system": False,
+            "is_system": is_system,
+            "is_master": is_master,
             "channel_id": channel_id,
             "layout": layout or {},
             "manifest": manifest
