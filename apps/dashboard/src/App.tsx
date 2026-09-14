@@ -55,6 +55,20 @@ const ShortsTemplateStudio = lazy(() => import('./pages/ShortsTemplateStudio'));
 const ShortsProductionStudio = lazy(() => import('./pages/ShortsProductionStudio'));
 const ShortsEditorStudio = lazy(() => import('./pages/ShortsEditorStudio'));
 
+// Sovereign Studios & Tools
+const ShortsBatchStudio = lazy(() => import('./pages/ShortsBatchStudio'));
+const ClassicEditorStudio = lazy(() => import('./pages/editors/ClassicEditorStudio'));
+const InstaEditorStudio = lazy(() => import('./pages/editors/InstaEditorStudio'));
+const GunlimboEditorStudio = lazy(() => import('./pages/editors/GunlimboEditorStudio'));
+const SsulEditorStudio = lazy(() => import('./pages/editors/SsulEditorStudio'));
+const ClassicTemplateStudio = lazy(() => import('./pages/templates/ClassicTemplateStudio'));
+const InstaTemplateStudio = lazy(() => import('./pages/templates/InstaTemplateStudio'));
+const GunlimboTemplateStudio = lazy(() => import('./pages/templates/GunlimboTemplateStudio'));
+const SsulTemplateStudio = lazy(() => import('./pages/templates/SsulTemplateStudio'));
+const SubtitleToolStudio = lazy(() => import('./pages/tools/SubtitleToolStudio'));
+const TtsDubToolStudio = lazy(() => import('./pages/tools/TtsDubToolStudio'));
+const ClipEditToolStudio = lazy(() => import('./pages/tools/ClipEditToolStudio'));
+
 const PlaceholderPage = ({ title }: { title: string }) => (
     <div className="flex items-center justify-center h-full w-full p-10 mt-20">
         <div className="text-center">
@@ -144,12 +158,32 @@ function MainAppContent() {
                 <Routes>
                     <Route path="/" element={<RouteErrorBoundary><Home /></RouteErrorBoundary>} />
                     <Route path="/channel-dna-studio" element={<RouteErrorBoundary><ChannelDnaStudio /></RouteErrorBoundary>} />
-                    <Route path="/shorts-template-studio" element={<RouteErrorBoundary><ShortsTemplateStudio /></RouteErrorBoundary>} />
                     <Route path="/douyin-search" element={<RouteErrorBoundary><SmartDouyinSearch /></RouteErrorBoundary>} />
                     <Route path="/research-concept-lab" element={<RouteErrorBoundary><ResearchConceptLab /></RouteErrorBoundary>} />
                     <Route path="/shorts-production-studio" element={<RouteErrorBoundary><ShortsProductionStudio /></RouteErrorBoundary>} />
-                    <Route path="/shorts-editor" element={<RouteErrorBoundary><ShortsEditorStudio /></RouteErrorBoundary>} />
-                    <Route path="/shorts-editor-studio" element={<RouteErrorBoundary><ShortsEditorStudio /></RouteErrorBoundary>} />
+                    {/* 올인원 일괄 생성 */}
+                    <Route path="/shorts-batch" element={<RouteErrorBoundary><ShortsBatchStudio /></RouteErrorBoundary>} />
+
+                    {/* 4대 전문 편집기 */}
+                    <Route path="/shorts-editor" element={<Navigate to="/shorts-editor/classic" replace />} />
+                    <Route path="/shorts-editor-studio" element={<Navigate to="/shorts-editor/classic" replace />} />
+                    <Route path="/shorts-editor/classic" element={<RouteErrorBoundary><ClassicEditorStudio /></RouteErrorBoundary>} />
+                    <Route path="/shorts-editor/instagram" element={<RouteErrorBoundary><InstaEditorStudio /></RouteErrorBoundary>} />
+                    <Route path="/shorts-editor/gunlimbo" element={<RouteErrorBoundary><GunlimboEditorStudio /></RouteErrorBoundary>} />
+                    <Route path="/shorts-editor/ssul" element={<RouteErrorBoundary><SsulEditorStudio /></RouteErrorBoundary>} />
+
+                    {/* 4대 템플릿 디자인실 */}
+                    <Route path="/shorts-template-studio" element={<Navigate to="/shorts-template/classic" replace />} />
+                    <Route path="/shorts-template/classic" element={<RouteErrorBoundary><ClassicTemplateStudio /></RouteErrorBoundary>} />
+                    <Route path="/shorts-template/instagram" element={<RouteErrorBoundary><InstaTemplateStudio /></RouteErrorBoundary>} />
+                    <Route path="/shorts-template/gunlimbo" element={<RouteErrorBoundary><GunlimboTemplateStudio /></RouteErrorBoundary>} />
+                    <Route path="/shorts-template/ssul" element={<RouteErrorBoundary><SsulTemplateStudio /></RouteErrorBoundary>} />
+
+                    {/* 3대 공정별 도구 */}
+                    <Route path="/tools/subtitles" element={<RouteErrorBoundary><SubtitleToolStudio /></RouteErrorBoundary>} />
+                    <Route path="/tools/tts-dub" element={<RouteErrorBoundary><TtsDubToolStudio /></RouteErrorBoundary>} />
+                    <Route path="/tools/clip-edit" element={<RouteErrorBoundary><ClipEditToolStudio /></RouteErrorBoundary>} />
+
                     <Route path="/ddalkkak" element={<RouteErrorBoundary><ShortsProductionStudio /></RouteErrorBoundary>} />
                     <Route path="/scene-cutter-pro" element={<RouteErrorBoundary><SceneCutter /></RouteErrorBoundary>} />
                     <Route path="/ai-copilot" element={<RouteErrorBoundary><AICoPilotStudio /></RouteErrorBoundary>} />

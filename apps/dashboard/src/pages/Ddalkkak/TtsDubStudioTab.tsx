@@ -213,7 +213,8 @@ export const TtsDubStudioTab: React.FC<TtsDubStudioTabProps> = ({
         timestamp: Date.now(),
       }));
       setPreviewModalOpen(false);
-      navigate('/shorts-editor-studio');
+      const targetMode = active?.videoData?.templateMode || active?.videoData?.layoutTemplateMode || 'classic';
+      navigate(`/shorts-editor/${targetMode}`);
       toast({
         title: '🎬 NLE 정밀 스튜디오 전환',
         description: `"${title}" 영상 및 자막/쨉쨉이 데이터를 에디터로 인계했습니다.`,

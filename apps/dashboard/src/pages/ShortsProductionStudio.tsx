@@ -20,13 +20,24 @@ import { FloatingBatchActionBar } from './Ddalkkak/FloatingBatchActionBar';
 import { DdalkkakResultModal } from './Ddalkkak/DdalkkakResultModal';
 import { generatePixelingStandardMeta } from '@/lib/ddalkkakPixeling';
 
-export const ShortsProductionStudio: React.FC = () => {
+export interface ShortsProductionStudioProps {
+  fixedToolTab?: 'subtitle' | 'ttsdub' | 'clipedit';
+}
+
+export const ShortsProductionStudio: React.FC<ShortsProductionStudioProps> = ({ fixedToolTab }) => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { toast } = useToast();
 
-  // Active Tab state (Default: subtitle)
-  const [activeTab, setActiveTab] = useState<'subtitle' | 'ttsdub' | 'clipedit'>('subtitle');
+  // Active Tab state
+  const initialTab = fixedToolTab || (searchParams.get('tab') as 'subtitle' | 'ttsdub' | 'clipedit') || 'subtitle';
+  const [activeTab, setActiveTab] = useState<'subtitle' | 'ttsdub' | 'clipedit'>(initialTab);
+
+  useEffect(() => {
+    if (fixedToolTab && activeTab !== fixedToolTab) {
+      setActiveTab(fixedToolTab);
+    }
+  }, [fixedToolTab]);
 
   // Selected Template Style from ShortsTemplateStudio
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('template_standard_shorts');
@@ -385,19 +396,29 @@ export const ShortsProductionStudio: React.FC = () => {
         <div>
           <div className="flex items-center gap-2.5">
             <div className="p-2 rounded-xl bg-indigo-500/10 text-indigo-500 border border-indigo-500/20 shadow-xs">
-              <Zap className="w-6 h-6" />
+              {fixedToolTab === 'subtitle' ? <Sparkles className="w-6 h-6 text-primary" /> :
+               fixedToolTab === 'ttsdub' ? <Zap className="w-6 h-6 text-indigo-500" /> :
+               fixedToolTab === 'clipedit' ? <Sliders className="w-6 h-6 text-emerald-500" /> :
+               <Zap className="w-6 h-6" />}
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-xl sm:text-2xl font-black tracking-tight text-foreground">
-                  쇼츠 제작 스튜디오
+                  {fixedToolTab === 'subtitle' ? '자막 생성기' :
+                   fixedToolTab === 'ttsdub' ? '더빙 생성기' :
+                   fixedToolTab === 'clipedit' ? '클립 분할기' : '쇼츠 제작 스튜디오'}
                 </h1>
                 <Badge variant="outline" className="text-xs font-bold px-2 py-0.5 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20 shrink-0">
-                  Sovereign Production Factory
+                  {fixedToolTab === 'subtitle' ? 'AI 자막 & SFX 전용 도구' :
+                   fixedToolTab === 'ttsdub' ? '고음질 TTS 더빙 전용 도구' :
+                   fixedToolTab === 'clipedit' ? '스마트 씬 분할 전용 도구' : 'Sovereign Production Factory'}
                 </Badge>
               </div>
               <p className="text-xs text-muted-foreground mt-0.5">
-                대본 자막 스타일(쨉쨉이+SFX), AI 대본+더빙, 주제별 클립 편집 및 템플릿 디자인을 결합한 일괄 생산 마스터 공장
+                {fixedToolTab === 'subtitle' ? '쨉쨉이 훅, 효과음(SFX), 8대 자막 스타일 프리셋 및 다국어 번역을 일괄 처리하는 독립 전문 도구' :
+                 fixedToolTab === 'ttsdub' ? '기존 음성 뮤트, AI 나레이션/TTS 생성, 감정 보이스 프리셋 및 멀티 오디오 합성을 일괄 처리하는 독립 전문 도구' :
+                 fixedToolTab === 'clipedit' ? '영상 주제 묶음, 롱폼 하이라이트 분할 및 무음 컷팅을 일괄 처리하는 독립 전문 도구' :
+                 '대본 자막 스타일(쨉쨉이+SFX), AI 대본+더빙, 주제별 클립 편집 및 템플릿 디자인을 결합한 일괄 생산 마스터 공장'}
               </p>
             </div>
           </div>
@@ -421,7 +442,11 @@ export const ShortsProductionStudio: React.FC = () => {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => navigate('/shorts-template-studio')}
+              onClick={() => {
+                const curTpl = availableTemplates.find(t => t.id === selectedTemplateId);
+                const targetArchetype = (curTpl as any)?.archetype || (curTpl as any)?.template_mode || 'classic';
+                navigate(`/shorts-template/${targetArchetype}`);
+              }}
               className="h-7 px-2 text-xs text-primary hover:bg-primary/10 gap-0.5"
               title="쇼츠 템플릿 디자인 스튜디오로 이동"
             >
@@ -453,53 +478,57 @@ export const ShortsProductionStudio: React.FC = () => {
       {/* ===== Top Navigation Segmented Tab Buttons (Pixeling Style) ===== */}
       <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
         <div className="flex items-center gap-2">
-          <span className="text-xs font-bold text-muted-foreground">작업 공정 선택:</span>
-          <Badge variant="outline" className="text-xs bg-card">
-            {activeTab === 'subtitle' && '🎬 쨉쨉이 + SFX 대본 자막 자동화'}
-            {activeTab === 'ttsdub' && '🎙️ 화자 뮤트 & 고음질 TTS 멀티 더빙'}
-            {activeTab === 'clipedit' && '✂️ 영상 주제 묶음 & 롱폼 하이라이트 분할'}
+          <span className="text-xs font-bold text-muted-foreground">
+            {fixedToolTab ? '전용 공정:' : '작업 공정 선택:'}
+          </span>
+          <Badge variant="outline" className="text-xs bg-card font-bold">
+            {activeTab === 'subtitle' && '📝 자막 생성기 (쨉쨉이 + SFX 대본 자막 자동화)'}
+            {activeTab === 'ttsdub' && '🎙️ 더빙 생성기 (화자 뮤트 & 고음질 TTS 멀티 더빙)'}
+            {activeTab === 'clipedit' && '✂️ 클립 분할기 (영상 주제 묶음 & 롱폼 하이라이트 분할)'}
           </Badge>
         </div>
 
-        {/* Top Segmented Tab Buttons */}
-        <div className="grid grid-cols-3 sm:flex sm:items-center gap-1 p-1 rounded-xl sm:rounded-2xl shadow-xs border bg-muted/40 border-border w-full sm:w-auto">
-          <button
-            type="button"
-            onClick={() => handleTabChange('subtitle')}
-            className={`px-3 sm:px-4 py-2 sm:py-1.5 rounded-lg sm:rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap ${
-              activeTab === 'subtitle'
-                ? 'bg-primary text-primary-foreground font-bold shadow-xs'
-                : 'text-muted-foreground hover:text-foreground hover:bg-muted/60'
-            }`}
-          >
-            <span>📝</span>
-            <span className="truncate">자막 생성 (쨉쨉이+SFX)</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => handleTabChange('ttsdub')}
-            className={`px-3 sm:px-4 py-2 sm:py-1.5 rounded-lg sm:rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap ${
-              activeTab === 'ttsdub'
-                ? 'bg-primary text-primary-foreground font-bold shadow-xs'
-                : 'text-muted-foreground hover:text-foreground hover:bg-muted/60'
-            }`}
-          >
-            <span>🎙️</span>
-            <span className="truncate">대본 + 더빙</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => handleTabChange('clipedit')}
-            className={`px-3 sm:px-4 py-2 sm:py-1.5 rounded-lg sm:rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap ${
-              activeTab === 'clipedit'
-                ? 'bg-primary text-primary-foreground font-bold shadow-xs'
-                : 'text-muted-foreground hover:text-foreground hover:bg-muted/60'
-            }`}
-          >
-            <span>✂️</span>
-            <span className="truncate">클립 일괄 편집</span>
-          </button>
-        </div>
+        {/* Top Segmented Tab Buttons (독립 도구 화면에서는 은닉) */}
+        {!fixedToolTab && (
+          <div className="grid grid-cols-3 sm:flex sm:items-center gap-1 p-1 rounded-xl sm:rounded-2xl shadow-xs border bg-muted/40 border-border w-full sm:w-auto">
+            <button
+              type="button"
+              onClick={() => handleTabChange('subtitle')}
+              className={`px-3 sm:px-4 py-2 sm:py-1.5 rounded-lg sm:rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap ${
+                activeTab === 'subtitle'
+                  ? 'bg-primary text-primary-foreground font-bold shadow-xs'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/60'
+              }`}
+            >
+              <span>📝</span>
+              <span className="truncate">자막 생성</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleTabChange('ttsdub')}
+              className={`px-3 sm:px-4 py-2 sm:py-1.5 rounded-lg sm:rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap ${
+                activeTab === 'ttsdub'
+                  ? 'bg-primary text-primary-foreground font-bold shadow-xs'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/60'
+              }`}
+            >
+              <span>🎙️</span>
+              <span className="truncate">대본 + 더빙</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleTabChange('clipedit')}
+              className={`px-3 sm:px-4 py-2 sm:py-1.5 rounded-lg sm:rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap ${
+                activeTab === 'clipedit'
+                  ? 'bg-primary text-primary-foreground font-bold shadow-xs'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/60'
+              }`}
+            >
+              <span>✂️</span>
+              <span className="truncate">클립 분할</span>
+            </button>
+          </div>
+        )}
       </header>
 
       {/* ===== TAB 1: 자막 자동 생성 스튜디오 (쨉쨉이 + SFX 대본 스타일 5종 + 글로벌 번역) ===== */}

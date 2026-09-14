@@ -217,4 +217,103 @@ export interface TemplateManifest {
   style: TemplateStyleSignature;
   sourcing: TemplateMediaSourcingRule;
   capcut: TemplateCapCutBindings;
+
+  // 🏛️ 캔버스 2D 기즈모 좌표 및 정밀 레이아웃 100% 복원용 전역 상태 (Single Source of Truth)
+  canvasState?: TemplateCanvasState;
+}
+
+/**
+ * 🏛️ 캔버스 2D 기즈모 좌표 및 모든 폼팩터 파라미터 완전 보존 인터페이스
+ */
+export interface TemplateCanvasState {
+  titleTransform?: any;
+  jabTransform?: any;
+  subTransform?: any;
+  commentTransform?: any;
+  profileTransform?: any;
+  sourceTransform?: any;
+  gunlimboConfig?: any;
+  instaConfig?: any;
+  ssulConfig?: any;
+  commentCard?: any;
+  videoFitMode?: 'sandwich' | 'fullscreen';
+  videoBlurBg?: boolean;
+  videoFocusXPct?: number;
+  videoFocusYPct?: number;
+  videoZoomScale?: number;
+  videoRotationDeg?: number;
+  videoHorizontalFlip?: boolean;
+  videoVerticalFlip?: boolean;
+  videoFilter?: any;
+  hasTopBarBg?: boolean;
+  topBarBg?: string;
+  topBarHeightPct?: number;
+  topBarOpacity?: number;
+  topBarRadius?: number;
+  hasBottomBarBg?: boolean;
+  bottomBarBg?: string;
+  bottomBarHeightPct?: number;
+  bottomBarOpacity?: number;
+  bottomBarRadius?: number;
+  hasTopTitle?: boolean;
+  topTitleText?: string;
+  titleLinesMode?: 'single' | 'double';
+  titleLine1?: string;
+  titleLine2?: string;
+  titleLine1Color?: string;
+  titleLine2Color?: string;
+  titleLine1SizePx?: number;
+  titleLine2SizePx?: number;
+  titleFontFamily?: string;
+  titleStroke?: boolean;
+  titleStrokeWidth?: number;
+  titleStrokeColor?: string;
+  titleShadow?: boolean;
+  titleShadowBlur?: number;
+  titleShadowColor?: string;
+  titleBgMode?: 'none' | 'box' | 'pill' | 'highlighter' | 'glass';
+  titleBgColor?: string;
+  titleBgOpacity?: number;
+  titlePaddingX?: number;
+  titlePaddingY?: number;
+  titleBorderRadius?: number;
+  hasTitleBadge?: boolean;
+  titleBadgeText?: string;
+  titleBadgeBg?: string;
+  titleBadgeColor?: string;
+  hasJab?: boolean;
+  jabText?: string;
+  jabTiltDeg?: number;
+  jabFontSize?: number;
+  jabTextColor?: string;
+  jabStroke?: boolean;
+  jabStrokeWidth?: number;
+  jabStrokeColor?: string;
+  jabShadow?: boolean;
+  jabShadowBlur?: number;
+  jabBgEnabled?: boolean;
+  jabBgColor?: string;
+  jabBorderRadius?: number;
+  hasBottomSource?: boolean;
+  bottomSourceText?: string;
+  bottomSourceColor?: string;
+  bottomSourceSizePx?: number;
+  bottomSourceFontFamily?: string;
+  bottomSourceBottomPct?: number;
+  bottomSourceStroke?: boolean;
+  bottomSourceShadow?: boolean;
+  bottomSourceBg?: boolean;
+  bottomSourceBorderRadius?: number;
+  hasSubtitle?: boolean;
+  subtitleConfig?: any;
+  subtitleStrokeEnabled?: boolean;
+  subtitleStrokeWidth?: number;
+  subtitleStrokeColor?: string;
+  subtitleShadowEnabled?: boolean;
+  subtitleShadowBlur?: number;
+  subtitleShadowColor?: string;
+  subtitleUseBox?: boolean;
+  subtitleBoxColor?: string;
+  subtitleBorderRadius?: number;
+  hasCommentCard?: boolean;
 }

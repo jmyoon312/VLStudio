@@ -17,6 +17,7 @@ export interface SsulHeaderConfig {
   fontSizeMultiplier: number;
   bold: boolean;
   italic: boolean;
+  logoUrl?: string;
   leftIcon: 'arrow_back' | 'home' | 'close' | 'none';
   rightIcon: 'menu' | 'share' | 'bookmark' | 'none';
 }
@@ -70,23 +71,34 @@ export const SsulHeaderFloatingInspector: React.FC<SsulHeaderFloatingInspectorPr
           {/* 3. 이미지 로고 업로드 */}
           <div className="flex items-center justify-between pt-1">
             <span className="text-[11px] font-medium text-foreground">로고 이미지</span>
-            <label className="h-7 px-2.5 text-[10.5px] font-semibold bg-muted hover:bg-muted/80 text-foreground border border-dashed border-border rounded-md cursor-pointer transition flex items-center gap-1.5 shadow-2xs">
-              <Upload className="w-3 h-3 text-muted-foreground" />
-              <span>업로드</span>
-              <input type="file" accept="image/*" className="hidden" onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) {
-                  const url = URL.createObjectURL(file);
-                  onChange({ text: '', bgColor: config.bgColor });
-                }
-              }} />
-            </label>
+            <div className="flex items-center gap-1.5">
+              {config.logoUrl && (
+                <button
+                  type="button"
+                  onClick={() => onChange({ logoUrl: undefined })}
+                  className="text-[10px] text-rose-500 hover:underline cursor-pointer"
+                >
+                  제거
+                </button>
+              )}
+              <label className="h-7 px-2.5 text-[10.5px] font-semibold bg-muted hover:bg-muted/80 text-foreground border border-dashed border-border rounded-md cursor-pointer transition flex items-center gap-1.5 shadow-2xs">
+                <Upload className="w-3 h-3 text-muted-foreground" />
+                <span>{config.logoUrl ? '변경' : '업로드'}</span>
+                <input type="file" accept="image/*" className="hidden" onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    const url = URL.createObjectURL(file);
+                    onChange({ logoUrl: url, bgColor: config.bgColor });
+                  }
+                }} />
+              </label>
+            </div>
           </div>
 
           {/* 4. 바 높이 배율 */}
           <UnitSliderControl
             label="높이"
-            value={config.heightMultiplier || 1.5}
+            value={config.heightMultiplier ?? 1.0}
             min={0.8}
             max={3.0}
             step={0.1}
@@ -123,7 +135,7 @@ export const SsulHeaderFloatingInspector: React.FC<SsulHeaderFloatingInspectorPr
             setFont={(font) => onChange({ font })}
             color={config.textColor || '#1F2937'}
             setColor={(textColor) => onChange({ textColor })}
-            fontSizeMultiplier={config.fontSizeMultiplier || 1.8}
+            fontSizeMultiplier={config.fontSizeMultiplier ?? 1.0}
             setFontSizeMultiplier={(fontSizeMultiplier) => onChange({ fontSizeMultiplier })}
             bold={config.bold}
             setBold={(bold) => onChange({ bold })}

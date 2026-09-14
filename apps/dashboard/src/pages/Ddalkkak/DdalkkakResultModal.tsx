@@ -571,7 +571,8 @@ export const DdalkkakResultModal: React.FC<DdalkkakResultModalProps> = ({
                     jabs: jjapSubs,
                   }));
                   onOpenChange(false);
-                  navigate('/shorts-editor');
+                  const targetArchetype = (job as any)?.archetype || (job as any)?.template_mode || 'classic';
+                  navigate(`/shorts-editor/${targetArchetype}`);
                 } catch (e) {
                   console.error('Failed to handoff editor session:', e);
                   toast({

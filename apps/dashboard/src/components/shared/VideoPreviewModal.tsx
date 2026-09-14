@@ -311,7 +311,8 @@ export const VideoPreviewModal: React.FC<VideoPreviewModalProps> = ({
       };
       sessionStorage.setItem('vlstudio_editor_handoff', JSON.stringify(handoffPayload));
       onOpenChange(false);
-      navigate('/shorts-editor-studio');
+      const targetMode = (videoData as any)?.templateMode || (videoData as any)?.layoutTemplateMode || 'classic';
+      navigate(`/shorts-editor/${targetMode}`);
       toast({
         title: '🎬 NLE 정밀 스튜디오로 이동',
         description: '영상과 AI 연출(자막, 쨉쨉이, 상단바) 데이터를 인계했습니다.',

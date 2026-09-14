@@ -50,17 +50,18 @@ export const PostTitleFloatingInspector: React.FC<PostTitleFloatingInspectorProp
       onReset={onReset}
       defaultPosition={defaultPosition}
     >
-      {/* 1. 제목 내용 */}
+      {/* 1. 제목 내용 (1줄 단정 규격) */}
       <div className="space-y-1">
-        <label className="text-[11px] font-semibold text-muted-foreground flex items-center gap-1">
+        <label className="text-[11px] font-semibold text-muted-foreground flex items-center justify-between">
           <span>제목 텍스트</span>
+          <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">1줄 권장</span>
         </label>
-        <textarea
-          rows={2}
+        <input
+          type="text"
           value={config.text}
           onChange={(e) => onChange({ text: e.target.value })}
           placeholder="게시글 제목을 입력하세요..."
-          className="w-full px-2.5 py-1.5 text-xs bg-muted/30 border border-border rounded-[4px] focus:outline-hidden focus:ring-1 focus:ring-primary resize-none"
+          className="w-full h-8 px-2.5 text-xs bg-muted/30 border border-border rounded-[4px] focus:outline-hidden focus:ring-1 focus:ring-primary text-foreground"
         />
       </div>
 

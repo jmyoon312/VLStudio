@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { RotateCcw, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -59,45 +60,42 @@ export const BaseFloatingInspectorCard: React.FC<BaseFloatingInspectorCardProps>
     }
   }, [isOpen]);
 
-  // 🎯 휠 이벤트 및 포인터 이벤트 버블링 완벽 차단 (캔버스 줌인/줌아웃 및 캔버스 패닝 방지)
+  // 🎯 휠 이벤트 전파 차단 (팝업 내부 조작 시 캔버스 줌인/줌아웃 방지, 내부 스크롤 및 자식 컨트롤 클릭 100% 보장)
   useEffect(() => {
     if (!isOpen) return;
     const cardEl = cardRef.current;
     if (!cardEl) return;
 
-    const stopPropagationNative = (e: Event) => {
+    const handleWheel = (e: WheelEvent) => {
       e.stopPropagation();
     };
 
-    cardEl.addEventListener('wheel', stopPropagationNative, { capture: true, passive: false });
-    cardEl.addEventListener('pointerdown', stopPropagationNative, { capture: true });
-    cardEl.addEventListener('mousedown', stopPropagationNative, { capture: true });
+    cardEl.addEventListener('wheel', handleWheel, { passive: true });
     return () => {
-      cardEl.removeEventListener('wheel', stopPropagationNative, { capture: true } as any);
-      cardEl.removeEventListener('pointerdown', stopPropagationNative, { capture: true } as any);
-      cardEl.removeEventListener('mousedown', stopPropagationNative, { capture: true } as any);
+      cardEl.removeEventListener('wheel', handleWheel);
     };
   }, [isOpen]);
 
   if (!isOpen) return null;
 
-  return (
+  const cardContent = (
     <div
       ref={cardRef}
       data-no-canvas-zoom="true"
+      data-no-canvas-pan="true"
       style={{
-        position: 'absolute',
+        position: 'fixed',
         left: `${position.x}px`,
         top: `${position.y}px`,
         width: typeof width === 'number' ? `${width}px` : width,
-        zIndex: 9999,
+        zIndex: 999999,
       }}
       onClick={(e) => e.stopPropagation()}
       onMouseDown={(e) => e.stopPropagation()}
       onPointerDown={(e) => e.stopPropagation()}
       onWheel={(e) => e.stopPropagation()}
       className={cn(
-        "floating-inspector-card bg-card text-card-foreground border border-border shadow-2xl rounded-xl flex flex-col overflow-hidden backdrop-blur-md animate-in fade-in zoom-in-95 duration-150 select-none",
+        "floating-inspector-card pointer-events-auto bg-card text-card-foreground border border-border shadow-2xl rounded-xl flex flex-col overflow-hidden backdrop-blur-md animate-in fade-in zoom-in-95 duration-150",
         className
       )}
     >
@@ -182,6 +180,12 @@ export const BaseFloatingInspectorCard: React.FC<BaseFloatingInspectorCardProps>
       </div>
     </div>
   );
+
+  if (typeof document !== 'undefined' && document.body) {
+    return createPortal(cardContent, document.body);
+  }
+
+  return cardContent;
 };
 
 export default BaseFloatingInspectorCard;

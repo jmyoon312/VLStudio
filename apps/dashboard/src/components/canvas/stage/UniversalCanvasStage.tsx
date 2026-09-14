@@ -24,6 +24,7 @@ import {
   CommentCardFloatingInspector,
   VideoCropFloatingInspector,
 } from '../floating';
+import { SsulCanvasLayout } from './layouts/SsulCanvasLayout';
 
 export interface UniversalCanvasStageProps {
   aspectRatio: '9:16' | '16:9' | '1:1';
@@ -107,20 +108,39 @@ export interface UniversalCanvasStageProps {
   titleLine1SizePx?: number;
   titleLine2SizePx?: number;
   titleLine1Color?: string;
+  setTitleLine1Color?: (val: string) => void;
   titleLine2Color?: string;
+  setTitleLine2Color?: (val: string) => void;
   titleFontFamily?: string;
+  setTitleFontFamily?: (val: string) => void;
   titleStroke?: boolean;
+  setTitleStroke?: (val: boolean) => void;
   titleStrokeWidth?: number;
+  setTitleStrokeWidth?: (val: number) => void;
   titleStrokeColor?: string;
+  setTitleStrokeColor?: (val: string) => void;
   titleShadow?: boolean;
+  setTitleShadow?: (val: boolean) => void;
   titleShadowBlur?: number;
+  setTitleShadowBlur?: (val: number) => void;
   titleShadowColor?: string;
+  setTitleShadowColor?: (val: string) => void;
   titleBgMode?: string;
+  setTitleBgMode?: (val: string) => void;
   titleBgColor?: string;
+  setTitleBgColor?: (val: string) => void;
   titleBgOpacity?: number;
+  setTitleBgOpacity?: (val: number) => void;
   titlePaddingX?: number;
+  setTitlePaddingX?: (val: number) => void;
   titlePaddingY?: number;
+  setTitlePaddingY?: (val: number) => void;
   titleBorderRadius?: number;
+  setTitleBorderRadius?: (val: number) => void;
+  setTopTitleColor?: (val: string) => void;
+  setTitleBold?: (val: boolean) => void;
+  setTitleItalic?: (val: boolean) => void;
+  setTitleAlign?: (val: 'left' | 'center' | 'right') => void;
   hasTitleBadge?: boolean;
   setHasTitleBadge?: (val: boolean) => void;
   titleBadgeText?: string;
@@ -144,14 +164,21 @@ export interface UniversalCanvasStageProps {
   jabTextColor: string;
   setJabTextColor?: (val: string) => void;
   jabStroke: boolean;
+  setJabStroke?: (val: boolean) => void;
   jabStrokeWidth: number;
+  setJabStrokeWidth?: (val: number) => void;
   jabStrokeColor: string;
+  setJabStrokeColor?: (val: string) => void;
   jabShadow: boolean;
+  setJabShadow?: (val: boolean) => void;
   jabShadowBlur: number;
+  setJabShadowBlur?: (val: number) => void;
   jabBgEnabled: boolean;
+  setJabBgEnabled?: (val: boolean) => void;
   jabBgColor: string;
   setJabBgColor?: (val: string) => void;
   jabBorderRadius: number;
+  setJabBorderRadius?: (val: number) => void;
 
   // Subtitle
   hasSubtitle?: boolean;
@@ -183,10 +210,16 @@ export interface UniversalCanvasStageProps {
   setBottomSourceColor?: (val: string) => void;
   bottomSourceSizePx?: number;
   setBottomSourceSizePx?: (val: number) => void;
+  bottomSourceFontFamily?: string;
+  setBottomSourceFontFamily?: (val: string) => void;
   bottomSourceBg?: boolean;
+  setBottomSourceBg?: (val: boolean) => void;
   bottomSourceBorderRadius?: number;
+  setBottomSourceBorderRadius?: (val: number) => void;
   bottomSourceStroke?: boolean;
+  setBottomSourceStroke?: (val: boolean) => void;
   bottomSourceShadow?: boolean;
+  setBottomSourceShadow?: (val: boolean) => void;
   setBottomSourceBottomPct?: (val: number) => void;
 
   // Comment Card
@@ -720,22 +753,56 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
           transform: `scale(${canvasScale}) translate(${canvasPan.x}px, ${canvasPan.y}px)`,
         }}
       >
-        {/* 🎬 LAYER 0: 비디오 레이어 (인스타 모드: 캔버스 전체 풀뷰포트 vs 일반 모드: 샌드위치/크롭) */}
-        <div
-          onClick={() => {
-            setSelectedLayerId('layer_video');
-            if (layoutTemplateMode !== 'instagram') setActiveInspectorTab('videoCrop');
-            else setActiveInspectorTab('template');
-          }}
-          onDoubleClick={(e) => {
-            e.stopPropagation();
-            setActiveFloating('videoCrop');
-          }}
-          className={cn(
-            "absolute overflow-hidden flex items-center justify-center transition-all cursor-pointer",
-            layoutTemplateMode === 'instagram' ? "bg-transparent" : "bg-black",
-            selectedLayerId === 'layer_video' && layoutTemplateMode !== 'instagram' && "ring-1 ring-sky-400"
-          )}
+        {/* 📜 [썰형 전용 독립 렌더러] SsulCanvasLayout (문단 누적, 카드 유동 확장, 비디오 슬라이드다운, 밈 캐릭터 완벽 격리) */}
+        {layoutTemplateMode === 'ssul' && (
+          <SsulCanvasLayout
+            aspectRatio={aspectRatio}
+            canvasScale={canvasScale}
+            selectedLayerId={selectedLayerId || undefined}
+            setSelectedLayerId={(id) => setSelectedLayerId(id)}
+            setActiveInspectorTab={setActiveInspectorTab}
+            setActiveFloating={setActiveFloating}
+            currentProjectDisplayName={currentProjectDisplayName}
+            currentTimeMs={currentTimeMs}
+            isPlaying={isPlaying}
+            ssulConfig={ssulConfig}
+            topTitleText={topTitleText}
+            currentSubtitleText={currentSubtitleText}
+            layers={layers}
+            trackVisibility={trackVisibility}
+            videoFitMode={videoFitMode}
+            videoBlurBg={videoBlurBg}
+            videoLayer={videoLayer}
+            videoZIndex={videoZIndex}
+            videoFilter={videoFilter}
+            videoHorizontalFlip={videoHorizontalFlip}
+            videoVerticalFlip={videoVerticalFlip}
+            videoZoomScale={videoZoomScale}
+            videoRotationDeg={videoRotationDeg}
+            videoFocusXPct={videoFocusXPct}
+            videoFocusYPct={videoFocusYPct}
+            videoRef={videoRef}
+            isSlidingDown={isSlidingDown}
+          />
+        )}
+
+        {/* 🎬 LAYER 0: 비디오 레이어 (일반 모드 / 군림보 / 인스타) */}
+        {layoutTemplateMode !== 'ssul' && (
+          <div
+            onClick={() => {
+              setSelectedLayerId('layer_video');
+              if (layoutTemplateMode !== 'instagram') setActiveInspectorTab('videoCrop');
+              else setActiveInspectorTab('template');
+            }}
+            onDoubleClick={(e) => {
+              e.stopPropagation();
+              setActiveFloating('videoCrop');
+            }}
+            className={cn(
+              "absolute overflow-hidden flex items-center justify-center transition-all cursor-pointer",
+              layoutTemplateMode === 'instagram' ? "bg-transparent" : "bg-black",
+              selectedLayerId === 'layer_video' && layoutTemplateMode !== 'instagram' && "ring-1 ring-sky-400"
+            )}
           style={{
             top: isInsta
               ? 0
@@ -877,6 +944,7 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                   className="hidden"
                 />
               </div>
+            )}
 
               {/* 🕳️ LAYER 0.5: [인스타형 전용] 화이트 카드 오버레이 마스크 (zIndex: 20으로 비디오 위에 확실히 전면 배치) */}
               {layoutTemplateMode === 'instagram' && (
@@ -1101,7 +1169,10 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                   {/* 1-1. 상단 2줄 대제목 (TransformGizmo 지원) */}
                   {(gunlimboConfig.keepTitleThroughout || currentTimeMs <= (gunlimboConfig.introDurationSec || 2.5) * 1000) && (
                     <TransformGizmo
-                      transform={titleTransform}
+                      transform={{
+                        ...titleTransform,
+                        xPct: (titleTransform.xPct !== undefined && titleTransform.xPct >= 20 && titleTransform.xPct <= 80) ? titleTransform.xPct : 50,
+                      }}
                       onDoubleClick={() => setActiveFloating('postTitle')}
                       selected={selectedLayerId === 'layer_gunlimbo_title' || selectedLayerId === 'layer_title'}
                       name="군림보 상단 대제목"
@@ -1159,6 +1230,7 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                     <TransformGizmo
                       transform={{
                         ...jabTransform,
+                        xPct: 50, // 🎯 군림보는 항상 가로폭 100% 수평 중앙 정렬
                         rotationDeg: 0, // 🎯 군림보형은 삐딱한 기울기(-3도) 없이 수평 0도 와이드 밴드로 고정
                       }}
                       onDoubleClick={() => setActiveFloating('gunlimboHook')}
@@ -1262,227 +1334,10 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                 </TransformGizmo>
               )}
 
-              {/* 📜 [썰형] 정통 모바일 커뮤니티 캡처 카드 (Auto-Flow 레이아웃: 헤더 ➔ 대제목 ➔ 메타데이터 ➔ 구분선 ➔ 본문 자막 100% 겹침 방지) */}
-              {layoutTemplateMode === 'ssul' && (
-                <div
-                  className="absolute top-0 left-0 right-0 h-[46%] bg-white flex flex-col z-30 select-none shadow-xs border-b border-zinc-200/80"
-                  onClick={(e) => {
-                    if (e.target === e.currentTarget) {
-                      setSelectedLayerId('layer_ssul_card');
-                      setActiveInspectorTab('template');
-                    }
-                  }}
-                >
-                  {/* 1. 상단 모바일 앱 헤더 바 */}
-                  {ssulHeader.enabled && (
-                    <div
-                      onDoubleClick={(e) => {
-                        e.stopPropagation();
-                        setActiveFloating('ssulHeader');
-                      }}
-                      onClick={() => {
-                        setSelectedLayerId('layer_ssul_header');
-                        setActiveInspectorTab('template');
-                      }}
-                      className={cn(
-                        "w-full h-11 px-3.5 flex items-center justify-between shrink-0 cursor-pointer select-none transition-colors border-b border-black/[0.06]",
-                        selectedLayerId === 'layer_ssul_header' && "ring-1 ring-inset ring-sky-500"
-                      )}
-                      style={{
-                        backgroundColor: ssulHeader.bgColor || '#F7CF46',
-                      }}
-                      title="더블클릭하여 헤더 속성 편집"
-                    >
-                      {/* 좌측 뒤로가기 아이콘 */}
-                      <div className="w-8 h-8 flex items-center justify-start">
-                        {ssulHeader.leftIcon === 'arrow_back' && (
-                          <ChevronLeft className="w-5 h-5 stroke-[2.5] text-zinc-900" />
-                        )}
-                        {ssulHeader.leftIcon === 'home' && (
-                          <Sparkles className="w-4 h-4 text-amber-900" />
-                        )}
-                        {ssulHeader.leftIcon === 'close' && (
-                          <span className="text-lg font-bold text-zinc-900 leading-none">✕</span>
-                        )}
-                      </div>
 
-                      {/* 중앙 채널명 / 게시판명 */}
-                      <span
-                        style={{
-                          color: ssulHeader.textColor || '#18181B',
-                          fontFamily: ssulHeader.font || 'Pretendard',
-                          fontSize: `${Math.round(15 * (ssulHeader.fontSizeMultiplier || 1.0))}px`,
-                          fontWeight: ssulHeader.bold ? 800 : 600,
-                          fontStyle: ssulHeader.italic ? 'italic' : 'normal',
-                        }}
-                        className="tracking-tight truncate max-w-[240px] text-center"
-                      >
-                        {ssulHeader.text || currentBrandChannelName || '커뮤니티 썰'}
-                      </span>
 
-                      {/* 우측 메뉴 아이콘 */}
-                      <div className="w-8 h-8 flex items-center justify-end">
-                        {ssulHeader.rightIcon === 'menu' && (
-                          <Menu className="w-5 h-5 stroke-[2.5] text-zinc-900" />
-                        )}
-                        {ssulHeader.rightIcon === 'share' && (
-                          <Share2 className="w-4 h-4 text-zinc-900" />
-                        )}
-                        {ssulHeader.rightIcon === 'bookmark' && (
-                          <span className="text-base text-zinc-900">★</span>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* 2. 카드 본체 컨테이너 (Auto-Flow 수직 흐름) */}
-                  <div className="flex-1 w-full px-4 pt-3 pb-2 flex flex-col items-start overflow-hidden text-left">
-                    {/* 2-1. 게시글 대제목 (Auto-Flow) */}
-                    <div
-                      onDoubleClick={(e) => {
-                        e.stopPropagation();
-                        setActiveFloating('postTitle');
-                      }}
-                      onClick={() => {
-                        setSelectedLayerId('layer_ssul_post_title');
-                        setActiveInspectorTab('template');
-                      }}
-                      className={cn(
-                        "w-full cursor-pointer hover:bg-black/[0.02] p-1 rounded transition-colors select-none",
-                        (selectedLayerId === 'layer_ssul_post_title' || selectedLayerId === 'layer_title') && "ring-1 ring-sky-500 bg-sky-50/50"
-                      )}
-                      title="더블클릭하여 게시글 제목 속성 편집"
-                    >
-                      <h2
-                        style={{
-                          color: postTitleConfig.color || '#111827',
-                          fontFamily: postTitleConfig.font || 'Pretendard',
-                          fontSize: `${Math.round(20 * (postTitleConfig.fontSizeMultiplier || 1.0) * aspectScale)}px`,
-                          fontWeight: postTitleConfig.bold ? 800 : 700,
-                          fontStyle: postTitleConfig.italic ? 'italic' : 'normal',
-                          letterSpacing: `${postTitleConfig.letterSpacing || -0.5}px`,
-                          lineHeight: postTitleConfig.lineHeight || 1.25,
-                          textAlign: postTitleConfig.align || 'left',
-                          WebkitTextStroke: postTitleConfig.strokeEnabled ? `${postTitleConfig.strokeWidth}px ${postTitleConfig.strokeColor}` : 'none',
-                          textShadow: postTitleConfig.shadowEnabled ? `0 2px ${postTitleConfig.shadowBlur}px ${postTitleConfig.shadowColor}` : 'none',
-                        }}
-                        className="tracking-tight whitespace-pre-line break-keep font-extrabold"
-                      >
-                        {postTitleConfig.text || topTitleText || (currentProjectDisplayName && currentProjectDisplayName !== '템플릿 미리보기' ? currentProjectDisplayName : '') || '제목을 입력하세요'}
-                      </h2>
-                    </div>
-
-                    {/* 2-2. 메타데이터 (작성자 · 시간 · 조회수 - 제목 아래 자연스럽게 밀착) */}
-                    <div
-                      onDoubleClick={(e) => {
-                        e.stopPropagation();
-                        setActiveFloating('metadata');
-                      }}
-                      onClick={() => {
-                        setSelectedLayerId('layer_ssul_metadata');
-                        setActiveInspectorTab('template');
-                      }}
-                      className={cn(
-                        "mt-1.5 px-1 py-0.5 flex items-center gap-1.5 text-xs cursor-pointer hover:bg-black/[0.02] rounded transition-colors select-none",
-                        selectedLayerId === 'layer_ssul_metadata' && "ring-1 ring-sky-500 bg-sky-50/50"
-                      )}
-                      style={{
-                        color: metadataConfig.color || '#6B7280',
-                        fontFamily: metadataConfig.font || 'Pretendard',
-                        fontSize: `${Math.round(12 * (metadataConfig.fontSizeMultiplier || 1.0))}px`,
-                        fontWeight: metadataConfig.bold ? 700 : 400,
-                      }}
-                      title="더블클릭하여 메타데이터 속성 편집"
-                    >
-                      {metadataConfig.showAuthor && (
-                        <span className="font-medium text-zinc-700 dark:text-zinc-400">{metadataConfig.authorText || '익명의 직장인'}</span>
-                      )}
-                      {metadataConfig.showAuthor && (metadataConfig.showTime || (metadataConfig.showViews && metadataConfig.viewsText)) && (
-                        <span className="opacity-40">{metadataConfig.separator === 'slash' ? '/' : metadataConfig.separator === 'bar' ? '|' : '·'}</span>
-                      )}
-                      {metadataConfig.showTime && (
-                        <span>{metadataConfig.timeText || '방금 전'}</span>
-                      )}
-                      {metadataConfig.showTime && metadataConfig.showViews && metadataConfig.viewsText && (
-                        <span className="opacity-40">{metadataConfig.separator === 'slash' ? '/' : metadataConfig.separator === 'bar' ? '|' : '·'}</span>
-                      )}
-                      {metadataConfig.showViews && metadataConfig.viewsText && (
-                        <span>{metadataConfig.viewsText || '조회 14,290'}</span>
-                      )}
-                    </div>
-
-                    {/* 2-3. 가로 구분선 (Divider) */}
-                    {dividerConfig.enabled && (
-                      <div
-                        onDoubleClick={(e) => {
-                          e.stopPropagation();
-                          setActiveFloating('divider');
-                        }}
-                        onClick={() => {
-                          setSelectedLayerId('layer_ssul_divider');
-                          setActiveInspectorTab('template');
-                        }}
-                        className={cn(
-                          "w-full my-2.5 py-1 flex items-center cursor-pointer hover:opacity-80 transition-opacity",
-                          selectedLayerId === 'layer_ssul_divider' && "ring-1 ring-sky-500 rounded-xs"
-                        )}
-                        title="더블클릭하여 구분선 속성 편집"
-                      >
-                        <div
-                          style={{
-                            width: `${dividerConfig.widthPercent || 100}%`,
-                            borderTopWidth: `${dividerConfig.thickness || 1}px`,
-                            borderTopStyle: dividerConfig.style || 'solid',
-                            borderTopColor: dividerConfig.color || '#E5E7EB',
-                            opacity: (dividerConfig.opacity ?? 100) / 100,
-                          }}
-                        />
-                      </div>
-                    )}
-
-                    {/* 2-4. 본문 썰 자막 영역 (구분선 아래 본문 텍스트로 자연스럽게 배치) */}
-                    <div
-                      onDoubleClick={(e) => {
-                        e.stopPropagation();
-                        setActiveFloating('ssulSubtitle');
-                      }}
-                      onClick={() => {
-                        setSelectedLayerId('layer_ssul_subtitle');
-                        setActiveInspectorTab('template');
-                      }}
-                      className={cn(
-                        "flex-1 w-full flex flex-col justify-start cursor-pointer hover:bg-black/[0.02] p-1.5 rounded transition-colors select-none",
-                        (selectedLayerId === 'layer_ssul_subtitle' || selectedLayerId === 'layer_sub') && "ring-1 ring-sky-500 bg-sky-50/50"
-                      )}
-                      title="더블클릭하여 자막 본문 속성 편집"
-                    >
-                      <p
-                        style={{
-                          color: ssulSubtitleConfig.color || '#18181B',
-                          fontFamily: ssulSubtitleConfig.font || 'Pretendard',
-                          fontSize: `${Math.round(16 * (ssulSubtitleConfig.fontSizeMultiplier || 1.0) * aspectScale)}px`,
-                          fontWeight: ssulSubtitleConfig.bold ? 800 : 600,
-                          fontStyle: ssulSubtitleConfig.italic ? 'italic' : 'normal',
-                          lineHeight: ssulSubtitleConfig.lineHeightMultiplier || 1.45,
-                          letterSpacing: `${ssulSubtitleConfig.letterSpacingPx || 0}px`,
-                          textAlign: ssulSubtitleConfig.align || 'left',
-                          backgroundColor: ssulSubtitleConfig.boxEnabled ? ssulSubtitleConfig.boxColor : 'transparent',
-                          borderRadius: ssulSubtitleConfig.boxEnabled ? `${ssulSubtitleConfig.boxRadius}px` : 0,
-                          padding: ssulSubtitleConfig.boxEnabled ? '6px 10px' : '0',
-                          WebkitTextStroke: ssulSubtitleConfig.strokeEnabled ? `${ssulSubtitleConfig.strokeWidth}px ${ssulSubtitleConfig.strokeColor}` : 'none',
-                          textShadow: ssulSubtitleConfig.shadowEnabled ? `0 2px ${ssulSubtitleConfig.shadowBlur}px ${ssulSubtitleConfig.shadowColor}` : 'none',
-                        }}
-                        className="whitespace-pre-line break-keep font-bold"
-                      >
-                        {activeSub?.data || (currentSubtitleText && currentSubtitleText !== '자막을 입력하거나 타임라인에서 자막을 선택하세요' ? currentSubtitleText : (ssulSubtitleConfig.text || '커뮤니티 게시글 본문 썰 자막이 여기에 자연스럽게 표시됩니다.'))}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* ⬛ LAYER 1: 상단 배경 바 (Top Bar Bg - 독립 제어) */}
-              {!isSsul && !isInsta && hasTopBarBg && (
+              {/* ⬛ LAYER 1: 상단 배경 바 (Classic 전용 레터박스) */}
+              {isClassic && hasTopBarBg && (
                 <div
                   onClick={() => { setSelectedLayerId('layer_top_bar'); setActiveInspectorTab('titleSource'); }}
                   onDoubleClick={(e) => {
@@ -1503,7 +1358,15 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
               {/* 👑 LAYER 2: 상단 타이틀 (1줄/2줄 모드, 외곽선/그림자/배경박스/모서리 둥글기 완벽 지원) */}
               {!isSsul && !isGunlimbo && hasTopTitle && trackVisibility.t1Title && (
                 <TransformGizmo
-                  transform={titleTransform}
+                  transform={{
+                    ...titleTransform,
+                    xPct: layoutTemplateMode === 'instagram'
+                      ? (titleTransform.xPct !== undefined && titleTransform.xPct !== 50 && titleTransform.xPct < 40 ? titleTransform.xPct : 6.0)
+                      : ((titleTransform.xPct !== undefined && titleTransform.xPct >= 15 && titleTransform.xPct <= 85) ? titleTransform.xPct : 50),
+                    yPct: layoutTemplateMode === 'instagram'
+                      ? (titleTransform.yPct !== undefined && titleTransform.yPct !== 9.0 && titleTransform.yPct !== 15 && titleTransform.yPct <= 30 ? titleTransform.yPct : 14.0)
+                      : titleTransform.yPct,
+                  }}
                   onDoubleClick={() => setActiveFloating('postTitle')}
                   selected={selectedLayerId === 'layer_title' || selectedLayerId === 'layer_top_title'}
                   name="상단 타이틀"
@@ -1696,7 +1559,15 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
 
                 return (
                   <TransformGizmo
-                    transform={subTransform}
+                    transform={{
+                      ...subTransform,
+                      xPct: layoutTemplateMode === 'instagram'
+                        ? (subTransform.xPct !== undefined && subTransform.xPct !== 50 && subTransform.xPct < 30 ? subTransform.xPct : 6.0)
+                        : (subTransform.xPct ?? 50),
+                      yPct: layoutTemplateMode === 'instagram'
+                        ? (subTransform.yPct !== undefined && subTransform.yPct !== 78 && subTransform.yPct !== 75 && subTransform.yPct <= 75 ? subTransform.yPct : 71.5)
+                        : (subTransform.yPct ?? 75),
+                    }}
                     selected={isSubSelected}
                     name="본문 자막"
                     onDoubleClick={() => setActiveFloating('ssulSubtitle')}
@@ -1837,8 +1708,8 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                 </TransformGizmo>
               )}
 
-              {/* ⬛ LAYER 6: 하단 배경 바 (Bottom Bar Bg) */}
-              {!isSsul && !isInsta && hasBottomBarBg && (
+              {/* ⬛ LAYER 6: 하단 배경 바 (Classic 전용 레터박스) */}
+              {isClassic && hasBottomBarBg && (
                 <div
                   onClick={() => { setSelectedLayerId('layer_bottom_bar'); setActiveInspectorTab('titleSource'); }}
                   onDoubleClick={(e) => {
@@ -1857,19 +1728,6 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                 />
               )}
 
-              {/* 📜 [썰형] 밈 아바타 */}
-              {layoutTemplateMode === 'ssul' && ssulConfig?.memeType && ssulConfig.memeType !== 'none' && (
-                <div className="absolute bottom-20 left-0 right-0 z-35 flex flex-col items-center pointer-events-none select-none">
-                  <MemeAvatar
-                    type={ssulConfig.memeType}
-                    emotion={ssulConfig.memeEmotion}
-                    customUrl={ssulConfig.customMemeUrl}
-                    aliveMotion={ssulConfig.memeAliveMotion && isPlaying}
-                    size={130}
-                    className="drop-shadow-2xl"
-                  />
-                </div>
-              )}
 
               {/* 💬 LAYER 7: 하단 바이럴 댓글 카드 (TransformGizmo 연동) */}
               {(hasCommentCard || layoutTemplateMode === 'instagram') && commentCard && (
@@ -2012,10 +1870,9 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
 
       {/* ── 🌟 화면 뷰포트 최상위 비왜곡 플로팅 프로퍼티 인스펙터 (스케일 왜곡 0% 보장) ── */}
       {activeFloating !== 'none' && (
-        <div className="fixed inset-0 pointer-events-none z-[99999]">
-          <div className="pointer-events-auto">
-            {/* ── 🌟 인-캔버스 객체 지향 플로팅 프로퍼티 인스펙터 (Pixeling 규격 100% 동일 복제) ── */}
-              {activeFloating === 'ssulHeader' && (
+        <div className="fixed inset-0 pointer-events-none z-[99999] overflow-visible">
+          {/* ── 🌟 인-캔버스 객체 지향 플로팅 프로퍼티 인스펙터 (Pixeling 규격 100% 동일 복제) ── */}
+          {activeFloating === 'ssulHeader' && (
                 <SsulHeaderFloatingInspector
                   isOpen={true}
                   onClose={() => setActiveFloating('none')}
@@ -2060,9 +1917,33 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                         postTitle: { ...postTitleConfig, ...patch },
                       }));
                     }
-                    if (patch.text !== undefined && props.setTopTitleText) {
-                      props.setTopTitleText(patch.text);
+                    if (patch.text !== undefined) {
+                      props.setTopTitleText?.(patch.text);
+                      props.setTitleLine1?.(patch.text);
+                      props.setGunlimboConfig?.((prev: any) => ({ ...prev, titleLine1: patch.text }));
                     }
+                    if (patch.font !== undefined) {
+                      props.setTitleFontFamily?.(patch.font);
+                    }
+                    if (patch.color !== undefined) {
+                      props.setTitleLine1Color?.(patch.color);
+                      props.setTopTitleColor?.(patch.color);
+                      props.setGunlimboConfig?.((prev: any) => ({ ...prev, titleLine1Color: patch.color }));
+                    }
+                    if (patch.fontSizeMultiplier !== undefined) {
+                      if (props.setTitleLine1SizePx) {
+                        props.setTitleLine1SizePx(Math.round(28 * patch.fontSizeMultiplier));
+                      }
+                    }
+                    if (patch.strokeEnabled !== undefined) props.setTitleStroke?.(patch.strokeEnabled);
+                    if (patch.strokeColor !== undefined) props.setTitleStrokeColor?.(patch.strokeColor);
+                    if (patch.strokeWidth !== undefined) props.setTitleStrokeWidth?.(patch.strokeWidth);
+                    if (patch.shadowEnabled !== undefined) props.setTitleShadow?.(patch.shadowEnabled);
+                    if (patch.shadowColor !== undefined) props.setTitleShadowColor?.(patch.shadowColor);
+                    if (patch.shadowBlur !== undefined) props.setTitleShadowBlur?.(patch.shadowBlur);
+                    if (patch.bold !== undefined) props.setTitleBold?.(patch.bold);
+                    if (patch.italic !== undefined) props.setTitleItalic?.(patch.italic);
+                    if (patch.align !== undefined) props.setTitleAlign?.(patch.align);
                   }}
                   onReset={() => {
                     if (layoutTemplateMode === 'ssul') {
@@ -2211,13 +2092,14 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                     offsetY: 0,
                   }}
                   onChange={(patch) => {
-                    if (patch.text !== undefined && (props as any).setTitleBadgeText) (props as any).setTitleBadgeText(patch.text);
-                    if (patch.bgColor !== undefined && (props as any).setTitleBadgeBg) (props as any).setTitleBadgeBg(patch.bgColor);
-                    if (patch.textColor !== undefined && (props as any).setTitleBadgeColor) (props as any).setTitleBadgeColor(patch.textColor);
+                    if (patch.enabled !== undefined && props.setHasTitleBadge) props.setHasTitleBadge(patch.enabled);
+                    if (patch.text !== undefined && props.setTitleBadgeText) props.setTitleBadgeText(patch.text);
+                    if (patch.bgColor !== undefined && props.setTitleBadgeBg) props.setTitleBadgeBg(patch.bgColor);
+                    if (patch.textColor !== undefined && props.setTitleBadgeColor) props.setTitleBadgeColor(patch.textColor);
                   }}
                   onReset={() => {
-                    (props as any).setTitleBadgeText?.('HOT ISSUE');
-                    (props as any).setTitleBadgeBg?.('#EF4444');
+                    props.setTitleBadgeText?.('HOT ISSUE');
+                    props.setTitleBadgeBg?.('#EF4444');
                   }}
                 />
               )}
@@ -2246,15 +2128,23 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                     offsetY: 0,
                   }}
                   onChange={(patch) => {
-                    if (patch.text !== undefined && (props as any).setJabText) (props as any).setJabText(patch.text);
-                    if (patch.tiltDeg !== undefined && (props as any).setJabTiltDeg) (props as any).setJabTiltDeg(patch.tiltDeg);
-                    if (patch.fontSize !== undefined && (props as any).setJabFontSize) (props as any).setJabFontSize(patch.fontSize);
-                    if (patch.textColor !== undefined && (props as any).setJabTextColor) (props as any).setJabTextColor(patch.textColor);
-                    if (patch.bgColor !== undefined && (props as any).setJabBgColor) (props as any).setJabBgColor(patch.bgColor);
+                    if (patch.enabled !== undefined && props.setHasJab) props.setHasJab(patch.enabled);
+                    if (patch.text !== undefined && props.setJabText) props.setJabText(patch.text);
+                    if (patch.tiltDeg !== undefined && props.setJabTiltDeg) props.setJabTiltDeg(patch.tiltDeg);
+                    if (patch.fontSize !== undefined && props.setJabFontSize) props.setJabFontSize(patch.fontSize);
+                    if (patch.textColor !== undefined && props.setJabTextColor) props.setJabTextColor(patch.textColor);
+                    if (patch.bgColor !== undefined && props.setJabBgColor) props.setJabBgColor(patch.bgColor);
+                    if (patch.strokeEnabled !== undefined && props.setJabStroke) props.setJabStroke(patch.strokeEnabled);
+                    if (patch.strokeWidth !== undefined && props.setJabStrokeWidth) props.setJabStrokeWidth(patch.strokeWidth);
+                    if (patch.strokeColor !== undefined && props.setJabStrokeColor) props.setJabStrokeColor(patch.strokeColor);
+                    if (patch.shadowEnabled !== undefined && props.setJabShadow) props.setJabShadow(patch.shadowEnabled);
+                    if (patch.shadowBlur !== undefined && props.setJabShadowBlur) props.setJabShadowBlur(patch.shadowBlur);
+                    if (patch.bgEnabled !== undefined && props.setJabBgEnabled) props.setJabBgEnabled(patch.bgEnabled);
+                    if (patch.borderRadius !== undefined && props.setJabBorderRadius) props.setJabBorderRadius(patch.borderRadius);
                   }}
                   onReset={() => {
-                    (props as any).setJabTiltDeg?.(-3);
-                    (props as any).setJabBgColor?.('#FFE500');
+                    props.setJabTiltDeg?.(-3);
+                    props.setJabBgColor?.('#FFE500');
                   }}
                 />
               )}
@@ -2351,7 +2241,7 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                     text: props.bottomSourceText || '출처: 유튜브 @채널명',
                     color: props.bottomSourceColor || '#CBD5E1',
                     fontSize: props.bottomSourceSizePx || 12,
-                    font: props.titleFontFamily || 'Pretendard',
+                    font: props.bottomSourceFontFamily || props.titleFontFamily || 'Pretendard',
                     bgEnabled: props.bottomSourceBg ?? true,
                     bgColor: 'rgba(0,0,0,0.7)',
                     borderRadius: props.bottomSourceBorderRadius ?? 4,
@@ -2365,12 +2255,18 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                     offsetY: 0,
                   }}
                   onChange={(patch) => {
-                    if (patch.text !== undefined && (props as any).setBottomSourceText) (props as any).setBottomSourceText(patch.text);
-                    if (patch.color !== undefined && (props as any).setBottomSourceColor) (props as any).setBottomSourceColor(patch.color);
-                    if (patch.fontSize !== undefined && (props as any).setBottomSourceSizePx) (props as any).setBottomSourceSizePx(patch.fontSize);
+                    if (patch.enabled !== undefined && props.setHasBottomSource) props.setHasBottomSource(patch.enabled);
+                    if (patch.text !== undefined && props.setBottomSourceText) props.setBottomSourceText(patch.text);
+                    if (patch.color !== undefined && props.setBottomSourceColor) props.setBottomSourceColor(patch.color);
+                    if (patch.fontSize !== undefined && props.setBottomSourceSizePx) props.setBottomSourceSizePx(patch.fontSize);
+                    if (patch.font !== undefined && props.setBottomSourceFontFamily) props.setBottomSourceFontFamily(patch.font);
+                    if (patch.strokeEnabled !== undefined && props.setBottomSourceStroke) props.setBottomSourceStroke(patch.strokeEnabled);
+                    if (patch.shadowEnabled !== undefined && props.setBottomSourceShadow) props.setBottomSourceShadow(patch.shadowEnabled);
+                    if (patch.bgEnabled !== undefined && props.setBottomSourceBg) props.setBottomSourceBg(patch.bgEnabled);
+                    if (patch.borderRadius !== undefined && props.setBottomSourceBorderRadius) props.setBottomSourceBorderRadius(patch.borderRadius);
                   }}
                   onReset={() => {
-                    (props as any).setBottomSourceText?.('출처: YouTube @ViraLoop 공식 채널');
+                    props.setBottomSourceText?.('출처: YouTube @ViraLoop 공식 채널');
                   }}
                 />
               )}
@@ -2451,7 +2347,7 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                     horizontalFlip: props.videoHorizontalFlip,
                     verticalFlip: props.videoVerticalFlip,
                   }}
-                  onChange={(patch) => {
+                  onChange={(patch: any) => {
                     if (patch.fitMode !== undefined && (props as any).setVideoFitMode) (props as any).setVideoFitMode(patch.fitMode);
                     if (patch.blurBg !== undefined && (props as any).setVideoBlurBg) (props as any).setVideoBlurBg(patch.blurBg);
                     if (patch.zoomScale !== undefined && props.setVideoZoomScale) props.setVideoZoomScale(patch.zoomScale);
@@ -2468,8 +2364,6 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                   }}
                 />
               )}
-            
-          </div>
         </div>
       )}
     </div>

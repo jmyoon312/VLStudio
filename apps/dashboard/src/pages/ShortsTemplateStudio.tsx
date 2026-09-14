@@ -11,7 +11,7 @@ import JabHookInspectorForm from '@/components/canvas/forms/JabHookInspectorForm
 import SubtitleStyleInspectorForm from '@/components/canvas/forms/SubtitleStyleInspectorForm';
 import ForensicUrlExtractModal from '@/components/canvas/dialogs/ForensicUrlExtractModal';
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Maximize2, Minimize2, ZoomIn, ZoomOut, Sliders, Sparkles, Save, Zap, ArrowLeft, RotateCcw,
   Check, Layout, Type, Crop, Layers3, SlidersHorizontal, MessageCircle, Clock, Play, Pause,
@@ -28,8 +28,8 @@ import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/components/ui/use-toast';
 import { cn, getMediaUrl } from '@/lib/utils';
 import api from '@/lib/api';
-import { TemplateManifest } from '@/types/templateDna';
-import { STANDARD_TEMPLATES } from '@/config/standardTemplates';
+import { TemplateManifest, TemplateCanvasState } from '@/types/templateDna';
+import { STANDARD_TEMPLATES, getStandardTemplateByArchetype } from '@/config/standardTemplates';
 import { NleLayerTransform, createDefaultTransform } from '@/types/nle';
 import { TransformGizmo } from '@/components/canvas/TransformGizmo';
 import { SubtitleConfig, DEFAULT_SUBTITLE_CONFIG } from '@/types/subtitle';
@@ -256,11 +256,13 @@ export const MASTER_INSPECTOR_GROUPS = [
 export interface ShortsTemplateStudioProps {
   initialLayout?: ShortsLayoutState;
   onLayoutChange?: (layout: ShortsLayoutState) => void;
+  sovereignMode?: LayoutTemplateMode;
 }
 
-export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ initialLayout, onLayoutChange }) => {
+export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ initialLayout, onLayoutChange, sovereignMode }) => {
   const { toast } = useToast();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   // 템플릿 메타데이터
   const [templateName, setTemplateName] = useState<string>('바이럴 쇼츠 마스터 템플릿');
@@ -281,7 +283,14 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
   const panStartRef = useRef<{ startX: number; startY: number; panX: number; panY: number }>({ startX: 0, startY: 0, panX: 0, panY: 0 });
 
   // 4대 폼팩터 모드 및 인스펙터 탭
-  const [layoutTemplateMode, setLayoutTemplateMode] = useState<LayoutTemplateMode>('classic');
+  const initialMode = sovereignMode || (searchParams.get('mode') as LayoutTemplateMode) || 'classic';
+  const [layoutTemplateMode, setLayoutTemplateMode] = useState<LayoutTemplateMode>(initialMode);
+
+  useEffect(() => {
+    if (sovereignMode && layoutTemplateMode !== sovereignMode) {
+      setLayoutTemplateMode(sovereignMode);
+    }
+  }, [sovereignMode]);
   const [isForensicModalOpen, setIsForensicModalOpen] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   // 🏛️ 공통 템플릿 디자인 확장 상태 변수 (정밀 편집기와 100% 동기화)
@@ -344,7 +353,7 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
   const [videoVerticalFlip, setVideoVerticalFlip] = useState<boolean>(false);
 
   // 상단 바 (Top Bar Bg)
-  const [hasTopBarBg, setHasTopBarBg] = useState<boolean>(true);
+  const [hasTopBarBg, setHasTopBarBg] = useState<boolean>(initialMode === 'classic');
   const [topBarBg, setTopBarBg] = useState<string>('#000000');
   const [topBarHeightPct, setTopBarHeightPct] = useState<number>(18.3);
   const [topBarOpacity, setTopBarOpacity] = useState<number>(1.0);
@@ -417,9 +426,10 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
   const [bottomSourceText, setBottomSourceText] = useState<string>('출처: YouTube @ViraLoop 공식 채널');
   const [bottomSourceColor, setBottomSourceColor] = useState<string>('#CBD5E1');
   const [bottomSourceSizePx, setBottomSourceSizePx] = useState<number>(10);
+  const [bottomSourceFontFamily, setBottomSourceFontFamily] = useState<string>('Pretendard');
 
   // 하단 바 (Bottom Bar Bg)
-  const [hasBottomBarBg, setHasBottomBarBg] = useState<boolean>(true);
+  const [hasBottomBarBg, setHasBottomBarBg] = useState<boolean>(initialMode === 'classic');
   const [bottomBarBg, setBottomBarBg] = useState<string>('#000000');
   const [bottomBarHeightPct, setBottomBarHeightPct] = useState<number>(6.0);
   const [bottomBarOpacity, setBottomBarOpacity] = useState<number>(1.0);
@@ -812,6 +822,90 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
     }
   };
 
+  // 🎯 픽셀링 스타일 4대 모드 탭 전환 및 URL 쿼리 연동
+  const handleSwitchModeTab = (mode: LayoutTemplateMode) => {
+    handleSelectTemplateMode(mode);
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.set('mode', mode);
+      return next;
+    }, { replace: true });
+  };
+
+  // 🎯 활성 템플릿 매니페스트 하이드레이션 & 양방향 실시간 동기화 리스너 (SSOT 100% 보장)
+  const isInitialModeAppliedRef = useRef(false);
+  useEffect(() => {
+    let applied = false;
+    const targetMode = sovereignMode || (searchParams.get('mode') as LayoutTemplateMode | null) || 'classic';
+
+    // 1. 저장된 템플릿 매니페스트 최우선 복원 (주권 격리)
+    const savedRaw = localStorage.getItem('applied_template_manifest');
+    if (savedRaw && !isInitialModeAppliedRef.current) {
+      try {
+        const manifest = JSON.parse(savedRaw);
+        // 🛡️ 주권 격리: sovereignMode/targetMode와 일치할 때만 복원!
+        if (manifest.archetype === targetMode) {
+          handleApplyManifest(manifest);
+          applied = true;
+        }
+      } catch (e) {
+        console.warn('[ShortsTemplateStudio] Failed to hydrate saved manifest:', e);
+      }
+    }
+
+    if (!applied) {
+      const std = getStandardTemplateByArchetype(targetMode);
+      if (std) {
+        handleApplyManifest(std);
+      } else {
+        handleSelectTemplateMode(targetMode);
+      }
+    }
+    isInitialModeAppliedRef.current = true;
+  }, [searchParams, sovereignMode]);
+
+  // 📡 실시간 템플릿 변경 이벤트 리스너 (정밀 편집기 ↔ 템플릿 공방 0.01초 동기화)
+  useEffect(() => {
+    const currentTargetMode = sovereignMode || (searchParams.get('mode') as LayoutTemplateMode | null);
+
+    const handleTemplateEvent = (e: any) => {
+      const manifest = e.detail;
+      if (manifest && (!currentTargetMode || manifest.archetype === currentTargetMode)) {
+        handleApplyManifest(manifest);
+      }
+    };
+
+    const handleStorageEvent = (e: StorageEvent) => {
+      if (e.key === 'applied_template_manifest' && e.newValue) {
+        try {
+          const manifest = JSON.parse(e.newValue);
+          if (!currentTargetMode || manifest.archetype === currentTargetMode) {
+            handleApplyManifest(manifest);
+          }
+        } catch (_) {}
+      }
+    };
+
+    let channel: BroadcastChannel | null = null;
+    try {
+      channel = new BroadcastChannel('vl_template_channel');
+      channel.onmessage = (msgEvent) => {
+        if (msgEvent.data && (!currentTargetMode || msgEvent.data.archetype === currentTargetMode)) {
+          handleApplyManifest(msgEvent.data);
+        }
+      };
+    } catch (_) {}
+
+    window.addEventListener('vl_template_applied', handleTemplateEvent);
+    window.addEventListener('storage', handleStorageEvent);
+
+    return () => {
+      window.removeEventListener('vl_template_applied', handleTemplateEvent);
+      window.removeEventListener('storage', handleStorageEvent);
+      if (channel) channel.close();
+    };
+  }, [sovereignMode, searchParams]);
+
   // 🎨 주권 템플릿 라이브러리 열기
   const handleOpenTemplateLibrary = async () => {
     setIsTemplateLibraryOpen(true);
@@ -861,116 +955,258 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
   };
 
   const handleApplyManifest = (manifest: TemplateManifest) => {
-    const arch = manifest.archetype;
+    const arch = manifest.archetype || 'classic';
+    if (manifest.aspectRatio) {
+      setAspectRatio(manifest.aspectRatio);
+    }
     handleSelectTemplateMode(arch as LayoutTemplateMode);
     setTemplateName(manifest.name || '불러온 템플릿');
 
-    // 1. 상단 바 & 타이틀 존
-    if (manifest.geometry?.topTitleZone) {
-      const t = manifest.geometry.topTitleZone;
-      setHasTopTitle(t.enabled ?? true);
-      setHasTopBarBg(t.enabled ?? true);
-      if (t.heightPct !== undefined) setTopBarHeightPct(t.heightPct);
-      if (t.bgColor) setTopBarBg(t.bgColor);
-      if (t.opacity !== undefined) setTopBarOpacity(t.opacity);
-    }
-
-    // 2. 인스타그램 홀 윈도우
-    if (manifest.geometry?.holeWindowZone) {
-      const h = manifest.geometry.holeWindowZone;
-      setInstaConfig(prev => ({
-        ...prev,
-        holeWidthPct: h.widthPct ?? prev.holeWidthPct,
-        holeHeightPct: h.heightPct ?? prev.holeHeightPct,
-        holeRoundness: h.roundness ?? prev.holeRoundness,
-        holeYPct: h.yPct ?? prev.holeYPct,
-        bgColor: h.cardBgColor ?? prev.bgColor,
-      }));
-    }
-
-    // 3. 건림보 훅 밴드
-    if (manifest.geometry?.hookBandZone) {
-      const hb = manifest.geometry.hookBandZone;
-      setGunlimboConfig(prev => ({
-        ...prev,
-        hookBgColor: hb.boxColor ?? prev.hookBgColor,
-        hookTextColor: hb.textColor ?? prev.hookTextColor,
-      }));
-    }
-
-    // 4. 하단 출처 표기
-    if (manifest.geometry?.sourceZone) {
-      const sz = manifest.geometry.sourceZone;
-      setHasBottomSource(sz.enabled ?? true);
-      if (sz.defaultText) setBottomSourceText(sz.defaultText);
-      if (sz.textColor) setBottomSourceColor(sz.textColor);
-      if (sz.fontSize) setBottomSourceSizePx(sz.fontSize);
-      if (sz.yPct) setBottomSourceBottomPct(100 - sz.yPct);
-    }
-
-    // 5. 바이럴 댓글 카드
-    if (manifest.geometry?.commentCardZone) {
-      setHasCommentCard(manifest.geometry.commentCardZone.enabled ?? true);
-    }
-
-    // 6. 잽 훅
-    if (manifest.geometry?.jabHookZone) {
-      setHasJab(manifest.geometry.jabHookZone.enabled ?? true);
-    }
-
-    // 7. 스타일 영역
-    if (manifest.style) {
-      const s = manifest.style;
-      if (s.titleFont) setTitleFontFamily(s.titleFont);
-      if (s.titleLinesMode) setTitleLinesMode(s.titleLinesMode);
-      if (s.titleBadgeText !== undefined) setTitleBadgeText(s.titleBadgeText);
-      if (s.titleBadgeColor) setTitleBadgeColor(s.titleBadgeColor);
-      if (s.titleFontSize) setTitleLine1SizePx(s.titleFontSize);
-      if (s.titleLine2FontSize) setTitleLine2SizePx(s.titleLine2FontSize);
-      if (s.titleLine1Color) setTitleLine1Color(s.titleLine1Color);
-      if (s.titleLine2Color) setTitleLine2Color(s.titleLine2Color);
-      if (s.titleBgMode) {
-        setTitleBgMode((s.titleBgMode === 'box' || s.titleBgMode === 'pill') ? s.titleBgMode : 'none');
+    const cs = manifest.canvasState;
+    if (cs) {
+      // 🏛️ 1. 2D 기즈모 좌표계 100% 완전 복원 (사용자가 저장한 인스타/군림보 위치 그대로 유지)
+      if (cs.titleTransform) {
+        setTitleTransform({
+          ...cs.titleTransform,
+          xPct: arch === 'instagram'
+            ? (cs.titleTransform.xPct !== undefined && cs.titleTransform.xPct !== 50 && cs.titleTransform.xPct < 40 ? cs.titleTransform.xPct : 6.0)
+            : ((cs.titleTransform.xPct !== undefined && cs.titleTransform.xPct >= 15 && cs.titleTransform.xPct <= 85) ? cs.titleTransform.xPct : 50),
+          yPct: arch === 'instagram'
+            ? (cs.titleTransform.yPct !== undefined && cs.titleTransform.yPct !== 9.0 && cs.titleTransform.yPct !== 15 && cs.titleTransform.yPct <= 30 ? cs.titleTransform.yPct : 14.0)
+            : cs.titleTransform.yPct,
+        });
       }
-      if (s.titleBgColor) setTitleBgColor(s.titleBgColor);
-      if (s.titleBorderRadius !== undefined) setTitleBorderRadius(s.titleBorderRadius);
-      if (s.titleStroke !== undefined) setTitleStroke(s.titleStroke);
-      if (s.titleStrokeWidth !== undefined) setTitleStrokeWidth(s.titleStrokeWidth);
-      if (s.titleStrokeColor) setTitleStrokeColor(s.titleStrokeColor);
-      if (s.titleShadow !== undefined) setTitleShadow(s.titleShadow);
-      if (s.titleShadowBlur !== undefined) setTitleShadowBlur(s.titleShadowBlur);
-      if (s.titleShadowColor) setTitleShadowColor(s.titleShadowColor);
+      if (cs.jabTransform) setJabTransform(cs.jabTransform);
+      if (cs.subTransform) {
+        setSubTransform({
+          ...cs.subTransform,
+          xPct: arch === 'instagram'
+            ? (cs.subTransform.xPct !== undefined && cs.subTransform.xPct !== 50 && cs.subTransform.xPct < 30 ? cs.subTransform.xPct : 6.0)
+            : (cs.subTransform.xPct ?? 50),
+          yPct: arch === 'instagram'
+            ? (cs.subTransform.yPct !== undefined && cs.subTransform.yPct !== 78 && cs.subTransform.yPct !== 75 && cs.subTransform.yPct <= 75 ? cs.subTransform.yPct : 71.5)
+            : (cs.subTransform.yPct ?? 75),
+        });
+      }
+      if (cs.profileTransform) setProfileTransform(cs.profileTransform);
+      if (cs.commentTransform) setCommentTransform(cs.commentTransform);
+      if (cs.sourceTransform) setSourceTransform(cs.sourceTransform);
 
-      // 자막 세부 스타일
-      setSubtitleConfig(prev => ({
-        ...prev,
-        font: s.captionFont || prev.font,
-        fontSize: s.captionFontSize || prev.fontSize,
-      }));
-      if (s.captionStrokeWidth !== undefined) setSubtitleStrokeWidth(s.captionStrokeWidth);
-      if (s.captionStrokeColor) setSubtitleStrokeColor(s.captionStrokeColor);
-      if (s.captionShadowBlur !== undefined) setSubtitleShadowBlur(s.captionShadowBlur);
-      if (s.captionShadowColor) setSubtitleShadowColor(s.captionShadowColor);
-      if (s.captionUseBox !== undefined) setSubtitleUseBox(s.captionUseBox);
-      if (s.captionBoxColor) setSubtitleBoxColor(s.captionBoxColor);
-      if (s.emotionColors?.normal) setSelectedHighlightColor(s.emotionColors.normal);
+      // 🏛️ 2. 폼팩터별 전문 설정 100% 복원
+      if (cs.gunlimboConfig) setGunlimboConfig(prev => ({ ...prev, ...cs.gunlimboConfig }));
+      if (cs.instaConfig) setInstaConfig(prev => ({ ...prev, ...cs.instaConfig }));
+      if (cs.ssulConfig) setSsulConfig(prev => ({ ...prev, ...cs.ssulConfig }));
+      if (cs.commentCard) setCommentCard(prev => ({ ...prev, ...cs.commentCard }));
 
-      // 건림보 전용 스타일
-      if (arch === 'gunlimbo') {
+      // 🏛️ 3. 비디오 크롭/줌/필터
+      if (cs.videoFitMode) setVideoFitMode(cs.videoFitMode);
+      if (cs.videoBlurBg !== undefined) setVideoBlurBg(cs.videoBlurBg);
+      if (cs.videoFocusXPct !== undefined) setVideoFocusXPct(cs.videoFocusXPct);
+      if (cs.videoFocusYPct !== undefined) setVideoFocusYPct(cs.videoFocusYPct);
+      if (cs.videoZoomScale !== undefined) setVideoZoomScale(cs.videoZoomScale);
+      if (cs.videoRotationDeg !== undefined) setVideoRotationDeg(cs.videoRotationDeg);
+      if (cs.videoHorizontalFlip !== undefined) setVideoHorizontalFlip(cs.videoHorizontalFlip);
+      if (cs.videoVerticalFlip !== undefined) setVideoVerticalFlip(cs.videoVerticalFlip);
+      if (cs.videoFilter) setVideoFilter(cs.videoFilter);
+
+      // 🏛️ 4. 상단/하단 배경 바
+      if (cs.hasTopBarBg !== undefined) setHasTopBarBg(cs.hasTopBarBg);
+      if (cs.topBarBg) setTopBarBg(cs.topBarBg);
+      if (cs.topBarHeightPct !== undefined) setTopBarHeightPct(cs.topBarHeightPct);
+      if (cs.topBarOpacity !== undefined) setTopBarOpacity(cs.topBarOpacity);
+      if (cs.topBarRadius !== undefined) setTopBarRadius(cs.topBarRadius);
+      if (cs.topBarZIndex !== undefined) setTopBarZIndex(cs.topBarZIndex);
+      if (cs.hasBottomBarBg !== undefined) setHasBottomBarBg(cs.hasBottomBarBg);
+      if (cs.bottomBarBg) setBottomBarBg(cs.bottomBarBg);
+      if (cs.bottomBarHeightPct !== undefined) setBottomBarHeightPct(cs.bottomBarHeightPct);
+      if (cs.bottomBarOpacity !== undefined) setBottomBarOpacity(cs.bottomBarOpacity);
+      if (cs.bottomBarRadius !== undefined) setBottomBarRadius(cs.bottomBarRadius);
+      if (cs.bottomBarZIndex !== undefined) setBottomBarZIndex(cs.bottomBarZIndex);
+
+      // 🏛️ 5. 타이틀 및 뱃지 스타일
+      if (cs.hasTopTitle !== undefined) setHasTopTitle(cs.hasTopTitle);
+      if (cs.topTitleText !== undefined) setTopTitleText(cs.topTitleText);
+      if (cs.titleLinesMode) setTitleLinesMode(cs.titleLinesMode);
+      if (cs.titleLine1 !== undefined) setTitleLine1(cs.titleLine1);
+      if (cs.titleLine2 !== undefined) setTitleLine2(cs.titleLine2);
+      if (cs.titleLine1Color) setTitleLine1Color(cs.titleLine1Color);
+      if (cs.titleLine2Color) setTitleLine2Color(cs.titleLine2Color);
+      if (cs.titleLine1SizePx) setTitleLine1SizePx(cs.titleLine1SizePx);
+      if (cs.titleLine2SizePx) setTitleLine2SizePx(cs.titleLine2SizePx);
+      if (cs.titleFontFamily) setTitleFontFamily(cs.titleFontFamily);
+      if (cs.titleStroke !== undefined) setTitleStroke(cs.titleStroke);
+      if (cs.titleStrokeWidth !== undefined) setTitleStrokeWidth(cs.titleStrokeWidth);
+      if (cs.titleStrokeColor) setTitleStrokeColor(cs.titleStrokeColor);
+      if (cs.titleShadow !== undefined) setTitleShadow(cs.titleShadow);
+      if (cs.titleShadowBlur !== undefined) setTitleShadowBlur(cs.titleShadowBlur);
+      if (cs.titleShadowColor) setTitleShadowColor(cs.titleShadowColor);
+      if (cs.titleBgMode) setTitleBgMode(cs.titleBgMode);
+      if (cs.titleBgColor) setTitleBgColor(cs.titleBgColor);
+      if (cs.titleBgOpacity !== undefined) setTitleBgOpacity(cs.titleBgOpacity);
+      if (cs.titlePaddingX !== undefined) setTitlePaddingX(cs.titlePaddingX);
+      if (cs.titlePaddingY !== undefined) setTitlePaddingY(cs.titlePaddingY);
+      if (cs.titleBorderRadius !== undefined) setTitleBorderRadius(cs.titleBorderRadius);
+      if (cs.hasTitleBadge !== undefined) setHasTitleBadge(cs.hasTitleBadge);
+      if (cs.titleBadgeText !== undefined) setTitleBadgeText(cs.titleBadgeText);
+      if (cs.titleBadgeBg) setTitleBadgeBg(cs.titleBadgeBg);
+      if (cs.titleBadgeColor) setTitleBadgeColor(cs.titleBadgeColor);
+
+      // 🏛️ 6. 긴박 쨉쨉이 훅
+      if (cs.hasJab !== undefined) setHasJab(cs.hasJab);
+      if (cs.jabText !== undefined) setJabText(cs.jabText);
+      if (cs.jabTiltDeg !== undefined) setJabTiltDeg(cs.jabTiltDeg);
+      if (cs.jabFontSize !== undefined) setJabFontSize(cs.jabFontSize);
+      if (cs.jabTextColor) setJabTextColor(cs.jabTextColor);
+      if (cs.jabStroke !== undefined) setJabStroke(cs.jabStroke);
+      if (cs.jabStrokeWidth !== undefined) setJabStrokeWidth(cs.jabStrokeWidth);
+      if (cs.jabStrokeColor) setJabStrokeColor(cs.jabStrokeColor);
+      if (cs.jabShadow !== undefined) setJabShadow(cs.jabShadow);
+      if (cs.jabShadowBlur !== undefined) setJabShadowBlur(cs.jabShadowBlur);
+      if (cs.jabBgEnabled !== undefined) setJabBgEnabled(cs.jabBgEnabled);
+      if (cs.jabBgColor) setJabBgColor(cs.jabBgColor);
+      if (cs.jabBorderRadius !== undefined) setJabBorderRadius(cs.jabBorderRadius);
+
+      // 🏛️ 7. 하단 출처 표기
+      if (cs.hasBottomSource !== undefined) setHasBottomSource(cs.hasBottomSource);
+      if (cs.bottomSourceText !== undefined) setBottomSourceText(cs.bottomSourceText);
+      if (cs.bottomSourceColor) setBottomSourceColor(cs.bottomSourceColor);
+      if (cs.bottomSourceSizePx !== undefined) setBottomSourceSizePx(cs.bottomSourceSizePx);
+      if (cs.bottomSourceFontFamily) setBottomSourceFontFamily(cs.bottomSourceFontFamily);
+      if (cs.bottomSourceBottomPct !== undefined) setBottomSourceBottomPct(cs.bottomSourceBottomPct);
+      if (cs.bottomSourceStroke !== undefined) setBottomSourceStroke(cs.bottomSourceStroke);
+      if (cs.bottomSourceShadow !== undefined) setBottomSourceShadow(cs.bottomSourceShadow);
+      if (cs.bottomSourceBg !== undefined) setBottomSourceBg(cs.bottomSourceBg);
+      if (cs.bottomSourceBorderRadius !== undefined) setBottomSourceBorderRadius(cs.bottomSourceBorderRadius);
+
+      // 🏛️ 8. 자막 & 댓글 (SSOT 일체화)
+      if (cs.subtitleConfig) {
+        setSubtitleConfig(prev => ({ ...prev, ...cs.subtitleConfig }));
+      }
+      if (cs.subtitleStrokeEnabled !== undefined) setSubtitleStrokeEnabled(cs.subtitleStrokeEnabled);
+      if (cs.subtitleStrokeWidth !== undefined) setSubtitleStrokeWidth(cs.subtitleStrokeWidth);
+      if (cs.subtitleStrokeColor) setSubtitleStrokeColor(cs.subtitleStrokeColor);
+      if (cs.subtitleShadowEnabled !== undefined) setSubtitleShadowEnabled(cs.subtitleShadowEnabled);
+      if (cs.subtitleShadowBlur !== undefined) setSubtitleShadowBlur(cs.subtitleShadowBlur);
+      if (cs.subtitleShadowColor) setSubtitleShadowColor(cs.subtitleShadowColor);
+      const effectiveUseBox = cs.subtitleUseBox !== undefined ? cs.subtitleUseBox : cs.subtitleConfig?.useBox;
+      if (effectiveUseBox !== undefined) {
+        setSubtitleUseBox(effectiveUseBox);
+        setSubtitleConfig(prev => ({ ...prev, useBox: effectiveUseBox }));
+      }
+      if (cs.subtitleBoxColor) {
+        setSubtitleBoxColor(cs.subtitleBoxColor);
+        setSubtitleConfig(prev => ({ ...prev, boxColor: cs.subtitleBoxColor }));
+      }
+      if (cs.subtitleBorderRadius !== undefined) setSubtitleBorderRadius(cs.subtitleBorderRadius);
+      if (cs.hasCommentCard !== undefined) setHasCommentCard(cs.hasCommentCard);
+    } else {
+      // 1. 상단 바 & 타이틀 존
+      if (manifest.geometry?.topTitleZone) {
+        const t = manifest.geometry.topTitleZone;
+        setHasTopTitle(t.enabled ?? true);
+        setHasTopBarBg(t.enabled ?? true);
+        if (t.heightPct !== undefined) setTopBarHeightPct(t.heightPct);
+        if (t.bgColor) setTopBarBg(t.bgColor);
+        if (t.opacity !== undefined) setTopBarOpacity(t.opacity);
+      }
+
+      // 2. 인스타그램 홀 윈도우
+      if (manifest.geometry?.holeWindowZone) {
+        const h = manifest.geometry.holeWindowZone;
+        setInstaConfig(prev => ({
+          ...prev,
+          holeWidthPct: h.widthPct ?? prev.holeWidthPct,
+          holeHeightPct: h.heightPct ?? prev.holeHeightPct,
+          holeRoundness: h.roundness ?? prev.holeRoundness,
+          holeYPct: h.yPct ?? prev.holeYPct,
+          bgColor: h.cardBgColor ?? prev.bgColor,
+        }));
+      }
+
+      // 3. 건림보 훅 밴드
+      if (manifest.geometry?.hookBandZone) {
+        const hb = manifest.geometry.hookBandZone;
         setGunlimboConfig(prev => ({
           ...prev,
-          introDurationSec: manifest.geometry?.mediaZone?.introDurationSec || prev.introDurationSec,
-          titleFontSize: s.titleFontSize || prev.titleFontSize,
-          titleLine1Color: s.titleLine1Color || prev.titleLine1Color,
-          titleLine2Color: s.titleLine2Color || prev.titleLine2Color,
-          hookFontSize: s.hookFontSize || prev.hookFontSize,
+          hookBgColor: hb.boxColor ?? prev.hookBgColor,
+          hookTextColor: hb.textColor ?? prev.hookTextColor,
         }));
+      }
+
+      // 4. 하단 출처 표기
+      if (manifest.geometry?.sourceZone) {
+        const sz = manifest.geometry.sourceZone;
+        setHasBottomSource(sz.enabled ?? true);
+        if (sz.defaultText) setBottomSourceText(sz.defaultText);
+        if (sz.textColor) setBottomSourceColor(sz.textColor);
+        if (sz.fontSize) setBottomSourceSizePx(sz.fontSize);
+        if (sz.yPct) setBottomSourceBottomPct(100 - sz.yPct);
+      }
+
+      // 5. 바이럴 댓글 카드
+      if (manifest.geometry?.commentCardZone) {
+        setHasCommentCard(manifest.geometry.commentCardZone.enabled ?? true);
+      }
+
+      // 6. 잽 훅
+      if (manifest.geometry?.jabHookZone) {
+        setHasJab(manifest.geometry.jabHookZone.enabled ?? true);
+      }
+
+      // 7. 스타일 영역
+      if (manifest.style) {
+        const s = manifest.style;
+        if (s.titleFont) setTitleFontFamily(s.titleFont);
+        if (s.titleLinesMode) setTitleLinesMode(s.titleLinesMode);
+        if (s.titleBadgeText !== undefined) setTitleBadgeText(s.titleBadgeText);
+        if (s.titleBadgeColor) setTitleBadgeColor(s.titleBadgeColor);
+        if (s.titleFontSize) setTitleLine1SizePx(s.titleFontSize);
+        if (s.titleLine2FontSize) setTitleLine2SizePx(s.titleLine2FontSize);
+        if (s.titleLine1Color) setTitleLine1Color(s.titleLine1Color);
+        if (s.titleLine2Color) setTitleLine2Color(s.titleLine2Color);
+        if (s.titleBgMode) {
+          setTitleBgMode((s.titleBgMode === 'box' || s.titleBgMode === 'pill') ? s.titleBgMode : 'none');
+        }
+        if (s.titleBgColor) setTitleBgColor(s.titleBgColor);
+        if (s.titleBorderRadius !== undefined) setTitleBorderRadius(s.titleBorderRadius);
+        if (s.titleStroke !== undefined) setTitleStroke(s.titleStroke);
+        if (s.titleStrokeWidth !== undefined) setTitleStrokeWidth(s.titleStrokeWidth);
+        if (s.titleStrokeColor) setTitleStrokeColor(s.titleStrokeColor);
+        if (s.titleShadow !== undefined) setTitleShadow(s.titleShadow);
+        if (s.titleShadowBlur !== undefined) setTitleShadowBlur(s.titleShadowBlur);
+        if (s.titleShadowColor) setTitleShadowColor(s.titleShadowColor);
+
+        // 자막 세부 스타일
+        setSubtitleConfig(prev => ({
+          ...prev,
+          font: s.captionFont || prev.font,
+          fontSize: s.captionFontSize || prev.fontSize,
+        }));
+        if (s.captionStrokeWidth !== undefined) setSubtitleStrokeWidth(s.captionStrokeWidth);
+        if (s.captionStrokeColor) setSubtitleStrokeColor(s.captionStrokeColor);
+        if (s.captionShadowBlur !== undefined) setSubtitleShadowBlur(s.captionShadowBlur);
+        if (s.captionShadowColor) setSubtitleShadowColor(s.captionShadowColor);
+        if (s.captionUseBox !== undefined) setSubtitleUseBox(s.captionUseBox);
+        if (s.captionBoxColor) setSubtitleBoxColor(s.captionBoxColor);
+        if (s.emotionColors?.normal) setSelectedHighlightColor(s.emotionColors.normal);
+
+        // 건림보 전용 스타일
+        if (arch === 'gunlimbo') {
+          setGunlimboConfig(prev => ({
+            ...prev,
+            introDurationSec: manifest.geometry?.mediaZone?.introDurationSec || prev.introDurationSec,
+            titleFontSize: s.titleFontSize || prev.titleFontSize,
+            titleLine1Color: s.titleLine1Color || prev.titleLine1Color,
+            titleLine2Color: s.titleLine2Color || prev.titleLine2Color,
+            hookFontSize: s.hookFontSize || prev.hookFontSize,
+          }));
+        }
       }
     }
 
     toast({
       title: `🎨 '${manifest.name}' 템플릿 적용 완료`,
-      description: `[${manifest.archetype.toUpperCase()}] 매니페스트 규격이 템플릿 스튜디오에 즉시 반영되었습니다.`
+      description: `[${(manifest.archetype || 'classic').toUpperCase()}] 매니페스트 및 캔버스 좌표가 100% 동일하게 복원되었습니다.`
     });
     setIsTemplateLibraryOpen(false);
   };
@@ -1100,7 +1336,111 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
           hookMotion: 'word_pop',
           captionMotion: 'karaoke',
         },
+        canvasState: {
+          titleTransform,
+          jabTransform,
+          subTransform,
+          profileTransform,
+          commentTransform,
+          sourceTransform,
+          gunlimboConfig,
+          instaConfig,
+          ssulConfig,
+          commentCard,
+          videoFitMode,
+          videoBlurBg,
+          videoFocusXPct,
+          videoFocusYPct,
+          videoZoomScale,
+          videoRotationDeg,
+          videoHorizontalFlip,
+          videoVerticalFlip,
+          videoFilter,
+          hasTopBarBg,
+          topBarBg,
+          topBarHeightPct,
+          topBarOpacity,
+          topBarRadius,
+          topBarZIndex,
+          hasBottomBarBg,
+          bottomBarBg,
+          bottomBarHeightPct,
+          bottomBarOpacity,
+          bottomBarRadius,
+          bottomBarZIndex,
+          hasTopTitle,
+          topTitleText,
+          titleLinesMode,
+          titleLine1,
+          titleLine2,
+          titleLine1Color,
+          titleLine2Color,
+          titleLine1SizePx,
+          titleLine2SizePx,
+          titleFontFamily,
+          titleStroke,
+          titleStrokeWidth,
+          titleStrokeColor,
+          titleShadow,
+          titleShadowBlur,
+          titleShadowColor,
+          titleBgMode,
+          titleBgColor,
+          titleBgOpacity,
+          titlePaddingX,
+          titlePaddingY,
+          titleBorderRadius,
+          hasTitleBadge,
+          titleBadgeText,
+          titleBadgeBg,
+          titleBadgeColor,
+          hasJab,
+          jabText,
+          jabTiltDeg,
+          jabFontSize,
+          jabTextColor,
+          jabStroke,
+          jabStrokeWidth,
+          jabStrokeColor,
+          jabShadow,
+          jabShadowBlur,
+          jabBgEnabled,
+          jabBgColor,
+          jabBorderRadius,
+          hasBottomSource,
+          bottomSourceText,
+          bottomSourceColor,
+          bottomSourceSizePx,
+          bottomSourceFontFamily,
+          bottomSourceBottomPct,
+          bottomSourceStroke,
+          bottomSourceShadow,
+          bottomSourceBg,
+          bottomSourceBorderRadius,
+          hasSubtitle: true,
+          subtitleConfig,
+          subtitleStrokeEnabled,
+          subtitleStrokeWidth,
+          subtitleStrokeColor,
+          subtitleShadowEnabled,
+          subtitleShadowBlur,
+          subtitleShadowColor,
+          subtitleUseBox,
+          subtitleBoxColor,
+          subtitleBorderRadius,
+          hasCommentCard,
+        },
       };
+
+      try {
+        localStorage.setItem('applied_template_manifest', JSON.stringify(manifest));
+        window.dispatchEvent(new CustomEvent('vl_template_applied', { detail: manifest }));
+        try {
+          const ch = new BroadcastChannel('vl_template_channel');
+          ch.postMessage(manifest);
+          ch.close();
+        } catch (_) {}
+      } catch (_) {}
 
       const res = await api.post('/channel-dna/templates', {
         name: templateName.trim() || '커스텀 템플릿',
@@ -1117,7 +1457,7 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
 
       toast({
         title: '💾 템플릿 저장 완료',
-        description: `'${templateName}' 템플릿이 단일 DB(viral_loop.db)에 성공적으로 보관되었습니다.`
+        description: `'${templateName}' 템플릿이 단일 DB(viral_loop.db)에 성공적으로 보관되었으며 정밀 편집기 연동이 완료되었습니다.`
       });
     } catch (err: any) {
       console.warn('DB 저장 실패 시 로컬스토리지 보관:', err);
@@ -1133,10 +1473,106 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
 
   // ⚡ 정밀 편집기에 즉시 적용 (Apply to Editor)
   const handleApplyToEditor = () => {
+    const canvasState: TemplateCanvasState = {
+      titleTransform,
+      jabTransform,
+      subTransform,
+      profileTransform,
+      commentTransform,
+      sourceTransform,
+      gunlimboConfig,
+      instaConfig,
+      ssulConfig,
+      commentCard,
+      videoFitMode,
+      videoBlurBg,
+      videoFocusXPct,
+      videoFocusYPct,
+      videoZoomScale,
+      videoRotationDeg,
+      videoHorizontalFlip,
+      videoVerticalFlip,
+      videoFilter,
+      hasTopBarBg,
+      topBarBg,
+      topBarHeightPct,
+      topBarOpacity,
+      topBarRadius,
+      topBarZIndex,
+      hasBottomBarBg,
+      bottomBarBg,
+      bottomBarHeightPct,
+      bottomBarOpacity,
+      bottomBarRadius,
+      bottomBarZIndex,
+      hasTopTitle,
+      topTitleText,
+      titleLinesMode,
+      titleLine1,
+      titleLine2,
+      titleLine1Color,
+      titleLine2Color,
+      titleLine1SizePx,
+      titleLine2SizePx,
+      titleFontFamily,
+      titleStroke,
+      titleStrokeWidth,
+      titleStrokeColor,
+      titleShadow,
+      titleShadowBlur,
+      titleShadowColor,
+      titleBgMode,
+      titleBgColor,
+      titleBgOpacity,
+      titlePaddingX,
+      titlePaddingY,
+      titleBorderRadius,
+      hasTitleBadge,
+      titleBadgeText,
+      titleBadgeBg,
+      titleBadgeColor,
+      hasJab,
+      jabText,
+      jabTiltDeg,
+      jabFontSize,
+      jabTextColor,
+      jabStroke,
+      jabStrokeWidth,
+      jabStrokeColor,
+      jabShadow,
+      jabShadowBlur,
+      jabBgEnabled,
+      jabBgColor,
+      jabBorderRadius,
+      hasBottomSource,
+      bottomSourceText,
+      bottomSourceColor,
+      bottomSourceSizePx,
+      bottomSourceFontFamily,
+      bottomSourceBottomPct,
+      bottomSourceStroke,
+      bottomSourceShadow,
+      bottomSourceBg,
+      bottomSourceBorderRadius,
+      hasSubtitle: true,
+      subtitleConfig,
+      subtitleStrokeEnabled,
+      subtitleStrokeWidth,
+      subtitleStrokeColor,
+      subtitleShadowEnabled,
+      subtitleShadowBlur,
+      subtitleShadowColor,
+      subtitleUseBox,
+      subtitleBoxColor,
+      subtitleBorderRadius,
+      hasCommentCard,
+    };
+
     const manifest: any = {
       name: templateName,
       archetype: layoutTemplateMode,
       aspectRatio,
+      canvasState,
       titleLinesMode,
       titleLine1,
       titleLine2,
@@ -1191,7 +1627,8 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
     });
 
     setTimeout(() => {
-      navigate('/shorts-studio');
+      const targetEditor = sovereignMode || layoutTemplateMode || 'classic';
+      navigate(`/shorts-editor/${targetEditor}`);
     }, 400);
   };
 
@@ -1205,19 +1642,27 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => navigate('/shorts-studio')}
+            onClick={() => {
+              const targetEditor = sovereignMode || layoutTemplateMode || 'classic';
+              navigate(`/shorts-editor/${targetEditor}`);
+            }}
             className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground gap-1"
-            title="정밀 편집기로 돌아가기"
+            title="현재 폼팩터 전용 정밀 편집기로 돌아가기"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">정밀 편집기</span>
+            <span className="hidden sm:inline">전문 편집기</span>
           </Button>
 
           <div className="h-4 w-px bg-border mx-0.5" />
 
           <div className="flex items-center gap-1.5 min-w-0">
             <Sparkles className="w-4 h-4 text-primary shrink-0" />
-            <span className="text-xs font-bold whitespace-nowrap text-foreground">템플릿 디자인 공방</span>
+            <span className="text-xs font-bold whitespace-nowrap text-foreground">
+              {sovereignMode === 'classic' ? '🥪 클래식 템플릿 디자인실' :
+               sovereignMode === 'instagram' ? '📱 인스타 템플릿 디자인실' :
+               sovereignMode === 'gunlimbo' ? '🎬 군림보 템플릿 디자인실' :
+               sovereignMode === 'ssul' ? '📜 썰형 템플릿 디자인실' : '템플릿 디자인 공방'}
+            </span>
             <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-primary/40 text-primary uppercase font-mono">
               {layoutTemplateMode}
             </Badge>
@@ -1227,10 +1672,44 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
             <Input
               value={templateName}
               onChange={(e) => setTemplateName(e.target.value)}
-              className="h-7 text-xs w-48 bg-muted/30 border-border font-medium focus-visible:ring-1"
+              className="h-7 text-xs w-44 bg-muted/30 border-border font-medium focus-visible:ring-1"
               placeholder="템플릿 이름 입력"
             />
           </div>
+
+          {/* 🎯 픽셀링 스타일 4대 폼팩터 모드 스위처 탭 바 (sovereignMode 시 완전 은닉 및 전용 뱃지 단일 고정) */}
+          {sovereignMode ? (
+            <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-[4px] bg-primary/10 border border-primary/30 text-primary font-bold text-xs ml-1">
+              <span className="text-[10px] px-1 py-0.2 rounded bg-primary text-primary-foreground font-mono">
+                SOVEREIGN TEMPLATE
+              </span>
+            </div>
+          ) : (
+            <div className="flex items-center bg-muted/60 p-0.5 rounded-[4px] border border-border gap-0.5 ml-1">
+              {[
+                { id: 'ssul', label: '썰형 공방', icon: '📜' },
+                { id: 'gunlimbo', label: '군림보 속보', icon: '🎬' },
+                { id: 'classic', label: '클래식', icon: '🥪' },
+                { id: 'instagram', label: '인스타', icon: '📱' },
+              ].map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => handleSwitchModeTab(t.id as LayoutTemplateMode)}
+                  className={cn(
+                    "px-2 py-0.5 text-[11px] font-bold rounded-[3px] transition cursor-pointer flex items-center gap-1",
+                    layoutTemplateMode === t.id
+                      ? "bg-primary text-primary-foreground shadow-xs"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                  )}
+                  title={`${t.label} 모드로 전환`}
+                >
+                  <span>{t.icon}</span>
+                  <span className="hidden xl:inline">{t.label}</span>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* 중앙: 화면비 & 뷰포트 컨트롤 */}
@@ -1360,44 +1839,46 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
           </div>
 
           <div className="p-3 space-y-4">
-            {/* 1. 4대 폼팩터 아키타입 퀵 셀렉터 */}
-            <div className="space-y-1.5">
-              <span className="text-[11px] font-bold text-foreground flex items-center gap-1">
-                <Layers3 className="w-3.5 h-3.5 text-primary" />
-                4대 표준 아키타입
-              </span>
-              <div className="grid grid-cols-2 gap-1.5">
-                {[
-                  { id: 'classic', name: '스탠다드', badge: '기본형', desc: '상·하단 색상 바' },
-                  { id: 'instagram', name: '인스타그램', badge: '피드형', desc: '원형 프로필+홀' },
-                  { id: 'gunlimbo', name: '군림보', badge: '3단형', desc: '가변크롭+훅밴드' },
-                  { id: 'ssul', name: '썰/커뮤니티', badge: '썰형', desc: '헤더+페페 밈' },
-                ].map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => handleSelectTemplateMode(item.id as LayoutTemplateMode)}
-                    className={cn(
-                      "p-2 rounded border text-left transition flex flex-col justify-between cursor-pointer",
-                      layoutTemplateMode === item.id
-                        ? "border-primary bg-primary/10 shadow-2xs ring-1 ring-primary"
-                        : "border-border bg-background hover:bg-muted/60"
-                    )}
-                  >
-                    <div className="flex items-center justify-between mb-0.5">
-                      <span className="font-bold text-[11px] text-foreground">{item.name}</span>
-                      <span className={cn(
-                        "text-[8.5px] font-bold px-1 py-0.2 rounded",
-                        layoutTemplateMode === item.id ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
-                      )}>
-                        {item.badge}
-                      </span>
-                    </div>
-                    <span className="text-[9.5px] text-muted-foreground truncate">{item.desc}</span>
-                  </button>
-                ))}
+            {/* 1. 4대 폼팩터 아키타입 퀵 셀렉터 (독립 전용 스튜디오 모드에서는 은닉) */}
+            {!sovereignMode && (
+              <div className="space-y-1.5">
+                <span className="text-[11px] font-bold text-foreground flex items-center gap-1">
+                  <Layers3 className="w-3.5 h-3.5 text-primary" />
+                  4대 표준 아키타입
+                </span>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {[
+                    { id: 'classic', name: '스탠다드', badge: '기본형', desc: '상·하단 색상 바' },
+                    { id: 'instagram', name: '인스타그램', badge: '피드형', desc: '원형 프로필+홀' },
+                    { id: 'gunlimbo', name: '군림보', badge: '3단형', desc: '가변크롭+훅밴드' },
+                    { id: 'ssul', name: '썰/커뮤니티', badge: '썰형', desc: '헤더+페페 밈' },
+                  ].map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => handleSelectTemplateMode(item.id as LayoutTemplateMode)}
+                      className={cn(
+                        "p-2 rounded border text-left transition flex flex-col justify-between cursor-pointer",
+                        layoutTemplateMode === item.id
+                          ? "border-primary bg-primary/10 shadow-2xs ring-1 ring-primary"
+                          : "border-border bg-background hover:bg-muted/60"
+                      )}
+                    >
+                      <div className="flex items-center justify-between mb-0.5">
+                        <span className="font-bold text-[11px] text-foreground">{item.name}</span>
+                        <span className={cn(
+                          "text-[8.5px] font-bold px-1 py-0.2 rounded",
+                          layoutTemplateMode === item.id ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                        )}>
+                          {item.badge}
+                        </span>
+                      </div>
+                      <span className="text-[9.5px] text-muted-foreground truncate">{item.desc}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* 2. 레퍼런스 쇼츠 1초 발골기 */}
             <div className="space-y-1.5 pt-2 border-t border-border">
@@ -1884,20 +2365,36 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
               titleLine1SizePx={titleLine1SizePx}
               titleLine2SizePx={titleLine2SizePx}
               titleLine1Color={titleLine1Color}
+              setTitleLine1Color={setTitleLine1Color}
               titleLine2Color={titleLine2Color}
+              setTitleLine2Color={setTitleLine2Color}
               titleFontFamily={titleFontFamily}
+              setTitleFontFamily={setTitleFontFamily}
               titleStroke={titleStroke}
+              setTitleStroke={setTitleStroke}
               titleStrokeWidth={titleStrokeWidth}
+              setTitleStrokeWidth={setTitleStrokeWidth}
               titleStrokeColor={titleStrokeColor}
+              setTitleStrokeColor={setTitleStrokeColor}
               titleShadow={titleShadow}
+              setTitleShadow={setTitleShadow}
               titleShadowBlur={titleShadowBlur}
+              setTitleShadowBlur={setTitleShadowBlur}
               titleShadowColor={titleShadowColor}
+              setTitleShadowColor={setTitleShadowColor}
               titleBgMode={titleBgMode}
+              setTitleBgMode={setTitleBgMode}
               titleBgColor={titleBgColor}
+              setTitleBgColor={setTitleBgColor}
               titleBgOpacity={titleBgOpacity}
+              setTitleBgOpacity={setTitleBgOpacity}
               titlePaddingX={titlePaddingX}
+              setTitlePaddingX={setTitlePaddingX}
               titlePaddingY={titlePaddingY}
+              setTitlePaddingY={setTitlePaddingY}
               titleBorderRadius={titleBorderRadius}
+              setTitleBorderRadius={setTitleBorderRadius}
+              setTopTitleColor={setTitleLine1Color}
               hasTitleBadge={hasTitleBadge}
               setHasTitleBadge={setHasTitleBadge}
               titleBadgeText={titleBadgeText}
@@ -1919,14 +2416,21 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
               jabTextColor={jabTextColor}
               setJabTextColor={setJabTextColor}
               jabStroke={jabStroke}
+              setJabStroke={setJabStroke}
               jabStrokeWidth={jabStrokeWidth}
+              setJabStrokeWidth={setJabStrokeWidth}
               jabStrokeColor={jabStrokeColor}
+              setJabStrokeColor={setJabStrokeColor}
               jabShadow={jabShadow}
+              setJabShadow={setJabShadow}
               jabShadowBlur={jabShadowBlur}
+              setJabShadowBlur={setJabShadowBlur}
               jabBgEnabled={jabBgEnabled}
+              setJabBgEnabled={setJabBgEnabled}
               jabBgColor={jabBgColor}
               setJabBgColor={setJabBgColor}
               jabBorderRadius={jabBorderRadius}
+              setJabBorderRadius={setJabBorderRadius}
               hasSubtitle={true}
               subTransform={subTransform}
               setSubTransform={setSubTransform}
@@ -1938,10 +2442,18 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
               subtitleStrokeColor={subtitleStrokeColor}
               subtitleShadowEnabled={subtitleShadowEnabled}
               subtitleShadowBlur={subtitleShadowBlur}
-              subtitleShadowColor={subtitleShadowColor}
-              subtitleUseBox={subtitleUseBox}
-              subtitleBoxColor={subtitleBoxColor}
+              subtitleUseBox={subtitleConfig.useBox ?? subtitleUseBox}
+              setSubtitleUseBox={(val: boolean) => {
+                setSubtitleUseBox(val);
+                setSubtitleConfig(prev => ({ ...prev, useBox: val }));
+              }}
+              subtitleBoxColor={subtitleConfig.boxColor || subtitleBoxColor}
+              setSubtitleBoxColor={(col: string) => {
+                setSubtitleBoxColor(col);
+                setSubtitleConfig(prev => ({ ...prev, boxColor: col }));
+              }}
               subtitleBorderRadius={subtitleBorderRadius}
+              setSubtitleBorderRadius={setSubtitleBorderRadius}
               subtitleMaxChars={subtitleMaxChars}
               selectedHighlightColor={selectedHighlightColor}
               hasBottomSource={hasBottomSource}
@@ -1954,10 +2466,16 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
               setBottomSourceColor={setBottomSourceColor}
               bottomSourceSizePx={bottomSourceSizePx}
               setBottomSourceSizePx={setBottomSourceSizePx}
+              bottomSourceFontFamily={bottomSourceFontFamily}
+              setBottomSourceFontFamily={setBottomSourceFontFamily}
               bottomSourceBg={bottomSourceBg}
+              setBottomSourceBg={setBottomSourceBg}
               bottomSourceBorderRadius={bottomSourceBorderRadius}
+              setBottomSourceBorderRadius={setBottomSourceBorderRadius}
               bottomSourceStroke={bottomSourceStroke}
+              setBottomSourceStroke={setBottomSourceStroke}
               bottomSourceShadow={bottomSourceShadow}
+              setBottomSourceShadow={setBottomSourceShadow}
               setBottomSourceBottomPct={setBottomSourceBottomPct}
               hasCommentCard={hasCommentCard}
               setHasCommentCard={setHasCommentCard}

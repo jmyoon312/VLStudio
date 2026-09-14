@@ -54,12 +54,22 @@ export function startDashboardServer(port = 5183, backendPort = 8000, hotpatchDi
   ].filter(Boolean);
 
   const getActiveStaticDir = () => {
+    let bestDir = null;
+    let newestMtime = -1;
+
     for (const d of candidateDirs) {
-      if (fs.existsSync(path.join(d, 'index.html'))) {
-        return d;
+      const idxPath = path.join(d, 'index.html');
+      if (fs.existsSync(idxPath)) {
+        try {
+          const stat = fs.statSync(idxPath);
+          if (stat.mtimeMs > newestMtime) {
+            newestMtime = stat.mtimeMs;
+            bestDir = d;
+          }
+        } catch {}
       }
     }
-    return candidateDirs[candidateDirs.length - 1];
+    return bestDir || candidateDirs[candidateDirs.length - 1];
   };
 
   serverInstance = http.createServer((req, res) => {

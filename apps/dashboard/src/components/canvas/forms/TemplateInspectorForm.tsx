@@ -2,13 +2,13 @@ import React from 'react';
 import {
   Layout, Sparkles, Wand2, RefreshCw, Layers, Check, ExternalLink,
   Sliders, Palette, Type, Shield, Image, Search, Plus, Trash2, ArrowUpRight,
-  FolderOpen, Music, Split, ChevronRight, Save
+  FolderOpen, Music, Split, ChevronRight, Save, Clapperboard
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useToast } from '@/components/ui/use-toast';
 import { MemeAvatar, MEME_EMOTION_PRESETS, MemeType, MemeEmotion } from '@/components/memeAssets';
 import {
@@ -79,6 +79,7 @@ export const TemplateInspectorForm: React.FC<TemplateInspectorFormProps> = (prop
   const setLayers: StateUpdater = props.setLayers || (() => {});
 
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
   const setTopTitleYPct = props.setTopTitleYPct || (() => {});
   const titleFontFamily = props.titleFontFamily || 'Pretendard';
@@ -89,79 +90,103 @@ export const TemplateInspectorForm: React.FC<TemplateInspectorFormProps> = (prop
   const setWebImageQuery = props.setWebImageQuery || (() => {});
   const isGeneratingFlowImage = props.isGeneratingFlowImage ?? false;
 
+  const currentMode = layoutTemplateMode || 'classic';
+  const isInTemplateStudio = location.pathname.startsWith('/shorts-template');
+  const isInEditorStudio = location.pathname.startsWith('/shorts-editor');
+
   return (
-<div className="space-y-3.5">
-                {/* 4대 폼팩터 선택 카드 및 라이브러리 연동 */}
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-bold text-foreground flex items-center gap-1">
-                      <Layout className="w-3.5 h-3.5 text-primary" />
-                      바이럴 숏폼 4대 폼팩터
-                    </span>
-                    <div className="flex items-center gap-1">
-                      {props.onSaveCurrentStyleAsTemplate && (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={props.onSaveCurrentStyleAsTemplate}
-                          className="h-6 px-1.5 text-[10px] gap-1 font-semibold border-emerald-500/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 shadow-2xs"
-                          title="현재 편집 스타일을 템플릿 라이브러리에 새 템플릿으로 저장"
-                        >
-                          <Save className="w-3 h-3 text-emerald-500" />
-                          저장
-                        </Button>
-                      )}
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={handleOpenTemplateLibrary}
-                        className="h-6 px-1.5 text-[10px] gap-1 font-semibold border-primary/30 text-primary hover:bg-primary/10"
-                      >
-                        <Sparkles className="w-3 h-3" />
-                        라이브러리
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => navigate('/shorts-template-studio')}
-                        className="h-6 px-1.5 text-[10px] gap-1 font-medium text-muted-foreground hover:text-foreground"
-                      >
-                        공방 <ExternalLink className="w-2.5 h-2.5" />
-                      </Button>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-1.5">
-                    {[
-                      { id: 'classic', name: '기본형', badge: 'Standard', desc: '상·하단 색상 배경바' },
-                      { id: 'instagram', name: '인스타형', badge: 'Viral Hole', desc: '구멍 뚫린 카드 + 댓글' },
-                      { id: 'gunlimbo', name: '군림보형', badge: 'Hook Zoom', desc: '0초 줌인 + 3줄 속보' },
-                      { id: 'ssul', name: '썰형', badge: 'Meme Story', desc: '커뮤니티 + 페페 밈 모션' },
-                    ].map((mode) => (
-                      <button
-                        key={mode.id}
-                        type="button"
-                        onClick={() => handleSelectTemplateMode(mode.id as LayoutTemplateMode)}
-                        className={cn(
-                          "p-2 text-left rounded-[4px] border transition cursor-pointer flex flex-col justify-between",
-                          layoutTemplateMode === mode.id
-                            ? "bg-primary/10 border-primary text-primary shadow-xs"
-                            : "bg-card hover:bg-muted/60 border-border text-foreground"
-                        )}
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="font-black text-xs">{mode.name}</span>
-                          <span className="text-[8px] font-bold px-1 py-0.2 rounded-[2px] bg-primary/20 text-primary uppercase">
-                            {mode.badge}
-                          </span>
-                        </div>
-                        <span className="text-[9.5px] text-muted-foreground mt-1 truncate">{mode.desc}</span>
-                      </button>
-                    ))}
-                  </div>
+    <div className="space-y-3.5">
+      {/* 4대 폼팩터 헤더 툴바 및 바로가기 링크 (우측 메뉴 상단 고정) */}
+      <div className="space-y-1.5">
+        <div className="flex items-center justify-between">
+          <span className="text-[11px] font-bold text-foreground flex items-center gap-1">
+            <Layout className="w-3.5 h-3.5 text-primary" />
+            바이럴 숏폼 4대 폼팩터
+          </span>
+          <div className="flex items-center gap-1">
+            {props.onSaveCurrentStyleAsTemplate && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={props.onSaveCurrentStyleAsTemplate}
+                className="h-6 px-1.5 text-[10px] gap-1 font-semibold border-emerald-500/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 shadow-2xs"
+                title="현재 편집 스타일을 템플릿 라이브러리에 새 템플릿으로 저장"
+              >
+                <Save className="w-3 h-3 text-emerald-500" />
+                저장
+              </Button>
+            )}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleOpenTemplateLibrary}
+              className="h-6 px-1.5 text-[10px] gap-1 font-semibold border-primary/30 text-primary hover:bg-primary/10"
+            >
+              <Sparkles className="w-3 h-3" />
+              라이브러리
+            </Button>
+
+            {/* 🏛️ 현재 위치(템플릿 공방 vs 전문 편집기)에 따른 지능적 1:1 직결 바로가기 링크 */}
+            {isInTemplateStudio ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => navigate(`/shorts-editor/${currentMode}`)}
+                className="h-6 px-1.5 text-[10px] gap-1 font-semibold text-primary hover:text-primary hover:bg-primary/10 border border-primary/20"
+                title="현재 폼팩터 전용 전문 정밀 편집기로 이동"
+              >
+                편집기 <Clapperboard className="w-2.5 h-2.5" />
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => navigate(`/shorts-template/${currentMode}`)}
+                className="h-6 px-1.5 text-[10px] gap-1 font-semibold text-primary hover:text-primary hover:bg-primary/10 border border-primary/20"
+                title="현재 폼팩터 전용 템플릿 디자인 공방으로 이동"
+              >
+                공방 <ExternalLink className="w-2.5 h-2.5" />
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {/* 4대 폼팩터 선택 카드 (독립 주권 모드에서는 중복 은닉) */}
+        {!props.hideArchetypeSelector && (
+          <div className="grid grid-cols-2 gap-1.5">
+            {[
+              { id: 'classic', name: '기본형', badge: 'Standard', desc: '상·하단 색상 배경바' },
+              { id: 'instagram', name: '인스타형', badge: 'Viral Hole', desc: '구멍 뚫린 카드 + 댓글' },
+              { id: 'gunlimbo', name: '군림보형', badge: 'Hook Zoom', desc: '0초 줌인 + 3줄 속보' },
+              { id: 'ssul', name: '썰형', badge: 'Meme Story', desc: '커뮤니티 + 페페 밈 모션' },
+            ].map((mode) => (
+              <button
+                key={mode.id}
+                type="button"
+                onClick={() => handleSelectTemplateMode(mode.id as LayoutTemplateMode)}
+                className={cn(
+                  "p-2 text-left rounded-[4px] border transition cursor-pointer flex flex-col justify-between",
+                  layoutTemplateMode === mode.id
+                    ? "bg-primary/10 border-primary text-primary shadow-xs"
+                    : "bg-card hover:bg-muted/60 border-border text-foreground"
+                )}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="font-black text-xs">{mode.name}</span>
+                  <span className="text-[8px] font-bold px-1 py-0.2 rounded-[2px] bg-primary/20 text-primary uppercase">
+                    {mode.badge}
+                  </span>
                 </div>
+                <span className="text-[9.5px] text-muted-foreground mt-1 truncate">{mode.desc}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
 
                 {/* 폼팩터별 세부 설정 */}
                 {layoutTemplateMode === 'classic' && (

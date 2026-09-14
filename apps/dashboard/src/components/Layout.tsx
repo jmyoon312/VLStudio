@@ -874,8 +874,11 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
                     </button>
                 </div>
 
-                {/* Direct Page Router View Panel (Single Scroll Sovereignty for Flow2CapCut, CreativeStudio & ShortsEditorStudio) */}
-                {(location.pathname === '/flow2capcut' || location.pathname === '/creative-studio' || location.pathname === '/shorts-editor-studio' || location.pathname === '/shorts-editor') ? (
+                {/* Direct Page Router View Panel (Single Scroll Sovereignty for Flow2CapCut, CreativeStudio, ShortsEditorStudio & ShortsTemplateStudio) */}
+                {(location.pathname === '/flow2capcut' || 
+                  location.pathname === '/creative-studio' || 
+                  location.pathname.startsWith('/shorts-editor') || 
+                  location.pathname.startsWith('/shorts-template')) ? (
                     <div className="flex-1 flex flex-col min-h-0 overflow-hidden w-full h-full pb-16 md:pb-0 box-border">
                         {children}
                     </div>

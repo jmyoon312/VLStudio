@@ -95,20 +95,48 @@ export const getMenuGroups = (captainId: string | null): MenuGroup[] => [
 
     // 2. CREATION (콘텐츠 제작 스튜디오)
     {
-        title: "🎬 콘텐츠 제작",
+        title: "⚡ 올인원 생성",
         mode: "CREATION",
         defaultExpanded: true,
         items: [
-            { name: '기획 & 리서치', path: '/research-concept-lab', icon: BrainCircuit, highlight: true },
-            { name: '템플릿 디자인', path: '/shorts-template-studio', icon: LayoutTemplate, highlight: true },
-            { name: '원테이크 생성', path: '/shorts-production-studio', icon: Zap, highlight: true },
-            { name: '정밀 편집기', path: '/shorts-editor-studio', icon: Clapperboard, highlight: true },
-            { name: '스마트 컷터', path: '/scene-cutter-pro', icon: Scissors, highlight: true },
-            { name: '미디어 일괄 생성', path: '/creative-studio', icon: Layers, highlight: true },
+            { name: '올인원 생성', path: '/shorts-batch', icon: Zap, highlight: true },
+        ]
+    },
+    {
+        title: "🎛️ 전문 편집기",
+        mode: "CREATION",
+        defaultExpanded: true,
+        items: [
+            { name: '클래식 편집기', path: '/shorts-editor/classic', icon: Clapperboard, highlight: true },
+            { name: '인스타 편집기', path: '/shorts-editor/instagram', icon: Smartphone, highlight: true },
+            { name: '군림보 편집기', path: '/shorts-editor/gunlimbo', icon: Swords, highlight: true },
+            { name: '썰형 편집기', path: '/shorts-editor/ssul', icon: MessageSquare, highlight: true },
+        ]
+    },
+    {
+        title: "🎨 템플릿 디자인",
+        mode: "CREATION",
+        defaultExpanded: false,
+        items: [
+            { name: '클래식 템플릿', path: '/shorts-template/classic', icon: LayoutTemplate },
+            { name: '인스타 템플릿', path: '/shorts-template/instagram', icon: Smartphone },
+            { name: '군림보 템플릿', path: '/shorts-template/gunlimbo', icon: Swords },
+            { name: '썰형 템플릿', path: '/shorts-template/ssul', icon: MessageSquare },
+        ]
+    },
+    {
+        title: "🛠️ 공정별 도구",
+        mode: "CREATION",
+        defaultExpanded: false,
+        items: [
+            { name: '자막 생성기', path: '/tools/subtitles', icon: Languages, highlight: true },
+            { name: '더빙 생성기', path: '/tools/tts-dub', icon: Mic, highlight: true },
+            { name: '클립 분할기', path: '/tools/clip-edit', icon: Scissors, highlight: true },
+            { name: '기획 & 리서치', path: '/research-concept-lab', icon: BrainCircuit },
+            { name: '스마트 컷터', path: '/scene-cutter-pro', icon: Scissors },
+            { name: '미디어 일괄 생성', path: '/creative-studio', icon: Layers },
             { name: '비디오 렌더러', path: '/flow2capcut', icon: Wand2 },
             { name: '대본 각색·생성', path: '/script-writer', icon: Edit },
-            { name: '다국어 음성(TTS)', path: '/multi-tts', icon: Mic },
-            { name: '자막 생성·번역', path: '/subtitle-tool', icon: Languages },
             { name: '무음 컷팅', path: '/silence-remover', icon: Scissors },
             { name: '배경·개체 제거', path: '/remover', icon: Eraser },
         ]
