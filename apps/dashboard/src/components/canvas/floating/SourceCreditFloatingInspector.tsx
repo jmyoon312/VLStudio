@@ -3,8 +3,9 @@ import { BaseFloatingInspectorCard } from '../controls/BaseFloatingInspectorCard
 import { ColorPicker8Preset } from '../controls/ColorPicker8Preset';
 import { UnitSliderControl } from '../controls/UnitSliderControl';
 import { Switch } from '@/components/ui/switch';
+import { Button } from '@/components/ui/button';
 import { FONT_FAMILIES } from '../constants/canvasConstants';
-import { ShieldAlert, Quote } from 'lucide-react';
+import { ShieldAlert, Quote, Bold, Italic } from 'lucide-react';
 
 export interface SourceCreditConfig {
   enabled: boolean;
@@ -12,6 +13,8 @@ export interface SourceCreditConfig {
   color: string;
   fontSize: number;
   font: string;
+  bold?: boolean;
+  italic?: boolean;
   bgEnabled: boolean;
   bgColor: string;
   borderRadius: number;
@@ -86,6 +89,28 @@ export const SourceCreditFloatingInspector: React.FC<SourceCreditFloatingInspect
             </option>
           ))}
         </select>
+        <div className="flex items-center gap-1.5 pt-1">
+          <Button
+            type="button"
+            variant={config.bold ? "default" : "outline"}
+            size="sm"
+            className="h-6 px-2 text-xs gap-1 cursor-pointer"
+            onClick={() => onChange({ bold: !config.bold })}
+          >
+            <Bold className="w-3 h-3" />
+            <span className="text-[10px] font-bold">굵게</span>
+          </Button>
+          <Button
+            type="button"
+            variant={config.italic ? "default" : "outline"}
+            size="sm"
+            className="h-6 px-2 text-xs gap-1 cursor-pointer"
+            onClick={() => onChange({ italic: !config.italic })}
+          >
+            <Italic className="w-3 h-3" />
+            <span className="text-[10px] font-bold">기울임</span>
+          </Button>
+        </div>
       </div>
 
       {/* 4. 글자 색상 & 크기 */}

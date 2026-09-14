@@ -61,8 +61,19 @@ export const TitleSourceInspectorForm: React.FC<TitleSourceInspectorFormProps> =
     bottomSourceText = '출처: 공식 유튜브 영상', setBottomSourceText = () => {},
     bottomSourceColor = '#94A3B8', setBottomSourceColor = () => {},
     bottomSourceSizePx = 12, setBottomSourceSizePx,
-    bottomSourceFontFamily, setBottomSourceFontFamily,
+    bottomSourceFontFamily = 'Pretendard', setBottomSourceFontFamily,
+    bottomSourceBold = false, setBottomSourceBold = () => {},
+    bottomSourceItalic = false, setBottomSourceItalic = () => {},
     bottomSourceBottomPct = 3.5, setBottomSourceBottomPct = () => {},
+    bottomSourceStroke = false, setBottomSourceStroke = () => {},
+    bottomSourceStrokeWidth = 1, setBottomSourceStrokeWidth = () => {},
+    bottomSourceStrokeColor = '#000000', setBottomSourceStrokeColor = () => {},
+    bottomSourceShadow = true, setBottomSourceShadow = () => {},
+    bottomSourceShadowBlur = 4, setBottomSourceShadowBlur = () => {},
+    bottomSourceShadowColor = 'rgba(0,0,0,0.9)', setBottomSourceShadowColor = () => {},
+    bottomSourceBg = false, setBottomSourceBg = () => {},
+    bottomSourceBgColor = 'rgba(0,0,0,0.7)', setBottomSourceBgColor = () => {},
+    bottomSourceBorderRadius = 4, setBottomSourceBorderRadius = () => {},
     sourceTransform, setSourceTransform = () => {},
   } = props;
 
@@ -432,44 +443,167 @@ export const TitleSourceInspectorForm: React.FC<TitleSourceInspectorFormProps> =
       </div>
       )}
 
-      {/* 🏷️ 하단 출처 표기 카드 */}
+      {/* 🏷️ 하단 출처 표기 카드 (글자/테두리/그림자/배경 풀세트) */}
       {showSource && (
-        <div className="p-2.5 border border-border bg-card rounded-[2px] space-y-2.5 shadow-2xs">
+        <div className="p-2.5 border border-border bg-card rounded-[2px] space-y-3 shadow-2xs">
           <div className="flex items-center justify-between border-b border-border pb-1.5">
             <span className="text-[11px] font-bold text-foreground">하단 출처 표기</span>
             <Switch checked={hasBottomSource} onCheckedChange={setHasBottomSource} />
           </div>
           {hasBottomSource && (
-            <div className="space-y-2">
-              <input
-                type="text"
-                value={bottomSourceText}
-                onChange={(e) => setBottomSourceText(e.target.value)}
-                placeholder="출처: 공식 유튜브 영상"
-                className="w-full h-7 px-2 text-[11px] bg-background border border-border rounded-[2px] text-foreground font-medium"
-              />
-              <ColorPicker8Preset
-                label="출처 글자 색상"
-                value={bottomSourceColor || '#94A3B8'}
-                onChange={setBottomSourceColor}
-              />
+            <div className="space-y-3">
+              {/* 1. 출처 문구 */}
+              <div className="space-y-1">
+                <label className="text-[10px] font-semibold text-muted-foreground">출처 문구</label>
+                <input
+                  type="text"
+                  value={bottomSourceText}
+                  onChange={(e) => setBottomSourceText(e.target.value)}
+                  placeholder="출처: 공식 유튜브 영상"
+                  className="w-full h-7 px-2 text-[11px] bg-background border border-border rounded-[2px] text-foreground font-medium"
+                />
+              </div>
 
-              {setBottomSourceSizePx && (
+              {/* 2. 글꼴 및 서체 스타일 (Bold, Italic) */}
+              <div className="space-y-2 p-2 bg-muted/20 border border-border rounded-[2px]">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-semibold text-muted-foreground">글꼴 (Font)</label>
+                  <select
+                    value={bottomSourceFontFamily || 'Pretendard'}
+                    onChange={(e) => setBottomSourceFontFamily?.(e.target.value)}
+                    className="w-full h-7 px-2 text-xs bg-background border border-border rounded-[2px] text-foreground"
+                  >
+                    {FONT_OPTIONS.map((font) => (
+                      <option key={font} value={font}>
+                        {font}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex items-center gap-1.5 pt-1">
+                  <Button
+                    type="button"
+                    variant={bottomSourceBold ? "default" : "outline"}
+                    size="sm"
+                    className="h-6 px-2.5 text-xs gap-1 cursor-pointer"
+                    onClick={() => setBottomSourceBold?.(!bottomSourceBold)}
+                  >
+                    <Bold className="w-3 h-3" />
+                    <span className="text-[10px] font-bold">굵게</span>
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={bottomSourceItalic ? "default" : "outline"}
+                    size="sm"
+                    className="h-6 px-2.5 text-xs gap-1 cursor-pointer"
+                    onClick={() => setBottomSourceItalic?.(!bottomSourceItalic)}
+                  >
+                    <Italic className="w-3 h-3" />
+                    <span className="text-[10px] font-bold">기울임</span>
+                  </Button>
+                </div>
+              </div>
+
+              {/* 3. 글자 색상 & 크기 */}
+              <div className="space-y-2 p-2 bg-muted/20 border border-border rounded-[2px]">
+                <ColorPicker8Preset
+                  label="출처 글자 색상"
+                  value={bottomSourceColor || '#94A3B8'}
+                  onChange={setBottomSourceColor}
+                />
                 <UnitSliderControl
                   label="출처 글자 크기"
-                  value={bottomSourceSizePx}
+                  value={bottomSourceSizePx || 12}
                   min={9}
-                  max={24}
+                  max={32}
                   step={1}
                   unit="px"
-                  onChange={setBottomSourceSizePx}
+                  onChange={(v) => setBottomSourceSizePx?.(v)}
                 />
-              )}
+              </div>
 
-              {/* 하단 출처 표기 세부 위치 & 높낮이 */}
-              <div className="pt-2 border-t border-border/80">
+              {/* 4. 🎨 글자 테두리 (외곽선 Stroke) */}
+              <div className="space-y-2 p-2 bg-muted/20 border border-border rounded-[2px]">
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="font-semibold text-foreground">글자 테두리 (외곽선)</span>
+                  <Switch checked={bottomSourceStroke} onCheckedChange={setBottomSourceStroke} />
+                </div>
+                {bottomSourceStroke && (
+                  <div className="space-y-2 pt-1.5 border-t border-border/50">
+                    <UnitSliderControl
+                      label="테두리 두께"
+                      value={bottomSourceStrokeWidth || 1}
+                      min={0.5}
+                      max={8}
+                      step={0.5}
+                      unit="px"
+                      onChange={setBottomSourceStrokeWidth}
+                    />
+                    <ColorPicker8Preset
+                      label="테두리 색상"
+                      value={bottomSourceStrokeColor || '#000000'}
+                      onChange={setBottomSourceStrokeColor}
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* 5. 🌌 입체 그림자 (Shadow) */}
+              <div className="space-y-2 p-2 bg-muted/20 border border-border rounded-[2px]">
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="font-semibold text-foreground">글자 그림자 (Shadow)</span>
+                  <Switch checked={bottomSourceShadow} onCheckedChange={setBottomSourceShadow} />
+                </div>
+                {bottomSourceShadow && (
+                  <div className="space-y-2 pt-1.5 border-t border-border/50">
+                    <UnitSliderControl
+                      label="그림자 흐림 (Blur)"
+                      value={bottomSourceShadowBlur !== undefined ? bottomSourceShadowBlur : 4}
+                      min={0}
+                      max={20}
+                      step={1}
+                      unit="px"
+                      onChange={setBottomSourceShadowBlur}
+                    />
+                    <ColorPicker8Preset
+                      label="그림자 색상"
+                      value={bottomSourceShadowColor || '#000000'}
+                      onChange={setBottomSourceShadowColor}
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* 6. 🔲 배경 박스 (Box) */}
+              <div className="space-y-2 p-2 bg-muted/20 border border-border rounded-[2px]">
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="font-semibold text-foreground">배경 박스</span>
+                  <Switch checked={bottomSourceBg} onCheckedChange={setBottomSourceBg} />
+                </div>
+                {bottomSourceBg && (
+                  <div className="space-y-2 pt-1.5 border-t border-border/50">
+                    <ColorPicker8Preset
+                      label="배경 색상"
+                      value={bottomSourceBgColor || 'rgba(0,0,0,0.7)'}
+                      onChange={setBottomSourceBgColor}
+                    />
+                    <UnitSliderControl
+                      label="모서리 둥글기"
+                      value={bottomSourceBorderRadius !== undefined ? bottomSourceBorderRadius : 4}
+                      min={0}
+                      max={24}
+                      step={1}
+                      unit="px"
+                      onChange={setBottomSourceBorderRadius}
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* 7. 🏷️ 하단 출처 표기 세부 위치 & 높낮이 */}
+              <div className="p-2 bg-muted/20 border border-border rounded-[2px]">
                 <UnitSliderControl
-                  label="🏷️ 하단 출처 표기 바닥 위치 (Y)"
+                  label="🏷️ 바닥 위치 (Y)"
                   value={bottomSourceBottomPct}
                   min={0}
                   max={25}

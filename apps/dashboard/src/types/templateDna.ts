@@ -294,6 +294,7 @@ export interface TemplateCanvasState {
   jabStrokeColor?: string;
   jabShadow?: boolean;
   jabShadowBlur?: number;
+  jabShadowColor?: string;
   jabBgEnabled?: boolean;
   jabBgColor?: string;
   jabBorderRadius?: number;
@@ -302,10 +303,17 @@ export interface TemplateCanvasState {
   bottomSourceColor?: string;
   bottomSourceSizePx?: number;
   bottomSourceFontFamily?: string;
+  bottomSourceBold?: boolean;
+  bottomSourceItalic?: boolean;
   bottomSourceBottomPct?: number;
   bottomSourceStroke?: boolean;
+  bottomSourceStrokeWidth?: number;
+  bottomSourceStrokeColor?: string;
   bottomSourceShadow?: boolean;
+  bottomSourceShadowBlur?: number;
+  bottomSourceShadowColor?: string;
   bottomSourceBg?: boolean;
+  bottomSourceBgColor?: string;
   bottomSourceBorderRadius?: number;
   hasSubtitle?: boolean;
   subtitleConfig?: any;

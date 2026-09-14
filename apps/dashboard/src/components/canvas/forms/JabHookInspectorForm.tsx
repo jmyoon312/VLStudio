@@ -28,6 +28,8 @@ export interface JabHookInspectorFormProps {
   setJabShadow: (val: boolean | ((prev: boolean) => boolean)) => void;
   jabShadowBlur: number;
   setJabShadowBlur: (val: number | ((prev: number) => number)) => void;
+  jabShadowColor?: string;
+  setJabShadowColor?: (val: string | ((prev: string) => string)) => void;
   jabBgEnabled: boolean;
   setJabBgEnabled: (val: boolean | ((prev: boolean) => boolean)) => void;
   jabBgColor: string;
@@ -58,6 +60,8 @@ export const JabHookInspectorForm: React.FC<JabHookInspectorFormProps> = ({
   setJabShadow,
   jabShadowBlur,
   setJabShadowBlur,
+  jabShadowColor = '#000000',
+  setJabShadowColor = () => {},
   jabBgEnabled,
   setJabBgEnabled,
   jabBgColor,
@@ -186,8 +190,8 @@ export const JabHookInspectorForm: React.FC<JabHookInspectorFormProps> = ({
                             />
                             <ColorPicker8Preset
                               label="그림자 색상"
-                              value={jabShadowBlur ? '#000000' : '#000000'}
-                              onChange={() => {}}
+                              value={jabShadowColor || '#000000'}
+                              onChange={setJabShadowColor}
                             />
                           </div>
                         )}

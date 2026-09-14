@@ -274,9 +274,16 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
   const [titleBadgeBg, setTitleBadgeBg] = useState<string>('#EF4444');
   const [bottomSourceBottomPct, setBottomSourceBottomPct] = useState<number>(3.5);
   const [bottomSourceBg, setBottomSourceBg] = useState<boolean>(false);
+  const [bottomSourceBgColor, setBottomSourceBgColor] = useState<string>('rgba(0,0,0,0.7)');
   const [bottomSourceBorderRadius, setBottomSourceBorderRadius] = useState<number>(2);
   const [bottomSourceStroke, setBottomSourceStroke] = useState<boolean>(false);
+  const [bottomSourceStrokeWidth, setBottomSourceStrokeWidth] = useState<number>(1);
+  const [bottomSourceStrokeColor, setBottomSourceStrokeColor] = useState<string>('#000000');
   const [bottomSourceShadow, setBottomSourceShadow] = useState<boolean>(true);
+  const [bottomSourceShadowBlur, setBottomSourceShadowBlur] = useState<number>(4);
+  const [bottomSourceShadowColor, setBottomSourceShadowColor] = useState<string>('rgba(0,0,0,0.9)');
+  const [bottomSourceBold, setBottomSourceBold] = useState<boolean>(false);
+  const [bottomSourceItalic, setBottomSourceItalic] = useState<boolean>(false);
 
   // 자막 세부 속성 (정밀 편집기 1:1 동기화)
   const [currentSubtitleText, setCurrentSubtitleText] = useState<string>('바이럴루프 정밀 템플릿 실시간 프리뷰');
@@ -378,6 +385,7 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
   const [jabStrokeColor, setJabStrokeColor] = useState<string>('#000000');
   const [jabShadow, setJabShadow] = useState<boolean>(true);
   const [jabShadowBlur, setJabShadowBlur] = useState<number>(8);
+  const [jabShadowColor, setJabShadowColor] = useState<string>('#000000');
 
   // 💬 본문 자막
   const [subtitleConfig, setSubtitleConfig] = useState<SubtitleConfig>({
@@ -1064,6 +1072,7 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
       if (cs.jabStrokeColor) setJabStrokeColor(cs.jabStrokeColor);
       if (cs.jabShadow !== undefined) setJabShadow(cs.jabShadow);
       if (cs.jabShadowBlur !== undefined) setJabShadowBlur(cs.jabShadowBlur);
+      if (cs.jabShadowColor) setJabShadowColor(cs.jabShadowColor);
       if (cs.jabBgEnabled !== undefined) setJabBgEnabled(cs.jabBgEnabled);
       if (cs.jabBgColor) setJabBgColor(cs.jabBgColor);
       if (cs.jabBorderRadius !== undefined) setJabBorderRadius(cs.jabBorderRadius);
@@ -1074,10 +1083,17 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
       if (cs.bottomSourceColor) setBottomSourceColor(cs.bottomSourceColor);
       if (cs.bottomSourceSizePx !== undefined) setBottomSourceSizePx(cs.bottomSourceSizePx);
       if (cs.bottomSourceFontFamily) setBottomSourceFontFamily(cs.bottomSourceFontFamily);
+      if (cs.bottomSourceBold !== undefined) setBottomSourceBold(cs.bottomSourceBold);
+      if (cs.bottomSourceItalic !== undefined) setBottomSourceItalic(cs.bottomSourceItalic);
       if (cs.bottomSourceBottomPct !== undefined) setBottomSourceBottomPct(cs.bottomSourceBottomPct);
       if (cs.bottomSourceStroke !== undefined) setBottomSourceStroke(cs.bottomSourceStroke);
+      if (cs.bottomSourceStrokeWidth !== undefined) setBottomSourceStrokeWidth(cs.bottomSourceStrokeWidth);
+      if (cs.bottomSourceStrokeColor) setBottomSourceStrokeColor(cs.bottomSourceStrokeColor);
       if (cs.bottomSourceShadow !== undefined) setBottomSourceShadow(cs.bottomSourceShadow);
+      if (cs.bottomSourceShadowBlur !== undefined) setBottomSourceShadowBlur(cs.bottomSourceShadowBlur);
+      if (cs.bottomSourceShadowColor) setBottomSourceShadowColor(cs.bottomSourceShadowColor);
       if (cs.bottomSourceBg !== undefined) setBottomSourceBg(cs.bottomSourceBg);
+      if (cs.bottomSourceBgColor) setBottomSourceBgColor(cs.bottomSourceBgColor);
       if (cs.bottomSourceBorderRadius !== undefined) setBottomSourceBorderRadius(cs.bottomSourceBorderRadius);
 
       // 🏛️ 8. 자막 & 댓글 (SSOT 일체화)
@@ -1350,6 +1366,7 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
         jabStrokeColor,
         jabShadow,
         jabShadowBlur,
+        jabShadowColor,
         jabBgEnabled,
         jabBgColor,
         jabBorderRadius,
@@ -1358,10 +1375,17 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
         bottomSourceColor,
         bottomSourceSizePx,
         bottomSourceFontFamily,
+        bottomSourceBold,
+        bottomSourceItalic,
         bottomSourceBottomPct,
         bottomSourceStroke,
+        bottomSourceStrokeWidth,
+        bottomSourceStrokeColor,
         bottomSourceShadow,
+        bottomSourceShadowBlur,
+        bottomSourceShadowColor,
         bottomSourceBg,
+        bottomSourceBgColor,
         bottomSourceBorderRadius,
         hasSubtitle: true,
         subtitleConfig,
@@ -1504,6 +1528,7 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
         jabStrokeColor,
         jabShadow,
         jabShadowBlur,
+        jabShadowColor,
         jabBgEnabled,
         jabBgColor,
         jabBorderRadius,
@@ -1512,10 +1537,17 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
         bottomSourceColor,
         bottomSourceSizePx,
         bottomSourceFontFamily,
+        bottomSourceBold,
+        bottomSourceItalic,
         bottomSourceBottomPct,
         bottomSourceStroke,
+        bottomSourceStrokeWidth,
+        bottomSourceStrokeColor,
         bottomSourceShadow,
+        bottomSourceShadowBlur,
+        bottomSourceShadowColor,
         bottomSourceBg,
+        bottomSourceBgColor,
         bottomSourceBorderRadius,
         hasSubtitle: true,
         subtitleConfig,
@@ -1723,6 +1755,7 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
       jabStrokeColor,
       jabShadow,
       jabShadowBlur,
+      jabShadowColor,
       jabBgEnabled,
       jabBgColor,
       jabBorderRadius,
@@ -1731,10 +1764,17 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
       bottomSourceColor,
       bottomSourceSizePx,
       bottomSourceFontFamily,
+      bottomSourceBold,
+      bottomSourceItalic,
       bottomSourceBottomPct,
       bottomSourceStroke,
+      bottomSourceStrokeWidth,
+      bottomSourceStrokeColor,
       bottomSourceShadow,
+      bottomSourceShadowBlur,
+      bottomSourceShadowColor,
       bottomSourceBg,
+      bottomSourceBgColor,
       bottomSourceBorderRadius,
       hasSubtitle: true,
       subtitleConfig,
@@ -2643,6 +2683,8 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
               setJabShadow={setJabShadow}
               jabShadowBlur={jabShadowBlur}
               setJabShadowBlur={setJabShadowBlur}
+              jabShadowColor={jabShadowColor}
+              setJabShadowColor={setJabShadowColor}
               jabBgEnabled={jabBgEnabled}
               setJabBgEnabled={setJabBgEnabled}
               jabBgColor={jabBgColor}
@@ -2698,14 +2740,28 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
               setBottomSourceSizePx={setBottomSourceSizePx}
               bottomSourceFontFamily={bottomSourceFontFamily}
               setBottomSourceFontFamily={setBottomSourceFontFamily}
+              bottomSourceBold={bottomSourceBold}
+              setBottomSourceBold={setBottomSourceBold}
+              bottomSourceItalic={bottomSourceItalic}
+              setBottomSourceItalic={setBottomSourceItalic}
               bottomSourceBg={bottomSourceBg}
               setBottomSourceBg={setBottomSourceBg}
+              bottomSourceBgColor={bottomSourceBgColor}
+              setBottomSourceBgColor={setBottomSourceBgColor}
               bottomSourceBorderRadius={bottomSourceBorderRadius}
               setBottomSourceBorderRadius={setBottomSourceBorderRadius}
               bottomSourceStroke={bottomSourceStroke}
               setBottomSourceStroke={setBottomSourceStroke}
+              bottomSourceStrokeWidth={bottomSourceStrokeWidth}
+              setBottomSourceStrokeWidth={setBottomSourceStrokeWidth}
+              bottomSourceStrokeColor={bottomSourceStrokeColor}
+              setBottomSourceStrokeColor={setBottomSourceStrokeColor}
               bottomSourceShadow={bottomSourceShadow}
               setBottomSourceShadow={setBottomSourceShadow}
+              bottomSourceShadowBlur={bottomSourceShadowBlur}
+              setBottomSourceShadowBlur={setBottomSourceShadowBlur}
+              bottomSourceShadowColor={bottomSourceShadowColor}
+              setBottomSourceShadowColor={setBottomSourceShadowColor}
               setBottomSourceBottomPct={setBottomSourceBottomPct}
               hasCommentCard={hasCommentCard}
               setHasCommentCard={setHasCommentCard}
@@ -3160,6 +3216,28 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
                 setBottomSourceSizePx={setBottomSourceSizePx}
                 bottomSourceFontFamily={bottomSourceFontFamily}
                 setBottomSourceFontFamily={setBottomSourceFontFamily}
+                bottomSourceBold={bottomSourceBold}
+                setBottomSourceBold={setBottomSourceBold}
+                bottomSourceItalic={bottomSourceItalic}
+                setBottomSourceItalic={setBottomSourceItalic}
+                bottomSourceBg={bottomSourceBg}
+                setBottomSourceBg={setBottomSourceBg}
+                bottomSourceBgColor={bottomSourceBgColor}
+                setBottomSourceBgColor={setBottomSourceBgColor}
+                bottomSourceBorderRadius={bottomSourceBorderRadius}
+                setBottomSourceBorderRadius={setBottomSourceBorderRadius}
+                bottomSourceStroke={bottomSourceStroke}
+                setBottomSourceStroke={setBottomSourceStroke}
+                bottomSourceStrokeWidth={bottomSourceStrokeWidth}
+                setBottomSourceStrokeWidth={setBottomSourceStrokeWidth}
+                bottomSourceStrokeColor={bottomSourceStrokeColor}
+                setBottomSourceStrokeColor={setBottomSourceStrokeColor}
+                bottomSourceShadow={bottomSourceShadow}
+                setBottomSourceShadow={setBottomSourceShadow}
+                bottomSourceShadowBlur={bottomSourceShadowBlur}
+                setBottomSourceShadowBlur={setBottomSourceShadowBlur}
+                bottomSourceShadowColor={bottomSourceShadowColor}
+                setBottomSourceShadowColor={setBottomSourceShadowColor}
                 sourceTransform={sourceTransform}
                 setSourceTransform={setSourceTransform}
               />
@@ -3251,6 +3329,8 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
                 setJabShadow={setJabShadow}
                 jabShadowBlur={jabShadowBlur}
                 setJabShadowBlur={setJabShadowBlur}
+                jabShadowColor={jabShadowColor}
+                setJabShadowColor={setJabShadowColor}
                 jabBgEnabled={jabBgEnabled}
                 setJabBgEnabled={setJabBgEnabled}
                 jabBgColor={jabBgColor}

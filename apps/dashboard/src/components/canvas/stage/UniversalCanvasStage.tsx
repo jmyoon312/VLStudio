@@ -181,6 +181,8 @@ export interface UniversalCanvasStageProps {
   setJabShadow?: (val: boolean) => void;
   jabShadowBlur: number;
   setJabShadowBlur?: (val: number) => void;
+  jabShadowColor?: string;
+  setJabShadowColor?: (val: string) => void;
   jabBgEnabled: boolean;
   setJabBgEnabled?: (val: boolean) => void;
   jabBgColor: string;
@@ -234,14 +236,28 @@ export interface UniversalCanvasStageProps {
   setBottomSourceSizePx?: (val: number) => void;
   bottomSourceFontFamily?: string;
   setBottomSourceFontFamily?: (val: string) => void;
+  bottomSourceBold?: boolean;
+  setBottomSourceBold?: (val: boolean) => void;
+  bottomSourceItalic?: boolean;
+  setBottomSourceItalic?: (val: boolean) => void;
   bottomSourceBg?: boolean;
   setBottomSourceBg?: (val: boolean) => void;
+  bottomSourceBgColor?: string;
+  setBottomSourceBgColor?: (val: string) => void;
   bottomSourceBorderRadius?: number;
   setBottomSourceBorderRadius?: (val: number) => void;
   bottomSourceStroke?: boolean;
   setBottomSourceStroke?: (val: boolean) => void;
+  bottomSourceStrokeWidth?: number;
+  setBottomSourceStrokeWidth?: (val: number) => void;
+  bottomSourceStrokeColor?: string;
+  setBottomSourceStrokeColor?: (val: string) => void;
   bottomSourceShadow?: boolean;
   setBottomSourceShadow?: (val: boolean) => void;
+  bottomSourceShadowBlur?: number;
+  setBottomSourceShadowBlur?: (val: number) => void;
+  bottomSourceShadowColor?: string;
+  setBottomSourceShadowColor?: (val: string) => void;
   setBottomSourceBottomPct?: (val: number) => void;
 
   // Comment Card
@@ -501,6 +517,7 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
     jabStrokeColor,
     jabShadow,
     jabShadowBlur,
+    jabShadowColor = '#000000',
     jabBgEnabled,
     jabBgColor,
     jabBorderRadius,
@@ -539,10 +556,18 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
     bottomSourceText,
     bottomSourceColor = '#FFFFFF',
     bottomSourceSizePx = 14,
-    bottomSourceBg = true,
+    bottomSourceFontFamily = 'Pretendard',
+    bottomSourceBold = false,
+    bottomSourceItalic = false,
+    bottomSourceBg = false,
+    bottomSourceBgColor = 'rgba(0,0,0,0.7)',
     bottomSourceBorderRadius = 4,
-    bottomSourceStroke = true,
+    bottomSourceStroke = false,
+    bottomSourceStrokeWidth = 1,
+    bottomSourceStrokeColor = '#000000',
     bottomSourceShadow = true,
+    bottomSourceShadowBlur = 4,
+    bottomSourceShadowColor = 'rgba(0,0,0,0.9)',
     hasCommentCard,
     commentCard = {
       author: '알고리즘의노예',
@@ -1556,7 +1581,7 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                       style={{
                         backgroundColor: jabBgEnabled ? jabBgColor : 'transparent',
                         borderRadius: `${jabBorderRadius}px`,
-                        boxShadow: jabShadow ? `0 4px ${jabShadowBlur * 2}px rgba(0,0,0,0.8)` : 'none',
+                        boxShadow: jabShadow ? `0 4px ${jabShadowBlur * 2}px ${jabShadowColor || '#000000'}` : 'none',
                         border: (jabBgEnabled && jabStroke) ? '1px solid rgba(0,0,0,0.2)' : 'none',
                       }}
                     >
@@ -1568,7 +1593,7 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                           WebkitTextStroke: jabStroke ? `${jabStrokeWidth}px ${jabStrokeColor}` : 'none',
                           paintOrder: 'stroke fill',
                           WebkitFontSmoothing: 'antialiased',
-                          textShadow: jabShadow ? `0 2px ${jabShadowBlur}px rgba(0,0,0,0.9)` : 'none',
+                          textShadow: jabShadow ? `0 2px ${jabShadowBlur}px ${jabShadowColor || '#000000'}` : 'none',
                         }}
                       >
                         {displayJab?.data || jabText}
@@ -1738,19 +1763,21 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                     }}
                     className="select-none text-center whitespace-nowrap px-2 cursor-move"
                     style={{
-                      backgroundColor: bottomSourceBg ? 'rgba(0,0,0,0.7)' : 'transparent',
+                      backgroundColor: bottomSourceBg ? (bottomSourceBgColor || 'rgba(0,0,0,0.7)') : 'transparent',
                       borderRadius: `${bottomSourceBorderRadius}px`,
                     }}
                   >
                     <span
-                      className="font-medium tracking-wide drop-shadow-md"
+                      className="tracking-wide drop-shadow-md"
                       style={{
                         fontSize: `${bottomSourceSizePx}px`,
                         color: bottomSourceColor,
-                        fontFamily: titleFontFamily,
-                        WebkitTextStroke: bottomSourceStroke ? '1px #000000' : 'none',
+                        fontFamily: bottomSourceFontFamily || 'Pretendard',
+                        fontWeight: bottomSourceBold ? 700 : 500,
+                        fontStyle: bottomSourceItalic ? 'italic' : 'normal',
+                        WebkitTextStroke: bottomSourceStroke ? `${bottomSourceStrokeWidth || 1}px ${bottomSourceStrokeColor || '#000000'}` : 'none',
                         paintOrder: 'stroke fill',
-                        textShadow: bottomSourceShadow ? '0 1px 4px rgba(0,0,0,0.9)' : 'none',
+                        textShadow: bottomSourceShadow ? `0 1px ${bottomSourceShadowBlur !== undefined ? bottomSourceShadowBlur : 4}px ${bottomSourceShadowColor || 'rgba(0,0,0,0.9)'}` : 'none',
                       }}
                     >
                       {bottomSourceText}
@@ -2364,7 +2391,7 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                     strokeColor: props.jabStrokeColor || '#000000',
                     strokeWidth: props.jabStrokeWidth ?? 2,
                     shadowEnabled: props.jabShadow ?? true,
-                    shadowColor: '#000000',
+                    shadowColor: props.jabShadowColor || '#000000',
                     shadowBlur: props.jabShadowBlur ?? 8,
                     bgEnabled: props.jabBgEnabled ?? true,
                     bgColor: props.jabBgColor || '#FFE500',
@@ -2384,6 +2411,7 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                     if (patch.strokeColor !== undefined && props.setJabStrokeColor) props.setJabStrokeColor(patch.strokeColor);
                     if (patch.shadowEnabled !== undefined && props.setJabShadow) props.setJabShadow(patch.shadowEnabled);
                     if (patch.shadowBlur !== undefined && props.setJabShadowBlur) props.setJabShadowBlur(patch.shadowBlur);
+                    if (patch.shadowColor !== undefined && props.setJabShadowColor) props.setJabShadowColor(patch.shadowColor);
                     if (patch.bgEnabled !== undefined && props.setJabBgEnabled) props.setJabBgEnabled(patch.bgEnabled);
                     if (patch.borderRadius !== undefined && props.setJabBorderRadius) props.setJabBorderRadius(patch.borderRadius);
                   }}
@@ -2495,16 +2523,18 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                     text: props.bottomSourceText || '출처: 유튜브 @채널명',
                     color: props.bottomSourceColor || '#CBD5E1',
                     fontSize: props.bottomSourceSizePx || 12,
-                    font: props.bottomSourceFontFamily || props.titleFontFamily || 'Pretendard',
-                    bgEnabled: props.bottomSourceBg ?? true,
-                    bgColor: 'rgba(0,0,0,0.7)',
+                    font: props.bottomSourceFontFamily || 'Pretendard',
+                    bold: props.bottomSourceBold ?? false,
+                    italic: props.bottomSourceItalic ?? false,
+                    bgEnabled: props.bottomSourceBg ?? false,
+                    bgColor: props.bottomSourceBgColor || 'rgba(0,0,0,0.7)',
                     borderRadius: props.bottomSourceBorderRadius ?? 4,
                     strokeEnabled: props.bottomSourceStroke ?? false,
-                    strokeColor: '#000000',
-                    strokeWidth: 1,
+                    strokeColor: props.bottomSourceStrokeColor || '#000000',
+                    strokeWidth: props.bottomSourceStrokeWidth ?? 1,
                     shadowEnabled: props.bottomSourceShadow ?? true,
-                    shadowColor: 'rgba(0,0,0,0.9)',
-                    shadowBlur: 4,
+                    shadowColor: props.bottomSourceShadowColor || 'rgba(0,0,0,0.9)',
+                    shadowBlur: props.bottomSourceShadowBlur ?? 4,
                     offsetX: 0,
                     offsetY: 0,
                   }}
@@ -2514,9 +2544,16 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                     if (patch.color !== undefined && props.setBottomSourceColor) props.setBottomSourceColor(patch.color);
                     if (patch.fontSize !== undefined && props.setBottomSourceSizePx) props.setBottomSourceSizePx(patch.fontSize);
                     if (patch.font !== undefined && props.setBottomSourceFontFamily) props.setBottomSourceFontFamily(patch.font);
+                    if (patch.bold !== undefined && props.setBottomSourceBold) props.setBottomSourceBold(patch.bold);
+                    if (patch.italic !== undefined && props.setBottomSourceItalic) props.setBottomSourceItalic(patch.italic);
                     if (patch.strokeEnabled !== undefined && props.setBottomSourceStroke) props.setBottomSourceStroke(patch.strokeEnabled);
+                    if (patch.strokeWidth !== undefined && props.setBottomSourceStrokeWidth) props.setBottomSourceStrokeWidth(patch.strokeWidth);
+                    if (patch.strokeColor !== undefined && props.setBottomSourceStrokeColor) props.setBottomSourceStrokeColor(patch.strokeColor);
                     if (patch.shadowEnabled !== undefined && props.setBottomSourceShadow) props.setBottomSourceShadow(patch.shadowEnabled);
+                    if (patch.shadowBlur !== undefined && props.setBottomSourceShadowBlur) props.setBottomSourceShadowBlur(patch.shadowBlur);
+                    if (patch.shadowColor !== undefined && props.setBottomSourceShadowColor) props.setBottomSourceShadowColor(patch.shadowColor);
                     if (patch.bgEnabled !== undefined && props.setBottomSourceBg) props.setBottomSourceBg(patch.bgEnabled);
+                    if (patch.bgColor !== undefined && props.setBottomSourceBgColor) props.setBottomSourceBgColor(patch.bgColor);
                     if (patch.borderRadius !== undefined && props.setBottomSourceBorderRadius) props.setBottomSourceBorderRadius(patch.borderRadius);
                   }}
                   onReset={() => {
