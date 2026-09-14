@@ -69,45 +69,56 @@ export interface CanvasFontFamily {
 }
 
 export const FONT_FAMILIES: CanvasFontFamily[] = [
-  // ⚡ 1. 쇼츠 & 어그로 & 임팩트 헤드라인
-  { id: 'SBAggro', name: '샌드박스 어그로체 (쇼츠 1위)', category: '⚡ 쇼츠 & 어그로' },
-  { id: 'Black Han Sans', name: '검은고딕 (임팩트 썸네일)', category: '⚡ 쇼츠 & 어그로' },
-  { id: 'Bagel Fat One', name: '베이글 팻 원 (통통 볼드)', category: '⚡ 쇼츠 & 어그로' },
-  { id: 'Jalnan', name: '여기어때 잘난체 (숏폼 대표)', category: '⚡ 쇼츠 & 어그로' },
-  { id: 'GmarketSans', name: '지마켓 산스 (국민 볼드)', category: '⚡ 쇼츠 & 어그로' },
-  { id: 'Do Hyeon', name: '배민 도현체 (강렬한 헤드라인)', category: '⚡ 쇼츠 & 어그로' },
-  { id: 'Cafe24Ssurround', name: '카페24 써라운드 (원형 볼드)', category: '⚡ 쇼츠 & 어그로' },
-  { id: 'PyeongChangPeace', name: '평창평화체 (스피디 액션)', category: '⚡ 쇼츠 & 어그로' },
-  { id: 'TmoneyRoundWind', name: '티머니 둥근바람 (둥근 볼드)', category: '⚡ 쇼츠 & 어그로' },
-  { id: 'KOTRA_BOLD', name: '코트라 볼드 (단단한 신뢰)', category: '⚡ 쇼츠 & 어그로' },
+  // ⚡ 1. 쇼츠 & 어그로 썸네일
+  { id: 'SBAggro', name: '샌드박스 어그로체 (쇼츠/썸네일 1위)', category: '⚡ 쇼츠 & 어그로 썸네일' },
+  { id: 'Black Han Sans', name: '검은고딕 (임팩트 썸네일)', category: '⚡ 쇼츠 & 어그로 썸네일' },
+  { id: 'Bagel Fat One', name: '베이글 팻 원 (통통 볼드)', category: '⚡ 쇼츠 & 어그로 썸네일' },
+  { id: 'Jalnan', name: '여기어때 잘난체 (숏폼 대표)', category: '⚡ 쇼츠 & 어그로 썸네일' },
+  { id: 'GmarketSans', name: '지마켓 산스 (국민 볼드 1위)', category: '⚡ 쇼츠 & 어그로 썸네일' },
+  { id: 'Do Hyeon', name: '배민 도현체 (강렬한 헤드라인)', category: '⚡ 쇼츠 & 어그로 썸네일' },
+  { id: 'PyeongChangPeace', name: '평창평화체 (스피디 액션)', category: '⚡ 쇼츠 & 어그로 썸네일' },
+  { id: 'TmoneyRoundWind', name: '티머니 둥근바람 (둥근 볼드)', category: '⚡ 쇼츠 & 어그로 썸네일' },
 
-  // 👴 2. 시니어 롱폼 & 역사 / 지식 / 다큐 명조
-  { id: 'KoPubWorld Batang', name: '코펍월드 바탕 Pro (시니어 1위)', category: '👴 시니어 롱폼 & 다큐' },
-  { id: 'KoPubWorld Dotum', name: '코펍월드 돋움 Pro (눈 편한 자막)', category: '👴 시니어 롱폼 & 다큐' },
-  { id: 'Chosunilbo_myungjo', name: '조선일보명조 (품격 다큐)', category: '👴 시니어 롱폼 & 다큐' },
-  { id: 'ChosunKg', name: '조선굵은고딕 (특종 헤드라인)', category: '👴 시니어 롱폼 & 다큐' },
-  { id: 'MaruBuri', name: '마루 부리 (감동 실화/인생)', category: '👴 시니어 롱폼 & 다큐' },
-  { id: 'Noto Serif KR', name: '구글 본명조 (정통 역사/사극)', category: '👴 시니어 롱폼 & 다큐' },
-  { id: 'Gowun Batang', name: '고운바탕 (온화한 감성 명조)', category: '👴 시니어 롱폼 & 다큐' },
-  { id: 'Gowun Dodum', name: '고운돋움 (편안한 둥근 돋움)', category: '👴 시니어 롱폼 & 다큐' },
-  { id: 'GyeonggiBatang', name: '경기천년바탕 (우아한 문화/역사)', category: '👴 시니어 롱폼 & 다큐' },
-  { id: 'Song Myung', name: '송명체 (정통 고서/사극 붓결)', category: '👴 시니어 롱폼 & 다큐' },
-  { id: 'Nanum Myeongjo', name: '나눔명조 (단아한 클래식)', category: '👴 시니어 롱폼 & 다큐' },
+  // 📜 2. 야담 & 사극 & 고전 기담
+  { id: 'EbsHunminjeongeumSaeron', name: 'EBS 훈민정음 새론체 (조선야담 1위)', category: '📜 야담 & 사극 & 고전 기담' },
+  { id: 'ChosunGs', name: '조선궁서체 (사극/비화/무협 썸네일)', category: '📜 야담 & 사극 & 고전 기담' },
+  { id: 'Song Myung', name: '송명체 (정통 고서/사극 붓결)', category: '📜 야담 & 사극 & 고전 기담' },
+  { id: 'GyeonggiBatang', name: '경기천년바탕 (우아한 역사/문화)', category: '📜 야담 & 사극 & 고전 기담' },
+  { id: 'Nanum Brush Script', name: '나눔손글씨 붓 (서예 붓글씨)', category: '📜 야담 & 사극 & 고전 기담' },
 
-  // 💬 3. 썰형 & 예능 & 감성 손글씨
-  { id: 'CookieRun', name: '쿠키런 폰트 (예능/게임 볼드)', category: '💬 썰형 & 예능' },
-  { id: 'Jua', name: '배민 주아체 (친근한 썰형)', category: '💬 썰형 & 예능' },
-  { id: 'ONE-Mobile-POP', name: '원스토어 모바일POP (톡톡 예능)', category: '💬 썰형 & 예능' },
-  { id: 'Dongle', name: '동글체 (귀여운 브이로그)', category: '💬 썰형 & 예능' },
-  { id: 'Sunflower', name: '선플라워 (따뜻한 감성)', category: '💬 썰형 & 예능' },
-  { id: 'Nanum Brush Script', name: '나눔손글씨 붓 (힘 있는 명언)', category: '💬 썰형 & 예능' },
-  { id: 'Nanum Pen Script', name: '나눔손글씨 펜 (감성 일기)', category: '💬 썰형 & 예능' },
+  // 📰 3. 뉴스 & 시사 & 특종
+  { id: 'ChosunKg', name: '조선굵은고딕 (특종/뉴스 1면 헤드라인)', category: '📰 뉴스 & 시사 & 특종' },
+  { id: 'TmonMonsori', name: '티몬 몬소리체 (충격 속보/시사 썸네일)', category: '📰 뉴스 & 시사 & 특종' },
+  { id: 'KOTRA_BOLD', name: '코트라 볼드 (단단한 공식 브리핑)', category: '📰 뉴스 & 시사 & 특종' },
+  { id: 'Chosunilbo_myungjo', name: '조선일보명조 (정통 탐사보도/다큐)', category: '📰 뉴스 & 시사 & 특종' },
 
-  // 📱 4. 표준 본문 & 모던 고딕
-  { id: 'Pretendard', name: 'Pretendard (디지털 표준)', category: '📱 표준 & 모던 고딕' },
-  { id: 'Noto Sans KR', name: '구글 본고딕 (다큐 표준 자막)', category: '📱 표준 & 모던 고딕' },
-  { id: 'SCoreDream', name: '에스코어 드림 (가독성 고딕)', category: '📱 표준 & 모던 고딕' },
-  { id: 'Nanum Gothic', name: '나눔고딕 (정통 표준 고딕)', category: '📱 표준 & 모던 고딕' },
+  // 🎬 4. 영화 리뷰 & 시네마 자막
+  { id: 'ChosunGu', name: '조선굴림체 (영화 자막 & 캡션 대표)', category: '🎬 영화 리뷰 & 시네마 자막' },
+  { id: 'Tenada', name: '테나다체 (액션/영화리뷰 썸네일)', category: '🎬 영화 리뷰 & 시네마 자막' },
+  { id: 'Cafe24Ssurround', name: '카페24 써라운드 (원형 시네마 볼드)', category: '🎬 영화 리뷰 & 시네마 자막' },
+
+  // 👴 5. 시니어 롱폼 & 인생/명언 명조
+  { id: 'KoPubWorld Batang', name: '코펍월드 바탕 Pro (시니어 롱폼 1위)', category: '👴 시니어 롱폼 & 인생/명언' },
+  { id: 'KoPubWorld Dotum', name: '코펍월드 돋움 Pro (눈 편한 시니어 자막)', category: '👴 시니어 롱폼 & 인생/명언' },
+  { id: 'MaruBuri', name: '마루 부리 (감동 실화/인생 교훈)', category: '👴 시니어 롱폼 & 인생/명언' },
+  { id: 'Noto Serif KR', name: '구글 본명조 (정통 다큐/인문학)', category: '👴 시니어 롱폼 & 인생/명언' },
+  { id: 'Gowun Batang', name: '고운바탕 (따뜻한 온화 명조)', category: '👴 시니어 롱폼 & 인생/명언' },
+  { id: 'Gowun Dodum', name: '고운돋움 (편안한 둥근 돋움)', category: '👴 시니어 롱폼 & 인생/명언' },
+  { id: 'Nanum Myeongjo', name: '나눔명조 (단아한 클래식)', category: '👴 시니어 롱폼 & 인생/명언' },
+
+  // 💬 6. 썰형 & 예능 & 감성
+  { id: 'CookieRun', name: '쿠키런 폰트 (예능/게임 볼드)', category: '💬 썰형 & 예능 & 감성' },
+  { id: 'Jua', name: '배민 주아체 (친근한 썰형)', category: '💬 썰형 & 예능 & 감성' },
+  { id: 'ONE-Mobile-POP', name: '원스토어 모바일POP (톡톡 예능)', category: '💬 썰형 & 예능 & 감성' },
+  { id: 'Dongle', name: '동글체 (귀여운 일상 브이로그)', category: '💬 썰형 & 예능 & 감성' },
+  { id: 'Sunflower', name: '선플라워 (따뜻한 감성)', category: '💬 썰형 & 예능 & 감성' },
+  { id: 'Nanum Pen Script', name: '나눔손글씨 펜 (감성 일기/회상)', category: '💬 썰형 & 예능 & 감성' },
+
+  // 📱 7. 표준 본문 & 모던 고딕
+  { id: 'Pretendard', name: 'Pretendard (디지털 표준)', category: '📱 표준 본문 & 모던 고딕' },
+  { id: 'Noto Sans KR', name: '구글 본고딕 (다큐 표준 자막)', category: '📱 표준 본문 & 모던 고딕' },
+  { id: 'SCoreDream', name: '에스코어 드림 (가독성 고딕)', category: '📱 표준 본문 & 모던 고딕' },
+  { id: 'Nanum Gothic', name: '나눔고딕 (정통 표준 고딕)', category: '📱 표준 본문 & 모던 고딕' },
 ];
 
 /**
@@ -151,7 +162,7 @@ export const resolveFontFamily = (font?: string): string => {
     case 'Gowun Batang':
     case 'GowunBatang':
       return "'Gowun Batang', serif";
-    // ⚡ 1. 쇼츠 & 어그로 & 임팩트
+    // ⚡ 1. 쇼츠 & 어그로 썸네일
     case 'SBAggro':
     case 'SBAggroB':
     case 'SBAggroM':
@@ -174,7 +185,48 @@ export const resolveFontFamily = (font?: string): string => {
     case 'KOTRA BOLD':
     case 'KOTRA Bold':
       return "'KOTRA_BOLD', sans-serif";
-    // 👴 2. 시니어 롱폼 & 다큐 명조
+    // 📜 2. 야담 & 사극 & 고전 기담
+    case 'EbsHunminjeongeumSaeron':
+    case 'EBS 훈민정음 새론체':
+    case 'EBS 훈민정음':
+    case 'EBSHMJESaeron':
+      return "'EbsHunminjeongeumSaeron', serif";
+    case 'ChosunGs':
+    case '조선궁서체':
+    case '조선궁서':
+      return "'ChosunGs', cursive, serif";
+    case 'Song Myung':
+    case 'SongMyung':
+      return "'Song Myung', serif";
+    case 'GyeonggiBatang':
+    case 'Gyeonggi Millennium Batang':
+      return "'GyeonggiBatang', serif";
+    case 'Nanum Brush Script':
+    case 'NanumBrushScript':
+      return "'Nanum Brush Script', cursive";
+    // 📰 3. 뉴스 & 시사 & 특종
+    case 'ChosunKg':
+    case 'Chosun Kg':
+    case '조선굵은고딕':
+      return "'ChosunKg', sans-serif";
+    case 'TmonMonsori':
+    case '티몬 몬소리체':
+    case '티몬몬소리':
+      return "'TmonMonsori', sans-serif";
+    case 'Chosunilbo_myungjo':
+    case 'Chosun Ilbo Myungjo':
+    case 'ChosunNm':
+      return "'Chosunilbo_myungjo', 'ChosunNm', serif";
+    // 🎬 4. 영화 리뷰 & 시네마 자막
+    case 'ChosunGu':
+    case '조선굴림체':
+    case '조선굴림':
+      return "'ChosunGu', sans-serif";
+    case 'Tenada':
+    case '테나다체':
+    case 'Taenada':
+      return "'Tenada', sans-serif";
+    // 👴 5. 시니어 롱폼 & 인생/명언 명조
     case 'KoPubWorld Batang':
     case 'KoPubWorldBatang':
     case 'KoPub World Batang':
@@ -183,26 +235,13 @@ export const resolveFontFamily = (font?: string): string => {
     case 'KoPubWorldDotum':
     case 'KoPub World Dotum':
       return "'KoPubWorld Dotum', 'KoPubWorldDotum', sans-serif";
-    case 'Chosunilbo_myungjo':
-    case 'Chosun Ilbo Myungjo':
-    case 'ChosunNm':
-      return "'Chosunilbo_myungjo', 'ChosunNm', serif";
-    case 'ChosunKg':
-    case 'Chosun Kg':
-      return "'ChosunKg', sans-serif";
     case 'MaruBuri':
     case 'Maru Buri':
       return "'MaruBuri', serif";
     case 'Noto Serif KR':
     case 'NotoSerifKR':
       return "'Noto Serif KR', serif";
-    case 'GyeonggiBatang':
-    case 'Gyeonggi Millennium Batang':
-      return "'GyeonggiBatang', serif";
-    case 'Song Myung':
-    case 'SongMyung':
-      return "'Song Myung', serif";
-    // 💬 3. 썰형 & 예능 & 감성 손글씨
+    // 💬 6. 썰형 & 예능 & 감성
     case 'ONE-Mobile-POP':
     case 'ONE Mobile POP':
     case 'OneMobilePOP':
@@ -211,9 +250,6 @@ export const resolveFontFamily = (font?: string): string => {
       return "'Dongle', sans-serif";
     case 'Sunflower':
       return "'Sunflower', sans-serif";
-    case 'Nanum Brush Script':
-    case 'NanumBrushScript':
-      return "'Nanum Brush Script', cursive";
     case 'Nanum Pen Script':
     case 'NanumPenScript':
       return "'Nanum Pen Script', cursive";

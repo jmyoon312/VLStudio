@@ -157,6 +157,46 @@
   src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_six@1.2/S-CoreDream-8Heavy.woff') format('woff');
 }
 
+/* 🎨 조선궁서체 (ChosunGs - 사극/야담/궁중비화 썸네일) */
+@font-face {
+  font-family: 'ChosunGs';
+  font-weight: normal;
+  font-style: normal;
+  src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_20-04@1.0/ChosunGs.woff') format('woff');
+}
+
+/* 🎨 EBS 훈민정음 새론체 (EbsHunminjeongeumSaeron - 조선야담/전래기담 썸네일 1위) */
+@font-face {
+  font-family: 'EbsHunminjeongeumSaeron';
+  font-weight: normal;
+  font-style: normal;
+  src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_one@1.0/EBSHMJESaeronRA.woff') format('woff');
+}
+
+/* 🎨 티몬 몬소리체 (TmonMonsori - 충격/속보/뉴스 썸네일 1위) */
+@font-face {
+  font-family: 'TmonMonsori';
+  font-weight: 800;
+  font-style: normal;
+  src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_two@1.0/TmonMonsori.woff') format('woff');
+}
+
+/* 🎨 조선굴림체 (ChosunGu - 영화 자막 & 캡션 대표) */
+@font-face {
+  font-family: 'ChosunGu';
+  font-weight: normal;
+  font-style: normal;
+  src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_20-04@1.0/ChosunGu.woff') format('woff');
+}
+
+/* 🎨 테나다체 (Tenada - 액션/영화리뷰/피트니스 썸네일) */
+@font-face {
+  font-family: 'Tenada';
+  font-weight: 800;
+  font-style: normal;
+  src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_2210-2@1.0/Tenada.woff2') format('woff2');
+}
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
