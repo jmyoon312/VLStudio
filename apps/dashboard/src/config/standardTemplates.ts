@@ -521,11 +521,18 @@ export const getMasterTemplate = (archetype: string): TemplateManifest => {
 export const saveMasterTemplateLocal = (archetype: string, manifest: TemplateManifest): void => {
   try {
     localStorage.setItem(`master_manifest_${archetype}`, JSON.stringify(manifest));
+    localStorage.setItem('applied_template_manifest', JSON.stringify(manifest));
     window.dispatchEvent(new CustomEvent('vl_master_template_updated', { detail: { archetype, manifest } }));
+    window.dispatchEvent(new CustomEvent('vl_template_applied', { detail: manifest }));
     try {
       const ch = new BroadcastChannel('vl_master_template_channel');
       ch.postMessage({ archetype, manifest });
       ch.close();
+    } catch (_) {}
+    try {
+      const tCh = new BroadcastChannel('vl_template_channel');
+      tCh.postMessage(manifest);
+      tCh.close();
     } catch (_) {}
   } catch (e) {
     console.error(`[saveMasterTemplateLocal] Failed to save master manifest for ${archetype}:`, e);

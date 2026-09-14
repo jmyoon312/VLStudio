@@ -104,7 +104,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { cn, getMediaUrl } from '@/lib/utils';
 import api from '@/lib/api';
 import { TemplateManifest } from '@/types/templateDna';
-import { STANDARD_TEMPLATES, getStandardTemplateByArchetype, getMasterTemplate } from '@/config/standardTemplates';
+import { STANDARD_TEMPLATES, getStandardTemplateByArchetype, getMasterTemplate, saveMasterTemplateLocal } from '@/config/standardTemplates';
 import { NleLayerObject, NleLayerTransform, createDefaultTransform } from '@/types/nle';
 import { TransformGizmo } from '@/components/canvas/TransformGizmo';
 import { BgmLibraryModal, BgmTrackItem } from '@/components/BgmLibraryModal';
@@ -2416,6 +2416,17 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
       } else {
         handleSelectTemplateMode(sovereignMode);
       }
+
+      api.get(`/channel-dna/templates/master/${sovereignMode}`)
+        .then((res) => {
+          if (res.data?.template?.manifest) {
+            const dbMaster = res.data.template.manifest;
+            saveMasterTemplateLocal(sovereignMode, dbMaster);
+            setMasterManifest(dbMaster);
+            handleApplyManifest(dbMaster);
+          }
+        })
+        .catch(() => {});
     }
 
     // 2. 실시간 이벤트 수신 (주권 격리 보장)

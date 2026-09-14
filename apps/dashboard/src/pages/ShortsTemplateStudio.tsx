@@ -288,11 +288,6 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
   const [masterManifest, setMasterManifest] = useState<TemplateManifest>(() => getMasterTemplate(initialMode));
 
   useEffect(() => {
-    const m = getMasterTemplate(layoutTemplateMode);
-    setMasterManifest(m);
-  }, [layoutTemplateMode]);
-
-  useEffect(() => {
     const handleMasterUpdated = (e: any) => {
       if (e.detail && (e.detail.archetype === layoutTemplateMode || !e.detail.archetype)) {
         setMasterManifest(e.detail.manifest);
@@ -840,7 +835,26 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
 
   // 🎯 픽셀링 스타일 4대 모드 탭 전환 및 URL 쿼리 연동
   const handleSwitchModeTab = (mode: LayoutTemplateMode) => {
-    handleSelectTemplateMode(mode);
+    setLayoutTemplateMode(mode);
+    const master = getMasterTemplate(mode);
+    if (master) {
+      handleApplyManifest(master);
+      setMasterManifest(master);
+    } else {
+      handleSelectTemplateMode(mode);
+    }
+
+    api.get(`/channel-dna/templates/master/${mode}`)
+      .then((res) => {
+        if (res.data?.template?.manifest) {
+          const dbMaster = res.data.template.manifest;
+          saveMasterTemplateLocal(mode, dbMaster);
+          setMasterManifest(dbMaster);
+          handleApplyManifest(dbMaster);
+        }
+      })
+      .catch(() => {});
+
     setSearchParams((prev) => {
       const next = new URLSearchParams(prev);
       next.set('mode', mode);
@@ -851,32 +865,31 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
   // 🎯 활성 템플릿 매니페스트 하이드레이션 & 양방향 실시간 동기화 리스너 (SSOT 100% 보장)
   const isInitialModeAppliedRef = useRef(false);
   useEffect(() => {
-    let applied = false;
     const targetMode = sovereignMode || (searchParams.get('mode') as LayoutTemplateMode | null) || 'classic';
 
-    // 1. 저장된 템플릿 매니페스트 최우선 복원 (주권 격리)
-    const savedRaw = localStorage.getItem('applied_template_manifest');
-    if (savedRaw && !isInitialModeAppliedRef.current) {
-      try {
-        const manifest = JSON.parse(savedRaw);
-        // 🛡️ 주권 격리: sovereignMode/targetMode와 일치할 때만 복원!
-        if (manifest.archetype === targetMode) {
-          handleApplyManifest(manifest);
-          applied = true;
-        }
-      } catch (e) {
-        console.warn('[ShortsTemplateStudio] Failed to hydrate saved manifest:', e);
-      }
+    // 1. 해당 폼팩터의 공식 마스터 템플릿(사용자 커스텀 마스터 최우선) 즉시 복원
+    const master = getMasterTemplate(targetMode);
+    if (master) {
+      handleApplyManifest(master);
+      setMasterManifest(master);
+    } else {
+      handleSelectTemplateMode(targetMode);
     }
 
-    if (!applied) {
-      const std = getStandardTemplateByArchetype(targetMode);
-      if (std) {
-        handleApplyManifest(std);
-      } else {
-        handleSelectTemplateMode(targetMode);
-      }
-    }
+    // 2. 백엔드 DB(viral_loop.db)로부터 최신 마스터 템플릿 비동기 동기화 (단일 진실 공급원)
+    api.get(`/channel-dna/templates/master/${targetMode}`)
+      .then((res) => {
+        if (res.data?.template?.manifest) {
+          const dbMaster = res.data.template.manifest;
+          saveMasterTemplateLocal(targetMode, dbMaster);
+          setMasterManifest(dbMaster);
+          handleApplyManifest(dbMaster);
+        }
+      })
+      .catch((err) => {
+        console.warn(`[ShortsTemplateStudio] DB master fetch error for ${targetMode}:`, err);
+      });
+
     isInitialModeAppliedRef.current = true;
   }, [searchParams, sovereignMode]);
 
