@@ -286,12 +286,12 @@ export const SubtitleStyleInspectorForm: React.FC<SubtitleStyleInspectorFormProp
                     label="자막 글꼴 (Font)"
                     font={subtitleConfig.font || subtitleConfig.fontFamily || 'Pretendard'}
                     setFont={(f) => setSubtitleConfig(prev => ({ ...prev, font: f, fontFamily: f }))}
-                    bold={subtitleConfig.isBold !== false}
-                    setBold={(b) => setSubtitleConfig(prev => ({ ...prev, isBold: b }))}
-                    italic={!!subtitleConfig.isItalic}
-                    setItalic={(i) => setSubtitleConfig(prev => ({ ...prev, isItalic: i }))}
-                    align={subtitleConfig.textAlign || 'center'}
-                    setAlign={(a) => setSubtitleConfig(prev => ({ ...prev, textAlign: a }))}
+                    bold={subtitleConfig.isBold !== false && (subtitleConfig as any).bold !== false}
+                    setBold={(b) => setSubtitleConfig(prev => ({ ...prev, isBold: b, bold: b }))}
+                    italic={!!(subtitleConfig.isItalic || (subtitleConfig as any).italic)}
+                    setItalic={(i) => setSubtitleConfig(prev => ({ ...prev, isItalic: i, italic: i }))}
+                    align={subtitleConfig.textAlign || (subtitleConfig as any).align || 'center'}
+                    setAlign={(a) => setSubtitleConfig(prev => ({ ...prev, textAlign: a, align: a }))}
                   />
 
                   {/* 자막 글자 색상 & 크기 */}

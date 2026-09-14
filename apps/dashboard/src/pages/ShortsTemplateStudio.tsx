@@ -286,6 +286,7 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
   const [bottomSourceShadowColor, setBottomSourceShadowColor] = useState<string>('rgba(0,0,0,0.9)');
   const [bottomSourceBold, setBottomSourceBold] = useState<boolean>(false);
   const [bottomSourceItalic, setBottomSourceItalic] = useState<boolean>(false);
+  const [bottomSourceAlign, setBottomSourceAlign] = useState<'left' | 'center' | 'right'>('center');
 
   // 자막 세부 속성 (정밀 편집기 1:1 동기화)
   const [currentSubtitleText, setCurrentSubtitleText] = useState<string>('바이럴루프 정밀 템플릿 실시간 프리뷰');
@@ -1069,6 +1070,7 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
       if (cs.bottomSourceFontFamily) setBottomSourceFontFamily(cs.bottomSourceFontFamily);
       if (cs.bottomSourceBold !== undefined) setBottomSourceBold(cs.bottomSourceBold);
       if (cs.bottomSourceItalic !== undefined) setBottomSourceItalic(cs.bottomSourceItalic);
+      if (cs.bottomSourceAlign !== undefined) setBottomSourceAlign(cs.bottomSourceAlign);
       if (cs.bottomSourceBottomPct !== undefined) setBottomSourceBottomPct(cs.bottomSourceBottomPct);
       if (cs.bottomSourceStroke !== undefined) setBottomSourceStroke(cs.bottomSourceStroke);
       if (cs.bottomSourceStrokeWidth !== undefined) setBottomSourceStrokeWidth(cs.bottomSourceStrokeWidth);
@@ -1362,6 +1364,7 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
         bottomSourceFontFamily,
         bottomSourceBold,
         bottomSourceItalic,
+        bottomSourceAlign,
         bottomSourceBottomPct,
         bottomSourceStroke,
         bottomSourceStrokeWidth,
@@ -2745,6 +2748,8 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
               setBottomSourceBold={setBottomSourceBold}
               bottomSourceItalic={bottomSourceItalic}
               setBottomSourceItalic={setBottomSourceItalic}
+              bottomSourceAlign={bottomSourceAlign}
+              setBottomSourceAlign={setBottomSourceAlign}
               bottomSourceBg={bottomSourceBg}
               setBottomSourceBg={setBottomSourceBg}
               bottomSourceBgColor={bottomSourceBgColor}
@@ -3253,6 +3258,8 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
                 setBottomSourceBold={setBottomSourceBold}
                 bottomSourceItalic={bottomSourceItalic}
                 setBottomSourceItalic={setBottomSourceItalic}
+                bottomSourceAlign={bottomSourceAlign}
+                setBottomSourceAlign={setBottomSourceAlign}
                 bottomSourceBg={bottomSourceBg}
                 setBottomSourceBg={setBottomSourceBg}
                 bottomSourceBgColor={bottomSourceBgColor}

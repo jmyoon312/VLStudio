@@ -173,12 +173,12 @@ export const SubtitleFloatingInspector: React.FC<SubtitleFloatingInspectorProps>
         label="자막 글꼴 (Font)"
         font={config.fontFamily || config.font || 'Pretendard'}
         setFont={(val) => onChange({ fontFamily: val, font: val })}
-        bold={config.isBold !== false}
-        setBold={(val) => onChange({ isBold: val })}
-        italic={!!config.isItalic}
-        setItalic={(val) => onChange({ isItalic: val })}
-        align={config.textAlign || 'center'}
-        setAlign={(val) => onChange({ textAlign: val })}
+        bold={config.isBold !== false && (config as any).bold !== false}
+        setBold={(val) => onChange({ isBold: val, bold: val })}
+        italic={!!(config.isItalic || (config as any).italic)}
+        setItalic={(val) => onChange({ isItalic: val, italic: val })}
+        align={config.textAlign || (config as any).align || 'center'}
+        setAlign={(val) => onChange({ textAlign: val, align: val })}
       />
 
       {/* 3. 글자 색상 & 크기 */}

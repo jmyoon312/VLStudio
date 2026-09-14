@@ -61,15 +61,67 @@ export const CAPCUT_FILTER_PRESETS = [
   { id: 'vintage-grain', name: '📽️ 1970 빈티지 그레인', desc: '헤비 입자 & 세피아 톤', color: 'from-amber-700 to-stone-800', grain: 80, vignette: 50, b: 95, c: 120, s: 70, t: 30 },
 ];
 
-// 🔤 폰트 패밀리 목록
+// 🔤 폰트 패밀리 목록 (CSS 매칭 단일 진실 공급원)
 export const FONT_FAMILIES = [
-  { id: 'Pretendard', name: 'Pretendard (기본 볼드)' },
+  { id: 'Pretendard', name: 'Pretendard (기본)' },
   { id: 'GmarketSans', name: 'Gmarket Sans (깔끔 고딕)' },
-  { id: 'BlackHanSans', name: 'Black Han Sans (임팩트 헤드라인)' },
-  { id: 'NotoSansKR', name: 'Noto Sans KR (표준 본문)' },
+  { id: 'Black Han Sans', name: 'Black Han Sans (임팩트)' },
+  { id: 'Noto Sans KR', name: 'Noto Sans KR (표준 고딕)' },
   { id: 'Jalnan', name: '여기어때 잘난체 (캐주얼)' },
   { id: 'CookieRun', name: '쿠키런 폰트 (귀여운 볼드)' },
+  { id: 'Do Hyeon', name: '도현체 (Do Hyeon)' },
+  { id: 'Jua', name: '주아체 (Jua)' },
+  { id: 'Nanum Gothic', name: '나눔고딕 (Nanum Gothic)' },
+  { id: 'Nanum Myeongjo', name: '나눔명조 (Nanum Myeongjo)' },
+  { id: 'Gowun Dodum', name: '고운돋움 (Gowun Dodum)' },
+  { id: 'Gowun Batang', name: '고운바탕 (Gowun Batang)' },
 ];
+
+/**
+ * 🔤 CSS 인라인 스타일용 폰트 패밀리 안전 해석기
+ * 공백이나 alias(BlackHanSans, NotoSansKR 등)가 들어와도 실제 CSS @font-face / Google Fonts 이름으로 100% 매핑
+ */
+export const resolveFontFamily = (font?: string): string => {
+  if (!font) return "'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif";
+  const f = font.trim();
+  switch (f) {
+    case 'Pretendard':
+      return "'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif";
+    case 'GmarketSans':
+    case 'Gmarket Sans':
+    case 'GmarketSansBold':
+      return "'GmarketSans', 'Gmarket Sans', sans-serif";
+    case 'BlackHanSans':
+    case 'Black Han Sans':
+      return "'Black Han Sans', sans-serif";
+    case 'NotoSansKR':
+    case 'Noto Sans KR':
+      return "'Noto Sans KR', sans-serif";
+    case 'Jalnan':
+      return "'Jalnan', sans-serif";
+    case 'CookieRun':
+      return "'CookieRun', sans-serif";
+    case 'Do Hyeon':
+    case 'DoHyeon':
+      return "'Do Hyeon', sans-serif";
+    case 'Jua':
+      return "'Jua', sans-serif";
+    case 'NanumGothic':
+    case 'Nanum Gothic':
+      return "'Nanum Gothic', sans-serif";
+    case 'NanumMyeongjo':
+    case 'Nanum Myeongjo':
+      return "'Nanum Myeongjo', serif";
+    case 'Gowun Dodum':
+    case 'GowunDodum':
+      return "'Gowun Dodum', sans-serif";
+    case 'Gowun Batang':
+    case 'GowunBatang':
+      return "'Gowun Batang', serif";
+    default:
+      return `'${f}', 'Pretendard', sans-serif`;
+  }
+};
 
 // 💬 쇼츠 자막 디자인 프리셋
 export const SHORTS_SUBTITLE_DESIGN_PRESETS = [

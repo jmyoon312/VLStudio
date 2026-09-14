@@ -65,6 +65,7 @@ export const TitleSourceInspectorForm: React.FC<TitleSourceInspectorFormProps> =
     bottomSourceFontFamily = 'Pretendard', setBottomSourceFontFamily,
     bottomSourceBold = false, setBottomSourceBold = () => {},
     bottomSourceItalic = false, setBottomSourceItalic = () => {},
+    bottomSourceAlign = 'center', setBottomSourceAlign = () => {},
     bottomSourceBottomPct = 3.5, setBottomSourceBottomPct = () => {},
     bottomSourceStroke = false, setBottomSourceStroke = () => {},
     bottomSourceStrokeWidth = 1, setBottomSourceStrokeWidth = () => {},
@@ -1119,6 +1120,8 @@ export const TitleSourceInspectorForm: React.FC<TitleSourceInspectorFormProps> =
                 setBold={(b) => setBottomSourceBold?.(b)}
                 italic={bottomSourceItalic}
                 setItalic={(i) => setBottomSourceItalic?.(i)}
+                align={bottomSourceAlign}
+                setAlign={(a) => setBottomSourceAlign?.(a)}
               />
 
               {/* 3. 글자 색상 & 크기 */}

@@ -559,6 +559,7 @@ const formatWrappedText = (text: string, splitLimit: number = 14, maxLines: numb
   const [bottomSourceFontFamily, setBottomSourceFontFamily] = useState<string>('Pretendard');
   const [bottomSourceBold, setBottomSourceBold] = useState<boolean>(false);
   const [bottomSourceItalic, setBottomSourceItalic] = useState<boolean>(false);
+  const [bottomSourceAlign, setBottomSourceAlign] = useState<'left' | 'center' | 'right'>('center');
   const [bottomSourceBottomPct, setBottomSourceBottomPct] = useState<number>(3.5);
   const [bottomSourceStroke, setBottomSourceStroke] = useState<boolean>(false);
   const [bottomSourceStrokeWidth, setBottomSourceStrokeWidth] = useState<number>(1);
@@ -1461,6 +1462,7 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
       if (cs.bottomSourceFontFamily) setBottomSourceFontFamily(cs.bottomSourceFontFamily);
       if (cs.bottomSourceBold !== undefined) setBottomSourceBold(cs.bottomSourceBold);
       if (cs.bottomSourceItalic !== undefined) setBottomSourceItalic(cs.bottomSourceItalic);
+      if (cs.bottomSourceAlign !== undefined) setBottomSourceAlign(cs.bottomSourceAlign);
       if (cs.bottomSourceBottomPct !== undefined) setBottomSourceBottomPct(cs.bottomSourceBottomPct);
       if (cs.bottomSourceStroke !== undefined) setBottomSourceStroke(cs.bottomSourceStroke);
       if (cs.bottomSourceStrokeWidth !== undefined) setBottomSourceStrokeWidth(cs.bottomSourceStrokeWidth);
@@ -1759,6 +1761,7 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
           bottomSourceFontFamily,
           bottomSourceBold,
           bottomSourceItalic,
+          bottomSourceAlign,
           bottomSourceBottomPct,
           bottomSourceStroke,
           bottomSourceStrokeWidth,
@@ -5712,6 +5715,8 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
               setBottomSourceBold={setBottomSourceBold}
               bottomSourceItalic={bottomSourceItalic}
               setBottomSourceItalic={setBottomSourceItalic}
+              bottomSourceAlign={bottomSourceAlign}
+              setBottomSourceAlign={setBottomSourceAlign}
               bottomSourceBg={bottomSourceBg}
               setBottomSourceBg={setBottomSourceBg}
               bottomSourceBgColor={bottomSourceBgColor}
@@ -6182,6 +6187,8 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                 setBottomSourceBold={setBottomSourceBold}
                 bottomSourceItalic={bottomSourceItalic}
                 setBottomSourceItalic={setBottomSourceItalic}
+                bottomSourceAlign={bottomSourceAlign}
+                setBottomSourceAlign={setBottomSourceAlign}
                 bottomSourceBg={bottomSourceBg}
                 setBottomSourceBg={setBottomSourceBg}
                 bottomSourceBgColor={bottomSourceBgColor}

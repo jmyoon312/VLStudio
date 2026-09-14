@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils';
 import { MemeAvatar, MemeType, MemeEmotion } from '@/components/memeAssets';
 import { NleLayerObject } from '@/types/nle';
 import { VideoFilterConfig } from '../../forms/FilterFxInspectorForm';
-import { SsulTextMode } from '@/components/canvas/constants/canvasConstants';
+import { SsulTextMode, resolveFontFamily } from '@/components/canvas/constants/canvasConstants';
 
 const computeVideoCssFilter = (f?: VideoFilterConfig): string => {
   if (!f || f.preset === 'none') return 'none';
@@ -351,9 +351,9 @@ export const SsulCanvasLayout: React.FC<SsulCanvasLayoutProps> = ({
             <span
               style={{
                 color: ssulHeader.textColor || '#18181B',
-                fontFamily: ssulHeader.font || 'Pretendard',
+                fontFamily: resolveFontFamily(ssulHeader.font || 'Pretendard'),
                 fontSize: `${Math.round(15 * (ssulHeader.fontSizeMultiplier || 1.0))}px`,
-                fontWeight: ssulHeader.bold ? 800 : 600,
+                fontWeight: ssulHeader.bold === false ? 400 : 800,
                 fontStyle: ssulHeader.italic ? 'italic' : 'normal',
                 WebkitTextStroke: ssulHeader.strokeEnabled ? `${ssulHeader.strokeWidth}px ${ssulHeader.strokeColor}` : 'none',
                 textShadow: ssulHeader.shadowEnabled ? `0 2px ${ssulHeader.shadowBlur}px ${ssulHeader.shadowColor}` : 'none',
@@ -399,9 +399,9 @@ export const SsulCanvasLayout: React.FC<SsulCanvasLayoutProps> = ({
             <h2
               style={{
                 color: postTitleConfig.color || '#111827',
-                fontFamily: postTitleConfig.font || 'Pretendard',
+                fontFamily: resolveFontFamily(postTitleConfig.font || 'Pretendard'),
                 fontSize: `${Math.round(20 * (postTitleConfig.fontSizeMultiplier || 1.0) * aspectScale)}px`,
-                fontWeight: postTitleConfig.bold ? 800 : 700,
+                fontWeight: postTitleConfig.bold === false ? 400 : 800,
                 fontStyle: postTitleConfig.italic ? 'italic' : 'normal',
                 letterSpacing: `${postTitleConfig.letterSpacing || -0.5}px`,
                 lineHeight: postTitleConfig.lineHeight || 1.25,
@@ -412,7 +412,7 @@ export const SsulCanvasLayout: React.FC<SsulCanvasLayoutProps> = ({
                 borderRadius: postTitleConfig.boxEnabled ? `${postTitleConfig.borderRadius}px` : 0,
                 padding: postTitleConfig.boxEnabled ? '2px 8px' : 0,
               }}
-              className="tracking-tight whitespace-nowrap overflow-hidden text-ellipsis break-keep font-extrabold"
+              className="tracking-tight whitespace-nowrap overflow-hidden text-ellipsis break-keep w-full"
             >
               {postTitleConfig.text}
             </h2>
@@ -434,9 +434,10 @@ export const SsulCanvasLayout: React.FC<SsulCanvasLayoutProps> = ({
             )}
             style={{
               color: metadataConfig.color || '#6B7280',
-              fontFamily: metadataConfig.font || 'Pretendard',
+              fontFamily: resolveFontFamily(metadataConfig.font || 'Pretendard'),
               fontSize: `${Math.round(12 * (metadataConfig.fontSizeMultiplier || 1.0))}px`,
-              fontWeight: metadataConfig.bold ? 700 : 400,
+              fontWeight: metadataConfig.bold ? 800 : 400,
+              fontStyle: (metadataConfig as any).italic ? 'italic' : 'normal',
               WebkitTextStroke: metadataConfig.strokeEnabled ? `${metadataConfig.strokeWidth}px ${metadataConfig.strokeColor}` : 'none',
               textShadow: metadataConfig.shadowEnabled ? `0 1px ${metadataConfig.shadowBlur}px ${metadataConfig.shadowColor}` : 'none',
             }}
@@ -520,9 +521,9 @@ export const SsulCanvasLayout: React.FC<SsulCanvasLayoutProps> = ({
                 key={line.id || idx}
                 style={{
                   color: line.isActive ? (ssulSubtitleConfig.color || '#18181B') : '#4B5563',
-                  fontFamily: ssulSubtitleConfig.font || 'Pretendard',
+                  fontFamily: resolveFontFamily(ssulSubtitleConfig.font || 'Pretendard'),
                   fontSize: `${Math.round(15 * (ssulSubtitleConfig.fontSizeMultiplier || 1.0) * aspectScale)}px`,
-                  fontWeight: line.isActive ? (ssulSubtitleConfig.bold ? 800 : 700) : 500,
+                  fontWeight: line.isActive ? (ssulSubtitleConfig.bold === false ? 400 : 800) : (ssulSubtitleConfig.bold === false ? 400 : 500),
                   fontStyle: ssulSubtitleConfig.italic ? 'italic' : 'normal',
                   lineHeight: ssulSubtitleConfig.lineHeightMultiplier || 1.4,
                   letterSpacing: `${ssulSubtitleConfig.letterSpacingPx || 0}px`,
@@ -534,8 +535,8 @@ export const SsulCanvasLayout: React.FC<SsulCanvasLayoutProps> = ({
                   textShadow: line.isActive && ssulSubtitleConfig.shadowEnabled ? `0 2px ${ssulSubtitleConfig.shadowBlur}px ${ssulSubtitleConfig.shadowColor}` : 'none',
                 }}
                 className={cn(
-                  "break-keep transition-all duration-200",
-                  line.isActive ? "opacity-100 font-extrabold translate-x-0" : "opacity-70"
+                  "break-keep transition-all duration-200 w-full",
+                  line.isActive ? "opacity-100 translate-x-0" : "opacity-70"
                 )}
               >
                 {line.text}

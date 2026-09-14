@@ -26,6 +26,7 @@ import {
   TitleFloatingInspector,
   SubtitleFloatingInspector,
 } from '../floating';
+import { resolveFontFamily } from '../constants/canvasConstants';
 import { SsulCanvasLayout } from './layouts/SsulCanvasLayout';
 
 export interface UniversalCanvasStageProps {
@@ -282,6 +283,8 @@ export interface UniversalCanvasStageProps {
   setBottomSourceShadowBlur?: (val: number) => void;
   bottomSourceShadowColor?: string;
   setBottomSourceShadowColor?: (val: string) => void;
+  bottomSourceAlign?: 'left' | 'center' | 'right';
+  setBottomSourceAlign?: (val: 'left' | 'center' | 'right') => void;
   setBottomSourceBottomPct?: (val: number) => void;
 
   // Comment Card
@@ -599,6 +602,8 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
     bottomSourceFontFamily = 'Pretendard',
     bottomSourceBold = false,
     bottomSourceItalic = false,
+    bottomSourceAlign = 'center',
+    setBottomSourceAlign,
     bottomSourceBg = false,
     bottomSourceBgColor = 'rgba(0,0,0,0.7)',
     bottomSourceBorderRadius = 4,
@@ -1361,17 +1366,20 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                           e.stopPropagation();
                           setActiveFloating('gunlimboHook');
                         }}
-                        className="w-full min-w-[300px] max-w-[380px] py-2 px-6 flex items-center justify-center shadow-xl cursor-pointer transition-all rounded-xs border-y border-white/20"
+                        className={cn(
+                          "w-full min-w-[300px] max-w-[380px] py-2 px-6 flex items-center shadow-xl cursor-pointer transition-all rounded-xs border-y border-white/20",
+                          gunlimboConfig.hookAlign === 'left' ? "justify-start" : gunlimboConfig.hookAlign === 'right' ? "justify-end" : "justify-center"
+                        )}
                         style={{ backgroundColor: gunlimboConfig.hookBgColor || '#FFFFFF' }}
                         title="더블클릭하여 소제목 훅 문구 설정"
                       >
                         <span
-                          className="tracking-tight text-center leading-snug break-keep select-none uppercase"
+                          className="tracking-tight leading-snug break-keep select-none uppercase w-full"
                           style={{
                             color: gunlimboConfig.hookTextColor || '#000000',
                             fontSize: `${gunlimboConfig.hookFontSize || 22}px`,
-                            fontFamily: gunlimboConfig.hookFont || titleFontFamily,
-                            fontWeight: gunlimboConfig.hookBold === false ? 'normal' : '900',
+                            fontFamily: resolveFontFamily(gunlimboConfig.hookFont || titleFontFamily),
+                            fontWeight: gunlimboConfig.hookBold === false ? 400 : 900,
                             fontStyle: gunlimboConfig.hookItalic ? 'italic' : 'normal',
                             textAlign: gunlimboConfig.hookAlign || 'center',
                             letterSpacing: '-0.02em',
@@ -1440,8 +1448,8 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                           style={{
                             color: instaConfig.profileNameColor || '#2563EB',
                             fontSize: `${instaConfig.profileNameSize || 14}px`,
-                            fontFamily: instaConfig.profileFont || 'Pretendard',
-                            fontWeight: instaConfig.profileBold !== false ? 'bold' : 'normal',
+                            fontFamily: resolveFontFamily(instaConfig.profileFont || 'Pretendard'),
+                            fontWeight: instaConfig.profileBold !== false ? 700 : 400,
                             fontStyle: instaConfig.profileItalic ? 'italic' : 'normal',
                             WebkitTextStroke: instaConfig.profileStrokeEnabled ? `${instaConfig.profileStrokeWidth || 2}px ${instaConfig.profileStrokeColor || '#000000'}` : 'none',
                             textShadow: instaConfig.profileShadowEnabled ? `0 2px ${instaConfig.profileShadowBlur || 4}px ${instaConfig.profileShadowColor || 'rgba(0,0,0,0.6)'}` : 'none',
@@ -1521,10 +1529,14 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                     }}
                     className={cn(
                       "flex flex-col select-none cursor-move transition-all",
-                      layoutTemplateMode === 'instagram' ? "items-start text-left" : "items-center text-center"
+                      (titleAlign === 'left' || (!titleAlign && layoutTemplateMode === 'instagram'))
+                        ? "items-start text-left"
+                        : (titleAlign === 'right')
+                        ? "items-end text-right"
+                        : "items-center text-center"
                     )}
                     style={{
-                      fontFamily: titleFontFamily,
+                      fontFamily: resolveFontFamily(titleFontFamily),
                       backgroundColor: titleBgMode !== 'none' ? titleBgColor : 'transparent',
                       paddingLeft: titleBgMode !== 'none' ? `${titlePaddingX}px` : 0,
                       paddingRight: titleBgMode !== 'none' ? `${titlePaddingX}px` : 0,
@@ -1536,15 +1548,16 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                   >
                     {layoutTemplateMode === 'instagram' ? (
                       <div
-                        className="font-black leading-tight tracking-tight text-left whitespace-pre-line"
+                        className="leading-tight tracking-tight whitespace-pre-line w-full"
                         style={{
                           fontSize: `${Math.round((titleLine1SizePx || 22) * (titleTransform.scale || 1.0) * aspectScale)}px`,
                           lineHeight: '1.18',
                           letterSpacing: '-0.035em',
                           color: titleLine1Color || '#000000',
-                          textAlign: 'left',
-                          fontWeight: titleBold !== false ? 900 : 500,
-                          fontFamily: titleFontFamily || 'Pretendard',
+                          textAlign: titleAlign || instaConfig?.titleAlign || 'left',
+                          fontWeight: titleBold !== false ? 900 : 400,
+                          fontStyle: titleItalic ? 'italic' : 'normal',
+                          fontFamily: resolveFontFamily(titleFontFamily || instaConfig?.titleFont || 'Pretendard'),
                           WebkitTextStroke: titleStroke ? `${titleStrokeWidth || 3}px ${titleStrokeColor || '#000000'}` : 'none',
                           paintOrder: 'stroke fill',
                           textShadow: titleShadow ? `0 2px ${titleShadowBlur || 4}px ${titleShadowColor || 'rgba(0,0,0,0.5)'}` : 'none',
@@ -1577,12 +1590,13 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                         {hasTitleLine1 && titleLine1 && (
                           <div
                             className={cn(
-                              "leading-tight tracking-tight whitespace-nowrap",
-                              titleBold !== false ? "font-black" : "font-medium",
+                              "leading-tight tracking-tight whitespace-nowrap w-full",
                               titleItalic && "italic"
                             )}
                             style={{
                               color: titleLine1Color,
+                              fontFamily: resolveFontFamily(titleFontFamily),
+                              fontWeight: titleBold !== false ? 900 : 400,
                               fontSize: `${Math.round((titleLine1SizePx || 20) * aspectScale)}px`,
                               WebkitTextStroke: titleStroke ? `${titleStrokeWidth}px ${titleStrokeColor}` : 'none',
                               paintOrder: 'stroke fill',
@@ -1599,12 +1613,13 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                         {titleLinesMode === 'double' && hasTitleLine2 && titleLine2 && (
                           <div
                             className={cn(
-                              "leading-tight tracking-tight whitespace-nowrap mt-0.5",
-                              titleBold !== false ? "font-black" : "font-medium",
+                              "leading-tight tracking-tight whitespace-nowrap mt-0.5 w-full",
                               titleItalic && "italic"
                             )}
                             style={{
                               color: titleLine2Color,
+                              fontFamily: resolveFontFamily(titleFontFamily),
+                              fontWeight: titleBold !== false ? 900 : 400,
                               fontSize: `${Math.round((titleLine2SizePx || 24) * aspectScale)}px`,
                               WebkitTextStroke: titleStroke ? `${titleStrokeWidth}px ${titleStrokeColor}` : 'none',
                               paintOrder: 'stroke fill',
@@ -1656,7 +1671,10 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                         e.stopPropagation();
                         setActiveFloating('jabHook');
                       }}
-                      className="font-black px-3 py-1.5 flex items-center justify-center whitespace-nowrap cursor-move transition-all"
+                      className={cn(
+                        "px-3 py-1.5 flex items-center whitespace-nowrap cursor-move transition-all",
+                        props.jabAlign === 'left' ? "justify-start" : props.jabAlign === 'right' ? "justify-end" : "justify-center"
+                      )}
                       style={{
                         backgroundColor: jabBgEnabled ? jabBgColor : 'transparent',
                         borderRadius: `${jabBorderRadius}px`,
@@ -1668,8 +1686,8 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                         style={{
                           fontSize: `${Math.round((jabFontSize || 13) * aspectScale)}px`,
                           color: jabTextColor,
-                          fontFamily: jabFont || titleFontFamily,
-                          fontWeight: jabBold === false ? 'normal' : '900',
+                          fontFamily: resolveFontFamily(jabFont || titleFontFamily),
+                          fontWeight: jabBold === false ? 400 : 900,
                           fontStyle: jabItalic ? 'italic' : 'normal',
                           textAlign: jabAlign || 'center',
                           WebkitTextStroke: jabStroke ? `${jabStrokeWidth}px ${jabStrokeColor}` : 'none',
@@ -1753,11 +1771,11 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                         "whitespace-pre-line transition-all cursor-move",
                         layoutTemplateMode === 'instagram'
                           ? "w-full break-keep [overflow-wrap:anywhere]"
-                          : "inline-block leading-snug tracking-tight px-2",
+                          : "min-w-[260px] max-w-full inline-block leading-snug tracking-tight px-2",
                         isBoxOn && "px-3 py-1.5"
                       )}
                       style={{
-                        textAlign: subCfg?.textAlign || (layoutTemplateMode === 'instagram' ? 'left' : 'center'),
+                        textAlign: subCfg?.textAlign || (subCfg as any)?.align || (layoutTemplateMode === 'instagram' ? 'left' : 'center'),
                         backgroundColor: isBoxOn
                           ? (subCfg?.boxColor || subtitleBoxColor || 'rgba(0,0,0,0.6)')
                           : 'transparent',
@@ -1772,7 +1790,7 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                       <span
                         style={{
                           display: 'block',
-                          textAlign: subCfg?.textAlign || (layoutTemplateMode === 'instagram' ? 'left' : 'center'),
+                          textAlign: subCfg?.textAlign || (subCfg as any)?.align || (layoutTemplateMode === 'instagram' ? 'left' : 'center'),
                           fontSize: layoutTemplateMode === 'instagram'
                             ? `${Math.round(((subCfg?.fontSize || instaConfig.subSize || 15)) * (subTransform.scale || 1.0) * aspectScale)}px`
                             : layoutTemplateMode === 'gunlimbo'
@@ -1783,11 +1801,9 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                             : layoutTemplateMode === 'gunlimbo'
                             ? (subCfg?.textColor || subCfg?.fillColor || subCfg?.color || '#FFE500')
                             : (subCfg?.textColor || subCfg?.fillColor || subCfg?.color || '#FFFFFF'),
-                          fontFamily: layoutTemplateMode === 'instagram'
-                            ? (subCfg?.font || subCfg?.fontFamily || instaConfig.subFont || 'Pretendard, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif')
-                            : (subCfg?.font || subCfg?.fontFamily || 'Pretendard'),
-                          fontWeight: subCfg?.isBold !== false && (subCfg as any)?.bold !== false ? 'bold' : (layoutTemplateMode === 'instagram' ? 500 : 'normal'),
-                          fontStyle: (subCfg?.isItalic || subCfg?.italic) ? 'italic' : 'normal',
+                          fontFamily: resolveFontFamily(subCfg?.font || subCfg?.fontFamily || instaConfig?.subFont || 'Pretendard'),
+                          fontWeight: (subCfg?.isBold === false || (subCfg as any)?.bold === false) ? 400 : (layoutTemplateMode === 'instagram' ? 700 : 'bold'),
+                          fontStyle: (subCfg?.isItalic || (subCfg as any)?.italic) ? 'italic' : 'normal',
                           WebkitTextStroke: isStrokeOn
                             ? `${subCfg?.outlineSize || subtitleStrokeWidth || 3}px ${subCfg?.outlineColor || subtitleStrokeColor || '#000000'}`
                             : '0 transparent',
@@ -1835,20 +1851,24 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                       e.stopPropagation();
                       setActiveFloating('sourceCredit');
                     }}
-                    className="select-none text-center whitespace-nowrap px-2 cursor-move"
+                    className={cn(
+                      "select-none whitespace-nowrap px-2 cursor-move",
+                      props.bottomSourceAlign === 'left' ? "text-left" : props.bottomSourceAlign === 'right' ? "text-right" : "text-center"
+                    )}
                     style={{
                       backgroundColor: bottomSourceBg ? (bottomSourceBgColor || 'rgba(0,0,0,0.7)') : 'transparent',
                       borderRadius: `${bottomSourceBorderRadius}px`,
                     }}
                   >
                     <span
-                      className="tracking-wide drop-shadow-md"
+                      className="tracking-wide drop-shadow-md inline-block w-full"
                       style={{
                         fontSize: `${(bottomSourceSizePx || 10)}px`,
                         color: bottomSourceColor,
-                        fontFamily: bottomSourceFontFamily || 'Pretendard',
-                        fontWeight: bottomSourceBold ? 700 : 500,
+                        fontFamily: resolveFontFamily(bottomSourceFontFamily || 'Pretendard'),
+                        fontWeight: bottomSourceBold ? 800 : 400,
                         fontStyle: bottomSourceItalic ? 'italic' : 'normal',
+                        textAlign: props.bottomSourceAlign || 'center',
                         WebkitTextStroke: bottomSourceStroke ? `${bottomSourceStrokeWidth || 1}px ${bottomSourceStrokeColor || '#000000'}` : 'none',
                         paintOrder: 'stroke fill',
                         textShadow: bottomSourceShadow ? `0 1px ${bottomSourceShadowBlur !== undefined ? bottomSourceShadowBlur : 4}px ${bottomSourceShadowColor || 'rgba(0,0,0,0.9)'}` : 'none',
@@ -1943,8 +1963,8 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                         className="text-[12px] leading-relaxed break-keep px-0.5 mb-2 whitespace-pre-line"
                         style={{
                           color: commentCard.textColor || undefined,
-                          fontFamily: commentCard.font || 'Pretendard',
-                          fontWeight: commentCard.bold ? 'bold' : (commentCard.bold === false ? 'normal' : 500),
+                          fontFamily: resolveFontFamily(commentCard.font || 'Pretendard'),
+                          fontWeight: commentCard.bold ? 800 : (commentCard.bold === false ? 400 : 500),
                           fontStyle: commentCard.italic ? 'italic' : 'normal',
                           textAlign: commentCard.align || 'left',
                           WebkitTextStroke: commentCard.textStrokeEnabled ? `${commentCard.textStrokeWidth || 1}px ${commentCard.textStrokeColor || '#000000'}` : 'none',
@@ -2606,6 +2626,9 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                     nickname: props.instaConfig?.profileName || '사용자명',
                     handle: props.instaConfig?.profileHandle || '@handle',
                     isVerified: props.instaConfig?.isVerified ?? true,
+                    profileFont: props.instaConfig?.profileFont || 'Pretendard',
+                    profileBold: props.instaConfig?.profileBold !== false,
+                    profileItalic: props.instaConfig?.profileItalic ?? false,
                     timeText: '방금 전 · 원본 오디오',
                     showFollowBtn: true,
                     showSoundIcon: true,
@@ -2621,6 +2644,9 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                       profileHandle: patch.handle !== undefined ? patch.handle : prev.profileHandle,
                       profileAvatarUrl: patch.avatarUrl !== undefined ? patch.avatarUrl : prev.profileAvatarUrl,
                       isVerified: patch.isVerified !== undefined ? patch.isVerified : prev.isVerified,
+                      profileFont: patch.profileFont !== undefined ? patch.profileFont : prev.profileFont,
+                      profileBold: patch.profileBold !== undefined ? patch.profileBold : prev.profileBold,
+                      profileItalic: patch.profileItalic !== undefined ? patch.profileItalic : prev.profileItalic,
                     }));
                   }}
                   onReset={() => {
@@ -2628,6 +2654,9 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                       profileName: '유머보따리',
                       profileHandle: '@humor_box',
                       isVerified: true,
+                      profileFont: 'Pretendard',
+                      profileBold: true,
+                      profileItalic: false,
                     };
                     props.setInstaConfig?.((prev: any) => ({
                       ...prev,
@@ -2649,6 +2678,7 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                     font: props.bottomSourceFontFamily || 'Pretendard',
                     bold: props.bottomSourceBold ?? false,
                     italic: props.bottomSourceItalic ?? false,
+                    align: props.bottomSourceAlign || 'center',
                     bgEnabled: props.bottomSourceBg ?? false,
                     bgColor: props.bottomSourceBgColor || 'rgba(0,0,0,0.7)',
                     borderRadius: props.bottomSourceBorderRadius ?? 4,
@@ -2669,6 +2699,7 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                     if (patch.font !== undefined && props.setBottomSourceFontFamily) props.setBottomSourceFontFamily(patch.font);
                     if (patch.bold !== undefined && props.setBottomSourceBold) props.setBottomSourceBold(patch.bold);
                     if (patch.italic !== undefined && props.setBottomSourceItalic) props.setBottomSourceItalic(patch.italic);
+                    if (patch.align !== undefined && props.setBottomSourceAlign) props.setBottomSourceAlign(patch.align);
                     if (patch.strokeEnabled !== undefined && props.setBottomSourceStroke) props.setBottomSourceStroke(patch.strokeEnabled);
                     if (patch.strokeWidth !== undefined && props.setBottomSourceStrokeWidth) props.setBottomSourceStrokeWidth(patch.strokeWidth);
                     if (patch.strokeColor !== undefined && props.setBottomSourceStrokeColor) props.setBottomSourceStrokeColor(patch.strokeColor);

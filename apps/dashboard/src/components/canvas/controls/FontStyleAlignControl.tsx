@@ -23,13 +23,7 @@ export interface FontStyleAlignControlProps {
   compact?: boolean;
 }
 
-const DEFAULT_FONT_OPTIONS: FontOption[] = [
-  ...FONT_FAMILIES,
-  { id: 'NanumGothic', name: '나눔고딕 (Nanum Gothic)' },
-  { id: 'NanumMyeongjo', name: '나눔명조 (Nanum Myeongjo)' },
-  { id: 'Do Hyeon', name: '도현 (Do Hyeon)' },
-  { id: 'Jua', name: '주아 (Jua)' },
-];
+const DEFAULT_FONT_OPTIONS: FontOption[] = FONT_FAMILIES;
 
 export const FontStyleAlignControl: React.FC<FontStyleAlignControlProps> = ({
   label = '글꼴 (Font)',
