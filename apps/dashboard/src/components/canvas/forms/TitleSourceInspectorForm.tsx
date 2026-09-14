@@ -27,11 +27,11 @@ export const TitleSourceInspectorForm: React.FC<TitleSourceInspectorFormProps> =
     titleBadgeSizePx = 11, setTitleBadgeSizePx = () => {},
     hasTitleLine1 = true, setHasTitleLine1 = () => {},
     titleLine1 = '조코비치 몰래카메라 ㅋㅋ', setTitleLine1 = () => {},
-    titleLine1SizePx = 28, setTitleLine1SizePx = () => {},
+    titleLine1SizePx = 20, setTitleLine1SizePx = () => {},
     titleLine1Color = '#FFFFFF', setTitleLine1Color = () => {},
     hasTitleLine2 = true, setHasTitleLine2 = () => {},
     titleLine2 = '상대 선수 멘붕 직전', setTitleLine2 = () => {},
-    titleLine2SizePx = 34, setTitleLine2SizePx = () => {},
+    titleLine2SizePx = 24, setTitleLine2SizePx = () => {},
     titleLine2Color = '#FFE500', setTitleLine2Color = () => {},
     titleFontFamily = 'Pretendard', setTitleFontFamily = () => {},
     titleBold = true, setTitleBold = () => {},
@@ -60,7 +60,7 @@ export const TitleSourceInspectorForm: React.FC<TitleSourceInspectorFormProps> =
     hasBottomSource = true, setHasBottomSource = () => {},
     bottomSourceText = '출처: 공식 유튜브 영상', setBottomSourceText = () => {},
     bottomSourceColor = '#94A3B8', setBottomSourceColor = () => {},
-    bottomSourceSizePx = 12, setBottomSourceSizePx,
+    bottomSourceSizePx = 10, setBottomSourceSizePx,
     bottomSourceFontFamily = 'Pretendard', setBottomSourceFontFamily,
     bottomSourceBold = false, setBottomSourceBold = () => {},
     bottomSourceItalic = false, setBottomSourceItalic = () => {},
@@ -217,9 +217,9 @@ export const TitleSourceInspectorForm: React.FC<TitleSourceInspectorFormProps> =
                   {/* 1단 글자 크기 */}
                   <UnitSliderControl
                     label="1단 글자 크기"
-                    value={titleLine1SizePx ?? 28}
-                    min={14}
-                    max={56}
+                    value={titleLine1SizePx ?? 20}
+                    min={12}
+                    max={40}
                     step={1}
                     unit="px"
                     onChange={setTitleLine1SizePx}
@@ -264,9 +264,9 @@ export const TitleSourceInspectorForm: React.FC<TitleSourceInspectorFormProps> =
                     {/* 2단 글자 크기 */}
                     <UnitSliderControl
                       label="2단 글자 크기"
-                      value={titleLine2SizePx ?? 34}
-                      min={14}
-                      max={56}
+                      value={titleLine2SizePx ?? 24}
+                      min={12}
+                      max={44}
                       step={1}
                       unit="px"
                       onChange={setTitleLine2SizePx}
@@ -513,9 +513,9 @@ export const TitleSourceInspectorForm: React.FC<TitleSourceInspectorFormProps> =
                 />
                 <UnitSliderControl
                   label="출처 글자 크기"
-                  value={bottomSourceSizePx || 12}
-                  min={9}
-                  max={32}
+                  value={bottomSourceSizePx || 10}
+                  min={8}
+                  max={22}
                   step={1}
                   unit="px"
                   onChange={(v) => setBottomSourceSizePx?.(v)}

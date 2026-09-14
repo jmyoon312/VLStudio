@@ -478,8 +478,8 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
     titleLinesMode = 'single',
     titleLine1 = '',
     titleLine2 = '',
-    titleLine1SizePx = 36,
-    titleLine2SizePx = 36,
+    titleLine1SizePx = 20,
+    titleLine2SizePx = 24,
     titleLine1Color = '#FFFFFF',
     titleLine2Color = '#FFE500',
     titleFontFamily = 'Pretendard',
@@ -510,7 +510,7 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
     setJabTransform = () => {},
     jabText,
     jabTiltDeg,
-    jabFontSize,
+    jabFontSize = 13,
     jabTextColor,
     jabStroke,
     jabStrokeWidth,
@@ -526,7 +526,7 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
     setSubTransform = () => {},
     currentSubtitleText = '자막을 입력하거나 타임라인에서 자막을 선택하세요',
     subtitleConfig = {
-      fontSize: 32,
+      fontSize: 18,
       fontFamily: 'Pretendard',
       color: '#FFFFFF',
       highlightColor: '#FFE500',
@@ -555,7 +555,7 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
     setSourceTransform = () => {},
     bottomSourceText,
     bottomSourceColor = '#FFFFFF',
-    bottomSourceSizePx = 14,
+    bottomSourceSizePx = 10,
     bottomSourceFontFamily = 'Pretendard',
     bottomSourceBold = false,
     bottomSourceItalic = false,
@@ -1505,7 +1505,7 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                             )}
                             style={{
                               color: titleLine1Color,
-                              fontSize: `${Math.round(titleLine1SizePx * aspectScale)}px`,
+                              fontSize: `${Math.round((titleLine1SizePx && titleLine1SizePx <= 36 ? titleLine1SizePx : 20) * aspectScale)}px`,
                               WebkitTextStroke: titleStroke ? `${titleStrokeWidth}px ${titleStrokeColor}` : 'none',
                               paintOrder: 'stroke fill',
                               WebkitFontSmoothing: 'antialiased',
@@ -1527,7 +1527,7 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                             )}
                             style={{
                               color: titleLine2Color,
-                              fontSize: `${Math.round(titleLine2SizePx * aspectScale)}px`,
+                              fontSize: `${Math.round((titleLine2SizePx && titleLine2SizePx <= 40 ? titleLine2SizePx : 24) * aspectScale)}px`,
                               WebkitTextStroke: titleStroke ? `${titleStrokeWidth}px ${titleStrokeColor}` : 'none',
                               paintOrder: 'stroke fill',
                               WebkitFontSmoothing: 'antialiased',
@@ -1587,7 +1587,7 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                     >
                       <span
                         style={{
-                          fontSize: `${Math.round(jabFontSize * aspectScale)}px`,
+                          fontSize: `${Math.round((jabFontSize && jabFontSize <= 26 ? jabFontSize : 13) * aspectScale)}px`,
                           color: jabTextColor,
                           fontFamily: titleFontFamily,
                           WebkitTextStroke: jabStroke ? `${jabStrokeWidth}px ${jabStrokeColor}` : 'none',
@@ -1693,8 +1693,8 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                           fontSize: layoutTemplateMode === 'instagram'
                             ? `${Math.round(15 * (subTransform.scale || 1.0) * aspectScale)}px`
                             : layoutTemplateMode === 'gunlimbo'
-                            ? `${Math.round(((subCfg?.fontSize || 22)) * aspectScale)}px`
-                            : `${Math.round(((subCfg?.fontSize || 18)) * aspectScale)}px`,
+                            ? `${Math.round(((subCfg?.fontSize && subCfg.fontSize <= 24 ? subCfg.fontSize : 20)) * aspectScale)}px`
+                            : `${Math.round(((subCfg?.fontSize && subCfg.fontSize <= 24 ? subCfg.fontSize : 18)) * aspectScale)}px`,
                           color: layoutTemplateMode === 'instagram'
                             ? (instaConfig.subColor || '#374151')
                             : layoutTemplateMode === 'gunlimbo'
@@ -1753,7 +1753,7 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                   }}
                   onChange={(newT) => {
                     setSourceTransform(newT);
-                    setBottomSourceBottomPct(100 - newT.yPct);
+                    if (setBottomSourceBottomPct) setBottomSourceBottomPct(100 - newT.yPct);
                   }}
                 >
                   <div
@@ -1770,7 +1770,7 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                     <span
                       className="tracking-wide drop-shadow-md"
                       style={{
-                        fontSize: `${bottomSourceSizePx}px`,
+                        fontSize: `${bottomSourceSizePx && bottomSourceSizePx <= 20 ? bottomSourceSizePx : 10}px`,
                         color: bottomSourceColor,
                         fontFamily: bottomSourceFontFamily || 'Pretendard',
                         fontWeight: bottomSourceBold ? 700 : 500,
@@ -2384,7 +2384,7 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                     enabled: props.hasJab ?? true,
                     text: props.jabText || '마지막 반전 주의 ㄷㄷ',
                     tiltDeg: props.jabTiltDeg ?? -3,
-                    fontSize: props.jabFontSize ?? 16,
+                    fontSize: props.jabFontSize ?? 13,
                     textColor: props.jabTextColor || '#000000',
                     font: props.titleFontFamily || 'GmarketSans',
                     strokeEnabled: props.jabStroke ?? true,
@@ -2522,7 +2522,7 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                     enabled: props.hasBottomSource ?? true,
                     text: props.bottomSourceText || '출처: 유튜브 @채널명',
                     color: props.bottomSourceColor || '#CBD5E1',
-                    fontSize: props.bottomSourceSizePx || 12,
+                    fontSize: props.bottomSourceSizePx || 10,
                     font: props.bottomSourceFontFamily || 'Pretendard',
                     bold: props.bottomSourceBold ?? false,
                     italic: props.bottomSourceItalic ?? false,

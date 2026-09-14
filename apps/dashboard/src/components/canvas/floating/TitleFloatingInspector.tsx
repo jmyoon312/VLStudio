@@ -67,11 +67,11 @@ export const TitleFloatingInspector: React.FC<TitleFloatingInspectorProps> = ({
     titleBadgeSizePx = 11,
     hasTitleLine1 = true,
     titleLine1 = '조코비치 몰래카메라 ㅋㅋ',
-    titleLine1SizePx = 28,
+    titleLine1SizePx = 20,
     titleLine1Color = '#FFFFFF',
     hasTitleLine2 = true,
     titleLine2 = '상대 선수 멘붕 직전',
-    titleLine2SizePx = 34,
+    titleLine2SizePx = 24,
     titleLine2Color = '#FFE500',
     titleFontFamily = 'Pretendard',
     titleBold = true,
@@ -226,9 +226,9 @@ export const TitleFloatingInspector: React.FC<TitleFloatingInspectorProps> = ({
               {/* 1단 글자 크기 */}
               <UnitSliderControl
                 label="1단 글자 크기"
-                value={titleLine1SizePx}
-                min={14}
-                max={56}
+                value={titleLine1SizePx ?? 20}
+                min={12}
+                max={40}
                 step={1}
                 unit="px"
                 onChange={(v) => onChange({ titleLine1SizePx: v })}
@@ -276,9 +276,9 @@ export const TitleFloatingInspector: React.FC<TitleFloatingInspectorProps> = ({
                 {/* 2단 글자 크기 */}
                 <UnitSliderControl
                   label="2단 글자 크기"
-                  value={titleLine2SizePx}
-                  min={14}
-                  max={56}
+                  value={titleLine2SizePx ?? 24}
+                  min={12}
+                  max={44}
                   step={1}
                   unit="px"
                   onChange={(v) => onChange({ titleLine2SizePx: v })}

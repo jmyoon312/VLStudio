@@ -102,10 +102,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/use-toast';
 import { cn, getMediaUrl } from '@/lib/utils';
-import api from '@/lib/api';
-import { TemplateManifest } from '@/types/templateDna';
-import { STANDARD_TEMPLATES, getStandardTemplateByArchetype, getMasterTemplate, saveMasterTemplateLocal } from '@/config/standardTemplates';
-import { NleLayerObject, NleLayerTransform, createDefaultTransform } from '@/types/nle';
+import { STANDARD_TEMPLATES, getStandardTemplateByArchetype, getMasterTemplate, saveMasterTemplateLocal, normalizeTemplateManifest } from '@/config/standardTemplates';
 import { TransformGizmo } from '@/components/canvas/TransformGizmo';
 import { BgmLibraryModal, BgmTrackItem } from '@/components/BgmLibraryModal';
 import SubtitleConfigPanel from '@/components/shared/SubtitleConfigPanel';
@@ -723,9 +720,17 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
   const [subtitleConfig, setSubtitleConfig] = useState<SubtitleConfig>(() => {
     const saved = localStorage.getItem('viral_loop_subtitle_config');
     if (saved) {
-      try { return JSON.parse(saved); } catch (e) {}
+      try {
+        const parsed = JSON.parse(saved);
+        if (parsed) {
+          if (parsed.fontSize && parsed.fontSize > 24) {
+            parsed.fontSize = 18;
+          }
+          return parsed;
+        }
+      } catch (e) {}
     }
-    return { ...DEFAULT_SUBTITLE_CONFIG, enabled: true };
+    return { ...DEFAULT_SUBTITLE_CONFIG, fontSize: 18, enabled: true };
   });
 
   // 🎙️ 음성(TTS) 합성 마스터 설정
@@ -1280,7 +1285,8 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
     }
   };
 
-  const handleApplyManifest = (manifest: TemplateManifest) => {
+  const handleApplyManifest = (rawManifest: TemplateManifest) => {
+    const manifest = normalizeTemplateManifest(rawManifest);
     const arch = manifest.archetype || 'classic';
     if (manifest.aspectRatio) {
       setAspectRatio(manifest.aspectRatio);
@@ -1473,7 +1479,7 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
         if (s.titleLine2Color) setTitleLine2Color(s.titleLine2Color);
         if (s.titleFontSize) {
           setTitleLine1SizePx(s.titleFontSize);
-          setTitleLine2SizePx(s.titleFontSize);
+          setTitleLine2SizePx(s.titleLine2FontSize || 24);
         }
         if (s.titleStroke !== undefined) setTitleStroke(s.titleStroke);
         if (s.titleShadow !== undefined) setTitleShadow(s.titleShadow);

@@ -51,7 +51,7 @@ export interface SubtitleConfig {
 export const DEFAULT_SUBTITLE_CONFIG: SubtitleConfig = {
     enabled: true,
     font: 'NanumGothic',
-    fontSize: 40,
+    fontSize: 18,
     textColor: '#FFFFFF',
     isBold: true,
     isItalic: false,

@@ -54,14 +54,15 @@ export const STANDARD_TEMPLATES: Record<string, TemplateManifest> = {
         yPct: 94.0,
         defaultText: '출처: 공식 유튜브 영상',
         textColor: '#94A3B8',
-        fontSize: 12,
+        fontSize: 10,
       },
     },
     style: {
       titleFont: 'Pretendard',
       titleLine1Color: '#FFFFFF',
       titleLine2Color: '#FFE500',
-      titleFontSize: 28,
+      titleFontSize: 20,
+      titleLine2FontSize: 24,
       titleStroke: false,
       titleStrokeWidth: 0,
       titleStrokeColor: '#000000',
@@ -255,14 +256,15 @@ export const STANDARD_TEMPLATES: Record<string, TemplateManifest> = {
         yPct: 92,
         defaultText: '출처: 온라인 커뮤니티',
         textColor: '#94A3B8',
-        fontSize: 12,
+        fontSize: 10,
       },
     },
     style: {
       titleFont: 'Pretendard',
       titleLine1Color: '#FFFFFF',
       titleLine2Color: '#FFE500',
-      titleFontSize: 36,
+      titleFontSize: 22,
+      titleLine2FontSize: 24,
       titleStroke: false,
       titleStrokeWidth: 0,
       titleStrokeColor: '#000000',
@@ -270,9 +272,9 @@ export const STANDARD_TEMPLATES: Record<string, TemplateManifest> = {
       titleShadowBlur: 4,
       titleShadowColor: 'rgba(0,0,0,0.8)',
       hookFont: 'Pretendard',
-      hookFontSize: 22,
+      hookFontSize: 14,
       captionFont: 'Pretendard',
-      captionFontSize: 20,
+      captionFontSize: 18,
       captionDefaultColor: '#FFE500',
       captionStrokeWidth: 4,
       captionStrokeColor: '#000000',
@@ -347,14 +349,15 @@ export const STANDARD_TEMPLATES: Record<string, TemplateManifest> = {
         yPct: 96.0,
         defaultText: '출처: 에펨코리아 유저게시판',
         textColor: '#64748B',
-        fontSize: 11,
+        fontSize: 10,
       },
     },
     style: {
       titleFont: 'Pretendard',
       titleLine1Color: '#F8FAFC',
       titleLine2Color: '#94A3B8',
-      titleFontSize: 20,
+      titleFontSize: 18,
+      titleLine2FontSize: 20,
       titleStroke: false,
       titleStrokeWidth: 0,
       titleStrokeColor: '#000000',
@@ -496,6 +499,66 @@ export const getStandardTemplateByArchetype = (archetype: string): TemplateManif
 };
 
 /**
+ * 🎯 캔버스 최적 규격 정규화 헬퍼 (단일 진실 공급원)
+ * 기존 저장/캐시된 매니페스트의 과도하게 팽창된 글자 크기(36px, 40px 등)를
+ * 9:16 쇼츠 캔버스 골든 비율(대제목 20/24px, 쨉쨉이 13px, 본문자막 18px, 출처 10px)로
+ * 안전하게 정규화/보정합니다.
+ */
+export const normalizeTemplateManifest = (manifest: TemplateManifest): TemplateManifest => {
+  if (!manifest) return manifest;
+  try {
+    const clone: TemplateManifest = JSON.parse(JSON.stringify(manifest));
+
+    // 1. style 영역 보정
+    if (clone.style) {
+      if (clone.style.titleFontSize && clone.style.titleFontSize > 24) {
+        clone.style.titleFontSize = 20;
+      }
+      if (clone.style.titleLine2FontSize && clone.style.titleLine2FontSize > 28) {
+        clone.style.titleLine2FontSize = 24;
+      }
+      if (clone.style.captionFontSize && clone.style.captionFontSize > 24) {
+        clone.style.captionFontSize = 18;
+      }
+      if (clone.style.hookFontSize && clone.style.hookFontSize > 18) {
+        clone.style.hookFontSize = 14;
+      }
+    }
+
+    // 2. geometry 영역 보정
+    if (clone.geometry?.sourceZone) {
+      if (clone.geometry.sourceZone.fontSize && clone.geometry.sourceZone.fontSize > 14) {
+        clone.geometry.sourceZone.fontSize = 10;
+      }
+    }
+
+    // 3. customState 영역 보정 (과거 저장된 커스텀 상태 치유)
+    if (clone.customState) {
+      const cs = clone.customState;
+      if (cs.titleLine1SizePx && cs.titleLine1SizePx > 24) {
+        cs.titleLine1SizePx = 20;
+      }
+      if (cs.titleLine2SizePx && cs.titleLine2SizePx > 28) {
+        cs.titleLine2SizePx = 24;
+      }
+      if (cs.jabFontSize && cs.jabFontSize > 18) {
+        cs.jabFontSize = 13;
+      }
+      if (cs.bottomSourceSizePx && cs.bottomSourceSizePx > 14) {
+        cs.bottomSourceSizePx = 10;
+      }
+      if (cs.subtitleConfig?.fontSize && cs.subtitleConfig.fontSize > 24) {
+        cs.subtitleConfig.fontSize = 18;
+      }
+    }
+
+    return clone;
+  } catch (e) {
+    return manifest;
+  }
+};
+
+/**
  * 🏛️ 폼팩터별 마스터 템플릿 반환 헬퍼 (단일 진실 공급원 SSOT)
  * 1. 사용자가 [⭐ 마스터로 저장]한 사용자 커스텀 마스터 템플릿 최우선
  * 2. 없으면 ViraLoop 공식 표준 골든 스탠다드 템플릿 반환
@@ -506,13 +569,16 @@ export const getMasterTemplate = (archetype: string): TemplateManifest => {
     if (raw) {
       const parsed = JSON.parse(raw);
       if (parsed && (parsed.archetype === archetype || !parsed.archetype)) {
-        return parsed;
+        const normalized = normalizeTemplateManifest(parsed);
+        // 과도하게 팽창된 캐시도 골든 규격으로 자동 자가치유 업데이트
+        localStorage.setItem(`master_manifest_${archetype}`, JSON.stringify(normalized));
+        return normalized;
       }
     }
   } catch (e) {
     console.warn(`[getMasterTemplate] Failed to load master manifest for ${archetype}:`, e);
   }
-  return getStandardTemplateByArchetype(archetype);
+  return normalizeTemplateManifest(getStandardTemplateByArchetype(archetype));
 };
 
 /**
@@ -520,18 +586,19 @@ export const getMasterTemplate = (archetype: string): TemplateManifest => {
  */
 export const saveMasterTemplateLocal = (archetype: string, manifest: TemplateManifest): void => {
   try {
-    localStorage.setItem(`master_manifest_${archetype}`, JSON.stringify(manifest));
-    localStorage.setItem('applied_template_manifest', JSON.stringify(manifest));
-    window.dispatchEvent(new CustomEvent('vl_master_template_updated', { detail: { archetype, manifest } }));
-    window.dispatchEvent(new CustomEvent('vl_template_applied', { detail: manifest }));
+    const normalized = normalizeTemplateManifest(manifest);
+    localStorage.setItem(`master_manifest_${archetype}`, JSON.stringify(normalized));
+    localStorage.setItem('applied_template_manifest', JSON.stringify(normalized));
+    window.dispatchEvent(new CustomEvent('vl_master_template_updated', { detail: { archetype, manifest: normalized } }));
+    window.dispatchEvent(new CustomEvent('vl_template_applied', { detail: normalized }));
     try {
       const ch = new BroadcastChannel('vl_master_template_channel');
-      ch.postMessage({ archetype, manifest });
+      ch.postMessage({ archetype, manifest: normalized });
       ch.close();
     } catch (_) {}
     try {
       const tCh = new BroadcastChannel('vl_template_channel');
-      tCh.postMessage(manifest);
+      tCh.postMessage(normalized);
       tCh.close();
     } catch (_) {}
   } catch (e) {

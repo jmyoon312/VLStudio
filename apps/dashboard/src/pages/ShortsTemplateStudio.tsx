@@ -30,7 +30,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { cn, getMediaUrl } from '@/lib/utils';
 import api from '@/lib/api';
 import { TemplateManifest, TemplateCanvasState } from '@/types/templateDna';
-import { STANDARD_TEMPLATES, getStandardTemplateByArchetype, getMasterTemplate, saveMasterTemplateLocal } from '@/config/standardTemplates';
+import { STANDARD_TEMPLATES, getStandardTemplateByArchetype, getMasterTemplate, saveMasterTemplateLocal, normalizeTemplateManifest } from '@/config/standardTemplates';
 import { NleLayerTransform, createDefaultTransform } from '@/types/nle';
 import { TransformGizmo } from '@/components/canvas/TransformGizmo';
 import { SubtitleConfig, DEFAULT_SUBTITLE_CONFIG } from '@/types/subtitle';
@@ -171,7 +171,7 @@ export const defaultLayoutState: ShortsLayoutState = {
   titleLine1Color: '#FFFFFF',
   titleLine2Color: '#FFE500',
   titleLine1SizePx: 20,
-  titleLine2SizePx: 20,
+  titleLine2SizePx: 24,
   titleFontFamily: 'Pretendard',
   titleBgMode: 'none',
   titleBgColor: 'rgba(0,0,0,0.85)',
@@ -958,7 +958,8 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
     }
   };
 
-  const handleApplyManifest = (manifest: TemplateManifest) => {
+  const handleApplyManifest = (rawManifest: TemplateManifest) => {
+    const manifest = normalizeTemplateManifest(rawManifest);
     const arch = manifest.archetype || 'classic';
     if (manifest.aspectRatio) {
       setAspectRatio(manifest.aspectRatio);
@@ -1180,6 +1181,7 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
         if (s.titleBadgeColor) setTitleBadgeColor(s.titleBadgeColor);
         if (s.titleFontSize) setTitleLine1SizePx(s.titleFontSize);
         if (s.titleLine2FontSize) setTitleLine2SizePx(s.titleLine2FontSize);
+        else if (s.titleFontSize) setTitleLine2SizePx(24);
         if (s.titleLine1Color) setTitleLine1Color(s.titleLine1Color);
         if (s.titleLine2Color) setTitleLine2Color(s.titleLine2Color);
         if (s.titleBgMode) {

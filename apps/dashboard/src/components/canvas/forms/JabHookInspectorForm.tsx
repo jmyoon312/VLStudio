@@ -136,9 +136,9 @@ export const JabHookInspectorForm: React.FC<JabHookInspectorFormProps> = ({
                         />
                         <UnitSliderControl
                           label="글자 크기"
-                          value={jabFontSize ?? 28}
-                          min={12}
-                          max={48}
+                          value={jabFontSize ?? 13}
+                          min={10}
+                          max={30}
                           step={1}
                           unit="px"
                           onChange={setJabFontSize}
