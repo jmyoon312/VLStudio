@@ -2,6 +2,7 @@ import React from 'react';
 import { BaseFloatingInspectorCard } from '../controls/BaseFloatingInspectorCard';
 import { ColorPicker8Preset } from '../controls/ColorPicker8Preset';
 import { UnitSliderControl } from '../controls/UnitSliderControl';
+import { FontStyleAlignControl } from '../controls/FontStyleAlignControl';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { MessageSquare, Sparkles } from 'lucide-react';
@@ -167,24 +168,18 @@ export const SubtitleFloatingInspector: React.FC<SubtitleFloatingInspectorProps>
         </div>
       </div>
 
-      {/* 2. 글꼴 선택 */}
-      <div className="space-y-1">
-        <label className="text-[11px] font-semibold text-muted-foreground">자막 글꼴 (Font)</label>
-        <select
-          value={config.fontFamily || config.font || 'Pretendard'}
-          onChange={(e) => {
-            const val = e.target.value;
-            onChange({ fontFamily: val, font: val });
-          }}
-          className="w-full px-2 py-1 text-xs bg-muted/30 border border-border rounded-[4px] focus:outline-hidden focus:ring-1 focus:ring-primary"
-        >
-          {FONT_FAMILIES.map((f) => (
-            <option key={f.id} value={f.id}>
-              {f.name}
-            </option>
-          ))}
-        </select>
-      </div>
+      {/* 2. 글꼴 및 서체 스타일 / 정렬 */}
+      <FontStyleAlignControl
+        label="자막 글꼴 (Font)"
+        font={config.fontFamily || config.font || 'Pretendard'}
+        setFont={(val) => onChange({ fontFamily: val, font: val })}
+        bold={config.isBold !== false}
+        setBold={(val) => onChange({ isBold: val })}
+        italic={!!config.isItalic}
+        setItalic={(val) => onChange({ isItalic: val })}
+        align={config.textAlign || 'center'}
+        setAlign={(val) => onChange({ textAlign: val })}
+      />
 
       {/* 3. 글자 색상 & 크기 */}
       <div className="space-y-2 p-2 bg-muted/20 border border-border/80 rounded-[4px]">

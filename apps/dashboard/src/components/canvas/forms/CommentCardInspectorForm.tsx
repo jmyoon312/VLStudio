@@ -7,6 +7,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { cn } from '@/lib/utils';
 import { ColorPicker8Preset } from '../controls/ColorPicker8Preset';
 import { UnitSliderControl } from '../controls/UnitSliderControl';
+import { FontStyleAlignControl } from '../controls/FontStyleAlignControl';
 
 export interface CommentCardConfig {
   author: string;
@@ -18,6 +19,10 @@ export interface CommentCardConfig {
   likes?: string;
   avatarUrl?: string;
   theme: 'yt-dark' | 'yt-light' | 'insta' | 'neon';
+  font?: string;
+  bold?: boolean;
+  italic?: boolean;
+  align?: 'left' | 'center' | 'right';
   blurId?: boolean;
   isBlurred?: boolean;
   anonymous?: boolean;
@@ -221,6 +226,19 @@ export const CommentCardInspectorForm: React.FC<CommentCardInspectorFormProps> =
                           label="본문 글자 색상"
                           value={commentCard.textColor || '#FFFFFF'}
                           onChange={(c) => setCommentCard(prev => ({ ...prev, textColor: c }))}
+                        />
+
+                        {/* 댓글 글꼴 및 서체 스타일 / 정렬 */}
+                        <FontStyleAlignControl
+                          label="댓글 글꼴 (Font)"
+                          font={commentCard.font || 'Pretendard'}
+                          setFont={(f) => setCommentCard(prev => ({ ...prev, font: f }))}
+                          bold={commentCard.bold}
+                          setBold={(b) => setCommentCard(prev => ({ ...prev, bold: b }))}
+                          italic={commentCard.italic}
+                          setItalic={(i) => setCommentCard(prev => ({ ...prev, italic: i }))}
+                          align={commentCard.align || 'left'}
+                          setAlign={(a) => setCommentCard(prev => ({ ...prev, align: a }))}
                         />
                       </div>
 

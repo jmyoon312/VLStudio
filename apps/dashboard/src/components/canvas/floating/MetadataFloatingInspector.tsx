@@ -2,6 +2,7 @@ import React from 'react';
 import { BaseFloatingInspectorCard } from '../controls/BaseFloatingInspectorCard';
 import { ColorPicker8Preset } from '../controls/ColorPicker8Preset';
 import { UnitSliderControl } from '../controls/UnitSliderControl';
+import { FontStyleAlignControl } from '../controls/FontStyleAlignControl';
 import { Switch } from '@/components/ui/switch';
 import { FONT_FAMILIES, getRandomSatiricalMetadata } from '../constants/canvasConstants';
 import { Info, Bold, User, Clock, Eye, Sparkles, Dices } from 'lucide-react';
@@ -174,21 +175,16 @@ export const MetadataFloatingInspector: React.FC<MetadataFloatingInspectorProps>
         </div>
       </div>
 
-      {/* 5. 글꼴 선택 */}
-      <div className="space-y-1">
-        <label className="text-[11px] font-semibold text-muted-foreground">글꼴 (Font)</label>
-        <select
-          value={config.font || 'Pretendard'}
-          onChange={(e) => onChange({ font: e.target.value })}
-          className="w-full px-2 py-1.5 text-xs bg-muted/30 border border-border rounded-[4px] focus:outline-hidden focus:ring-1 focus:ring-primary"
-        >
-          {FONT_FAMILIES.map((f) => (
-            <option key={f.id} value={f.id}>
-              {f.name}
-            </option>
-          ))}
-        </select>
-      </div>
+      {/* 5. 메타데이터 글꼴 및 서체 스타일 */}
+      <FontStyleAlignControl
+        label="글꼴 (Font)"
+        font={config.font || 'Pretendard'}
+        setFont={(f) => onChange({ font: f })}
+        bold={config.bold}
+        setBold={(b) => onChange({ bold: b })}
+        italic={(config as any).italic}
+        setItalic={(i) => onChange({ italic: i } as any)}
+      />
 
       {/* 6. 글자 색상 */}
       <ColorPicker8Preset
@@ -197,31 +193,16 @@ export const MetadataFloatingInspector: React.FC<MetadataFloatingInspectorProps>
         onChange={(c) => onChange({ color: c })}
       />
 
-      {/* 7. 글자 크기 배율 & 볼드 */}
-      <div className="space-y-2">
-        <UnitSliderControl
-          label="글자 크기"
-          value={config.fontSizeMultiplier}
-          min={0.5}
-          max={1.8}
-          step={0.05}
-          unit="x"
-          onChange={(v) => onChange({ fontSizeMultiplier: v })}
-        />
-        <div className="flex items-center justify-between pt-1">
-          <span className="text-[11px] font-semibold text-muted-foreground">굵게 표시</span>
-          <button
-            type="button"
-            onClick={() => onChange({ bold: !config.bold })}
-            className={`px-2.5 py-1 text-[11px] font-bold rounded flex items-center gap-1 transition ${
-              config.bold ? 'bg-primary text-primary-foreground' : 'bg-muted/40 text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            <Bold className="w-3 h-3" />
-            <span>볼드 (Bold)</span>
-          </button>
-        </div>
-      </div>
+      {/* 7. 글자 크기 배율 */}
+      <UnitSliderControl
+        label="글자 크기 배율"
+        value={config.fontSizeMultiplier}
+        min={0.5}
+        max={1.8}
+        step={0.05}
+        unit="x"
+        onChange={(v) => onChange({ fontSizeMultiplier: v })}
+      />
 
       {/* 8. 위치 미세 조정 */}
       <div className="space-y-2 pt-2 border-t border-border/50">

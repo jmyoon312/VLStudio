@@ -2,6 +2,7 @@ import React from 'react';
 import { BaseFloatingInspectorCard } from '../controls/BaseFloatingInspectorCard';
 import { ColorPicker8Preset } from '../controls/ColorPicker8Preset';
 import { UnitSliderControl } from '../controls/UnitSliderControl';
+import { FontStyleAlignControl } from '../controls/FontStyleAlignControl';
 import { Switch } from '@/components/ui/switch';
 import { FONT_FAMILIES } from '../constants/canvasConstants';
 import { Zap, RotateCw } from 'lucide-react';
@@ -13,6 +14,9 @@ export interface JabHookConfig {
   fontSize: number;
   textColor: string;
   font: string;
+  bold?: boolean;
+  italic?: boolean;
+  align?: 'left' | 'center' | 'right';
   strokeEnabled: boolean;
   strokeColor: string;
   strokeWidth: number;
@@ -84,21 +88,18 @@ export const JabHookFloatingInspector: React.FC<JabHookFloatingInspectorProps> =
         onChange={(v) => onChange({ tiltDeg: v })}
       />
 
-      {/* 4. 글꼴 선택 */}
-      <div className="space-y-1">
-        <label className="text-[11px] font-semibold text-muted-foreground">글꼴 (Font)</label>
-        <select
-          value={config.font || 'GmarketSans'}
-          onChange={(e) => onChange({ font: e.target.value })}
-          className="w-full px-2 py-1.5 text-xs bg-muted/30 border border-border rounded-[4px] focus:outline-hidden focus:ring-1 focus:ring-primary"
-        >
-          {FONT_FAMILIES.map((f) => (
-            <option key={f.id} value={f.id}>
-              {f.name}
-            </option>
-          ))}
-        </select>
-      </div>
+      {/* 4. 글꼴 및 서체 스타일 / 정렬 */}
+      <FontStyleAlignControl
+        label="훅 글꼴 (Font)"
+        font={config.font || 'GmarketSans'}
+        setFont={(font) => onChange({ font })}
+        bold={config.bold}
+        setBold={(bold) => onChange({ bold })}
+        italic={config.italic}
+        setItalic={(italic) => onChange({ italic })}
+        align={config.align || 'center'}
+        setAlign={(align) => onChange({ align })}
+      />
 
       {/* 5. 글자 색상 & 크기 */}
       <ColorPicker8Preset

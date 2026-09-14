@@ -6,6 +6,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { INSTA_PROFILE_PRESETS } from '../constants/canvasConstants';
 import { UnitSliderControl } from '../controls/UnitSliderControl';
 import { ColorPicker8Preset } from '../controls/ColorPicker8Preset';
+import { FontStyleAlignControl } from '../controls/FontStyleAlignControl';
 import { NleLayerTransform } from '@/types/nle';
 
 export interface InstaProfileInspectorFormProps {
@@ -198,6 +199,17 @@ export const InstaProfileInspectorForm: React.FC<InstaProfileInspectorFormProps>
           step={1}
           unit="px"
           onChange={(val) => setInstaConfig((prev: any) => ({ ...prev, profileNameSize: val }))}
+        />
+
+        {/* 프로필 글꼴 및 서체 스타일 */}
+        <FontStyleAlignControl
+          label="프로필 글꼴 (Font)"
+          font={instaConfig.profileFont || 'Pretendard'}
+          setFont={(f) => setInstaConfig((prev: any) => ({ ...prev, profileFont: f }))}
+          bold={instaConfig.profileBold !== false}
+          setBold={(b) => setInstaConfig((prev: any) => ({ ...prev, profileBold: b }))}
+          italic={!!instaConfig.profileItalic}
+          setItalic={(i) => setInstaConfig((prev: any) => ({ ...prev, profileItalic: i }))}
         />
 
         {/* 글자 외곽선 (테두리) */}

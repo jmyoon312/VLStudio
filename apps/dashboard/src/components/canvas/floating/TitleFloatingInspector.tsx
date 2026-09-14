@@ -2,6 +2,7 @@ import React from 'react';
 import { BaseFloatingInspectorCard } from '../controls/BaseFloatingInspectorCard';
 import { ColorPicker8Preset } from '../controls/ColorPicker8Preset';
 import { UnitSliderControl } from '../controls/UnitSliderControl';
+import { FontStyleAlignControl } from '../controls/FontStyleAlignControl';
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import { Type, AlignLeft, AlignCenter, AlignRight, Bold, Italic } from 'lucide-react';
@@ -289,63 +290,16 @@ export const TitleFloatingInspector: React.FC<TitleFloatingInspectorProps> = ({
         )}
 
         {/* 5. 글꼴 및 서체 스타일 / 정렬 */}
-        <div className="space-y-2 p-2 bg-muted/20 border border-border rounded-[2px]">
-          <div className="flex items-center justify-between text-[10px]">
-            <span className="font-semibold text-foreground">글꼴 (Font)</span>
-            <select
-              value={titleFontFamily}
-              onChange={(e) => onChange({ titleFontFamily: e.target.value })}
-              className="h-6 px-1.5 text-[10px] bg-background border border-border rounded text-foreground font-medium"
-            >
-              {FONT_OPTIONS.map((f) => (
-                <option key={f} value={f}>{f}</option>
-              ))}
-            </select>
-          </div>
-
-          <div className="flex items-center justify-between pt-1 border-t border-border/50">
-            <span className="text-[10px] text-muted-foreground">스타일 및 정렬</span>
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={() => onChange({ titleBold: !titleBold })}
-                className={cn(
-                  "w-6 h-6 rounded flex items-center justify-center text-xs font-bold transition cursor-pointer",
-                  titleBold ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground hover:text-foreground border border-border"
-                )}
-                title="굵게 (Bold)"
-              >
-                <Bold className="w-3 h-3" />
-              </button>
-              <button
-                type="button"
-                onClick={() => onChange({ titleItalic: !titleItalic })}
-                className={cn(
-                  "w-6 h-6 rounded flex items-center justify-center text-xs font-bold transition cursor-pointer",
-                  titleItalic ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground hover:text-foreground border border-border"
-                )}
-                title="기울임 (Italic)"
-              >
-                <Italic className="w-3 h-3" />
-              </button>
-              <div className="w-[1px] h-4 bg-border mx-0.5" />
-              {(['left', 'center', 'right'] as const).map((align) => (
-                <button
-                  key={align}
-                  type="button"
-                  onClick={() => onChange({ titleAlign: align })}
-                  className={cn(
-                    "w-6 h-6 rounded flex items-center justify-center text-xs transition cursor-pointer",
-                    titleAlign === align ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground hover:text-foreground border border-border"
-                  )}
-                  title={`정렬: ${align}`}
-                >
-                  {align === 'left' ? <AlignLeft className="w-3 h-3" /> : align === 'center' ? <AlignCenter className="w-3 h-3" /> : <AlignRight className="w-3 h-3" />}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
+        <FontStyleAlignControl
+          font={titleFontFamily}
+          setFont={(f) => onChange({ titleFontFamily: f })}
+          bold={titleBold}
+          setBold={(b) => onChange({ titleBold: b })}
+          italic={titleItalic}
+          setItalic={(it) => onChange({ titleItalic: it })}
+          align={titleAlign}
+          setAlign={(a) => onChange({ titleAlign: a })}
+        />
 
         {/* 6. 🎨 테두리(외곽선) 상세 제어 */}
         <div className="space-y-2 p-2 bg-muted/20 border border-border rounded-[2px]">

@@ -5,6 +5,7 @@ import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import { ColorPicker8Preset } from '../controls/ColorPicker8Preset';
 import { UnitSliderControl } from '../controls/UnitSliderControl';
+import { FontStyleAlignControl } from '../controls/FontStyleAlignControl';
 import { FONT_FAMILIES } from '../constants/canvasConstants';
 
 export interface JabHookInspectorFormProps {
@@ -18,6 +19,14 @@ export interface JabHookInspectorFormProps {
   setJabFontSize: (val: number | ((prev: number) => number)) => void;
   jabTextColor: string;
   setJabTextColor: (val: string | ((prev: string) => string)) => void;
+  jabFont?: string;
+  setJabFont?: (val: string) => void;
+  jabBold?: boolean;
+  setJabBold?: (val: boolean) => void;
+  jabItalic?: boolean;
+  setJabItalic?: (val: boolean) => void;
+  jabAlign?: 'left' | 'center' | 'right';
+  setJabAlign?: (val: 'left' | 'center' | 'right') => void;
   jabStroke: boolean;
   setJabStroke: (val: boolean | ((prev: boolean) => boolean)) => void;
   jabStrokeWidth: number;
@@ -54,6 +63,14 @@ export const JabHookInspectorForm: React.FC<JabHookInspectorFormProps> = (props)
     setJabFontSize,
     jabTextColor,
     setJabTextColor,
+    jabFont = 'Pretendard',
+    setJabFont,
+    jabBold = true,
+    setJabBold,
+    jabItalic = false,
+    setJabItalic,
+    jabAlign = 'center',
+    setJabAlign,
     jabStroke,
     setJabStroke,
     jabStrokeWidth,
@@ -114,6 +131,18 @@ export const JabHookInspectorForm: React.FC<JabHookInspectorFormProps> = (props)
                 onChange={(val) => setGConfig((prev: any) => ({ ...prev, hookTextColor: val }))}
               />
             </div>
+
+            {/* 🔤 서체 및 스타일/정렬 */}
+            <FontStyleAlignControl
+              font={gConfig.hookFont || 'Pretendard'}
+              setFont={(f) => setGConfig((prev: any) => ({ ...prev, hookFont: f }))}
+              bold={gConfig.hookBold ?? true}
+              setBold={(b) => setGConfig((prev: any) => ({ ...prev, hookBold: b }))}
+              italic={gConfig.hookItalic ?? false}
+              setItalic={(it) => setGConfig((prev: any) => ({ ...prev, hookItalic: it }))}
+              align={gConfig.hookAlign || 'center'}
+              setAlign={(a) => setGConfig((prev: any) => ({ ...prev, hookAlign: a }))}
+            />
             <div className="space-y-2 p-2 bg-muted/20 border border-border rounded-[2px]">
               <UnitSliderControl
                 label="글자 크기"
@@ -313,6 +342,18 @@ export const JabHookInspectorForm: React.FC<JabHookInspectorFormProps> = (props)
                           onChange={setJabFontSize}
                         />
                       </div>
+
+                      {/* 🔤 서체 및 스타일/정렬 */}
+                      <FontStyleAlignControl
+                        font={jabFont}
+                        setFont={setJabFont}
+                        bold={jabBold}
+                        setBold={setJabBold}
+                        italic={jabItalic}
+                        setItalic={setJabItalic}
+                        align={jabAlign}
+                        setAlign={setJabAlign}
+                      />
 
                       {/* 🎨 글자 테두리(외곽선) */}
                       <div className="space-y-2 p-2 bg-muted/20 border border-border rounded-[2px]">

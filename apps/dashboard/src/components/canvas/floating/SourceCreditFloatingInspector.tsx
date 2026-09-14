@@ -2,6 +2,7 @@ import React from 'react';
 import { BaseFloatingInspectorCard } from '../controls/BaseFloatingInspectorCard';
 import { ColorPicker8Preset } from '../controls/ColorPicker8Preset';
 import { UnitSliderControl } from '../controls/UnitSliderControl';
+import { FontStyleAlignControl } from '../controls/FontStyleAlignControl';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { FONT_FAMILIES } from '../constants/canvasConstants';
@@ -15,6 +16,7 @@ export interface SourceCreditConfig {
   font: string;
   bold?: boolean;
   italic?: boolean;
+  align?: 'left' | 'center' | 'right';
   bgEnabled: boolean;
   bgColor: string;
   borderRadius: number;
@@ -75,43 +77,17 @@ export const SourceCreditFloatingInspector: React.FC<SourceCreditFloatingInspect
         />
       </div>
 
-      {/* 3. 글꼴 선택 */}
-      <div className="space-y-1">
-        <label className="text-[11px] font-semibold text-muted-foreground">글꼴 (Font)</label>
-        <select
-          value={config.font || 'Pretendard'}
-          onChange={(e) => onChange({ font: e.target.value })}
-          className="w-full px-2 py-1.5 text-xs bg-muted/30 border border-border rounded-[4px] focus:outline-hidden focus:ring-1 focus:ring-primary"
-        >
-          {FONT_FAMILIES.map((f) => (
-            <option key={f.id} value={f.id}>
-              {f.name}
-            </option>
-          ))}
-        </select>
-        <div className="flex items-center gap-1.5 pt-1">
-          <Button
-            type="button"
-            variant={config.bold ? "default" : "outline"}
-            size="sm"
-            className="h-6 px-2 text-xs gap-1 cursor-pointer"
-            onClick={() => onChange({ bold: !config.bold })}
-          >
-            <Bold className="w-3 h-3" />
-            <span className="text-[10px] font-bold">굵게</span>
-          </Button>
-          <Button
-            type="button"
-            variant={config.italic ? "default" : "outline"}
-            size="sm"
-            className="h-6 px-2 text-xs gap-1 cursor-pointer"
-            onClick={() => onChange({ italic: !config.italic })}
-          >
-            <Italic className="w-3 h-3" />
-            <span className="text-[10px] font-bold">기울임</span>
-          </Button>
-        </div>
-      </div>
+      {/* 3. 글꼴 및 스타일/정렬 */}
+      <FontStyleAlignControl
+        font={config.font || 'Pretendard'}
+        setFont={(f) => onChange({ font: f })}
+        bold={config.bold ?? true}
+        setBold={(b) => onChange({ bold: b })}
+        italic={config.italic ?? false}
+        setItalic={(it) => onChange({ italic: it })}
+        align={config.align || 'center'}
+        setAlign={(a) => onChange({ align: a })}
+      />
 
       {/* 4. 글자 색상 & 크기 */}
       <ColorPicker8Preset

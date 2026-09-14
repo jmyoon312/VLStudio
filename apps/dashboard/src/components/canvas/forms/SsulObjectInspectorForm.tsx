@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
 import { ColorPicker8Preset } from '../controls/ColorPicker8Preset';
 import { UnitSliderControl } from '../controls/UnitSliderControl';
+import { FontStyleAlignControl } from '../controls/FontStyleAlignControl';
 import { BarGeometryControlGroup } from './shared';
 import { getRandomSatiricalMetadata } from '../constants/canvasConstants';
 
@@ -33,6 +34,7 @@ export const SsulObjectInspectorForm: React.FC<SsulObjectInspectorFormProps> = (
       fontSizeMultiplier: ssulConfig?.ssulHeader?.fontSizeMultiplier ?? 1.0,
       bold: ssulConfig?.ssulHeader?.bold ?? true,
       italic: ssulConfig?.ssulHeader?.italic ?? false,
+      align: ssulConfig?.ssulHeader?.align || 'center',
       logoUrl: ssulConfig?.ssulHeader?.logoUrl,
       leftIcon: ssulConfig?.ssulHeader?.leftIcon || 'arrow_back',
       rightIcon: ssulConfig?.ssulHeader?.rightIcon || 'menu',
@@ -95,6 +97,19 @@ export const SsulObjectInspectorForm: React.FC<SsulObjectInspectorFormProps> = (
                 label="글자 색상"
                 value={header.textColor}
                 onChange={(val) => updateHeader({ textColor: val })}
+              />
+
+              {/* 헤더 글꼴 및 서체 스타일 / 정렬 */}
+              <FontStyleAlignControl
+                label="헤더 글꼴 (Font)"
+                font={header.font}
+                setFont={(f) => updateHeader({ font: f })}
+                bold={header.bold}
+                setBold={(b) => updateHeader({ bold: b })}
+                italic={header.italic}
+                setItalic={(i) => updateHeader({ italic: i })}
+                align={header.align || 'center'}
+                setAlign={(a) => updateHeader({ align: a })}
               />
 
               {/* 글자 테두리 (외곽선) */}
@@ -220,7 +235,9 @@ export const SsulObjectInspectorForm: React.FC<SsulObjectInspectorFormProps> = (
       viewsText: ssulConfig?.metadata?.viewsText || ssulConfig?.viewsText || '조회 2.4만',
       separator: ssulConfig?.metadata?.separator || 'dot',
       color: ssulConfig?.metadata?.color || '#71717A',
+      font: ssulConfig?.metadata?.font || 'Pretendard',
       bold: ssulConfig?.metadata?.bold ?? false,
+      italic: ssulConfig?.metadata?.italic ?? false,
       strokeEnabled: ssulConfig?.metadata?.strokeEnabled ?? false,
       strokeWidth: ssulConfig?.metadata?.strokeWidth ?? 1,
       strokeColor: ssulConfig?.metadata?.strokeColor || '#000000',
@@ -342,6 +359,17 @@ export const SsulObjectInspectorForm: React.FC<SsulObjectInspectorFormProps> = (
               label="메타데이터 색상"
               value={meta.color}
               onChange={(val) => updateMeta({ color: val })}
+            />
+
+            {/* 메타데이터 글꼴 및 서체 스타일 */}
+            <FontStyleAlignControl
+              label="메타데이터 글꼴 (Font)"
+              font={meta.font}
+              setFont={(f) => updateMeta({ font: f })}
+              bold={meta.bold}
+              setBold={(b) => updateMeta({ bold: b })}
+              italic={meta.italic}
+              setItalic={(i) => updateMeta({ italic: i })}
             />
 
             {/* 글자 테두리 (외곽선) */}

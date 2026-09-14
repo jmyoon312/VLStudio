@@ -2,6 +2,7 @@ import React from 'react';
 import { BaseFloatingInspectorCard } from '../controls/BaseFloatingInspectorCard';
 import { ColorPicker8Preset } from '../controls/ColorPicker8Preset';
 import { UnitSliderControl } from '../controls/UnitSliderControl';
+import { FontStyleAlignControl } from '../controls/FontStyleAlignControl';
 import { Switch } from '@/components/ui/switch';
 import { FONT_FAMILIES } from '../constants/canvasConstants';
 import { Layers, Type } from 'lucide-react';
@@ -15,10 +16,16 @@ export interface GunlimboHookBandConfig {
   headlineColor: string;
   headlineFontSize: number;
   headlineFont: string;
+  headlineBold?: boolean;
+  headlineItalic?: boolean;
+  headlineAlign?: 'left' | 'center' | 'right';
   subheadlineText: string;
   subheadlineColor: string;
   subheadlineFontSize: number;
   subheadlineFont: string;
+  subheadlineBold?: boolean;
+  subheadlineItalic?: boolean;
+  subheadlineAlign?: 'left' | 'center' | 'right';
   showBorder: boolean;
   borderColor: string;
   borderWidth: number;
@@ -117,6 +124,17 @@ export const GunlimboHookBandFloatingInspector: React.FC<GunlimboHookBandFloatin
             onChange={(c) => onChange({ headlineColor: c })}
           />
         </div>
+        <FontStyleAlignControl
+          label="헤드라인 글꼴"
+          font={config.headlineFont || 'Pretendard'}
+          setFont={(f) => onChange({ headlineFont: f })}
+          bold={config.headlineBold ?? true}
+          setBold={(b) => onChange({ headlineBold: b })}
+          italic={config.headlineItalic ?? false}
+          setItalic={(it) => onChange({ headlineItalic: it })}
+          align={config.headlineAlign || 'center'}
+          setAlign={(a) => onChange({ headlineAlign: a })}
+        />
       </div>
 
       {/* 5. 서브 헤드라인 텍스트 */}
@@ -148,6 +166,17 @@ export const GunlimboHookBandFloatingInspector: React.FC<GunlimboHookBandFloatin
             onChange={(c) => onChange({ subheadlineColor: c })}
           />
         </div>
+        <FontStyleAlignControl
+          label="서브 헤드라인 글꼴"
+          font={config.subheadlineFont || 'Pretendard'}
+          setFont={(f) => onChange({ subheadlineFont: f })}
+          bold={config.subheadlineBold ?? true}
+          setBold={(b) => onChange({ subheadlineBold: b })}
+          italic={config.subheadlineItalic ?? false}
+          setItalic={(it) => onChange({ subheadlineItalic: it })}
+          align={config.subheadlineAlign || 'center'}
+          setAlign={(a) => onChange({ subheadlineAlign: a })}
+        />
       </div>
 
       {/* 6. 상하단 경계선 */}

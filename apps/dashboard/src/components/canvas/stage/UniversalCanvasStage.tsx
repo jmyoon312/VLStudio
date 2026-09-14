@@ -187,6 +187,14 @@ export interface UniversalCanvasStageProps {
   setJabFontSize?: (val: number) => void;
   jabTextColor: string;
   setJabTextColor?: (val: string) => void;
+  jabFont?: string;
+  setJabFont?: (val: string) => void;
+  jabBold?: boolean;
+  setJabBold?: (val: boolean) => void;
+  jabItalic?: boolean;
+  setJabItalic?: (val: boolean) => void;
+  jabAlign?: 'left' | 'center' | 'right';
+  setJabAlign?: (val: 'left' | 'center' | 'right') => void;
   jabStroke: boolean;
   setJabStroke?: (val: boolean) => void;
   jabStrokeWidth: number;
@@ -536,6 +544,14 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
     jabTiltDeg,
     jabFontSize = 13,
     jabTextColor,
+    jabFont = 'GmarketSans',
+    setJabFont,
+    jabBold = true,
+    setJabBold,
+    jabItalic = false,
+    setJabItalic,
+    jabAlign = 'center',
+    setJabAlign,
     jabStroke,
     jabStrokeWidth,
     jabStrokeColor,
@@ -1350,11 +1366,14 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                         title="더블클릭하여 소제목 훅 문구 설정"
                       >
                         <span
-                          className="font-black tracking-tight text-center leading-snug break-keep select-none uppercase"
+                          className="tracking-tight text-center leading-snug break-keep select-none uppercase"
                           style={{
                             color: gunlimboConfig.hookTextColor || '#000000',
                             fontSize: `${gunlimboConfig.hookFontSize || 22}px`,
-                            fontFamily: titleFontFamily,
+                            fontFamily: gunlimboConfig.hookFont || titleFontFamily,
+                            fontWeight: gunlimboConfig.hookBold === false ? 'normal' : '900',
+                            fontStyle: gunlimboConfig.hookItalic ? 'italic' : 'normal',
+                            textAlign: gunlimboConfig.hookAlign || 'center',
                             letterSpacing: '-0.02em',
                           }}
                         >
@@ -1417,10 +1436,13 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                     <div className="flex flex-col text-left leading-tight">
                       <div className="flex items-center gap-1">
                         <span
-                          className="font-bold tracking-tight"
+                          className="tracking-tight"
                           style={{
                             color: instaConfig.profileNameColor || '#2563EB',
                             fontSize: `${instaConfig.profileNameSize || 14}px`,
+                            fontFamily: instaConfig.profileFont || 'Pretendard',
+                            fontWeight: instaConfig.profileBold !== false ? 'bold' : 'normal',
+                            fontStyle: instaConfig.profileItalic ? 'italic' : 'normal',
                             WebkitTextStroke: instaConfig.profileStrokeEnabled ? `${instaConfig.profileStrokeWidth || 2}px ${instaConfig.profileStrokeColor || '#000000'}` : 'none',
                             textShadow: instaConfig.profileShadowEnabled ? `0 2px ${instaConfig.profileShadowBlur || 4}px ${instaConfig.profileShadowColor || 'rgba(0,0,0,0.6)'}` : 'none',
                           }}
@@ -1646,7 +1668,10 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                         style={{
                           fontSize: `${Math.round((jabFontSize || 13) * aspectScale)}px`,
                           color: jabTextColor,
-                          fontFamily: titleFontFamily,
+                          fontFamily: jabFont || titleFontFamily,
+                          fontWeight: jabBold === false ? 'normal' : '900',
+                          fontStyle: jabItalic ? 'italic' : 'normal',
+                          textAlign: jabAlign || 'center',
                           WebkitTextStroke: jabStroke ? `${jabStrokeWidth}px ${jabStrokeColor}` : 'none',
                           paintOrder: 'stroke fill',
                           WebkitFontSmoothing: 'antialiased',
@@ -1727,11 +1752,12 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                       className={cn(
                         "whitespace-pre-line transition-all cursor-move",
                         layoutTemplateMode === 'instagram'
-                          ? "w-full text-left font-medium break-keep [overflow-wrap:anywhere]"
-                          : "inline-block font-black leading-snug tracking-tight text-center px-2",
+                          ? "w-full break-keep [overflow-wrap:anywhere]"
+                          : "inline-block leading-snug tracking-tight px-2",
                         isBoxOn && "px-3 py-1.5"
                       )}
                       style={{
+                        textAlign: subCfg?.textAlign || (layoutTemplateMode === 'instagram' ? 'left' : 'center'),
                         backgroundColor: isBoxOn
                           ? (subCfg?.boxColor || subtitleBoxColor || 'rgba(0,0,0,0.6)')
                           : 'transparent',
@@ -1745,6 +1771,8 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                     >
                       <span
                         style={{
+                          display: 'block',
+                          textAlign: subCfg?.textAlign || (layoutTemplateMode === 'instagram' ? 'left' : 'center'),
                           fontSize: layoutTemplateMode === 'instagram'
                             ? `${Math.round(((subCfg?.fontSize || instaConfig.subSize || 15)) * (subTransform.scale || 1.0) * aspectScale)}px`
                             : layoutTemplateMode === 'gunlimbo'
@@ -1758,7 +1786,7 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                           fontFamily: layoutTemplateMode === 'instagram'
                             ? (subCfg?.font || subCfg?.fontFamily || instaConfig.subFont || 'Pretendard, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif')
                             : (subCfg?.font || subCfg?.fontFamily || 'Pretendard'),
-                          fontWeight: layoutTemplateMode === 'instagram' ? 500 : (subCfg?.isBold !== false && subCfg?.bold !== false ? 'bold' : 'normal'),
+                          fontWeight: subCfg?.isBold !== false && (subCfg as any)?.bold !== false ? 'bold' : (layoutTemplateMode === 'instagram' ? 500 : 'normal'),
                           fontStyle: (subCfg?.isItalic || subCfg?.italic) ? 'italic' : 'normal',
                           WebkitTextStroke: isStrokeOn
                             ? `${subCfg?.outlineSize || subtitleStrokeWidth || 3}px ${subCfg?.outlineColor || subtitleStrokeColor || '#000000'}`
@@ -1912,9 +1940,13 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                         <span className="text-[9px] opacity-50 shrink-0">{commentCard.timeText || commentCard.timeAgo || '방금 전'}</span>
                       </div>
                       <p
-                        className="text-[12px] font-medium leading-relaxed break-keep px-0.5 mb-2 whitespace-pre-line text-left"
+                        className="text-[12px] leading-relaxed break-keep px-0.5 mb-2 whitespace-pre-line"
                         style={{
                           color: commentCard.textColor || undefined,
+                          fontFamily: commentCard.font || 'Pretendard',
+                          fontWeight: commentCard.bold ? 'bold' : (commentCard.bold === false ? 'normal' : 500),
+                          fontStyle: commentCard.italic ? 'italic' : 'normal',
+                          textAlign: commentCard.align || 'left',
                           WebkitTextStroke: commentCard.textStrokeEnabled ? `${commentCard.textStrokeWidth || 1}px ${commentCard.textStrokeColor || '#000000'}` : 'none',
                           textShadow: commentCard.textShadowEnabled ? `0 2px ${commentCard.textShadowBlur || 4}px ${commentCard.textShadowColor || 'rgba(0,0,0,0.5)'}` : 'none',
                         }}
@@ -2456,7 +2488,10 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                     tiltDeg: props.jabTiltDeg ?? -3,
                     fontSize: props.jabFontSize ?? 13,
                     textColor: props.jabTextColor || '#000000',
-                    font: props.titleFontFamily || 'GmarketSans',
+                    font: jabFont || props.titleFontFamily || 'GmarketSans',
+                    bold: jabBold ?? true,
+                    italic: jabItalic ?? false,
+                    align: jabAlign || 'center',
                     strokeEnabled: props.jabStroke ?? true,
                     strokeColor: props.jabStrokeColor || '#000000',
                     strokeWidth: props.jabStrokeWidth ?? 2,
@@ -2475,6 +2510,10 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                     if (patch.tiltDeg !== undefined && props.setJabTiltDeg) props.setJabTiltDeg(patch.tiltDeg);
                     if (patch.fontSize !== undefined && props.setJabFontSize) props.setJabFontSize(patch.fontSize);
                     if (patch.textColor !== undefined && props.setJabTextColor) props.setJabTextColor(patch.textColor);
+                    if (patch.font !== undefined && setJabFont) setJabFont(patch.font);
+                    if (patch.bold !== undefined && setJabBold) setJabBold(patch.bold);
+                    if (patch.italic !== undefined && setJabItalic) setJabItalic(patch.italic);
+                    if (patch.align !== undefined && setJabAlign) setJabAlign(patch.align);
                     if (patch.bgColor !== undefined && props.setJabBgColor) props.setJabBgColor(patch.bgColor);
                     if (patch.strokeEnabled !== undefined && props.setJabStroke) props.setJabStroke(patch.strokeEnabled);
                     if (patch.strokeWidth !== undefined && props.setJabStrokeWidth) props.setJabStrokeWidth(patch.strokeWidth);
@@ -2507,11 +2546,17 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                     headlineText: props.gunlimboConfig?.titleLine1 || '경찰도 경악한 범인의 정체',
                     headlineColor: props.gunlimboConfig?.titleLine1Color || '#FFFFFF',
                     headlineFontSize: props.gunlimboConfig?.titleFontSize || 34,
-                    headlineFont: props.titleFontFamily || 'Pretendard',
+                    headlineFont: props.gunlimboConfig?.titleFontFamily || props.titleFontFamily || 'Pretendard',
+                    headlineBold: props.gunlimboConfig?.titleBold ?? true,
+                    headlineItalic: props.gunlimboConfig?.titleItalic ?? false,
+                    headlineAlign: props.gunlimboConfig?.titleAlign || 'center',
                     subheadlineText: props.gunlimboConfig?.hookPhrase || '1분 만에 밝혀진 진실',
                     subheadlineColor: props.gunlimboConfig?.hookTextColor || '#000000',
                     subheadlineFontSize: props.gunlimboConfig?.hookFontSize || 22,
-                    subheadlineFont: props.titleFontFamily || 'Pretendard',
+                    subheadlineFont: props.gunlimboConfig?.hookFont || props.titleFontFamily || 'Pretendard',
+                    subheadlineBold: props.gunlimboConfig?.hookBold ?? true,
+                    subheadlineItalic: props.gunlimboConfig?.hookItalic ?? false,
+                    subheadlineAlign: props.gunlimboConfig?.hookAlign || 'center',
                     showBorder: true,
                     borderColor: '#3F3F46',
                     borderWidth: 1,
@@ -2522,10 +2567,18 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                       titleLine1: patch.headlineText !== undefined ? patch.headlineText : prev.titleLine1,
                       titleLine1Color: patch.headlineColor !== undefined ? patch.headlineColor : prev.titleLine1Color,
                       titleFontSize: patch.headlineFontSize !== undefined ? patch.headlineFontSize : prev.titleFontSize,
+                      titleFontFamily: patch.headlineFont !== undefined ? patch.headlineFont : prev.titleFontFamily,
+                      titleBold: patch.headlineBold !== undefined ? patch.headlineBold : prev.titleBold,
+                      titleItalic: patch.headlineItalic !== undefined ? patch.headlineItalic : prev.titleItalic,
+                      titleAlign: patch.headlineAlign !== undefined ? patch.headlineAlign : prev.titleAlign,
                       hookPhrase: patch.subheadlineText !== undefined ? patch.subheadlineText : prev.hookPhrase,
                       hookBgColor: patch.bandColor !== undefined ? patch.bandColor : prev.hookBgColor,
                       hookTextColor: patch.subheadlineColor !== undefined ? patch.subheadlineColor : prev.hookTextColor,
                       hookFontSize: patch.subheadlineFontSize !== undefined ? patch.subheadlineFontSize : prev.hookFontSize,
+                      hookFont: patch.subheadlineFont !== undefined ? patch.subheadlineFont : prev.hookFont,
+                      hookBold: patch.subheadlineBold !== undefined ? patch.subheadlineBold : prev.hookBold,
+                      hookItalic: patch.subheadlineItalic !== undefined ? patch.subheadlineItalic : prev.hookItalic,
+                      hookAlign: patch.subheadlineAlign !== undefined ? patch.subheadlineAlign : prev.hookAlign,
                     }));
                   }}
                   onReset={() => {

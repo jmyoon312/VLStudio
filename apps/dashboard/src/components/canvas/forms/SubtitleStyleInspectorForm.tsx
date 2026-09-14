@@ -12,6 +12,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { SHORTS_SUBTITLE_DESIGN_PRESETS, rgbaToHex } from '../constants/canvasConstants';
 import { ColorPicker8Preset } from '../controls/ColorPicker8Preset';
 import { UnitSliderControl } from '../controls/UnitSliderControl';
+import { FontStyleAlignControl } from '../controls/FontStyleAlignControl';
 
 export interface SubtitleStyleInspectorFormProps {
   subtitleConfig: SubtitleConfig;
@@ -279,6 +280,19 @@ export const SubtitleStyleInspectorForm: React.FC<SubtitleStyleInspectorFormProp
                     <MessageSquare className="w-3.5 h-3.5 text-emerald-500" />
                     본문 자막 스타일 & 배경 효과
                   </span>
+
+                  {/* 자막 글꼴 및 서체 스타일 / 정렬 */}
+                  <FontStyleAlignControl
+                    label="자막 글꼴 (Font)"
+                    font={subtitleConfig.font || subtitleConfig.fontFamily || 'Pretendard'}
+                    setFont={(f) => setSubtitleConfig(prev => ({ ...prev, font: f, fontFamily: f }))}
+                    bold={subtitleConfig.isBold !== false}
+                    setBold={(b) => setSubtitleConfig(prev => ({ ...prev, isBold: b }))}
+                    italic={!!subtitleConfig.isItalic}
+                    setItalic={(i) => setSubtitleConfig(prev => ({ ...prev, isItalic: i }))}
+                    align={subtitleConfig.textAlign || 'center'}
+                    setAlign={(a) => setSubtitleConfig(prev => ({ ...prev, textAlign: a }))}
+                  />
 
                   {/* 자막 글자 색상 & 크기 */}
                   <div className="space-y-2 p-2 bg-muted/20 border border-border rounded-[2px]">

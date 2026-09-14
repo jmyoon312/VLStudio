@@ -2,6 +2,7 @@ import React from 'react';
 import { BaseFloatingInspectorCard } from '../controls/BaseFloatingInspectorCard';
 import { ColorPicker8Preset } from '../controls/ColorPicker8Preset';
 import { UnitSliderControl } from '../controls/UnitSliderControl';
+import { FontStyleAlignControl } from '../controls/FontStyleAlignControl';
 import { Switch } from '@/components/ui/switch';
 import { MessageCircle, ThumbsUp, User, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -202,6 +203,19 @@ export const CommentCardFloatingInspector: React.FC<CommentCardFloatingInspector
           label="본문 글자 색상"
           value={config.textColor || '#171717'}
           onChange={(c) => handleUpdate({ textColor: c })}
+        />
+
+        {/* 댓글 글꼴 및 서체 스타일 / 정렬 */}
+        <FontStyleAlignControl
+          label="댓글 글꼴 (Font)"
+          font={config.font || 'Pretendard'}
+          setFont={(f) => handleUpdate({ font: f })}
+          bold={config.bold}
+          setBold={(b) => handleUpdate({ bold: b })}
+          italic={config.italic}
+          setItalic={(i) => handleUpdate({ italic: i })}
+          align={config.align || 'left'}
+          setAlign={(a) => handleUpdate({ align: a })}
         />
         <UnitSliderControl
           label="카드 모서리 둥글기"

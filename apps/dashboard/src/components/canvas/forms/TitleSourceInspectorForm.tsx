@@ -7,6 +7,7 @@ import { Type, AlignLeft, AlignCenter, AlignRight, Bold, Italic } from 'lucide-r
 import { BarGeometryControlGroup } from './shared';
 import { ColorPicker8Preset } from '../controls/ColorPicker8Preset';
 import { UnitSliderControl } from '../controls/UnitSliderControl';
+import { FontStyleAlignControl } from '../controls/FontStyleAlignControl';
 
 export interface TitleSourceInspectorFormProps {
   mode?: 'all' | 'title' | 'sourceCredit' | 'topBottomBar';
@@ -98,7 +99,9 @@ export const TitleSourceInspectorForm: React.FC<TitleSourceInspectorFormProps> =
               <Type className="w-3.5 h-3.5 text-primary" />
               <span className="text-[11px] font-bold text-foreground">✍️ 인스타 헤드라인 대제목</span>
             </div>
-            <span className="text-[9px] text-muted-foreground">좌측 정렬</span>
+            <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 bg-primary/10 text-primary border-primary/30 font-bold">
+              인스타형
+            </Badge>
           </div>
 
           <div className="space-y-3">
@@ -143,29 +146,30 @@ export const TitleSourceInspectorForm: React.FC<TitleSourceInspectorFormProps> =
               />
             </div>
 
-            {/* 폰트 & 굵기 */}
-            <div className="space-y-2 p-2 bg-muted/20 border border-border rounded-[2px]">
-              <div>
-                <span className="text-[10px] font-semibold text-muted-foreground block mb-1">폰트 서체</span>
-                <select
-                  value={titleFontFamily || 'Pretendard'}
-                  onChange={(e) => setTitleFontFamily?.(e.target.value)}
-                  className="w-full px-2 py-1 text-[11px] bg-background border border-border rounded-[2px] font-semibold cursor-pointer"
-                >
-                  <option value="Pretendard">Pretendard (산세리프 깔끔형)</option>
-                  <option value="GmarketSansBold">Gmarket Sans (볼드 임팩트)</option>
-                  <option value="Black Han Sans">Black Han Sans (울트라 헤비)</option>
-                  <option value="Noto Sans KR">Noto Sans KR (본고딕 표준)</option>
-                </select>
-              </div>
-              <div className="flex items-center justify-between pt-1">
-                <span className="text-[10px] font-semibold text-muted-foreground">볼드 (굵게)</span>
-                <Switch
-                  checked={titleBold !== false}
-                  onCheckedChange={(val) => setTitleBold?.(val)}
-                />
-              </div>
-            </div>
+            {/* 글꼴 (Font) & 스타일 및 정렬 (Bold, Italic, Align) */}
+            <FontStyleAlignControl
+              label="대제목 글꼴 (Font)"
+              font={titleFontFamily || instaConfig?.titleFont || 'Pretendard'}
+              setFont={(f) => {
+                setTitleFontFamily?.(f);
+                setInstaConfig?.((prev: any) => ({ ...prev, titleFont: f }));
+              }}
+              bold={titleBold !== false}
+              setBold={(b) => {
+                setTitleBold?.(b);
+                setInstaConfig?.((prev: any) => ({ ...prev, titleBold: b }));
+              }}
+              italic={titleItalic ?? false}
+              setItalic={(i) => {
+                setTitleItalic?.(i);
+                setInstaConfig?.((prev: any) => ({ ...prev, titleItalic: i }));
+              }}
+              align={titleAlign || instaConfig?.titleAlign || 'left'}
+              setAlign={(a) => {
+                setTitleAlign?.(a);
+                setInstaConfig?.((prev: any) => ({ ...prev, titleAlign: a }));
+              }}
+            />
 
             {/* 정밀 위치 & 스케일 */}
             {titleTransform && (
@@ -384,19 +388,31 @@ export const TitleSourceInspectorForm: React.FC<TitleSourceInspectorFormProps> =
                   setGunlimboConfig?.((prev: any) => ({ ...prev, titleFontSize: val }));
                 }}
               />
-              <div>
-                <span className="text-[10px] font-semibold text-muted-foreground block mb-1">폰트 서체</span>
-                <select
-                  value={titleFontFamily || 'Pretendard'}
-                  onChange={(e) => setTitleFontFamily?.(e.target.value)}
-                  className="w-full px-2 py-1 text-[11px] bg-background border border-border rounded-[2px] font-semibold cursor-pointer"
-                >
-                  <option value="Pretendard">Pretendard (산세리프)</option>
-                  <option value="GmarketSansBold">Gmarket Sans (볼드)</option>
-                  <option value="Black Han Sans">Black Han Sans (울트라)</option>
-                  <option value="Noto Sans KR">Noto Sans KR</option>
-                </select>
-              </div>
+              {/* 글꼴 (Font) & 스타일 및 정렬 (Bold, Italic, Align) */}
+              <FontStyleAlignControl
+                label="대제목 글꼴 (Font)"
+                font={titleFontFamily || gunlimboConfig?.titleFont || 'Pretendard'}
+                setFont={(f) => {
+                  setTitleFontFamily?.(f);
+                  setGunlimboConfig?.((prev: any) => ({ ...prev, titleFont: f }));
+                }}
+                bold={titleBold !== false}
+                setBold={(b) => {
+                  setTitleBold?.(b);
+                  setGunlimboConfig?.((prev: any) => ({ ...prev, titleBold: b }));
+                }}
+                italic={titleItalic ?? false}
+                setItalic={(i) => {
+                  setTitleItalic?.(i);
+                  setGunlimboConfig?.((prev: any) => ({ ...prev, titleItalic: i }));
+                }}
+                align={titleAlign || 'center'}
+                setAlign={(a) => {
+                  setTitleAlign?.(a);
+                  setGunlimboConfig?.((prev: any) => ({ ...prev, titleAlign: a }));
+                }}
+              />
+
               <div className="flex items-center justify-between pt-1">
                 <span className="text-[10px] font-semibold text-muted-foreground">영상 전체에서 계속 표시</span>
                 <Switch
@@ -571,6 +587,43 @@ export const TitleSourceInspectorForm: React.FC<TitleSourceInspectorFormProps> =
                 }}
               />
             </div>
+
+            {/* 글꼴 (Font) & 스타일 및 정렬 (Bold, Italic, Align) */}
+            <FontStyleAlignControl
+              label="게시글 제목 글꼴 (Font)"
+              font={ssulConfig?.postTitle?.font || titleFontFamily || 'Pretendard'}
+              setFont={(f) => {
+                setTitleFontFamily?.(f);
+                setSsulConfig?.((prev: any) => ({
+                  ...prev,
+                  postTitle: { ...(prev?.postTitle || {}), font: f },
+                }));
+              }}
+              bold={ssulConfig?.postTitle?.bold ?? (titleBold !== false)}
+              setBold={(b) => {
+                setTitleBold?.(b);
+                setSsulConfig?.((prev: any) => ({
+                  ...prev,
+                  postTitle: { ...(prev?.postTitle || {}), bold: b },
+                }));
+              }}
+              italic={ssulConfig?.postTitle?.italic ?? (titleItalic || false)}
+              setItalic={(i) => {
+                setTitleItalic?.(i);
+                setSsulConfig?.((prev: any) => ({
+                  ...prev,
+                  postTitle: { ...(prev?.postTitle || {}), italic: i },
+                }));
+              }}
+              align={ssulConfig?.postTitle?.align || titleAlign || 'left'}
+              setAlign={(a) => {
+                setTitleAlign?.(a);
+                setSsulConfig?.((prev: any) => ({
+                  ...prev,
+                  postTitle: { ...(prev?.postTitle || {}), align: a },
+                }));
+              }}
+            />
 
             {/* 🎨 글자 테두리 (외곽선) */}
             <div className="space-y-2 p-2 bg-muted/20 border border-border rounded-[2px]">
@@ -916,63 +969,17 @@ export const TitleSourceInspectorForm: React.FC<TitleSourceInspectorFormProps> =
             )}
 
             {/* 5. 글꼴 및 서체 스타일 / 정렬 */}
-            <div className="space-y-2 p-2 bg-muted/20 border border-border rounded-[2px]">
-              <div className="flex items-center justify-between text-[11px]">
-                <span className="font-semibold text-foreground">글꼴 (Font)</span>
-                <select
-                  value={titleFontFamily}
-                  onChange={(e) => setTitleFontFamily(e.target.value)}
-                  className="h-6 px-1.5 text-[10.5px] bg-background border border-border rounded text-foreground font-medium"
-                >
-                  {FONT_OPTIONS.map((f) => (
-                    <option key={f} value={f}>{f}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="flex items-center justify-between pt-1.5 border-t border-border/50">
-                <span className="text-[10.5px] text-muted-foreground font-medium">스타일 및 정렬</span>
-                <div className="flex items-center gap-1">
-                  <button
-                    type="button"
-                    onClick={() => setTitleBold(!titleBold)}
-                    className={cn(
-                      "w-6 h-6 rounded flex items-center justify-center text-xs font-bold transition cursor-pointer",
-                      titleBold ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground hover:text-foreground border border-border"
-                    )}
-                    title="굵게 (Bold)"
-                  >
-                    <Bold className="w-3 h-3" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setTitleItalic(!titleItalic)}
-                    className={cn(
-                      "w-6 h-6 rounded flex items-center justify-center text-xs font-bold transition cursor-pointer",
-                      titleItalic ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground hover:text-foreground border border-border"
-                    )}
-                    title="기울임 (Italic)"
-                  >
-                    <Italic className="w-3 h-3" />
-                  </button>
-                  <div className="w-[1px] h-4 bg-border mx-0.5" />
-                  {(['left', 'center', 'right'] as const).map((align) => (
-                    <button
-                      key={align}
-                      type="button"
-                      onClick={() => setTitleAlign(align)}
-                      className={cn(
-                        "w-6 h-6 rounded flex items-center justify-center text-xs transition cursor-pointer",
-                        titleAlign === align ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground hover:text-foreground border border-border"
-                      )}
-                      title={`정렬: ${align}`}
-                    >
-                      {align === 'left' ? <AlignLeft className="w-3 h-3" /> : align === 'center' ? <AlignCenter className="w-3 h-3" /> : <AlignRight className="w-3 h-3" />}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
+            <FontStyleAlignControl
+              label="글꼴 (Font)"
+              font={titleFontFamily}
+              setFont={setTitleFontFamily}
+              bold={titleBold !== false}
+              setBold={setTitleBold}
+              italic={titleItalic ?? false}
+              setItalic={setTitleItalic}
+              align={titleAlign || 'center'}
+              setAlign={setTitleAlign}
+            />
 
             {/* 6. 🎨 테두리(외곽선) 상세 제어 */}
             <div className="space-y-2 p-2 bg-muted/20 border border-border rounded-[2px]">
@@ -1103,45 +1110,16 @@ export const TitleSourceInspectorForm: React.FC<TitleSourceInspectorFormProps> =
                 />
               </div>
 
-              {/* 2. 글꼴 및 서체 스타일 (Bold, Italic) */}
-              <div className="space-y-2 p-2 bg-muted/20 border border-border rounded-[2px]">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-semibold text-muted-foreground">글꼴 (Font)</label>
-                  <select
-                    value={bottomSourceFontFamily || 'Pretendard'}
-                    onChange={(e) => setBottomSourceFontFamily?.(e.target.value)}
-                    className="w-full h-7 px-2 text-xs bg-background border border-border rounded-[2px] text-foreground"
-                  >
-                    {FONT_OPTIONS.map((font) => (
-                      <option key={font} value={font}>
-                        {font}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="flex items-center gap-1.5 pt-1">
-                  <Button
-                    type="button"
-                    variant={bottomSourceBold ? "default" : "outline"}
-                    size="sm"
-                    className="h-6 px-2.5 text-xs gap-1 cursor-pointer"
-                    onClick={() => setBottomSourceBold?.(!bottomSourceBold)}
-                  >
-                    <Bold className="w-3 h-3" />
-                    <span className="text-[10px] font-bold">굵게</span>
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={bottomSourceItalic ? "default" : "outline"}
-                    size="sm"
-                    className="h-6 px-2.5 text-xs gap-1 cursor-pointer"
-                    onClick={() => setBottomSourceItalic?.(!bottomSourceItalic)}
-                  >
-                    <Italic className="w-3 h-3" />
-                    <span className="text-[10px] font-bold">기울임</span>
-                  </Button>
-                </div>
-              </div>
+              {/* 2. 글꼴 및 서체 스타일 / 정렬 */}
+              <FontStyleAlignControl
+                label="출처 글꼴 (Font)"
+                font={bottomSourceFontFamily || 'Pretendard'}
+                setFont={(f) => setBottomSourceFontFamily?.(f)}
+                bold={bottomSourceBold}
+                setBold={(b) => setBottomSourceBold?.(b)}
+                italic={bottomSourceItalic}
+                setItalic={(i) => setBottomSourceItalic?.(i)}
+              />
 
               {/* 3. 글자 색상 & 크기 */}
               <div className="space-y-2 p-2 bg-muted/20 border border-border rounded-[2px]">

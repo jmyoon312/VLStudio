@@ -2,10 +2,14 @@ import React from 'react';
 import { BaseFloatingInspectorCard } from '../controls/BaseFloatingInspectorCard';
 import { ColorPicker8Preset } from '../controls/ColorPicker8Preset';
 import { UnitSliderControl } from '../controls/UnitSliderControl';
+import { FontStyleAlignControl } from '../controls/FontStyleAlignControl';
 import { Switch } from '@/components/ui/switch';
 import { Camera, CheckCircle2, Volume2, UserCheck, Image as ImageIcon } from 'lucide-react';
 
 export interface InstaProfileConfig {
+  profileFont?: string;
+  profileBold?: boolean;
+  profileItalic?: boolean;
   avatarUrl: string;
   nickname: string;
   handle: string;
@@ -144,6 +148,17 @@ export const InstaProfileFloatingInspector: React.FC<InstaProfileFloatingInspect
         step={0.05}
         unit="x"
         onChange={(v) => onChange({ fontSizeMultiplier: v })}
+      />
+
+      {/* 프로필 글꼴 및 서체 스타일 */}
+      <FontStyleAlignControl
+        label="프로필 글꼴 (Font)"
+        font={config.profileFont || 'Pretendard'}
+        setFont={(f) => onChange({ profileFont: f })}
+        bold={config.profileBold !== false}
+        setBold={(b) => onChange({ profileBold: b })}
+        italic={!!config.profileItalic}
+        setItalic={(i) => onChange({ profileItalic: i })}
       />
 
       {/* 6. 위치 오프셋 */}
