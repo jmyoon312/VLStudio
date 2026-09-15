@@ -79,8 +79,8 @@ export const ColorPicker8Preset: React.FC<ColorPicker8PresetProps> = ({
         </div>
       </div>
 
-      {/* 하단: 8대 원터치 프리셋 컬러 써클 */}
-      <div className="flex items-center justify-between pt-0.5 px-0.5 gap-1">
+      {/* 하단: 8대 원터치 프리셋 컬러 써클 (1행 8컬럼 그리드로 완벽 정렬) */}
+      <div className="grid grid-cols-8 gap-1.5 pt-0.5 px-0.5 justify-items-center">
         {PRESET_8_COLORS.map((c) => {
           const isSelected = hexForNative.toLowerCase() === c.hex.toLowerCase();
           return (

@@ -34,7 +34,7 @@ import { MemeAvatar, MEME_EMOTION_PRESETS, MemeType, MemeEmotion } from '@/compo
 import { MASTER_INSPECTOR_GROUPS, InspectorSubTabId, getInspectorGroupsForMode } from '@/components/canvas/constants/canvasConstants';
 import { UniversalCanvasStage } from '@/components/canvas/stage/UniversalCanvasStage';
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import {
   Scissors,
   Camera,
@@ -320,6 +320,7 @@ export interface ShortsEditorStudioProps {
 export const ShortsEditorStudio: React.FC<ShortsEditorStudioProps> = ({ sovereignMode }) => {
   const { toast } = useToast();
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const videoRef = useRef<HTMLVideoElement>(null);
   const timelineScrollRef = useRef<HTMLDivElement>(null);
@@ -483,6 +484,7 @@ const formatWrappedText = (text: string, splitLimit: number = 14, maxLines: numb
   const [titleBadgeBg, setTitleBadgeBg] = useState<string>('#EF4444');
   const [titleBadgeColor, setTitleBadgeColor] = useState<string>('#FFFFFF');
   const [titleBadgeSizePx, setTitleBadgeSizePx] = useState<number>(11);
+  const [titleBadgeRadius, setTitleBadgeRadius] = useState<number>(4);
   const [hasTitleBadge, setHasTitleBadge] = useState<boolean>(true);
   const [hasTitleLine1, setHasTitleLine1] = useState<boolean>(true);
   const [hasTitleLine2, setHasTitleLine2] = useState<boolean>(true);
@@ -578,6 +580,32 @@ const formatWrappedText = (text: string, splitLimit: number = 14, maxLines: numb
   const [bottomSourceBg, setBottomSourceBg] = useState<boolean>(false);
   const [bottomSourceBgColor, setBottomSourceBgColor] = useState<string>('rgba(0,0,0,0.7)');
   const [bottomSourceBorderRadius, setBottomSourceBorderRadius] = useState<number>(2);
+
+  // 📥 바이럴 인텔리전스 센터 등 외부로부터 전송된 초기 데이터 연동
+  useEffect(() => {
+    const state = location.state as any;
+    if (state) {
+      if (state.title) {
+        setTitleLine1(state.title);
+      }
+      if (state.subtitle) {
+        setTitleLine2(state.subtitle);
+      }
+      if (state.sourceUrl) {
+        setBottomSourceText(`출처: ${state.sourceUrl}`);
+      }
+      if (state.script?.scenes?.length) {
+        const firstScene = state.script.scenes[0];
+        if (firstScene.hook_jab_text) {
+          setJabText(firstScene.hook_jab_text);
+        }
+      }
+      toast({
+        title: "바이럴 아티클 로드 완료",
+        description: `헤드라인: "${state.title || ''}" 대본 데이터가 적용되었습니다.`,
+      });
+    }
+  }, [location.state]);
 
   // Layer 6: 하단 배경 바 (Bottom Bar Bg)
   const [hasBottomBarBg, setHasBottomBarBg] = useState<boolean>(sovereignMode ? sovereignMode === 'classic' : true);
@@ -1088,17 +1116,55 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
   // 🎯 군림보형 (픽셀링 기반: 상단 2줄 대제목[흰색+노란색] + 중앙 100% 흰색 띠 후킹 바 + 하단 자막 배치)
   const [gunlimboConfig, setGunlimboConfig] = useState<{
     introDurationSec: number;
+    titleLinesMode: 'single' | 'double';
     titleLine1: string;
     titleLine2: string;
     titleLine1Color: string;
     titleLine2Color: string;
     titleFontSize: number;
+    titleLine1FontSize: number;
+    titleLine2FontSize: number;
+    titleLine1LetterSpacing: number;
+    titleLine2LetterSpacing: number;
+    titleLineHeight: number;
+    titleAlign: 'left' | 'center' | 'right';
+    titleLine1Align: 'left' | 'center' | 'right';
+    titleLine2Align: 'left' | 'center' | 'right';
+    titleBgMode: 'none' | 'box' | 'pill';
+    titleBgColor: string;
+    titlePaddingX: number;
+    titlePaddingY: number;
+    titleBorderRadius: number;
+    hasTitleBadge: boolean;
+    titleBadgeText: string;
+    titleBadgeBg: string;
+    titleBadgeColor: string;
+    titleBadgeSizePx: number;
+    titleBadgeRadius: number;
     hookPhrase: string;
     hookBgColor: string;
     hookTextColor: string;
     hookFontSize: number;
+    hookLetterSpacing: number;
+    hookLineHeight: number;
+    hookAlign: 'left' | 'center' | 'right';
     showGuidelines: boolean;
     keepTitleThroughout: boolean;
+    coupangSafeZone: boolean;
+    kenBurnsMotion: boolean;
+    pepeMemeAutoInsert: boolean;
+    hookTransform?: any;
+    hookYPercent?: number;
+    hookFont?: string;
+    hookBold?: boolean;
+    hookItalic?: boolean;
+    borderRadius?: number;
+    strokeEnabled?: boolean;
+    strokeWidth?: number;
+    strokeColor?: string;
+    shadowEnabled?: boolean;
+    shadowBlur?: number;
+    shadowColor?: string;
     // 하위 호환 필드
     hookMainTitle?: string;
     hookAnimationScale?: number;
@@ -1108,17 +1174,43 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
     headlineBadge?: string;
   }>({
     introDurationSec: 2.5,
+    titleLinesMode: 'double',
     titleLine1: '제목을',
     titleLine2: '입력해주세요',
     titleLine1Color: '#FFFFFF',
     titleLine2Color: '#FFE500',
-    titleFontSize: 36,
+    titleFontSize: 34,
+    titleLine1FontSize: 34,
+    titleLine2FontSize: 34,
+    titleLine1LetterSpacing: -1,
+    titleLine2LetterSpacing: -1,
+    titleLineHeight: 1.15,
+    titleAlign: 'center',
+    titleLine1Align: 'center',
+    titleLine2Align: 'center',
+    titleBgMode: 'none',
+    titleBgColor: '#000000',
+    titlePaddingX: 16,
+    titlePaddingY: 8,
+    titleBorderRadius: 4,
+    hasTitleBadge: true,
+    titleBadgeText: '속보',
+    titleBadgeBg: '#EF4444',
+    titleBadgeColor: '#FFFFFF',
+    titleBadgeSizePx: 11,
+    titleBadgeRadius: 4,
     hookPhrase: '후킹문구를 입력하세요',
     hookBgColor: '#FFFFFF',
     hookTextColor: '#000000',
-    hookFontSize: 22,
+    hookFontSize: 19,
+    hookLetterSpacing: -0.5,
+    hookLineHeight: 1.25,
+    hookAlign: 'center',
     showGuidelines: false,
     keepTitleThroughout: true,
+    coupangSafeZone: false,
+    kenBurnsMotion: true,
+    pepeMemeAutoInsert: true,
     hookMainTitle: '제목을\n입력해주세요',
     hookAnimationScale: 1.0,
     headlineLine1: '손흥민 80m 단독 폭풍 드리블',
@@ -5621,6 +5713,8 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
               setTitleBadgeColor={setTitleBadgeColor}
               titleBadgeSizePx={titleBadgeSizePx}
               setTitleBadgeSizePx={setTitleBadgeSizePx}
+              titleBadgeRadius={titleBadgeRadius}
+              setTitleBadgeRadius={setTitleBadgeRadius}
               hasTitleLine1={hasTitleLine1}
               setHasTitleLine1={setHasTitleLine1}
               hasTitleLine2={hasTitleLine2}
@@ -6156,6 +6250,8 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                 setTitleBadgeColor={setTitleBadgeColor}
                 titleBadgeSizePx={titleBadgeSizePx}
                 setTitleBadgeSizePx={setTitleBadgeSizePx}
+                titleBadgeRadius={titleBadgeRadius}
+                setTitleBadgeRadius={setTitleBadgeRadius}
                 hasTitleLine1={hasTitleLine1}
                 setHasTitleLine1={setHasTitleLine1}
                 titleLine1={titleLine1}

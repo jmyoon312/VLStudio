@@ -23,7 +23,7 @@ export const BaseFloatingInspectorCard: React.FC<BaseFloatingInspectorCardProps>
   onReset,
   defaultPosition,
   className,
-  width = 280,
+  width = 300,
   children,
 }) => {
   const initialPos = defaultPosition || {

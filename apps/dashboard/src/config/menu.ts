@@ -82,6 +82,7 @@ export const getMenuGroups = (captainId: string | null): MenuGroup[] => [
         mode: "DISCOVERY",
         defaultExpanded: true,
         items: [
+            { name: '바이럴 인텔리전스', path: '/viral-intelligence', icon: Flame, highlight: true },
             { name: '바이럴 스카우터', path: '/trend-radar', icon: TrendingUp, highlight: true },
             { name: '채널 DNA 분석', path: '/channel-dna-studio', icon: Dna, highlight: true },
             { name: '채널 영상 수집', path: '/channels', icon: ListVideo },

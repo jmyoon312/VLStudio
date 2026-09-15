@@ -49,6 +49,7 @@ const AgentRosterPage = lazy(() => import('./pages/AgentRosterPage'));
 const AutonomousPatrolPage = lazy(() => import('./pages/AutonomousPatrolPage'));
 const ChannelAnalyticsPage = lazy(() => import('./pages/ChannelAnalyticsPage'));
 const ViralLabPage = lazy(() => import('./pages/ViralLabPage'));
+const ViralIntelligenceCenter = lazy(() => import('./pages/ViralIntelligenceCenter'));
 const CommunityManagerPage = lazy(() => import('./pages/CommunityManagerPage'));
 const ChannelDnaStudio = lazy(() => import('./pages/ChannelDnaStudio'));
 const ShortsTemplateStudio = lazy(() => import('./pages/ShortsTemplateStudio'));
@@ -231,6 +232,7 @@ function MainAppContent() {
                     <Route path="/reports" element={<RouteErrorBoundary><ReportsPage /></RouteErrorBoundary>} />
                     <Route path="/analytics" element={<RouteErrorBoundary><ChannelAnalyticsPage /></RouteErrorBoundary>} />
                     <Route path="/viral-lab" element={<RouteErrorBoundary><ViralLabPage /></RouteErrorBoundary>} />
+                    <Route path="/viral-intelligence" element={<RouteErrorBoundary><ViralIntelligenceCenter /></RouteErrorBoundary>} />
                     <Route path="/community" element={<RouteErrorBoundary><CommunityManagerPage /></RouteErrorBoundary>} />
 
                     {/* Station Manager */}

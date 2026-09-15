@@ -26,6 +26,7 @@ export const TitleSourceInspectorForm: React.FC<TitleSourceInspectorFormProps> =
     titleBadgeBg = '#EF4444', setTitleBadgeBg = () => {},
     titleBadgeColor = '#FFFFFF', setTitleBadgeColor = () => {},
     titleBadgeSizePx = 11, setTitleBadgeSizePx = () => {},
+    titleBadgeRadius = 4, setTitleBadgeRadius = () => {},
     hasTitleLine1 = true, setHasTitleLine1 = () => {},
     titleLine1 = '조코비치 몰래카메라 ㅋㅋ', setTitleLine1 = () => {},
     titleLine1SizePx = 20, setTitleLine1SizePx = () => {},
@@ -409,6 +410,18 @@ export const TitleSourceInspectorForm: React.FC<TitleSourceInspectorFormProps> =
                       setGunlimboConfig?.((prev: any) => ({ ...prev, titleBadgeSizePx: val }));
                     }}
                   />
+                  <UnitSliderControl
+                    label="뱃지 모서리 둥글기 (Radius)"
+                    value={gunlimboConfig?.titleBadgeRadius ?? titleBadgeRadius ?? 4}
+                    min={0}
+                    max={16}
+                    step={1}
+                    unit="px"
+                    onChange={(val) => {
+                      setTitleBadgeRadius?.(val);
+                      setGunlimboConfig?.((prev: any) => ({ ...prev, titleBadgeRadius: val }));
+                    }}
+                  />
                 </div>
               )}
             </div>
@@ -621,12 +634,32 @@ export const TitleSourceInspectorForm: React.FC<TitleSourceInspectorFormProps> =
             )}
 
             {/* 노출 설정 */}
-            <div className="p-2 bg-muted/20 border border-border rounded-[2px]">
+            <div className="p-2 bg-muted/20 border border-border rounded-[2px] space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-[10px] font-semibold text-muted-foreground">영상 전체에서 계속 표시</span>
                 <Switch
                   checked={gunlimboConfig?.keepTitleThroughout ?? true}
                   onCheckedChange={(val) => setGunlimboConfig?.((prev: any) => ({ ...prev, keepTitleThroughout: val }))}
+                />
+              </div>
+              <div className="flex items-center justify-between pt-1.5 border-t border-border/40">
+                <div>
+                  <div className="text-[10px] font-semibold text-foreground">쿠팡 파트너스 안심존</div>
+                  <div className="text-[9px] text-muted-foreground">자막 좌측 38% 편향 & 우하단 여백 확보</div>
+                </div>
+                <Switch
+                  checked={gunlimboConfig?.coupangSafeZone ?? false}
+                  onCheckedChange={(val) => setGunlimboConfig?.((prev: any) => ({ ...prev, coupangSafeZone: val }))}
+                />
+              </div>
+              <div className="flex items-center justify-between pt-1.5 border-t border-border/40">
+                <div>
+                  <div className="text-[10px] font-semibold text-foreground">0초 켄 번스(Ken Burns) 줌인</div>
+                  <div className="text-[9px] text-muted-foreground">초반 2.5초간 카메라 1.0x → 1.08x 서서히 줌</div>
+                </div>
+                <Switch
+                  checked={gunlimboConfig?.kenBurnsMotion !== false}
+                  onCheckedChange={(val) => setGunlimboConfig?.((prev: any) => ({ ...prev, kenBurnsMotion: val }))}
                 />
               </div>
             </div>

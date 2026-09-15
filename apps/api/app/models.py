@@ -1611,3 +1611,53 @@ class ShortsTemplate(Base):
     created_at = Column(DateTime, default=datetime.now)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
 
+
+# ── 📰 바이럴 기사/썰/커뮤니티 수집 및 심층 분석 모델 (viral_loop.db 단일 진실 공급원) ──
+class ViralArticle(Base):
+    __tablename__ = "viral_articles"
+
+    id = Column(Integer, primary_key=True, index=True)
+    source_type = Column(String, index=True, default="community")  # community | news
+    community_name = Column(String, index=True)  # fmkorea, dcinside, blind, nate, naver_news, etc.
+    category = Column(String, index=True, default="일반")  # 정치, 경제, 사회, IT/과학, 생활/문화, 세계, 유머, 스포츠
+    title = Column(String, index=True)
+    url = Column(String, unique=True, index=True)
+    author = Column(String, nullable=True)
+    created_at_source = Column(String, nullable=True)
+    views = Column(Integer, default=0)
+    likes = Column(Integer, default=0)
+    comments_count = Column(Integer, default=0)
+    content_text = Column(Text, default="")
+    images = Column(JSON, default=list)  # list of image URLs
+    scraped_at = Column(DateTime, default=datetime.now)
+
+    # 🧠 Scout-Alpha / LLM 심층 분석 필드
+    analysis_summary = Column(Text, nullable=True)  # 핵심 사건 요약 및 바이럴 트리거
+    suggested_title = Column(String, nullable=True)  # 후킹 유튜브 쇼츠/롱폼 제목
+    viral_score = Column(Float, default=0.0)  # 바이럴 화제성 점수 (0-100)
+    target_form_factors = Column(JSON, default=list)  # ["gunlimbo", "ssul", "classic", "instagram"]
+    structured_script = Column(JSON, nullable=True)  # 씬별 대본 및 타임코드 초안
+    status = Column(String, default="collected", index=True)  # collected | analyzed | claimed | produced
+
+    # 🏛️ Tier 2 채널 디렉터 자율 수주 필드
+    claimed_by_channel_id = Column(String, nullable=True, index=True)
+    claimed_at = Column(DateTime, nullable=True)
+
+    comments = relationship("ViralArticleComment", back_populates="article", cascade="all, delete-orphan")
+
+
+class ViralArticleComment(Base):
+    __tablename__ = "viral_article_comments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    article_id = Column(Integer, ForeignKey("viral_articles.id", ondelete="CASCADE"), index=True)
+    author = Column(String, default="익명")
+    text = Column(Text)
+    likes = Column(Integer, default=0)
+    is_best = Column(Boolean, default=False)
+    order_idx = Column(Integer, default=0)
+    created_at = Column(DateTime, default=datetime.now)
+
+    article = relationship("ViralArticle", back_populates="comments")
+
+

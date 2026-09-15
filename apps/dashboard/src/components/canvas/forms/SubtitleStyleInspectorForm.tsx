@@ -202,11 +202,12 @@ export const SubtitleStyleInspectorForm: React.FC<SubtitleStyleInspectorFormProp
                     </div>
                     <div className="flex items-center gap-2">
                       {[
-                        { color: '#FFDF00', name: '골드 옐로우' },
-                        { color: '#FF2E93', name: '핫 핑크' },
+                        { color: '#FFE500', name: '군림보 옐로우' },
+                        { color: '#FF6B00', name: '포인트 오렌지' },
+                        { color: '#FFFFFF', name: '순백색 화이트' },
                         { color: '#00F0FF', name: '네온 시안' },
-                        { color: '#10B981', name: '에메랄드' },
-                        { color: '#FF8A00', name: '오렌지' },
+                        { color: '#FF2E93', name: '핫 핑크' },
+                        { color: '#10B981', name: '에메랄드 그린' },
                       ].map((pal) => (
                         <button
                           key={pal.color}

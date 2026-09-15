@@ -149,7 +149,7 @@ from app.routers import (
     health_deployment, ml_ab_search, operations, network,
     douyin_shorts_router, capcut_remote, presets, trend_radar, fsd_mission,
     pipeline_router, universal_cutter, analytics, community, shorts_production,
-    media_intelligence
+    media_intelligence, viral_intelligence, discovery
 )
 from app import job_queue, crud, models, scheduler
 from app.utils.path_utils import normalize_path
@@ -206,6 +206,14 @@ async def lifespan(app: FastAPI):
     from app.services.telegram_service import telegram_service
     telegram_service.start_listener()
     
+    # [NEW] Start 31-Community & Naver News Discovery Harvester
+    from app.services.discovery_scraper import discovery_scraper
+    discovery_scraper.start_background_daemon(interval_seconds=300)
+
+    # [NEW] Start Tier 2 Channel Director Autonomous Claim/Dispatch
+    from app.services.channel_director import channel_director
+    channel_director.start_director_daemon(interval_seconds=180)
+
     # [DEPRECATED] Autonomous search / swarm feature disabled due to low quality
     # from app.global_swarm_master import global_master
     # asyncio.create_task(global_master.start_monitoring_loop())
@@ -278,6 +286,8 @@ async def lifespan(app: FastAPI):
 
     yield
     scout_worker.stop()
+    discovery_scraper.stop_background_daemon()
+    channel_director.stop_director_daemon()
     scheduler.stop_scheduler()
 
 app = FastAPI(
@@ -571,6 +581,8 @@ app.include_router(pipeline_router.router)
 app.include_router(universal_cutter.router)
 app.include_router(analytics.router, prefix="/api", tags=["analytics"])
 app.include_router(community.router, prefix="/api", tags=["community"])
+app.include_router(viral_intelligence.router, prefix="/api")
+app.include_router(discovery.router, prefix="/api")
 
 app.include_router(browser.router)  # /api/browser/launch, /upload, /close, /engines
 

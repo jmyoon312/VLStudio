@@ -375,6 +375,7 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
   const [titleBadgeText, setTitleBadgeText] = useState<string>('속보');
   const [titleBadgeColor, setTitleBadgeColor] = useState<string>('#FFFFFF');
   const [titleBadgeSizePx, setTitleBadgeSizePx] = useState<number>(11);
+  const [titleBadgeRadius, setTitleBadgeRadius] = useState<number>(4);
   const [hasTitleLine1, setHasTitleLine1] = useState<boolean>(true);
   const [hasTitleLine2, setHasTitleLine2] = useState<boolean>(true);
   const [titleBold, setTitleBold] = useState<boolean>(true);
@@ -495,20 +496,46 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
     theme: 'white' as 'white' | 'dark' | 'sunset' | 'cyber',
   });
 
-  // 🎯 군림보형 설정
+  // 🎯 군림보형 설정 (뇌종구 실측 3단 구조 & 인간 손맛 가변 연출)
   const [gunlimboConfig, setGunlimboConfig] = useState({
     introDurationSec: 2.5,
+    titleLinesMode: 'double' as 'single' | 'double',
     titleLine1: '제목을',
     titleLine2: '입력해주세요',
     titleLine1Color: '#FFFFFF',
     titleLine2Color: '#FFE500',
     titleFontSize: 34,
+    titleLine1FontSize: 34,
+    titleLine2FontSize: 34,
+    titleLine1LetterSpacing: -1,
+    titleLine2LetterSpacing: -1,
+    titleLineHeight: 1.15,
+    titleAlign: 'center' as 'left' | 'center' | 'right',
+    titleLine1Align: 'center' as 'left' | 'center' | 'right',
+    titleLine2Align: 'center' as 'left' | 'center' | 'right',
+    titleBgMode: 'none' as 'none' | 'box' | 'pill',
+    titleBgColor: '#000000',
+    titlePaddingX: 16,
+    titlePaddingY: 8,
+    titleBorderRadius: 4,
+    hasTitleBadge: true,
+    titleBadgeText: '속보',
+    titleBadgeBg: '#EF4444',
+    titleBadgeColor: '#FFFFFF',
+    titleBadgeSizePx: 11,
+    titleBadgeRadius: 4,
     hookPhrase: '후킹문구를 입력하세요',
     hookBgColor: '#FFFFFF',
     hookTextColor: '#000000',
     hookFontSize: 19,
+    hookLetterSpacing: -0.5,
+    hookLineHeight: 1.25,
+    hookAlign: 'center' as 'left' | 'center' | 'right',
     showGuidelines: false,
     keepTitleThroughout: true,
+    coupangSafeZone: false,
+    kenBurnsMotion: true,
+    pepeMemeAutoInsert: true,
   });
 
   // 📜 썰형 설정
@@ -2657,6 +2684,8 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
               setTitleBadgeColor={setTitleBadgeColor}
               titleBadgeSizePx={titleBadgeSizePx}
               setTitleBadgeSizePx={setTitleBadgeSizePx}
+              titleBadgeRadius={titleBadgeRadius}
+              setTitleBadgeRadius={setTitleBadgeRadius}
               hasTitleLine1={hasTitleLine1}
               setHasTitleLine1={setHasTitleLine1}
               hasTitleLine2={hasTitleLine2}
@@ -3229,6 +3258,8 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
                 setTitleBadgeColor={setTitleBadgeColor}
                 titleBadgeSizePx={titleBadgeSizePx}
                 setTitleBadgeSizePx={setTitleBadgeSizePx}
+                titleBadgeRadius={titleBadgeRadius}
+                setTitleBadgeRadius={setTitleBadgeRadius}
                 hasTitleLine1={hasTitleLine1}
                 setHasTitleLine1={setHasTitleLine1}
                 titleLine1={titleLine1}

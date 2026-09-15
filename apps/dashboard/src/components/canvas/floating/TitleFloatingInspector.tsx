@@ -17,6 +17,7 @@ export interface TitleFloatingConfig {
   titleBadgeBg?: string;
   titleBadgeColor?: string;
   titleBadgeSizePx?: number;
+  titleBadgeRadius?: number;
   hasTitleLine1?: boolean;
   titleLine1?: string;
   titleLine1SizePx?: number;
@@ -80,6 +81,7 @@ export const TitleFloatingInspector: React.FC<TitleFloatingInspectorProps> = ({
     titleBadgeBg = '#EF4444',
     titleBadgeColor = '#FFFFFF',
     titleBadgeSizePx = 11,
+    titleBadgeRadius = 4,
     hasTitleLine1 = true,
     titleLine1 = '조코비치 몰래카메라 ㅋㅋ',
     titleLine1SizePx = 20,
@@ -213,6 +215,17 @@ export const TitleFloatingInspector: React.FC<TitleFloatingInspectorProps> = ({
                 unit="px"
                 onChange={(v) => onChange({ titleBadgeSizePx: v })}
               />
+
+              {/* 뱃지 모서리 둥글기 (각진 직사각형 라운드 rounded-md 표준) */}
+              <UnitSliderControl
+                label="뱃지 모서리 둥글기 (Radius)"
+                value={titleBadgeRadius ?? 4}
+                min={0}
+                max={16}
+                step={1}
+                unit="px"
+                onChange={(v) => onChange({ titleBadgeRadius: v })}
+              />
             </div>
           )}
         </div>
@@ -263,7 +276,7 @@ export const TitleFloatingInspector: React.FC<TitleFloatingInspectorProps> = ({
                 onChange={(v) => onChange({ titleLine1SizePx: v })}
               />
 
-              {/* 1단 글꼴 & 스타일 및 정렬 */}
+              {/* 1단 글꼴 & 스타일 및 정렬 (1단 개별 자간 슬라이더) */}
               <div className="pt-1.5 border-t border-border/50">
                 <FontStyleAlignControl
                   label="1단 글꼴 (Font)"
@@ -291,10 +304,6 @@ export const TitleFloatingInspector: React.FC<TitleFloatingInspectorProps> = ({
                   setLetterSpacing={(ls) => {
                     onChange({ titleLine1LetterSpacing: ls });
                     if (titleLinesMode === 'single') onChange({ titleLetterSpacing: ls });
-                  }}
-                  lineHeight={titleLineHeight !== undefined ? titleLineHeight : 1.2}
-                  setLineHeight={(lh) => {
-                    onChange({ titleLineHeight: lh, titleLine1LineHeight: lh, titleLine2LineHeight: lh });
                   }}
                 />
               </div>
@@ -349,7 +358,7 @@ export const TitleFloatingInspector: React.FC<TitleFloatingInspectorProps> = ({
                   onChange={(v) => onChange({ titleLine2SizePx: v })}
                 />
 
-                {/* 2단 글꼴 & 스타일 및 정렬 */}
+                {/* 2단 글꼴 & 스타일 및 정렬 (2단 개별 자간 슬라이더) */}
                 <div className="pt-1.5 border-t border-border/50">
                   <FontStyleAlignControl
                     label="2단 글꼴 (Font)"
@@ -363,12 +372,25 @@ export const TitleFloatingInspector: React.FC<TitleFloatingInspectorProps> = ({
                     setAlign={(a) => onChange({ titleLine2Align: a })}
                     letterSpacing={titleLine2LetterSpacing !== undefined ? titleLine2LetterSpacing : -0.5}
                     setLetterSpacing={(ls) => onChange({ titleLine2LetterSpacing: ls })}
-                    lineHeight={titleLineHeight !== undefined ? titleLineHeight : 1.2}
-                    setLineHeight={(lh) => onChange({ titleLineHeight: lh, titleLine1LineHeight: lh, titleLine2LineHeight: lh })}
                   />
                 </div>
               </div>
             )}
+          </div>
+        )}
+
+        {/* 5. 📏 타이틀 결합 줄간격 (두 줄 사이 단일 수직 간격 조절 - 2줄 모드 전용) */}
+        {titleLinesMode === 'double' && (
+          <div className="p-2 bg-muted/20 border border-border rounded-[2px] space-y-1">
+            <UnitSliderControl
+              label="타이틀 줄간격 (1단·2단 사이 간격)"
+              value={titleLineHeight !== undefined ? titleLineHeight : 1.15}
+              min={0.8}
+              max={2.0}
+              step={0.05}
+              unit=""
+              onChange={(v) => onChange({ titleLineHeight: v, titleLine1LineHeight: v, titleLine2LineHeight: v })}
+            />
           </div>
         )}
 

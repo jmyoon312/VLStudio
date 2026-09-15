@@ -1,164 +1,123 @@
-"""
-[Tier 2 Sovereign Factory] Channel Director Core Runtime
-Manages the autonomous lifecycle and state machine for each BrandChannel:
-- Executes within ChannelNetworkGuard isolation context (ISP_PROXY vs DIRECT_LTE)
-- Injects 3-Axis Orthogonal Sandbox payload into LangGraph
-- Enforces Critic-85 quality check & Telegram HITL approval
-- Updates real-time heartbeat and director_state in DB
-"""
-
-import asyncio
 import logging
-from typing import Dict, List, Any, Optional
+import asyncio
 from datetime import datetime
+from typing import Dict, Any, List, Optional
 from sqlalchemy.orm import Session
+from .. import models, database
+from .global_arbiter import global_arbiter
 
-from app.database import SessionLocal
-from app import models
-from app.services.channel_network_guard import ChannelNetworkGuard
-from app.services.global_arbiter import global_arbiter
-from app.state_management.video_graph import sovereign_video_graph
+logger = logging.getLogger(__name__)
 
-logger = logging.getLogger("channel_director")
 
 class ChannelDirector:
-    """Manages an autonomous instance for a specific BrandChannel."""
-    
-    def __init__(self, channel_id: str, title: str):
-        self.channel_id = channel_id
-        self.title = title
-        self._current_task: Optional[asyncio.Task] = None
+    """Tier 2 Sovereign Channel Director:
+    Autonomously claims matched viral articles for brand channels and dispatches them
+    into the production pipeline under GlobalArbiter GPU locking.
+    """
 
-    @classmethod
-    def get_all_directors_status(cls, db: Session) -> List[Dict[str, Any]]:
-        """Returns the real-time operational status of all channel directors."""
-        channels = db.query(models.BrandChannel).filter(models.BrandChannel.is_active == True).all()
-        results = []
-        for ch in channels:
-            sec_badge = "[🔒 고정 ISP]"
-            sec_type = "ISP_PROXY"
-            if ch.owner_profile:
-                mode = getattr(ch.owner_profile, "proxy_mode", "DIRECT")
-                if mode == "DIRECT_LTE":
-                    sec_badge = "[⚡ LTE 모바일]"
-                    sec_type = "DIRECT_LTE"
-            
-            combo = getattr(ch, "assigned_combo_model", None) or "omniroute/viraloop1"
-            state = getattr(ch, "director_state", None) or "IDLE"
-            daily_target = getattr(ch, "daily_target_count", 2) or 2
-            published_today = getattr(ch, "published_today_count", 0) or 0
-            heartbeat = getattr(ch, "director_heartbeat", None)
+    def __init__(self):
+        self._is_running = False
+        self._daemon_task: Optional[asyncio.Task] = None
 
-            results.append({
-                "id": ch.id,
-                "channel_id": ch.channel_id,
-                "title": ch.title or "무제 채널",
-                "thumbnail_url": ch.thumbnail_url,
-                "is_autonomous_enabled": bool(ch.is_autonomous_enabled),
-                "director_state": state,
-                "assigned_combo_model": combo,
-                "daily_target_count": daily_target,
-                "published_today_count": published_today,
-                "director_heartbeat": heartbeat.strftime("%H:%M:%S") if heartbeat else "대기 중",
-                "security_badge": sec_badge,
-                "security_type": sec_type,
-                "trust_score": getattr(ch, "trust_score", 0) or 0
-            })
-        return results
+    def claim_article(self, article_id: int, channel_id: int, db: Session) -> models.ViralArticle:
+        """Atomically claim a viral article for a specific brand channel."""
+        article = db.query(models.ViralArticle).filter(models.ViralArticle.id == article_id).first()
+        if not article:
+            raise ValueError(f"Article {article_id} not found")
 
-    @classmethod
-    async def step_channel_cycle(cls, channel_db_id: int, modality: str = "keyword_only", topic: Optional[str] = None):
-        """Executes a single autonomous production cycle for a specific channel."""
-        db = SessionLocal()
-        try:
-            ch = db.query(models.BrandChannel).filter(models.BrandChannel.id == channel_db_id).first()
-            if not ch:
-                logger.warning(f"[ChannelDirector] Channel {channel_db_id} not found.")
-                return {"success": False, "error": "Channel not found"}
+        if article.claimed_by_channel_id and str(article.claimed_by_channel_id) != str(channel_id):
+            raise ValueError(f"Article {article_id} is already claimed by Channel #{article.claimed_by_channel_id}")
 
-            if global_arbiter.is_kill_switch_active():
-                logger.warning(f"🚨 [ChannelDirector] Execution blocked by Tier 1 Global Kill-Switch.")
-                return {"success": False, "error": "Kill-switch is active"}
+        channel = db.query(models.BrandChannel).filter(models.BrandChannel.id == channel_id).first()
+        channel_name = getattr(channel, "title", None) or f"Channel_{channel_id}"
 
-            # Check network jitter interval
-            proxy_key = ch.owner_profile.proxy_host if (ch.owner_profile and ch.owner_profile.proxy_host) else ch.channel_id
-            await global_arbiter.wait_network_jitter(proxy_key, min_seconds=3, max_seconds=6)
+        article.claimed_by_channel_id = str(channel_id)
+        article.claimed_at = datetime.now()
+        article.status = "claimed"
 
-            # Update DB State to SCOUTING
-            ch.director_state = "SCOUTING"
-            ch.director_heartbeat = datetime.now()
-            db.commit()
+        db.commit()
+        db.refresh(article)
+        logger.info(f"🏛️ [ChannelDirector] Article #{article_id} ('{article.title[:30]}...') claimed by Channel '{channel_name}'")
+        return article
 
-            # Execute within isolated ChannelNetworkGuard context
-            with ChannelNetworkGuard(ch.channel_id) as guard:
-                logger.info(f"🏛️ [ChannelDirector] Running within {guard['proxy_mode']} for channel '{ch.title}'")
-                
-                # 3-Axis Orthogonal Payload
-                dna = {
-                    "expert_identity": (ch.expert_identity or {}).get("strategy", f"{ch.title} 전용 바이럴 포뮬러"),
-                    "tone": (ch.expert_identity or {}).get("tone", "몰입도 높은 0.8초 쨉쨉이 어투"),
-                    "forbidden_words": (ch.expert_identity or {}).get("forbidden_words", ["비방", "가짜뉴스"]),
-                    "style_signature": ch.style_signature or {}
-                }
-                combo = getattr(ch, "assigned_combo_model", None) or "omniroute/viraloop1"
-                proj_id = f"auto_{ch.channel_id}_{int(datetime.now().timestamp())}"
-                effective_topic = topic or f"{ch.title} 오늘의 급상승 미스터리"
+    def unclaim_article(self, article_id: int, db: Session) -> models.ViralArticle:
+        """Release a claimed article back to the public pool."""
+        article = db.query(models.ViralArticle).filter(models.ViralArticle.id == article_id).first()
+        if not article:
+            raise ValueError(f"Article {article_id} not found")
 
-                initial_state = {
-                    "project_id": proj_id,
-                    "channel_id": ch.channel_id,
-                    "channel_title": ch.title or "바이럴 채널",
-                    "topic": effective_topic,
-                    "channel_dna": dna,
-                    "modality": modality,
-                    "assigned_combo_model": combo,
-                    "script_content": "",
-                    "scenes": [],
-                    "audio_path": None,
-                    "video_path": None,
-                    "draft_project_path": None,
-                    "critic_score": 0,
-                    "critic_feedback": "",
-                    "critic_retry_count": 0,
-                    "max_critic_retries": 3,
-                    "hitl_status": "APPROVED", # Auto-approve in autonomous mode, or PENDING if manual
-                    "current_phase": "INITIATED",
-                    "errors": []
-                }
+        article.claimed_by_channel_id = None
+        article.claimed_at = None
+        article.status = "analyzed" if article.analysis_summary else "collected"
 
-                # Update state to SCRIPTING
-                ch.director_state = "SCRIPTING"
-                db.commit()
+        db.commit()
+        db.refresh(article)
+        logger.info(f"🏛️ [ChannelDirector] Article #{article_id} unclaimed and returned to pool.")
+        return article
 
-                # Run LangGraph StateMachine
-                final_state = await sovereign_video_graph.ainvoke(initial_state)
+    async def run_dispatch_cycle(self) -> Dict[str, Any]:
+        """Scan unassigned high-viral articles and dispatch to matching active channels."""
+        claimed_count = 0
+        with database.SessionLocal() as db:
+            channels = db.query(models.BrandChannel).all()
+            if not channels:
+                return {"claimed": 0, "message": "No brand channels registered"}
 
-                # Update completed state
-                ch.director_state = "IDLE"
-                ch.published_today_count = (getattr(ch, "published_today_count", 0) or 0) + 1
-                ch.last_director_cycle = datetime.now()
-                ch.director_heartbeat = datetime.now()
-                db.commit()
+            # Find unassigned analyzed articles with viral_score >= 70
+            unclaimed = db.query(models.ViralArticle).filter(
+                models.ViralArticle.claimed_by_channel_id.is_(None),
+                models.ViralArticle.status == "analyzed",
+                models.ViralArticle.viral_score >= 70.0
+            ).order_by(models.ViralArticle.viral_score.desc()).limit(20).all()
 
-                return {
-                    "success": True,
-                    "channel": ch.title,
-                    "project_id": proj_id,
-                    "phase": final_state.get("current_phase"),
-                    "critic_score": final_state.get("critic_score")
-                }
+            if not unclaimed:
+                return {"claimed": 0, "message": "No matching high-score articles"}
 
-        except Exception as e:
-            logger.error(f"[ChannelDirector] Error in cycle for channel {channel_db_id}: {e}")
-            try:
-                ch = db.query(models.BrandChannel).filter(models.BrandChannel.id == channel_db_id).first()
-                if ch:
-                    ch.director_state = "ERROR"
-                    db.commit()
-            except Exception:
-                pass
-            return {"success": False, "error": str(e)}
-        finally:
-            db.close()
+            for art in unclaimed:
+                # Find best fitting channel
+                best_channel = None
+                for ch in channels:
+                    # DNA match: check if category or style matches
+                    ch_dna = (getattr(ch, "expert_identity", "") or getattr(ch, "title", "")).lower()
+                    art_cat = (art.category or "").lower()
+                    if ch_dna and (art_cat in ch_dna or ch_dna in art_cat):
+                        best_channel = ch
+                        break
 
-channel_director = ChannelDirector
+                # Fallback to first channel if no strict genre match
+                if not best_channel and channels:
+                    best_channel = channels[0]
+
+                if best_channel:
+                    self.claim_article(art.id, best_channel.id, db)
+                    claimed_count += 1
+
+        return {
+            "timestamp": datetime.now().isoformat(),
+            "claimed_count": claimed_count
+        }
+
+    def start_director_daemon(self, interval_seconds: int = 180):
+        if self._is_running:
+            return
+        self._is_running = True
+
+        async def _loop():
+            logger.info(f"[ChannelDirector] Tier 2 autonomous claim daemon started (interval={interval_seconds}s)")
+            while self._is_running:
+                try:
+                    await self.run_dispatch_cycle()
+                except Exception as e:
+                    logger.error(f"[ChannelDirector] Dispatch cycle error: {e}")
+                await asyncio.sleep(interval_seconds)
+
+        self._daemon_task = asyncio.create_task(_loop())
+
+    def stop_director_daemon(self):
+        self._is_running = False
+        if self._daemon_task and not self._daemon_task.done():
+            self._daemon_task.cancel()
+        logger.info("[ChannelDirector] Autonomous daemon stopped.")
+
+
+channel_director = ChannelDirector()
