@@ -1639,11 +1639,22 @@ class ViralArticle(Base):
     structured_script = Column(JSON, nullable=True)  # 씬별 대본 및 타임코드 초안
     status = Column(String, default="collected", index=True)  # collected | analyzed | claimed | produced
 
+    # 🌐 5-D 멀티 루트 인텔리전스 지표
+    search_traffic = Column(String, nullable=True)  # 구글 트렌드 검색량 (예: "5,000+", "20,000+")
+    velocity_score = Column(Float, default=0.0)  # 시간당 반응 가속도 (CPH/VPH)
+    cluster_count = Column(Integer, default=1)  # 교차 플랫폼 군집 개수 (동시 보도/언급 수)
+    cluster_keywords = Column(JSON, default=list)  # 핵심 주제 엔티티 키워드
+    psychological_trigger = Column(String, nullable=True)  # 6대 심리 트리거 (공분/참교육, 가격충격, 사이다 등)
+    retention_probability = Column(Float, default=0.0)  # 쇼츠 10만뷰 도달 예측 확률 (0-100%)
+    lifespan_phase = Column(String, default="surge")  # flash_burn (속보) | surge (급상승) | peak (피크) | steady_burn (에버그린)
+    golden_time_hours = Column(Float, default=24.0)  # 골든타임 권장 잔여 시간(h)
+
     # 🏛️ Tier 2 채널 디렉터 자율 수주 필드
     claimed_by_channel_id = Column(String, nullable=True, index=True)
     claimed_at = Column(DateTime, nullable=True)
 
     comments = relationship("ViralArticleComment", back_populates="article", cascade="all, delete-orphan")
+    snapshots = relationship("ViralSnapshot", back_populates="article", cascade="all, delete-orphan")
 
 
 class ViralArticleComment(Base):
@@ -1659,5 +1670,26 @@ class ViralArticleComment(Base):
     created_at = Column(DateTime, default=datetime.now)
 
     article = relationship("ViralArticle", back_populates="comments")
+
+
+class ViralSnapshot(Base):
+    """
+    [RE-VISIT-SNAPSHOT]
+    수집된 글/영상의 시계열 가속도 추적 스냅샷
+    +15분, +30분, +1시간 재방문 시 댓글/조회수 변위를 기록하여 CPH/VPH 미분치 산출
+    """
+    __tablename__ = "viral_snapshots"
+
+    id = Column(Integer, primary_key=True, index=True)
+    article_id = Column(Integer, ForeignKey("viral_articles.id", ondelete="CASCADE"), index=True)
+    views = Column(Integer, default=0)
+    likes = Column(Integer, default=0)
+    comments_count = Column(Integer, default=0)
+    delta_cph = Column(Float, default=0.0)  # Comments Per Hour
+    delta_vph = Column(Float, default=0.0)  # Views Per Hour
+    captured_at = Column(DateTime, default=datetime.now)
+
+    article = relationship("ViralArticle", back_populates="snapshots")
+
 
 

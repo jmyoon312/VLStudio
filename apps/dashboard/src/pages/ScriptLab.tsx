@@ -1604,6 +1604,49 @@ const ScriptLab = () => {
                             <span>숏폼</span>
                         </Button>
 
+                        
+                        {/* Track A-2: 올인원 일괄 생성 전송 */}
+                        <Button
+                            onClick={() => {
+                                const selectedVideos = videos.filter(v => selectedIds.has(v.id));
+                                const batchPayload = selectedVideos.map((v: any, idx: number) => ({
+                                    id: `script-lab-${v.id}-${Date.now()}-${idx}`,
+                                    title: v.title,
+                                    sourceType: 'script_lab',
+                                    archetype: 'classic',
+                                    originalUrl: v.url || '',
+                                    sourceOrigin: (v as any).channel_title || '대본 분석실',
+                                    viralScore: (v as any).viral_score || 85.0,
+                                    analysisSummary: (v as any).summary || v.title,
+                                    scriptLinesCount: 6,
+                                    headlineLine1: (v.title || '').slice(0, 14),
+                                    headlineLine2: '핵심 쟁점 분석',
+                                    contentTranscript: cleanSrtToText((v as any).transcript_raw || (v as any).transcript || v.title),
+                                    scenes: [1, 2, 3, 4, 5, 6].map(i => ({
+                                        sceneIndex: i,
+                                        duration: 4.0,
+                                        hookJabText: i === 1 ? (v.title || '').slice(0, 15) : '',
+                                        narration: '',
+                                        visualPrompt: '',
+                                        imageUrl: (v as any).thumbnail_url || null,
+                                    })),
+                                    metadata: v,
+                                    status: 'ready' as const,
+                                    createdAt: '방금 전',
+                                }));
+                                try {
+                                    sessionStorage.setItem('vlstudio_batch_handoff', JSON.stringify(batchPayload));
+                                } catch (_) {}
+                                toast.success(`⚡ ${batchPayload.length}개 대본이 [올인원 일괄 생성 허브]로 전송되었습니다.`);
+                                navigate('/shorts-batch', { state: { batchProjects: batchPayload } });
+                            }}
+                            className="bg-primary hover:bg-primary/90 active:scale-95 text-primary-foreground font-bold text-xs px-3 py-2 rounded-xl transition-all flex items-center gap-1.5 shadow-md h-auto"
+                        >
+                            <Zap className="w-3.5 h-3.5 fill-current text-amber-300" />
+                            ⚡ 올인원 일괄 생성 ({selectedIds.size})
+                        </Button>
+
+
                         {/* Track B: 롱폼 AI 창작 */}
                         <Button
                             size="sm"
@@ -3161,6 +3204,49 @@ const ScriptLab = () => {
                             <Zap className="w-3.5 h-3.5 text-amber-300" />
                             ⚡ 선택 대본 일괄 쇼츠 양산 ({selectedIds.size})
                         </Button>
+
+                        
+                        {/* Track A-2: 올인원 일괄 생성 전송 */}
+                        <Button
+                            onClick={() => {
+                                const selectedVideos = videos.filter(v => selectedIds.has(v.id));
+                                const batchPayload = selectedVideos.map((v: any, idx: number) => ({
+                                    id: `script-lab-${v.id}-${Date.now()}-${idx}`,
+                                    title: v.title,
+                                    sourceType: 'script_lab',
+                                    archetype: 'classic',
+                                    originalUrl: v.url || '',
+                                    sourceOrigin: (v as any).channel_title || '대본 분석실',
+                                    viralScore: (v as any).viral_score || 85.0,
+                                    analysisSummary: (v as any).summary || v.title,
+                                    scriptLinesCount: 6,
+                                    headlineLine1: (v.title || '').slice(0, 14),
+                                    headlineLine2: '핵심 쟁점 분석',
+                                    contentTranscript: cleanSrtToText((v as any).transcript_raw || (v as any).transcript || v.title),
+                                    scenes: [1, 2, 3, 4, 5, 6].map(i => ({
+                                        sceneIndex: i,
+                                        duration: 4.0,
+                                        hookJabText: i === 1 ? (v.title || '').slice(0, 15) : '',
+                                        narration: '',
+                                        visualPrompt: '',
+                                        imageUrl: (v as any).thumbnail_url || null,
+                                    })),
+                                    metadata: v,
+                                    status: 'ready' as const,
+                                    createdAt: '방금 전',
+                                }));
+                                try {
+                                    sessionStorage.setItem('vlstudio_batch_handoff', JSON.stringify(batchPayload));
+                                } catch (_) {}
+                                toast.success(`⚡ ${batchPayload.length}개 대본이 [올인원 일괄 생성 허브]로 전송되었습니다.`);
+                                navigate('/shorts-batch', { state: { batchProjects: batchPayload } });
+                            }}
+                            className="bg-primary hover:bg-primary/90 active:scale-95 text-primary-foreground font-bold text-xs px-3 py-2 rounded-xl transition-all flex items-center gap-1.5 shadow-md h-auto"
+                        >
+                            <Zap className="w-3.5 h-3.5 fill-current text-amber-300" />
+                            ⚡ 올인원 일괄 생성 ({selectedIds.size})
+                        </Button>
+
 
                         {/* Track B: 롱폼 AI 창작 */}
                         <Button

@@ -386,7 +386,10 @@ def full_channel_scan_logic():
                                 if result.get('status') == 'success':
                                     new_video.status = "completed"
                                     new_video.file_path = result.get('file_path')
-                                    new_video.thumbnail_path = result.get('thumbnail_path') or result.get('metadata', {}).get('thumbnail')
+                                    raw_thumb = result.get('thumbnail_path') or result.get('metadata', {}).get('thumbnail')
+                                    if raw_thumb and ('hq720' in raw_thumb or 'sqp=' in raw_thumb) and v_id:
+                                        raw_thumb = f"https://i.ytimg.com/vi/{v_id}/hqdefault.jpg"
+                                    new_video.thumbnail_path = raw_thumb
                                     new_video.downloaded_at = datetime.now()
                                     new_video.duration = result.get('duration', 0)
                                     

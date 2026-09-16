@@ -146,7 +146,7 @@ export interface UniversalCanvasStageProps {
   titleShadowColor?: string;
   setTitleShadowColor?: (val: string) => void;
   titleBgMode?: string;
-  setTitleBgMode?: (val: string) => void;
+  setTitleBgMode?: (val: any) => void;
   titleBgColor?: string;
   setTitleBgColor?: (val: string) => void;
   titleBgOpacity?: number;

@@ -22,6 +22,7 @@ export type CapCutCaptionMotion = 'word_pop' | 'karaoke' | 'smooth_slide' | 'typ
  * 📐 캔버스 3단/4단 영역 지오메트리 (0~100% 상대 좌표)
  */
 export interface TemplateGeometry {
+  canvasType?: string;
   // 1. 상단 대제목 영역
   topTitleZone: {
     enabled: boolean;
@@ -236,7 +237,7 @@ export interface TemplateCanvasState {
   instaConfig?: any;
   ssulConfig?: any;
   commentCard?: any;
-  videoFitMode?: 'sandwich' | 'fullscreen';
+  videoFitMode?: 'sandwich' | 'fullscreen' | 'custom' | 'fit-center' | 'fit-top' | 'center' | string;
   videoBlurBg?: boolean;
   videoFocusXPct?: number;
   videoFocusYPct?: number;
@@ -250,11 +251,13 @@ export interface TemplateCanvasState {
   topBarHeightPct?: number;
   topBarOpacity?: number;
   topBarRadius?: number;
+  topBarZIndex?: number;
   hasBottomBarBg?: boolean;
   bottomBarBg?: string;
   bottomBarHeightPct?: number;
   bottomBarOpacity?: number;
   bottomBarRadius?: number;
+  bottomBarZIndex?: number;
   hasTopTitle?: boolean;
   topTitleText?: string;
   titleLinesMode?: 'single' | 'double';
@@ -267,6 +270,9 @@ export interface TemplateCanvasState {
   titleLine1SizePx?: number;
   titleLine2SizePx?: number;
   titleFontFamily?: string;
+  titleBold?: boolean;
+  titleItalic?: boolean;
+  titleAlign?: 'left' | 'center' | 'right' | string;
   titleStroke?: boolean;
   titleStrokeWidth?: number;
   titleStrokeColor?: string;
@@ -305,6 +311,7 @@ export interface TemplateCanvasState {
   bottomSourceFontFamily?: string;
   bottomSourceBold?: boolean;
   bottomSourceItalic?: boolean;
+  bottomSourceAlign?: 'left' | 'center' | 'right' | string;
   bottomSourceBottomPct?: number;
   bottomSourceStroke?: boolean;
   bottomSourceStrokeWidth?: number;

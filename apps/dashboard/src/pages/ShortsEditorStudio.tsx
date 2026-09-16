@@ -499,7 +499,7 @@ const formatWrappedText = (text: string, splitLimit: number = 14, maxLines: numb
   const [titleShadow, setTitleShadow] = useState<boolean>(true);
   const [titleShadowBlur, setTitleShadowBlur] = useState<number>(6);
   const [titleShadowColor, setTitleShadowColor] = useState<string>('rgba(0,0,0,0.9)');
-  const [titleBgMode, setTitleBgMode] = useState<'none' | 'box' | 'pill'>('none');
+  const [titleBgMode, setTitleBgMode] = useState<'none' | 'box' | 'pill' | 'highlighter' | 'glass'>('none');
   const [titleBgColor, setTitleBgColor] = useState<string>('rgba(0,0,0,0.85)');
   const [titleBgOpacity, setTitleBgOpacity] = useState<number>(0.85);
   const [titleBorderRadius, setTitleBorderRadius] = useState<number>(6);
@@ -1591,7 +1591,7 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
       }
       if (cs.subtitleBoxColor) {
         setSubtitleBoxColor(cs.subtitleBoxColor);
-        setSubtitleConfig(prev => ({ ...prev, boxColor: cs.subtitleBoxColor }));
+        setSubtitleConfig(prev => ({ ...prev, boxColor: cs.subtitleBoxColor || prev.boxColor }));
       }
       if (cs.subtitleBorderRadius !== undefined) setSubtitleBorderRadius(cs.subtitleBorderRadius);
       if (cs.hasCommentCard !== undefined) setHasCommentCard(cs.hasCommentCard);

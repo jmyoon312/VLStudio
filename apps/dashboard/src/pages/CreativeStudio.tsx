@@ -688,6 +688,30 @@ const CreativeStudio = () => {
 
     // 마운트 시 기획 & 리서치 랩(ResearchConceptLab)으로부터 넘어온 대본/기획 자동 로드
     useEffect(() => {
+
+        // [Batch Handoff] 바이럴 인텔리전스 / 영상보관함 / 대본분석실 등으로부터 넘어온 다중 프로젝트 로드
+        const batchRaw = sessionStorage.getItem('creative_studio_batch_projects');
+        if (batchRaw) {
+            try {
+                const batchList = JSON.parse(batchRaw);
+                if (Array.isArray(batchList) && batchList.length > 0) {
+                    sessionStorage.removeItem('creative_studio_batch_projects');
+                    const combinedScript = batchList.map((p: any, idx: number) => {
+                        const title = p.title || `프로젝트 ${idx + 1}`;
+                        const body = p.content || p.content_text || p.narration || p.script || '';
+                        return `[장면 ${idx + 1}: ${title}]\n${body}`;
+                    }).join('\n\n---\n\n');
+                    setFullScript(combinedScript);
+                    const firstTitle = batchList[0].title || 'batch_project';
+                    const sanitized = firstTitle.replace(/[^a-zA-Z0-9가-힣_]/g, '_').slice(0, 20);
+                    const newProjName = `batch_${sanitized}_${batchList.length}건`;
+                    setCurrentProjectName(newProjName);
+                    localStorage.setItem('creative_current_project_name', newProjName);
+                    toast.success(`총 ${batchList.length}건의 프로젝트가 미디어 일괄 생성 스튜디오로 인입되었습니다!`);
+                }
+            } catch (_) {}
+        }
+
         const initialScript = sessionStorage.getItem('creative_studio_initial_script');
         const initialTitle = sessionStorage.getItem('creative_studio_initial_title');
         if (initialScript) {

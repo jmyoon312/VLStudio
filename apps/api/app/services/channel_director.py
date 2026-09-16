@@ -78,9 +78,15 @@ class ChannelDirector:
                 best_channel = None
                 for ch in channels:
                     # DNA match: check if category or style matches
-                    ch_dna = (getattr(ch, "expert_identity", "") or getattr(ch, "title", "")).lower()
+                    raw_dna = getattr(ch, "expert_identity", None) or getattr(ch, "title", "")
+                    if isinstance(raw_dna, dict):
+                        ch_dna = " ".join(str(v) for v in raw_dna.values() if isinstance(v, (str, int, float))).lower()
+                        if not ch_dna and getattr(ch, "title", None):
+                            ch_dna = str(ch.title).lower()
+                    else:
+                        ch_dna = str(raw_dna or getattr(ch, "title", "") or "").lower()
                     art_cat = (art.category or "").lower()
-                    if ch_dna and (art_cat in ch_dna or ch_dna in art_cat):
+                    if ch_dna and art_cat and (art_cat in ch_dna or ch_dna in art_cat):
                         best_channel = ch
                         break
 

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
+import api from '@/lib/api';
 import {
   Zap,
   Layers,
@@ -44,10 +45,12 @@ interface BatchJobResult {
   status: 'ready' | 'processing' | 'done';
   videoFilename?: string;
   scriptLinesCount?: number;
+  metadata?: any;
 }
 
 export const ShortsBatchStudio: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
 
   const [activeSourceType, setActiveSourceType] = useState<SourceType>('ssul');
@@ -56,26 +59,87 @@ export const ShortsBatchStudio: React.FC = () => {
   const [customTextInput, setCustomTextInput] = useState<string>('');
   const [isBatchRunning, setIsBatchRunning] = useState<boolean>(false);
 
-  // 1. 소스 공급원 시뮬레이션 및 로컬 DB 연동 데이터
-  const [ssulList] = useState<SourceItem[]>([
-    { id: 'ssul-1', title: '오늘자 블라인드 레전드 탕비실 사건', snippet: '탕비실 믹스커피 30개 훔쳐간 과장님 참교육한 썰...', sourceOrigin: '블라인드 (직장인)', dateText: '10분 전' },
-    { id: 'ssul-2', title: '에타에서 난리난 신입생 조별과제 잠수 빌런', snippet: '발표 전날 연락두절된 조원 카톡 박제합니다...', sourceOrigin: '에브리타임 (대학)', dateText: '30분 전' },
-    { id: 'ssul-3', title: '디시 주식갤러리 눈물의 비트코인 청산 후기', snippet: '자고 일어났더니 잔고 0원 된 사람의 심경 고백...', sourceOrigin: '디시인사이드 (재테크)', dateText: '1시간 전' },
-    { id: 'ssul-4', title: '네이트판 방탈출 알바하면서 겪은 소름돋는 손님', snippet: '폐가 테마 방에서 cctv 보다가 식은땀 흘린 실화...', sourceOrigin: '네이트판 (괴담)', dateText: '2시간 전' },
-  ]);
-
-  const [newsList] = useState<SourceItem[]>([
-    { id: 'news-1', title: '[속보] 서울 전역 기습 폭우... 지하철 일부 구간 침수', snippet: '기상청 시간당 80mm 집중호우 경보 발령... 퇴근길 대혼잡 예상', sourceOrigin: '연합뉴스', dateText: '방금 전' },
-    { id: 'news-2', title: 'NASA, 지구 닮은 외계 행성 최초 실측 데이터 공개', snippet: '제임스 웹 망원경이 관측한 대기권 수증기 신호 확인...', sourceOrigin: '과학동아', dateText: '3시간 전' },
-    { id: 'news-3', title: '경찰도 경악한 가짜 금괴 밀반입 수법', snippet: '시가 500억 원 상당의 금괴를 차량 범퍼 내부에 개조 숨겨...', sourceOrigin: '사회부 뉴스', dateText: '5시간 전' },
-  ]);
-
-  const [scriptList, setScriptList] = useState<SourceItem[]>([
-    { id: 'script-1', title: '성공한 사람들의 아침 10분 루틴 3가지', snippet: '1. 눈뜨자마자 찬물 한잔 2. 휴대폰 대신 3분 명상...', sourceOrigin: '대본 분석실 (자기계발)', dateText: '어제' },
-    { id: 'script-2', title: '세계에서 가장 위험한 다리 TOP 5', snippet: '한번 건너면 다리가 후들거리는 절벽 현수교...', sourceOrigin: '대본 분석실 (지식)', dateText: '2일 전' },
-  ]);
-
+  // 1. 소스 공급원 (실제 바이럴 인텔리전스 DB 연동)
+  const [ssulList, setSsulList] = useState<SourceItem[]>([]);
+  const [newsList, setNewsList] = useState<SourceItem[]>([]);
+  const [scriptList, setScriptList] = useState<SourceItem[]>([]);
   const [videoList, setVideoList] = useState<SourceItem[]>([]);
+
+  // 1-1. 바이럴 인텔리전스 센터 실제 엄선 기사 로드
+  useEffect(() => {
+    const fetchLiveViralArticles = async () => {
+      try {
+        const res = await api.get('/viral/articles', { params: { limit: 30, curated_only: true } });
+        if (res.data?.articles && Array.isArray(res.data.articles)) {
+          const arts = res.data.articles;
+          const liveNews: SourceItem[] = arts
+            .filter((a: any) => a.source_type === 'news')
+            .map((a: any) => ({
+              id: `viral-${a.id}`,
+              title: a.suggested_title || a.title,
+              snippet: a.analysis_summary || a.content_text?.slice(0, 80) || '',
+              sourceOrigin: a.author || '네이버 랭킹 뉴스',
+              dateText: `${Number(a.viral_score || 70).toFixed(1)}점 · 댓글 ${a.comments_count}개`,
+              metadata: a,
+            }));
+          const liveSsul: SourceItem[] = arts
+            .filter((a: any) => a.source_type !== 'news')
+            .map((a: any) => ({
+              id: `viral-${a.id}`,
+              title: a.suggested_title || a.title,
+              snippet: a.analysis_summary || a.content_text?.slice(0, 80) || '',
+              sourceOrigin: a.author || a.community_name,
+              dateText: `${Number(a.viral_score || 70).toFixed(1)}점 · 댓글 ${a.comments_count}개`,
+              metadata: a,
+            }));
+          if (liveNews.length > 0) setNewsList(liveNews);
+          if (liveSsul.length > 0) setSsulList(liveSsul);
+        }
+      } catch (_) {}
+    };
+    fetchLiveViralArticles();
+  }, []);
+
+  // 1-2. 바이럴 인텔리전스 센터 등 외부 Handoff 수신
+  useEffect(() => {
+    let incoming: any[] = [];
+    if (location.state?.batchProjects && Array.isArray(location.state.batchProjects)) {
+      incoming = location.state.batchProjects;
+    } else {
+      try {
+        const raw = sessionStorage.getItem('vlstudio_batch_handoff');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            incoming = parsed;
+            sessionStorage.removeItem('vlstudio_batch_handoff');
+          }
+        }
+      } catch (_) {}
+    }
+
+    if (incoming.length > 0) {
+      const incomingJobs: BatchJobResult[] = incoming.map((p, idx) => ({
+        id: p.id || `handoff-${Date.now()}-${idx}`,
+        title: p.title,
+        sourceType: (p.sourceType as SourceType) || 'news',
+        archetype: (p.archetype as TargetArchetype) || 'gunlimbo',
+        createdAt: '방금 전 인입',
+        status: 'ready',
+        scriptLinesCount: p.scriptLinesCount || (p.scenes ? p.scenes.length : 6),
+        metadata: p,
+      }));
+
+      setBatchResults(prev => [...incomingJobs, ...prev]);
+      setActiveSourceType(incoming[0].sourceType === 'news' ? 'news' : 'ssul');
+      setSelectedArchetype(incoming[0].archetype || 'gunlimbo');
+
+      toast({
+        title: '⚡ 바이럴 인텔리전스 프로젝트 인입',
+        description: `총 ${incoming.length}개의 엄선/1차 분석 프로젝트가 올인원 대기열에 자동 등록되었습니다.`
+      });
+    }
+  }, [location.state]);
 
   // 대본 분석실 실제 DB/스토리지 연동
   useEffect(() => {
@@ -195,6 +259,8 @@ export const ShortsBatchStudio: React.FC = () => {
   // 전문 편집기로 열기 직결 핸들러 (자가 치유 Handoff 페이로드 완벽 전송)
   const handleOpenInEditor = (job: BatchJobResult) => {
     const editorRoute = `/shorts-editor/${job.archetype}`;
+    const meta = job.metadata || {};
+    const scenes = meta.scenes || [];
 
     // 🎯 Handoff 페이로드 구성: 해당 폼팩터에 100% 최적화된 대본/자막/쨉쨉이 데이터 주입
     const handoffPayload = {
@@ -203,14 +269,34 @@ export const ShortsBatchStudio: React.FC = () => {
       templateMode: job.archetype,
       channelName: 'ViraLoop Studio',
       videoUrl: job.videoFilename || '',
-      subtitles: [
-        { start: 0.0, end: 2.5, text: `${job.title}` },
-        { start: 2.5, end: 5.5, text: '핵심 하이라이트 명장면 공개합니다.' },
-        { start: 5.5, end: 8.5, text: '구독과 좋아요 누르고 끝까지 시청해주세요!' },
-      ],
-      jabs: [
-        { start: 0.8, end: 3.2, text: '*실시간 충격 반전!*', hook: '*실시간 충격 반전!*' },
-      ],
+      subtitles: scenes.length > 0
+        ? scenes.map((s: any, idx: number) => ({
+            start: idx * 4.0,
+            end: (idx + 1) * 4.0,
+            text: s.narration || s.hookJabText || job.title,
+          }))
+        : [
+            { start: 0.0, end: 2.5, text: `${job.title}` },
+            { start: 2.5, end: 5.5, text: '핵심 하이라이트 명장면 공개합니다.' },
+            { start: 5.5, end: 8.5, text: '구독과 좋아요 누르고 끝까지 시청해주세요!' },
+          ],
+      jabs: scenes.length > 0
+        ? scenes.map((s: any, idx: number) => ({
+            start: idx * 4.0 + 0.5,
+            end: idx * 4.0 + 3.0,
+            text: s.hookJabText || `*${job.title}*`,
+            hook: s.hookJabText || `*${job.title}*`,
+          }))
+        : [
+            { start: 0.8, end: 3.2, text: '*실시간 충격 반전!*', hook: '*실시간 충격 반전!*' },
+          ],
+      titleBadgeText: meta.sourceOrigin || '화제 1위',
+      titleLine1: meta.headlineLine1 || job.title.slice(0, 14),
+      titleLine2: meta.headlineLine2 || '충격 실화 전말',
+      coupangSafeZone: job.archetype === 'gunlimbo',
+      kenBurnsMotion: true,
+      sourceOrigin: meta.sourceOrigin || '',
+      sourceUrl: meta.originalUrl || '',
     };
 
     try {

@@ -152,7 +152,17 @@ export function getMediaUrl(path: string | null, rootDownloadPath?: string): str
     // Safety check for error strings often found in DB fields during debugging
     if (path.includes('ERR_') || path.includes('Not Found') || path.includes('Error')) return '';
 
-    if (path.startsWith('http') || path.startsWith('blob:')) return path;
+    if (path.startsWith('http') || path.startsWith('blob:')) {
+        // [FIX] Expiring YouTube Shorts / dynamic frame thumbnails (hq720_2.jpg with sqp= tokens) cause 404.
+        // Normalize to canonical, permanent hqdefault.jpg
+        if (path.includes('ytimg.com/vi/')) {
+            const ytMatch = path.match(/ytimg\.com\/vi\/([A-Za-z0-9_-]{11})\//);
+            if (ytMatch && (path.includes('hq720') || path.includes('sqp=') || path.includes('hq720_2'))) {
+                return `https://i.ytimg.com/vi/${ytMatch[1]}/hqdefault.jpg`;
+            }
+        }
+        return path;
+    }
 
     // Special Case: Local Backend Thumbnails
     if (path.replace(/\\/g, '/').startsWith('thumbnails/')) {

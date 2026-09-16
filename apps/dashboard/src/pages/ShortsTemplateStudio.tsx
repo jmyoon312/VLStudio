@@ -366,7 +366,7 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
   const [titleShadow, setTitleShadow] = useState<boolean>(true);
   const [titleShadowBlur, setTitleShadowBlur] = useState<number>(8);
   const [titleShadowColor, setTitleShadowColor] = useState<string>('#000000');
-  const [titleBgMode, setTitleBgMode] = useState<'none' | 'box' | 'pill'>('none');
+  const [titleBgMode, setTitleBgMode] = useState<'none' | 'box' | 'pill' | 'highlighter' | 'glass'>('none');
   const [titleBgColor, setTitleBgColor] = useState<string>('rgba(0,0,0,0.85)');
   const [titlePaddingX, setTitlePaddingX] = useState<number>(12);
   const [titlePaddingY, setTitlePaddingY] = useState<number>(6);
@@ -1135,7 +1135,7 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
       }
       if (cs.subtitleBoxColor) {
         setSubtitleBoxColor(cs.subtitleBoxColor);
-        setSubtitleConfig(prev => ({ ...prev, boxColor: cs.subtitleBoxColor }));
+        setSubtitleConfig(prev => ({ ...prev, boxColor: cs.subtitleBoxColor || prev.boxColor }));
       }
       if (cs.subtitleBorderRadius !== undefined) setSubtitleBorderRadius(cs.subtitleBorderRadius);
       if (cs.hasCommentCard !== undefined) setHasCommentCard(cs.hasCommentCard);

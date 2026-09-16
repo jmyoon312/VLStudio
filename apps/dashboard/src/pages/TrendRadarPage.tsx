@@ -1518,13 +1518,13 @@ const TrendRadarPage: React.FC = () => {
                             <div className="flex items-center bg-card p-1 rounded-xl border border-border/80 text-xs font-bold">
                                 <button
                                     onClick={() => setViewMode('grid')}
-                                    className={cn("px-3 py-1 rounded-lg transition-all flex items-center gap-1 cursor-pointer", viewMode === 'grid' ? "bg-amber-500 text-black shadow-xs" : "text-muted-foreground hover:text-foreground")}
+                                    className={cn("px-3 py-1 rounded-lg transition-all flex items-center gap-1 cursor-pointer", (viewMode as string) === 'grid' ? "bg-amber-500 text-black shadow-xs" : "text-muted-foreground hover:text-foreground")}
                                 >
                                     🎬 옥석 영상 그리드로 보기 ({filteredCandidates.length}편)
                                 </button>
                                 <button
                                     onClick={() => setViewMode('reel')}
-                                    className={cn("px-3 py-1 rounded-lg transition-all flex items-center gap-1 cursor-pointer", viewMode === 'reel' ? "bg-amber-500 text-black shadow-xs" : "text-muted-foreground hover:text-foreground")}
+                                    className={cn("px-3 py-1 rounded-lg transition-all flex items-center gap-1 cursor-pointer", (viewMode as string) === 'reel' ? "bg-amber-500 text-black shadow-xs" : "text-muted-foreground hover:text-foreground")}
                                 >
                                     📺 채널별 묶어보기 ({candidateChannels.length}채널)
                                 </button>
@@ -1799,13 +1799,13 @@ const TrendRadarPage: React.FC = () => {
                             <div className="flex items-center bg-card p-1 rounded-xl border border-border/80 text-xs font-bold">
                                 <button
                                     onClick={() => setViewMode('grid')}
-                                    className={cn("px-3 py-1 rounded-lg transition-all flex items-center gap-1 cursor-pointer", viewMode === 'grid' ? "bg-amber-500 text-black shadow-xs" : "text-muted-foreground hover:text-foreground")}
+                                    className={cn("px-3 py-1 rounded-lg transition-all flex items-center gap-1 cursor-pointer", (viewMode as string) === 'grid' ? "bg-amber-500 text-black shadow-xs" : "text-muted-foreground hover:text-foreground")}
                                 >
                                     🎬 옥석 영상 그리드 ({filteredCandidates.length}편)
                                 </button>
                                 <button
                                     onClick={() => setViewMode('reel')}
-                                    className={cn("px-3 py-1 rounded-lg transition-all flex items-center gap-1 cursor-pointer", viewMode === 'reel' ? "bg-amber-500 text-black shadow-xs" : "text-muted-foreground hover:text-foreground")}
+                                    className={cn("px-3 py-1 rounded-lg transition-all flex items-center gap-1 cursor-pointer", (viewMode as string) === 'reel' ? "bg-amber-500 text-black shadow-xs" : "text-muted-foreground hover:text-foreground")}
                                 >
                                     📺 채널별 묶어보기
                                 </button>
@@ -1874,7 +1874,7 @@ const TrendRadarPage: React.FC = () => {
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         setDeepSpideringVideoId(candidate.video_id);
-                                        spiderDeepMutation.mutate(candidate.video_id);
+                                        deepSpiderMutation.mutate(candidate.video_id);
                                     }}
                                     disabled={deepSpideringVideoId === candidate.video_id}
                                     className="relative z-10 mt-1.5 w-full py-1 bg-blue-600/90 hover:bg-blue-600 text-white rounded-lg text-[10px] font-bold flex items-center justify-center gap-1 shadow-xs cursor-pointer transition-all"

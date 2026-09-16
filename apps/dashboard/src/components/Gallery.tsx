@@ -24,7 +24,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 
 import { cn, getMediaUrl } from "@/lib/utils";
 
-import { Loader2, Trash2, Play, FileText, Flame, Zap, TrendingUp, RefreshCw, Filter, Settings2, FolderOpen, Calendar, Copy, Check, Languages, CheckSquare, Square, AlertCircle, LineChart, Download, ExternalLink, PlaySquare, ChevronRight, CheckCircle2, X, Sparkles, Radio, Scissors, Search, ArrowUpDown, Layers, ChevronDown, Grid, SlidersHorizontal } from "lucide-react";
+import { Loader2, Trash2, Play, FileText, Flame, Zap, TrendingUp, RefreshCw, Filter, Settings2, FolderOpen, Calendar, Copy, Check, Languages, CheckSquare, Square, AlertCircle, LineChart, Download, ExternalLink, PlaySquare, ChevronRight, CheckCircle2, X, Sparkles, Radio, Scissors, Search, ArrowUpDown, Layers,
+    Clapperboard, ChevronDown, Grid, SlidersHorizontal } from "lucide-react";
 
 import { toast } from 'sonner';
 
@@ -1981,6 +1982,76 @@ const Gallery = () => {
                         >
                             <Scissors className="w-3.5 h-3.5 text-amber-300" />
                             🎬 스마트 씬 분할 컷터
+                        </Button>
+
+                        
+                        {/* ⚡ 올인원 일괄 생성 전송 */}
+                        <Button 
+                            onClick={() => {
+                                const selectedVideos = Array.from(selectedIds).map(id => videos.find(v => v.id === id)).filter(Boolean);
+                                const batchPayload = selectedVideos.map((v: any, idx: number) => ({
+                                    id: `gallery-${v.id}-${Date.now()}-${idx}`,
+                                    title: v.title || v.file_name || `수집 영상 #${idx + 1}`,
+                                    sourceType: 'video_vault',
+                                    archetype: 'classic',
+                                    originalUrl: v.url || '',
+                                    sourceOrigin: '수집 영상 보관함',
+                                    viralScore: 90.0,
+                                    mediaFilePath: v.file_path || null,
+                                    analysisSummary: `보관함 비디오: ${v.title}`,
+                                    scriptLinesCount: 6,
+                                    headlineLine1: (v.title || '').slice(0, 14),
+                                    headlineLine2: '충격 화제 영상',
+                                    contentTranscript: v.title || '',
+                                    scenes: [1, 2, 3, 4, 5, 6].map(i => ({
+                                        sceneIndex: i,
+                                        duration: 4.0,
+                                        hookJabText: i === 1 ? (v.title || '').slice(0, 15) : '',
+                                        narration: '',
+                                        visualPrompt: '',
+                                        imageUrl: null,
+                                    })),
+                                    metadata: v,
+                                    status: 'ready' as const,
+                                    createdAt: '방금 전',
+                                }));
+                                try {
+                                    sessionStorage.setItem('vlstudio_batch_handoff', JSON.stringify(batchPayload));
+                                } catch (_) {}
+                                toast.success(`⚡ ${batchPayload.length}개 영상이 [올인원 일괄 생성 허브]로 전송되었습니다.`);
+                                navigate('/shorts-batch', { state: { batchProjects: batchPayload } });
+                            }}
+                            className="bg-primary hover:bg-primary/90 active:scale-95 text-primary-foreground font-bold text-xs px-3 py-2 rounded-xl transition-all flex items-center gap-1.5 shadow-md h-auto"
+                        >
+                            <Zap className="w-3.5 h-3.5 fill-current text-amber-300" />
+                            ⚡ 올인원 일괄 생성 ({selectedIds.size})
+                        </Button>
+
+                        {/* 🎬 미디어 일괄 생성 전송 */}
+                        <Button 
+                            onClick={() => {
+                                const selectedVideos = Array.from(selectedIds).map(id => videos.find(v => v.id === id)).filter(Boolean);
+                                const batchProjects = selectedVideos.map((v: any, idx: number) => ({
+                                    id: `creative-video-${v.id}-${Date.now()}-${idx}`,
+                                    title: v.title || v.file_name || `수집 영상 #${idx + 1}`,
+                                    content: v.title || '',
+                                    mediaFilePath: v.file_path || null,
+                                    sourceOrigin: '수집 영상 보관함',
+                                }));
+                                try {
+                                    sessionStorage.setItem('creative_studio_batch_projects', JSON.stringify(batchProjects));
+                                    if (batchProjects[0]) {
+                                        sessionStorage.setItem('creative_studio_initial_title', batchProjects[0].title);
+                                        sessionStorage.setItem('creative_studio_initial_script', batchProjects.map((p: any, idx: number) => `[장면 ${idx + 1}: ${p.title}]\n${p.content}`).join('\n\n---\n\n'));
+                                    }
+                                } catch (_) {}
+                                toast.success(`🎬 ${batchProjects.length}개 영상이 [미디어 일괄 생성 스튜디오]로 전송되었습니다.`);
+                                navigate('/creative-studio', { state: { batchProjects } });
+                            }}
+                            className="bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-xs px-3 py-2 rounded-xl transition-all border border-emerald-500/50 flex items-center gap-1.5 shadow-md h-auto"
+                        >
+                            <Clapperboard className="w-3.5 h-3.5 text-emerald-200" />
+                            🎬 미디어 일괄 생성 ({selectedIds.size})
                         </Button>
 
                         <Button 

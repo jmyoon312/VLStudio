@@ -21,7 +21,8 @@ import {
     Eye, EyeOff, Paperclip, Rocket, RotateCcw, FileVideo, Layers, Clock4,
     FileCheck, Hash, Files, Filter, ChevronDown, ChevronUp, Copy, Film,
     Save, FileSpreadsheet, Send, Search, ArrowUpDown, Workflow, Pause,
-    PlaySquare, Settings, Table, Columns2, Volume2, VolumeX, X, SlidersHorizontal
+    PlaySquare, Settings, Table, Columns2, Volume2, VolumeX, X, SlidersHorizontal,
+    Loader2
 } from 'lucide-react';
 
 
@@ -1655,7 +1656,7 @@ const ManualUploadAssist = ({ item }: { item: any }) => {
                     press_enter: key === 'video_file_path' 
                 })
             });
-            if (res.status === 'success') {
+            if (res.ok) {
                 toast({ title: "입력 완료", description: "포커스된 입력창에 내용이 입력되었습니다." });
                 if (stepIndex !== undefined && stepIndex < steps.length - 1) {
                     setCurrentStep(stepIndex + 1);

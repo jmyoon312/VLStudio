@@ -30,7 +30,7 @@ const STORAGE_KEY = 'vlstudio_scout_filter_matrix';
 interface ScoutingFilterPopoverProps {
     config: ScoutFilterConfig;
     onChange: (config: ScoutFilterConfig) => void;
-    aspectFormat: 'shorts' | 'long';
+    aspectFormat: 'shorts' | 'long' | 'all';
 }
 
 export const ScoutingFilterPopover: React.FC<ScoutingFilterPopoverProps> = ({

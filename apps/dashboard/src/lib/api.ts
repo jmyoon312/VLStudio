@@ -422,6 +422,7 @@ export interface ChannelWithReels {
     platform: string;
     category_id?: number;
     thumbnail_path?: string;
+    auto_download?: boolean;
     grade: 'S' | 'A' | 'B' | 'C' | string;
     metrics: {
         subscribers: string;
