@@ -233,8 +233,8 @@ export default function ViralIntelligenceCenter() {
         refetchInterval: 30000,
     });
 
-    // 🌐 Pixeling 3 Tabs & Multi-Routes
-    const [selectedRoute, setSelectedRoute] = useState<MasterRouteKey>('community');
+    // 🌐 Pixeling 3 Tabs & Multi-Routes (Default: Google Trends Premier Radar)
+    const [selectedRoute, setSelectedRoute] = useState<MasterRouteKey>('google_trends');
 
     // 🎴 Pixeling 2-Column Dual Grid (Default) vs Table Mode
     const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
@@ -1237,13 +1237,13 @@ export default function ViralIntelligenceCenter() {
                 </div>
             )}
 
-            {/* 3. 🏛️ Pixeling 3 Tabs & Multi-Routes (커뮤니티 100 | 뉴스 100 | 레딧 100 | 구글 트렌드 | 쇼츠 | 보관함 | 대본실) */}
+            {/* 3. 🏛️ Pixeling Tabs & Multi-Routes: 1단계 구글 트렌드 레이더 ➔ 2단계 커뮤니티/뉴스 ➔ 3단계 쇼츠 ➔ 4단계 보관함 */}
             <div className="flex items-center gap-1.5 p-1.5 rounded-2xl bg-card border border-border/80 overflow-x-auto shadow-2xs">
                 {[
+                    { key: 'google_trends' as const, label: '🌐 구글 트렌드 150+', count: hudStats?.source_breakdown?.google_trends || 0 },
                     { key: 'community' as const, label: '💬 커뮤니티 100', count: hudStats?.source_breakdown?.community || 0 },
                     { key: 'news' as const, label: '📰 뉴스 100', count: hudStats?.source_breakdown?.news || 0 },
                     { key: 'reddit' as const, label: '💬 레딧 100', count: hudStats?.source_breakdown?.reddit || 0 },
-                    { key: 'google_trends' as const, label: '🌐 구글 트렌드', count: hudStats?.source_breakdown?.google_trends || 0 },
                     { key: 'youtube_shorts' as const, label: '📱 유튜브 쇼츠', count: hudStats?.source_breakdown?.youtube_shorts || 0 },
                     { key: 'video_vault' as const, label: '🎬 영상 보관함', count: hudStats?.source_breakdown?.video_vault || 0 },
                     { key: 'all' as const, label: '🌟 통합 관제', count: hudStats?.total_articles || totalCount },
