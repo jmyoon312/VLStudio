@@ -134,21 +134,33 @@ class GoogleTrendEngine:
         
         # 골든타임 신호등 판정
         if final_score >= 82.0:
-            golden_status = "green"  # 🟢 제작 골든타임
-            golden_desc = "제작 최우선 추천 (서사성 폭발)"
+            golden_status = "green"
+            golden_desc = "초동 골든타임 (18시간 내 진입)"
+            golden_time_urgency = "🟢 초동 골든타임 (18시간)"
+            nvs_tier = "S급 서사"
+            retention_prob = round(min(96.0, 80.0 + (final_score - 80.0) * 0.8), 1)
         elif final_score >= 65.0:
-            golden_status = "yellow" # 🟡 전조 감시 / 관망
-            golden_desc = "전조 모니터링 중"
+            golden_status = "yellow"
+            golden_desc = "확산기 (모니터링 & 빠른 기획)"
+            golden_time_urgency = "🟡 확산 골든타임 (24시간)"
+            nvs_tier = "A급 서사"
+            retention_prob = round(min(88.0, 75.0 + (final_score - 65.0) * 0.6), 1)
         else:
-            golden_status = "red"    # 🔴 단물 빠짐 or 단순 팩트
-            golden_desc = "단순 팩트 / 숏폼 비적합"
+            golden_status = "red"
+            golden_desc = "단순 팩트 / 숏폼 전환 주의"
+            golden_time_urgency = "🔴 레드오션"
+            nvs_tier = "B급 서사"
+            retention_prob = round(max(60.0, 65.0 + (final_score - 50.0) * 0.4), 1)
 
         return {
             "nvs_score": final_score,
+            "nvs_tier": nvs_tier,
+            "retention_prob": retention_prob,
             "primary_trigger": primary_trigger,
             "triggers": triggers or ["일반 호기심"],
             "golden_status": golden_status,
-            "golden_desc": golden_desc
+            "golden_desc": golden_desc,
+            "golden_time_urgency": golden_time_urgency
         }
 
     async def fetch_dual_lens_trends(self, mode: str = "all", category: str = "all", geo: str = "KR") -> Dict[str, Any]:

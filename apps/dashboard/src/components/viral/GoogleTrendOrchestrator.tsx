@@ -284,9 +284,9 @@ export const GoogleTrendOrchestrator: React.FC = () => {
             if (minNvsScore > 0 && item.nvs_score < minNvsScore) return false;
             if (searchQuery.trim()) {
                 const q = searchQuery.toLowerCase();
-                const matchK = item.keyword.toLowerCase().includes(q);
+                const matchK = (item.keyword || '').toLowerCase().includes(q);
                 const matchH = (item.headline || '').toLowerCase().includes(q);
-                const matchT = (item.triggers || []).some((t) => t.toLowerCase().includes(q));
+                const matchT = (item.triggers || []).some((t) => (t || '').toLowerCase().includes(q));
                 if (!matchK && !matchH && !matchT) return false;
             }
             return true;
@@ -527,13 +527,13 @@ export const GoogleTrendOrchestrator: React.FC = () => {
                                         <span
                                             className={cn(
                                                 'text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1',
-                                                item.golden_time_urgency.includes('초동')
+                                                (item.golden_time_urgency || item.golden_desc || '').includes('초동')
                                                     ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30'
                                                     : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30'
                                             )}
                                         >
                                             <Clock className="w-2.5 h-2.5" />
-                                            {item.golden_time_urgency}
+                                            {item.golden_time_urgency || item.golden_desc || '실시간 모멘텀'}
                                         </span>
                                     </div>
 
@@ -568,11 +568,11 @@ export const GoogleTrendOrchestrator: React.FC = () => {
                                                 서사 전환성 (NVS):
                                             </span>
                                             <span className="font-mono font-black text-foreground">
-                                                {item.nvs_score.toFixed(1)}점
-                                                <span className="ml-1 text-[10px] text-primary font-bold">({item.nvs_tier})</span>
+                                                {(item.nvs_score ?? 80).toFixed(1)}점
+                                                <span className="ml-1 text-[10px] text-primary font-bold">({item.nvs_tier || 'A급'})</span>
                                             </span>
                                         </div>
-                                        <Progress value={item.nvs_score} className="h-1.5 bg-muted" />
+                                        <Progress value={item.nvs_score ?? 80} className="h-1.5 bg-muted" />
 
                                         <div className="flex items-center gap-1 flex-wrap pt-1">
                                             <span className="text-[10px] text-muted-foreground">심리 자극:</span>
@@ -586,7 +586,7 @@ export const GoogleTrendOrchestrator: React.FC = () => {
                                                 </Badge>
                                             ))}
                                             <span className="text-[10px] text-muted-foreground ml-auto font-mono">
-                                                시청유지 {item.retention_prob}%
+                                                시청유지 {item.retention_prob ?? 85}%
                                             </span>
                                         </div>
                                     </div>
