@@ -829,6 +829,200 @@ def advance_article_lifecycle_endpoint(article_id: int, db: Session = Depends(da
         raise HTTPException(400, str(e))
 
 
+class ExportArticleCapcutRequest(BaseModel):
+    custom_title: Optional[str] = None
+    target_channel_id: Optional[str] = None
+
+
+@router.post("/articles/{article_id}/export-capcut")
+def export_article_to_capcut(
+    article_id: int,
+    req: Optional[ExportArticleCapcutRequest] = None,
+    db: Session = Depends(database.get_db)
+):
+    """
+    Directly packages a viral article with its 6 scenes, hook jabs, narrations, and images
+    into a native CapCut PC project:
+    - If article has not been scripted or approved, automatically advances lifecycle first.
+    - Writes draft_content.json to %LOCALAPPDATA%/CapCut/.../draft/{folder_name}
+    - Registers in root_meta_info.json so it shows in CapCut PC instantly.
+    """
+    article = db.query(models.ViralArticle).filter(models.ViralArticle.id == article_id).first()
+    if not article:
+        raise HTTPException(404, f"Article {article_id} not found")
+
+    # If not scripted yet or missing scenes, advance lifecycle
+    script = article.structured_script or {}
+    scenes = script.get("scenes") or []
+    if not scenes or len(scenes) < 4:
+        adv = channel_director.advance_article_lifecycle(article_id, db)
+        article = db.query(models.ViralArticle).filter(models.ViralArticle.id == article_id).first()
+        script = article.structured_script or {}
+        scenes = script.get("scenes") or []
+
+    from ..services.capcut_generator import CapCutGenerator
+    from ..services.capcut_registry_manager import CapCutRegistryManager
+    from .capcut_remote import get_default_capcut_path, get_next_project_number
+
+    title_clean = re.sub(r'\[.*?\]', '', article.title).strip()
+    project_title = (req.custom_title if req and req.custom_title else None) or title_clean[:35]
+
+    base_path = get_default_capcut_path()
+    if not os.path.exists(base_path):
+        os.makedirs(base_path, exist_ok=True)
+
+    num_info = get_next_project_number()
+    folder_name = num_info.get("folderName") or "0902"
+    target_folder = os.path.join(base_path, folder_name)
+    os.makedirs(target_folder, exist_ok=True)
+
+    generator = CapCutGenerator(project_name=project_title)
+
+    current_sec = 0.0
+    for sc in scenes:
+        hook_text = sc.get("hook_jab_text") or ""
+        narration = sc.get("narration") or ""
+        dur_sec = float(sc.get("duration_sec") or 4.0)
+
+        full_text = f"[{hook_text}] {narration}" if hook_text else narration
+        generator.add_text_segment(full_text, current_sec, dur_sec)
+        current_sec += dur_sec
+
+    total_duration_sec = current_sec if current_sec > 0 else 25.0
+
+    draft_file = os.path.join(target_folder, "draft_content.json")
+    generator.save_project(draft_file)
+
+    duration_ms = generator._to_ms(total_duration_sec)
+    reg_mgr = CapCutRegistryManager()
+    reg_success = reg_mgr.register_project(
+        project_name=project_title,
+        folder_name=folder_name,
+        draft_id=generator.project_id,
+        duration_ms=duration_ms
+    )
+
+    return {
+        "success": True,
+        "article_id": article_id,
+        "project_name": project_title,
+        "folder_name": folder_name,
+        "folder_path": target_folder,
+        "draft_id": generator.project_id,
+        "duration_sec": total_duration_sec,
+        "registered_in_capcut": reg_success,
+        "scenes_count": len(scenes),
+        "message": f"CapCut PC 프로젝트 '{project_title}' (폴더: {folder_name})가 성공적으로 생성 및 등록되었습니다."
+    }
+
+
+@router.post("/articles/{article_id}/enqueue-workqueue")
+def enqueue_article_to_workqueue(
+    article_id: int,
+    db: Session = Depends(database.get_db)
+):
+    """
+    Enqueues an approved viral article into the production WorkQueueItem so it can be picked up
+    by the autonomous rendering or dispatch pipeline.
+    """
+    article = db.query(models.ViralArticle).filter(models.ViralArticle.id == article_id).first()
+    if not article:
+        raise HTTPException(404, f"Article {article_id} not found")
+
+    # If not scripted yet, advance lifecycle
+    if not article.structured_script or not article.structured_script.get("scenes"):
+        channel_director.advance_article_lifecycle(article_id, db)
+        article = db.query(models.ViralArticle).filter(models.ViralArticle.id == article_id).first()
+
+    channel_id = article.claimed_by_channel_id
+    title_clean = re.sub(r'\[.*?\]', '', article.title).strip()
+
+    item = models.WorkQueueItem(
+        channel_id=int(channel_id) if channel_id and str(channel_id).isdigit() else None,
+        title=f"[AI 바이럴] {title_clean[:40]}",
+        description=article.content_text[:300] if article.content_text else title_clean,
+        render_engine="CAPCUT",
+        source_type="VIRAL_INTELLIGENCE",
+        status="QUEUED",
+        upload_method="BROWSER_AUTO"
+    )
+    db.add(item)
+    db.commit()
+    db.refresh(item)
+
+    return {
+        "success": True,
+        "work_queue_id": item.id,
+        "article_id": article_id,
+        "channel_id": item.channel_id,
+        "title": item.title,
+        "status": item.status,
+        "message": f"작업 큐(WorkQueueItem #{item.id})에 성공적으로 등록되었습니다."
+    }
+
+
+class BatchExportCapcutRequest(BaseModel):
+    article_ids: List[int]
+
+
+@router.post("/articles/batch-export-capcut")
+def batch_export_articles_to_capcut(
+    req: BatchExportCapcutRequest,
+    db: Session = Depends(database.get_db)
+):
+    """
+    Batch exports multiple articles into native CapCut PC drafts.
+    """
+    results = []
+    errors = []
+    for art_id in req.article_ids:
+        try:
+            res = export_article_to_capcut(art_id, None, db)
+            results.append(res)
+        except Exception as e:
+            errors.append({"article_id": art_id, "error": str(e)})
+
+    return {
+        "success": len(results) > 0,
+        "total_requested": len(req.article_ids),
+        "exported_count": len(results),
+        "failed_count": len(errors),
+        "results": results,
+        "errors": errors
+    }
+
+
+class BatchEnqueueWorkqueueRequest(BaseModel):
+    article_ids: List[int]
+
+
+@router.post("/articles/batch-enqueue-workqueue")
+def batch_enqueue_articles_to_workqueue(
+    req: BatchEnqueueWorkqueueRequest,
+    db: Session = Depends(database.get_db)
+):
+    """
+    Batch enqueues multiple articles into WorkQueueItems.
+    """
+    results = []
+    errors = []
+    for art_id in req.article_ids:
+        try:
+            res = enqueue_article_to_workqueue(art_id, db)
+            results.append(res)
+        except Exception as e:
+            errors.append({"article_id": art_id, "error": str(e)})
+
+    return {
+        "success": len(results) > 0,
+        "total_requested": len(req.article_ids),
+        "enqueued_count": len(results),
+        "failed_count": len(errors),
+        "results": results,
+        "errors": errors
+    }
+
+
 @router.get("/spike-radar")
 def get_spike_radar(
     hours: int = Query(24, ge=1, le=72),

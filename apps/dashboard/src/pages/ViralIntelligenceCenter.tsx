@@ -147,6 +147,9 @@ export interface ViralArticle {
     topic_category?: string;
     media_type?: string;
     entity_tags?: string[];
+    cross_topics?: string[];
+    series_key?: string | null;
+    status?: string;
     claimed_by_channel_id?: string | null;
     psychological_trigger?: string;
     retention_probability?: number;
@@ -777,10 +780,14 @@ export default function ViralIntelligenceCenter() {
                 custom_title: pack.suggested_omnibus_title
             });
             if (res.data?.success) {
-                toast.success(`🎉 CapCut PC 프로젝트가 생성되었습니다! (${res.data.project_name})`);
-                if (res.data.draft_path) {
-                    toast.info(`경로: ${res.data.draft_path}`, { duration: 6000 });
-                }
+                const folderPath = res.data.folder_path || res.data.draft_path;
+                toast.success(`🎉 CapCut PC 프로젝트가 생성되었습니다! (${res.data.project_name})`, {
+                    duration: 8000,
+                    action: folderPath && (window as any).electronAPI?.showInFolder ? {
+                        label: '📁 폴더 열기',
+                        onClick: () => (window as any).electronAPI.showInFolder(folderPath)
+                    } : undefined
+                });
             } else {
                 toast.error(res.data?.message || 'CapCut 프로젝트 생성 실패');
             }
@@ -813,6 +820,111 @@ export default function ViralIntelligenceCenter() {
             toast.error(err.response?.data?.detail || 'AI 채널 배분 중 오류가 발생했습니다.');
         } finally {
             setIsDispatching(false);
+        }
+    };
+
+    // 🎬 Export Single Viral Article to Native CapCut PC Project
+    const [exportingArticleId, setExportingArticleId] = useState<number | null>(null);
+    const handleExportSingleArticleToCapcut = async (article: ViralArticle) => {
+        if (!article) return;
+        setExportingArticleId(article.id);
+        try {
+            const res = await api.post(`/viral/articles/${article.id}/export-capcut`);
+            if (res.data?.success) {
+                const folderPath = res.data.folder_path;
+                toast.success(`🎉 CapCut PC 프로젝트 생성 완료! (${res.data.project_name})`, {
+                    duration: 8000,
+                    action: folderPath && (window as any).electronAPI?.showInFolder ? {
+                        label: '📁 폴더 열기',
+                        onClick: () => (window as any).electronAPI.showInFolder(folderPath)
+                    } : undefined
+                });
+            } else {
+                toast.error(res.data?.message || 'CapCut 프로젝트 생성 실패');
+            }
+        } catch (err: any) {
+            console.error('[ExportArticleCapcut] Error:', err);
+            toast.error(err.response?.data?.detail || 'CapCut 프로젝트 생성 중 오류가 발생했습니다.');
+        } finally {
+            setExportingArticleId(null);
+        }
+    };
+
+    // 📥 Enqueue Single Viral Article to WorkQueue
+    const [enqueuingArticleId, setEnqueuingArticleId] = useState<number | null>(null);
+    const handleEnqueueSingleArticleToWorkQueue = async (article: ViralArticle) => {
+        if (!article) return;
+        setEnqueuingArticleId(article.id);
+        try {
+            const res = await api.post(`/viral/articles/${article.id}/enqueue-workqueue`);
+            if (res.data?.success) {
+                toast.success(`📥 제작 큐 등록 완료! (WorkQueueItem #${res.data.work_queue_id})`);
+            } else {
+                toast.error(res.data?.message || '제작 큐 등록 실패');
+            }
+        } catch (err: any) {
+            console.error('[EnqueueArticleWorkQueue] Error:', err);
+            toast.error(err.response?.data?.detail || '제작 큐 등록 중 오류가 발생했습니다.');
+        } finally {
+            setEnqueuingArticleId(null);
+        }
+    };
+
+    // 🎬 Batch Export Articles to Native CapCut PC Projects
+    const [isBatchExportingCapcut, setIsBatchExportingCapcut] = useState<boolean>(false);
+    const handleBatchExportArticlesToCapcut = async (selectedArticles: ViralArticle[]) => {
+        if (!selectedArticles || selectedArticles.length === 0) {
+            toast.error('선택된 항목이 없습니다.');
+            return;
+        }
+        setIsBatchExportingCapcut(true);
+        try {
+            const articleIds = selectedArticles.map(a => a.id);
+            const res = await api.post('/viral/articles/batch-export-capcut', { article_ids: articleIds });
+            if (res.data?.success) {
+                const firstResult = res.data.results?.[0];
+                const folderPath = firstResult?.folder_path;
+                toast.success(`🎉 총 ${res.data.exported_count}개의 CapCut PC 프로젝트가 생성되었습니다!`, {
+                    duration: 8000,
+                    action: folderPath && (window as any).electronAPI?.showInFolder ? {
+                        label: '📁 폴더 열기',
+                        onClick: () => (window as any).electronAPI.showInFolder(folderPath)
+                    } : undefined
+                });
+                setSelectedArticleIds([]);
+            } else {
+                toast.error('CapCut PC 일괄 프로젝트 생성 실패');
+            }
+        } catch (err: any) {
+            console.error('[BatchExportCapcut] Error:', err);
+            toast.error(err.response?.data?.detail || 'CapCut PC 일괄 생성 중 오류가 발생했습니다.');
+        } finally {
+            setIsBatchExportingCapcut(false);
+        }
+    };
+
+    // 📥 Batch Enqueue Articles to WorkQueue
+    const [isBatchEnqueuingWorkQueue, setIsBatchEnqueuingWorkQueue] = useState<boolean>(false);
+    const handleBatchEnqueueArticlesToWorkQueue = async (selectedArticles: ViralArticle[]) => {
+        if (!selectedArticles || selectedArticles.length === 0) {
+            toast.error('선택된 항목이 없습니다.');
+            return;
+        }
+        setIsBatchEnqueuingWorkQueue(true);
+        try {
+            const articleIds = selectedArticles.map(a => a.id);
+            const res = await api.post('/viral/articles/batch-enqueue-workqueue', { article_ids: articleIds });
+            if (res.data?.success) {
+                toast.success(`📥 총 ${res.data.enqueued_count}개 소재가 제작 대기열(WorkQueue)에 등록되었습니다!`);
+                setSelectedArticleIds([]);
+            } else {
+                toast.error('제작 대기열 일괄 등록 실패');
+            }
+        } catch (err: any) {
+            console.error('[BatchEnqueueWorkQueue] Error:', err);
+            toast.error(err.response?.data?.detail || '제작 대기열 등록 중 오류가 발생했습니다.');
+        } finally {
+            setIsBatchEnqueuingWorkQueue(false);
         }
     };
 
@@ -1790,6 +1902,29 @@ export default function ViralIntelligenceCenter() {
                                                     #{tag}
                                                 </span>
                                             ))}
+                                            {art.cross_topics && art.cross_topics.length > 0 && (
+                                                <Badge variant="outline" className="text-[9px] h-3.5 px-1 font-bold bg-purple-500/10 text-purple-700 dark:text-purple-300 border-purple-500/30">
+                                                    ⚡ {art.cross_topics.join(' × ')}
+                                                </Badge>
+                                            )}
+                                            {art.series_key && (
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setSelectedSeriesKey(art.series_key!);
+                                                        setPage(1);
+                                                    }}
+                                                    className="text-[9px] h-3.5 px-1 font-black bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 rounded hover:bg-emerald-500/30 cursor-pointer flex items-center gap-0.5"
+                                                    title="클릭하여 이 시리즈 팩 소재 모아보기"
+                                                >
+                                                    🎬 옴니버스
+                                                </button>
+                                            )}
+                                            {art.status === 'approved' && (
+                                                <span className="text-[9px] font-black text-emerald-600 dark:text-emerald-400 bg-emerald-500/15 border border-emerald-500/30 px-1.5 py-0.2 rounded">
+                                                    ✓ Critic 합격
+                                                </span>
+                                            )}
                                             {art.claimed_by_channel_id && (
                                                 <span className="text-[9px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 border border-indigo-500/20 px-1.5 py-0.2 rounded ml-auto">
                                                     📌 배속됨
@@ -1894,6 +2029,21 @@ export default function ViralIntelligenceCenter() {
                                                     title="썰형 전용 편집기로 바로 이동"
                                                 >
                                                     💬 썰형 제작
+                                                </Button>
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    disabled={exportingArticleId === art.id}
+                                                    onClick={() => handleExportSingleArticleToCapcut(art)}
+                                                    className="h-6 px-2 text-[10px] font-bold border-cyan-500/40 bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-500/20 cursor-pointer flex items-center gap-1"
+                                                    title="CapCut PC 원클릭 프로젝트로 내보내기"
+                                                >
+                                                    {exportingArticleId === art.id ? (
+                                                        <RefreshCw className="w-2.5 h-2.5 animate-spin text-cyan-500" />
+                                                    ) : (
+                                                        <Film className="w-2.5 h-2.5 text-cyan-500" />
+                                                    )}
+                                                    CapCut
                                                 </Button>
                                             </div>
                                         </div>
@@ -2006,6 +2156,29 @@ export default function ViralIntelligenceCenter() {
                                                     #{tag}
                                                 </span>
                                             ))}
+                                            {art.cross_topics && art.cross_topics.length > 0 && (
+                                                <Badge variant="outline" className="text-[9px] h-3.5 px-1 font-bold bg-purple-500/10 text-purple-700 dark:text-purple-300 border-purple-500/30">
+                                                    ⚡ {art.cross_topics.join(' × ')}
+                                                </Badge>
+                                            )}
+                                            {art.series_key && (
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setSelectedSeriesKey(art.series_key!);
+                                                        setPage(1);
+                                                    }}
+                                                    className="text-[9px] h-3.5 px-1 font-black bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 rounded hover:bg-emerald-500/30 cursor-pointer flex items-center gap-0.5"
+                                                    title="클릭하여 이 시리즈 팩 소재 모아보기"
+                                                >
+                                                    🎬 옴니버스
+                                                </button>
+                                            )}
+                                            {art.status === 'approved' && (
+                                                <span className="text-[9px] font-black text-emerald-600 dark:text-emerald-400 bg-emerald-500/15 border border-emerald-500/30 px-1.5 py-0.2 rounded">
+                                                    ✓ Critic 합격
+                                                </span>
+                                            )}
                                             {art.claimed_by_channel_id && (
                                                 <span className="text-[9px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 border border-indigo-500/20 px-1.5 py-0.2 rounded ml-auto">
                                                     📌 배속됨
@@ -2107,6 +2280,21 @@ export default function ViralIntelligenceCenter() {
                                                     title="썰형 전용 편집기로 바로 이동"
                                                 >
                                                     💬 썰형 제작
+                                                </Button>
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    disabled={exportingArticleId === art.id}
+                                                    onClick={() => handleExportSingleArticleToCapcut(art)}
+                                                    className="h-6 px-2 text-[10px] font-bold border-cyan-500/40 bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-500/20 cursor-pointer flex items-center gap-1"
+                                                    title="CapCut PC 원클릭 프로젝트로 내보내기"
+                                                >
+                                                    {exportingArticleId === art.id ? (
+                                                        <RefreshCw className="w-2.5 h-2.5 animate-spin text-cyan-500" />
+                                                    ) : (
+                                                        <Film className="w-2.5 h-2.5 text-cyan-500" />
+                                                    )}
+                                                    CapCut
                                                 </Button>
                                             </div>
                                         </div>
@@ -2227,6 +2415,29 @@ export default function ViralIntelligenceCenter() {
                                                                 #{tag}
                                                             </span>
                                                         ))}
+                                                        {art.cross_topics && art.cross_topics.length > 0 && (
+                                                            <Badge variant="outline" className="text-[9px] h-3.5 px-1 font-bold bg-purple-500/10 text-purple-700 dark:text-purple-300 border-purple-500/30">
+                                                                ⚡ {art.cross_topics.join(' × ')}
+                                                            </Badge>
+                                                        )}
+                                                        {art.series_key && (
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setSelectedSeriesKey(art.series_key!);
+                                                                    setPage(1);
+                                                                }}
+                                                                className="text-[9px] h-3.5 px-1 font-black bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 rounded hover:bg-emerald-500/30 cursor-pointer flex items-center gap-0.5"
+                                                                title="클릭하여 이 시리즈 팩 소재 모아보기"
+                                                            >
+                                                                🎬 옴니버스
+                                                            </button>
+                                                        )}
+                                                        {art.status === 'approved' && (
+                                                            <span className="text-[9px] font-black text-emerald-600 dark:text-emerald-400 bg-emerald-500/15 border border-emerald-500/30 px-1.5 py-0.2 rounded">
+                                                                ✓ Critic 합격
+                                                            </span>
+                                                        )}
                                                         {art.claimed_by_channel_id && (
                                                             <span className="text-[9px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 border border-indigo-500/20 px-1 rounded">
                                                                 📌 배속됨
@@ -2281,6 +2492,21 @@ export default function ViralIntelligenceCenter() {
                                                     className="h-6 px-2 text-[10px] font-bold border-indigo-500/40 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-500/10 cursor-pointer"
                                                 >
                                                     썰형
+                                                </Button>
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    disabled={exportingArticleId === art.id}
+                                                    onClick={() => handleExportSingleArticleToCapcut(art)}
+                                                    className="h-6 px-2 text-[10px] font-bold border-cyan-500/40 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-500/10 cursor-pointer flex items-center gap-1"
+                                                    title="CapCut PC 원클릭 프로젝트 생성"
+                                                >
+                                                    {exportingArticleId === art.id ? (
+                                                        <RefreshCw className="w-2.5 h-2.5 animate-spin text-cyan-500" />
+                                                    ) : (
+                                                        <Film className="w-2.5 h-2.5 text-cyan-500" />
+                                                    )}
+                                                    CapCut
                                                 </Button>
                                             </div>
                                         </TableCell>
@@ -2881,6 +3107,36 @@ export default function ViralIntelligenceCenter() {
                                     <CheckCircle2 className="w-3.5 h-3.5" />
                                     🎬 영상 보관함 저장
                                 </Button>
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    disabled={exportingArticleId === activeArticle.id}
+                                    onClick={() => handleExportSingleArticleToCapcut(activeArticle)}
+                                    className="h-8 text-xs font-bold border-cyan-500/40 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-500/10 cursor-pointer gap-1"
+                                    title="CapCut PC 원클릭 프로젝트(6씬 대본 및 미디어)로 내보내기"
+                                >
+                                    {exportingArticleId === activeArticle.id ? (
+                                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                                    ) : (
+                                        <Film className="w-3.5 h-3.5 text-cyan-500" />
+                                    )}
+                                    🎬 CapCut PC 생성
+                                </Button>
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    disabled={enqueuingArticleId === activeArticle.id}
+                                    onClick={() => handleEnqueueSingleArticleToWorkQueue(activeArticle)}
+                                    className="h-8 text-xs font-bold border-purple-500/40 text-purple-600 dark:text-purple-400 hover:bg-purple-500/10 cursor-pointer gap-1"
+                                    title="제작 대기열(WorkQueue)에 등록하여 무인 자율 파이프라인으로 전송"
+                                >
+                                    {enqueuingArticleId === activeArticle.id ? (
+                                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                                    ) : (
+                                        <FolderPlus className="w-3.5 h-3.5 text-purple-500" />
+                                    )}
+                                    📥 제작 큐 등록
+                                </Button>
                             </div>
 
                             <Button
@@ -2943,6 +3199,36 @@ export default function ViralIntelligenceCenter() {
                         >
                             <CheckCircle2 className="w-3.5 h-3.5 text-emerald-200" />
                             🎬 영상 보관함 등록 ({selectedArticleIds.length})
+                        </Button>
+
+                        {/* 5. CapCut PC 일괄 내보내기 */}
+                        <Button
+                            onClick={() => handleBatchExportArticlesToCapcut(articles.filter(a => selectedArticleIds.includes(a.id)))}
+                            disabled={isBatchExportingCapcut}
+                            className="bg-cyan-600 hover:bg-cyan-700 active:scale-95 text-white font-bold text-xs px-3 py-2 rounded-xl transition-all flex items-center gap-1.5 shadow-md h-auto cursor-pointer"
+                            title="선택된 모든 소재를 각각의 CapCut PC 프로젝트로 일괄 생성"
+                        >
+                            {isBatchExportingCapcut ? (
+                                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                            ) : (
+                                <Film className="w-3.5 h-3.5 text-cyan-200" />
+                            )}
+                            🎬 CapCut 일괄 생성 ({selectedArticleIds.length})
+                        </Button>
+
+                        {/* 6. 제작 큐 일괄 등록 */}
+                        <Button
+                            onClick={() => handleBatchEnqueueArticlesToWorkQueue(articles.filter(a => selectedArticleIds.includes(a.id)))}
+                            disabled={isBatchEnqueuingWorkQueue}
+                            className="bg-purple-600 hover:bg-purple-700 active:scale-95 text-white font-bold text-xs px-3 py-2 rounded-xl transition-all flex items-center gap-1.5 shadow-md h-auto cursor-pointer"
+                            title="선택된 소재를 무인 제작 대기열(WorkQueue)에 등록"
+                        >
+                            {isBatchEnqueuingWorkQueue ? (
+                                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                            ) : (
+                                <FolderPlus className="w-3.5 h-3.5 text-purple-200" />
+                            )}
+                            📥 큐 등록 ({selectedArticleIds.length})
                         </Button>
 
                         {/* 5. 원본 전문 & 이미지 일괄 심층 스크랩 */}
