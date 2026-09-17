@@ -2012,19 +2012,26 @@ export default function ViralIntelligenceCenter() {
                             )}
 
                             {/* Tab 1: Full Content Text with Inline Media & Collapsible Image Gallery */}
-                            {inspectionTab === 'full_content' && (
+                            {inspectionTab === 'full_content' && (() => {
+                                const isVideoPoster = (url: string) => url.includes('.mp4.thumb') || url.includes('.thumb.webp') || url.includes('.thumb.');
+                                const realPhotos = (activeArticle.images || []).filter(img => !isVideoPoster(img));
+                                const posterVideos = (activeArticle.images || []).filter(isVideoPoster).map(img =>
+                                    img.replace('image.fmkorea.com', 'mediak5jvqbd.fmkorea.com').replace('.thumb.webp', '') + '?d'
+                                );
+
+                                return (
                                 <div className="space-y-4">
-                                    {/* High-Res Body Images Grid (Collapsible) */}
-                                    {activeArticle.images && activeArticle.images.length > 0 && (
+                                    {/* High-Res Body Images Grid (Collapsible) - ONLY REAL PHOTOS */}
+                                    {realPhotos.length > 0 && (
                                         <div className="space-y-2 p-3 rounded-xl bg-card border border-border/80">
                                             <div className="flex items-center justify-between">
                                                 <h4 className="font-bold text-foreground text-xs flex items-center gap-1.5">
                                                     <ImageIcon className="w-3.5 h-3.5 text-primary" /> 수집된 원본 사진 모아보기
                                                     <Badge variant="outline" className="text-[10px] h-4 px-1.5 border-primary/30 text-primary">
-                                                        {activeArticle.images.length}장
+                                                        {realPhotos.length}장
                                                     </Badge>
                                                 </h4>
-                                                {activeArticle.images.length > 4 && (
+                                                {realPhotos.length > 4 && (
                                                     <Button
                                                         size="sm"
                                                         variant="ghost"
@@ -2037,14 +2044,14 @@ export default function ViralIntelligenceCenter() {
                                                             </>
                                                         ) : (
                                                             <>
-                                                                <ChevronDown className="w-3 h-3" /> 전체 ({activeArticle.images.length}장) 보기
+                                                                <ChevronDown className="w-3 h-3" /> 전체 ({realPhotos.length}장) 보기
                                                             </>
                                                         )}
                                                     </Button>
                                                 )}
                                             </div>
                                             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                                                {(isGalleryExpanded ? activeArticle.images : activeArticle.images.slice(0, 4)).map((img, idx) => (
+                                                {(isGalleryExpanded ? realPhotos : realPhotos.slice(0, 4)).map((img, idx) => (
                                                     <div
                                                         key={idx}
                                                         onClick={() => setLightboxImage({
@@ -2065,10 +2072,11 @@ export default function ViralIntelligenceCenter() {
                                         </div>
                                     )}
 
-                                    {/* Inline Media Rich Reader */}
+                                    {/* Inline Media Rich Reader with Extra Converted Videos */}
                                     <InlineArticleRenderer
                                         contentText={activeArticle.content_text}
                                         images={activeArticle.images}
+                                        extraVideos={posterVideos}
                                         onOpenImage={(imgUrl) => setLightboxImage({
                                             url: getProxyImageUrl(imgUrl),
                                             title: activeArticle.title,
@@ -2078,7 +2086,8 @@ export default function ViralIntelligenceCenter() {
                                         onOpenExternal={(url, e) => handleOpenExternal(url, e)}
                                     />
                                 </div>
-                            )}
+                                );
+                            })()}
 
                             {/* Tab 2: AI Narrative & 4-Stage Timeline & Scenes */}
                             {inspectionTab === 'narrative' && (

@@ -92,6 +92,7 @@ interface InlineToken {
 interface InlineArticleRendererProps {
     contentText?: string | null;
     images?: string[];
+    extraVideos?: string[];
     onOpenImage?: (url: string) => void;
     onOpenExternal?: (url?: string, e?: React.MouseEvent) => void;
     className?: string;
@@ -100,6 +101,7 @@ interface InlineArticleRendererProps {
 export const InlineArticleRenderer: React.FC<InlineArticleRendererProps> = ({
     contentText,
     images = [],
+    extraVideos = [],
     onOpenImage,
     onOpenExternal,
     className
@@ -107,26 +109,24 @@ export const InlineArticleRenderer: React.FC<InlineArticleRendererProps> = ({
     const [isExpanded, setIsExpanded] = useState(false);
     const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
 
-    // Media token parsing from content text
+    // Media token parsing from content text and images
     const { tokens, imageCount, videoCount } = useMemo(() => {
-        if (!contentText) {
-            return { tokens: [], imageCount: 0, videoCount: 0 };
-        }
-
+        const textToParse = contentText || '';
         const MEDIA_REGEX = /(!\[([\s\S]*?)\]\((https?:\/\/[^\s\)]+)\)|\[동영상:\s*(https?:\/\/[^\s\]]+)\])/g;
         const result: InlineToken[] = [];
         let lastIndex = 0;
         let imgCnt = 0;
         let vidCnt = 0;
+        const seenVideos = new Set<string>();
 
         let match: RegExpExecArray | null;
-        while ((match = MEDIA_REGEX.exec(contentText)) !== null) {
+        while ((match = MEDIA_REGEX.exec(textToParse)) !== null) {
             const matchStart = match.index;
             const matchEnd = match.index + match[0].length;
 
             // Preceding text chunk
             if (matchStart > lastIndex) {
-                const textChunk = contentText.slice(lastIndex, matchStart);
+                const textChunk = textToParse.slice(lastIndex, matchStart);
                 const sanitized = sanitizeTextChunk(textChunk);
                 if (sanitized.length > 0) {
                     result.push({ type: 'text', text: sanitized });
@@ -135,36 +135,72 @@ export const InlineArticleRenderer: React.FC<InlineArticleRendererProps> = ({
 
             // Media token
             if (match[2] !== undefined && match[3] !== undefined) {
-                // Image: ![alt](url)
-                result.push({
-                    type: 'image',
-                    alt: match[2] || '본문 이미지',
-                    url: match[3]
-                });
-                imgCnt++;
+                const imgUrl = match[3];
+                // Check if this image is actually an FMKorea video thumbnail
+                if (imgUrl.includes('.mp4.thumb') || imgUrl.includes('.thumb.webp')) {
+                    const vidUrl = imgUrl.replace('image.fmkorea.com', 'mediak5jvqbd.fmkorea.com').replace('.thumb.webp', '') + '?d';
+                    if (!seenVideos.has(vidUrl)) {
+                        seenVideos.add(vidUrl);
+                        result.push({
+                            type: 'video',
+                            url: vidUrl
+                        });
+                        vidCnt++;
+                    }
+                } else {
+                    result.push({
+                        type: 'image',
+                        alt: match[2] || '본문 이미지',
+                        url: imgUrl
+                    });
+                    imgCnt++;
+                }
             } else if (match[4] !== undefined) {
-                // Video: [동영상: url]
-                result.push({
-                    type: 'video',
-                    url: match[4]
-                });
-                vidCnt++;
+                const vUrl = match[4];
+                if (!seenVideos.has(vUrl)) {
+                    seenVideos.add(vUrl);
+                    result.push({
+                        type: 'video',
+                        url: vUrl
+                    });
+                    vidCnt++;
+                }
             }
 
             lastIndex = matchEnd;
         }
 
         // Remaining text chunk
-        if (lastIndex < contentText.length) {
-            const textChunk = contentText.slice(lastIndex);
+        if (lastIndex < textToParse.length) {
+            const textChunk = textToParse.slice(lastIndex);
             const sanitized = sanitizeTextChunk(textChunk);
             if (sanitized.length > 0) {
                 result.push({ type: 'text', text: sanitized });
             }
         }
 
+        // Additional video URLs passed from props or converted from images
+        const allExtra = [...(extraVideos || [])];
+        images.forEach(img => {
+            if (img.includes('.mp4.thumb') || img.includes('.thumb.webp')) {
+                const vidUrl = img.replace('image.fmkorea.com', 'mediak5jvqbd.fmkorea.com').replace('.thumb.webp', '') + '?d';
+                allExtra.push(vidUrl);
+            }
+        });
+
+        allExtra.forEach(vid => {
+            if (vid && !seenVideos.has(vid)) {
+                seenVideos.add(vid);
+                result.unshift({
+                    type: 'video',
+                    url: vid
+                });
+                vidCnt++;
+            }
+        });
+
         return { tokens: result, imageCount: imgCnt, videoCount: vidCnt };
-    }, [contentText]);
+    }, [contentText, images, extraVideos]);
 
     const handleCopy = (textToCopy: string, index?: number) => {
         navigator.clipboard.writeText(textToCopy);
@@ -175,10 +211,10 @@ export const InlineArticleRenderer: React.FC<InlineArticleRendererProps> = ({
         toast.success('클립보드에 복사되었습니다.');
     };
 
-    if (!contentText || contentText.trim().length === 0) {
+    if (tokens.length === 0 && (!contentText || contentText.trim().length === 0)) {
         return (
             <div className="p-8 text-center rounded-2xl bg-muted/20 border border-dashed border-border/80 text-muted-foreground">
-                <p className="text-sm font-medium">수집된 본문 내용이 없습니다.</p>
+                <p className="text-sm font-medium">수집된 본문 내용 및 미디어가 없습니다.</p>
                 <p className="text-xs text-muted-foreground/70 mt-1">상단의 [원문 심층 재수집] 버튼을 눌러 본문 전체를 다시 크롤링할 수 있습니다.</p>
             </div>
         );

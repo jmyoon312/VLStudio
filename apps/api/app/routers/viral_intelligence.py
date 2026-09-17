@@ -1,5 +1,7 @@
 import logging
 import os
+import re
+import asyncio
 import math
 from datetime import datetime, timedelta
 from typing import Dict, Any, List, Optional
@@ -64,7 +66,41 @@ def _article_to_dict(art: models.ViralArticle, include_comments: bool = True) ->
     struct = art.structured_script if isinstance(art.structured_script, dict) else {}
     hook_l1 = struct.get("hook_headline_line1") or struct.get("headline_line1")
     hook_l2 = struct.get("hook_headline_line2") or struct.get("headline_line2")
-    hook_line = f"{hook_l1} {hook_l2}".strip() if (hook_l1 or hook_l2) else (art.suggested_title or (art.title[:40] if art.title else ""))
+
+    # Stale boilerplate detection
+    stale_patterns = ["실시간 조회수 폭발", "믿기 힘든 실제 상황", "네티즌 발칵 뒤집힌 실화", "#쇼츠", "모두를 울컥하게 만든"]
+    is_stale = any(pat in (hook_l1 or "") or pat in (hook_l2 or "") or pat in (art.suggested_title or "") for pat in stale_patterns)
+
+    clean_tit = re.sub(r'^\[.*?\]\s*', '', art.title or '').strip()
+    if (not hook_l1 or is_stale) and clean_tit:
+        # Dynamic contextual hook based on clean title and top comments
+        top_cmt = (art.comments[0].text if art.comments and len(art.comments) > 0 else "")[:30]
+        if top_cmt and len(top_cmt) > 5 and not any(skip in top_cmt for skip in ["삭제", "광고", "http"]):
+            hook_l1 = f'"{top_cmt.strip()}..."'
+            hook_l2 = clean_tit[:22]
+        else:
+            hook_l1 = clean_tit[:20]
+            hook_l2 = "화제의 실시간 이슈 전말"
+        hook_line = f"{hook_l1} {hook_l2}".strip()
+    else:
+        hook_line = f"{hook_l1} {hook_l2}".strip() if (hook_l1 or hook_l2) else (clean_tit[:40] if clean_tit else "")
+
+    # Clean images & ensure videos are separated and preserved
+    raw_images = art.images or []
+    clean_images = []
+    extracted_videos = []
+    for im in raw_images:
+        if any(v_ext in im for v_ext in [".mp4.thumb", ".thumb.webp", ".thumb."]):
+            v_url = im.replace("image.fmkorea.com", "mediak5jvqbd.fmkorea.com").replace(".thumb.webp", "") + "?d"
+            if v_url not in extracted_videos:
+                extracted_videos.append(v_url)
+        else:
+            clean_images.append(im)
+
+    resp_text = art.content_text or ""
+    for ev in extracted_videos:
+        if ev not in resp_text:
+            resp_text = f"[동영상: {ev}]\n\n" + resp_text
 
     is_news = (art.source_type == "news") or ("naver" in (art.community_name or ""))
     base_score = float(art.viral_score or 82.0)
@@ -74,10 +110,13 @@ def _article_to_dict(art: models.ViralArticle, include_comments: bool = True) ->
     dopamine_index = round(min(99.8, max(80.0, base_score * 1.05)), 1)
     recommended_ff = struct.get("suggested_form_factor") or ("gunlimbo" if gunlimbo_score >= ssul_score else "ssul")
 
+    d["content_text"] = resp_text
+    d["images"] = clean_images
+    d["extracted_videos"] = extracted_videos
     d["hook_line"] = hook_line
     d["hook_headline_line1"] = hook_l1
     d["hook_headline_line2"] = hook_l2
-    d["why_viral"] = struct.get("why_viral")
+    d["why_viral"] = struct.get("why_viral") or f"네티즌들의 뜨거운 반응과 높은 화제성을 보유한 {art.category or '이슈'} 콘텐츠"
     d["gunlimbo_score"] = gunlimbo_score
     d["ssul_score"] = ssul_score
     d["classic_score"] = classic_score

@@ -544,7 +544,7 @@ class DiscoveryScraper:
             resp = await client.get(url, headers=headers, timeout=12.0, follow_redirects=True)
             if resp.status_code != 200:
                 logger.debug(f"[DeepExtract] HTTP {resp.status_code} for {url}")
-                return "", [], []
+                return ("", [], [], {"views": 0, "likes": 0, "comments_count": 0, "created_at_source": None}) if return_meta else ("", [], [])
 
             raw_html = resp.text
             if "euc-kr" in resp.headers.get("content-type", "").lower() or community_code in ["humor", "gasengi"]:
@@ -1028,6 +1028,35 @@ class DiscoveryScraper:
         except Exception as e:
             logger.debug(f"[DeepExtract] Exception extracting {url}: {e}")
 
+        if return_meta:
+            meta = {
+                "views": 0,
+                "likes": 0,
+                "comments_count": len(comments),
+                "created_at_source": None
+            }
+            try:
+                if 'soup' in locals() and soup:
+                    # 1. Real Views
+                    v_el = soup.select_one(".gall_count, .hit, .read, .view_count, .count, .side.fr, .document-info .count, .na-view, .article-info .views, .view, .info .view")
+                    if v_el:
+                        meta["views"] = self.parse_metric_number(v_el.get_text())
+                    # 2. Real Likes
+                    l_el = soup.select_one(".gall_recommend, .like, .vote, .recom, .recomd, .good, .voted_count, .article-info .votes, .symph")
+                    if l_el:
+                        meta["likes"] = self.parse_metric_number(l_el.get_text())
+                    # 3. Real Comments count
+                    c_el = soup.select_one(".reply_num, .r-count, .comm, .reply_cnt, .comment-count, .num_comments")
+                    if c_el:
+                        meta["comments_count"] = max(len(comments), self.parse_metric_number(c_el.get_text()))
+                    # 4. Date
+                    d_el = soup.select_one(".gall_date, .date, .side.fr span, .author_info .date, .time, .timestamp, time, .created_at")
+                    if d_el:
+                        meta["created_at_source"] = d_el.get_text(strip=True)
+            except Exception:
+                pass
+            return self.clean_body_noise(body_text), images, comments, meta
+
         return self.clean_body_noise(body_text), images, comments
 
     # ─────────────────────────────────────────────────────────────────────────────
@@ -1136,39 +1165,39 @@ class DiscoveryScraper:
         # ── 4. Diversified 6-Genre Dynamic Hook & Title Library (Zero Monotony) ──
         hook_configs = {
             "공분/참교육": {
-                "title_template": f'"이건 진짜 선 넘었지..." {kr_title[:24]} 결국 터진 대참사 #쇼츠',
-                "narration_hook": f"도저히 상식적으로 납득할 수 없는 사건이 터졌습니다. {first_context}",
-                "jab_text": "선을 넘어도 한참 넘은 만행",
+                "title_template": f"{kr_title} - 네티즌 집중 비판",
+                "narration_hook": f"상식을 벗어난 사건 전개에 여론이 들끓고 있습니다. {first_context}",
+                "jab_text": "네티즌 공분 확산",
                 "v_prompt": f"Dramatic cinematic news close-up depicting viral controversy about {kr_title[:30]}, hyper-realistic 8k dark mood"
             },
             "공감/감동": {
-                "title_template": f'"모두를 울컥하게 만든..." {kr_title[:24]} 가슴 먹먹한 사연 #쇼츠',
-                "narration_hook": f"오늘 수많은 네티즌들의 눈시울을 붉히게 만든 가슴 뭉클한 사연입니다. {first_context}",
-                "jab_text": "모두를 울린 한마디...",
+                "title_template": f"{kr_title} - 가슴 뭉클한 사연",
+                "narration_hook": f"많은 사람들의 마음을 따뜻하게 적신 감동적인 이야기입니다. {first_context}",
+                "jab_text": "눈시울 붉힌 감동 사연",
                 "v_prompt": f"Heartwarming emotional cinematic scene about {kr_title[:30]}, warm golden hour lighting, soft focus"
             },
             "유머/사이다": {
-                "title_template": f'"보는 순간 뿜었다 ㅋㅋㅋ" {kr_title[:24]} 역대급 반전 #쇼츠',
-                "narration_hook": f"처음에는 평범한 이야기인 줄 알았는데, 반전을 보고 다들 뒤집어졌습니다. {first_context}",
-                "jab_text": "역대급 충격 반전 ㅋㅋㅋ",
+                "title_template": f"{kr_title} - 역대급 반전 웃음",
+                "narration_hook": f"평범한 이야기인 줄 알았으나 상상초월의 반전으로 화제가 되었습니다. {first_context}",
+                "jab_text": "역대급 폭소 반전",
                 "v_prompt": f"Hilarious unexpected comedic twist scene about {kr_title[:30]}, dynamic studio lighting, vibrant"
             },
             "가격/가성비충격": {
-                "title_template": f'"이 가격이 진짜 실화라고?" {kr_title[:24]} 난리 난 핵심 이유 #쇼츠',
-                "narration_hook": f"지금 인터넷 커뮤니티마다 가격 때문에 난리가 난 초미의 관심사입니다. {first_context}",
-                "jab_text": "말도 안 되는 가격 충격",
+                "title_template": f"{kr_title} - 가격 대란 분석",
+                "narration_hook": f"충격적인 가격 조건으로 커뮤니티 전역이 발칵 뒤집혔습니다. {first_context}",
+                "jab_text": "가격 충격 화제의 소식",
                 "v_prompt": f"Shocking price reveal graphics, high contrast neon numbers with cinematic news background"
             },
             "정보/호기심": {
-                "title_template": f'"아무도 몰랐던 충격 진실..." {kr_title[:24]} 숨겨진 비밀 #쇼츠',
-                "narration_hook": f"우리가 무심코 지나쳤던 일상 속에, 사실 엄청난 비밀이 숨겨져 있었습니다. {first_context}",
-                "jab_text": "1%만 알던 충격 비밀",
+                "title_template": f"{kr_title} - 숨겨진 진실",
+                "narration_hook": f"평소 잘 알려지지 않았던 핵심 사실이 새롭게 조명받고 있습니다. {first_context}",
+                "jab_text": "흥미진진 핵심 진실",
                 "v_prompt": f"Mysterious documentary cinematic scene revealing secrets about {kr_title[:30]}, moody lighting"
             },
             "도파민/충격": {
-                "title_template": f'"실시간 조회수 폭발 중!" {kr_title[:24]} 믿기 힘든 실제 상황 #쇼츠',
-                "narration_hook": f"지금 실시간으로 조회수가 폭발하며 뜨겁게 논쟁이 붙은 사건입니다. {first_context}",
-                "jab_text": "실시간 조회수 폭발!",
+                "title_template": f"{kr_title} - 화제의 현장 전말",
+                "narration_hook": f"순식간에 수많은 댓글과 반응을 이끌어내며 화제가 된 현장입니다. {first_context}",
+                "jab_text": "실시간 집중 조명",
                 "v_prompt": f"Fast-paced breaking news motion graphics depicting viral explosion about {kr_title[:30]}"
             }
         }
