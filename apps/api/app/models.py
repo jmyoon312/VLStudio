@@ -1645,9 +1645,11 @@ class ViralArticle(Base):
     velocity_score = Column(Float, default=0.0)  # 시간당 반응 가속도 (CPH/VPH)
     cluster_count = Column(Integer, default=1)  # 교차 플랫폼 군집 개수 (동시 보도/언급 수)
     cluster_keywords = Column(JSON, default=list)  # 핵심 주제 엔티티 키워드
-    topic_category = Column(String, index=True, default="일반")  # 10대 표준 대주제 (스포츠, 자동차/교통, 생활/정보 등)
+    topic_category = Column(String, index=True, default="일반")  # 15대 표준 대주제 (스포츠, 자동차/교통, 생활/정보 등)
     media_type = Column(String, index=True, default="text_story")  # video_clip (하이라이트 영상) | image_pack (카드뉴스) | text_story (서사)
     entity_tags = Column(JSON, default=list)  # 세부 토픽 태그 (예: ["테니스", "라켓", "윔블던"])
+    cross_topics = Column(JSON, default=list)  # 2차원 복합 시너지 테마 (예: ["스포츠", "참교육/사이다"])
+    series_key = Column(String, nullable=True, index=True)  # 시리즈 팩 정규화 키 (예: "pack_tennis_highlight")
     psychological_trigger = Column(String, nullable=True)  # 6대 심리 트리거 (공분/참교육, 가격충격, 사이다 등)
     retention_probability = Column(Float, default=0.0)  # 쇼츠 10만뷰 도달 예측 확률 (0-100%)
     lifespan_phase = Column(String, default="surge")  # flash_burn (속보) | surge (급상승) | peak (피크) | steady_burn (에버그린)

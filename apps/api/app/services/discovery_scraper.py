@@ -181,6 +181,38 @@ COMMUNITY_SOURCES: Dict[str, Dict[str, Any]] = {
         "url": "https://www.clien.net/service/board/park",
         "base_url": "https://www.clien.net",
     },
+    # ── [국내 4대 특화 핀포인트 매체 (직장썰/영상/블박/사이다)] ──
+    "blind_best": {
+        "name": "블라인드 베스트",
+        "category": "직장/연애/썰",
+        "region": "domestic",
+        "url": "https://www.teamblind.com/kr/topics/%ED%86%A0%ED%94%BD-%EB%B2%A0%EC%8A%A4%ED%8A%B8",
+        "base_url": "https://www.teamblind.com",
+        "mirror_rss": "https://news.google.com/rss/search?q=%22teamblind.com/kr/post%22&hl=ko&gl=KR&ceid=KR:ko",
+        "use_rss_first": True,
+    },
+    "dc_singal": {
+        "name": "디시 싱글벙글 지구촌",
+        "category": "영상/자연/기상천외",
+        "region": "domestic",
+        "url": "https://gall.dcinside.com/mgallery/board/lists/?id=singbargsingbarg&exception_mode=recommend",
+        "base_url": "https://gall.dcinside.com",
+        "mirror_rss": "https://news.google.com/rss/search?q=site:gall.dcinside.com/mgallery/board/lists/?id=singbargsingbarg&hl=ko&gl=KR&ceid=KR:ko",
+    },
+    "bobae_accident": {
+        "name": "보배 교통사고/블박",
+        "category": "블박/사고/과실",
+        "region": "domestic",
+        "url": "https://www.bobaedream.co.kr/list?code=accident",
+        "base_url": "https://www.bobaedream.co.kr",
+    },
+    "natepann_talk": {
+        "name": "네이트판 결시친",
+        "category": "결혼/시댁/사이다",
+        "region": "domestic",
+        "url": "https://pann.nate.com/talk/ranking/d?stdt=&channel=200110",
+        "base_url": "https://pann.nate.com",
+    },
     # ── [해외 8대 커뮤니티 & 글로벌 채널] ──
     "gasengi": {
         "name": "가생이닷컴",
@@ -264,7 +296,7 @@ NAVER_NEWS_SECTIONS = [
 NAVER_SECTIONS = {s["sid1"]: {"name": s["label"], "category": s["category"], "code": s["code"]} for s in NAVER_NEWS_SECTIONS}
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# 3. REDDIT 10 MAJOR TOPICS
+# 3. REDDIT 17 MAJOR TOPICS (10 일반 메이저 + 7대 전문 영상/쇼츠 서브레딧)
 # ═══════════════════════════════════════════════════════════════════════════════
 REDDIT_TOPICS = {
     "AskReddit": "질문/썰",
@@ -277,6 +309,14 @@ REDDIT_TOPICS = {
     "technology": "테크/IT",
     "funny": "유머/밈",
     "gaming": "게임",
+    # ── 7대 전문 비디오/쇼츠 특화 서브레딧 (NEW) ──
+    "IdiotsInCars": "차량블박/사고",
+    "Damnthatsinteresting": "과학/우주/경이",
+    "SpecializedTools": "산업/특수도구",
+    "FastWorkers": "달인/초고속작업",
+    "NatureIsFuckingLit": "자연/동물경이",
+    "JusticeServed": "참교육/사이다",
+    "UnresolvedMysteries": "미제사건/미스터리",
 }
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -549,12 +589,14 @@ class DiscoveryScraper:
         body: str = "",
         raw_category: str = "",
         images: Optional[List[str]] = None
-    ) -> Tuple[str, str, List[str]]:
+    ) -> Tuple[str, str, List[str], List[List[str]], Optional[str]]:
         """
         Classifies content into:
-        1. topic_category (10 standard genres): 스포츠, 자동차/교통, 사건/사고, 생활/정보, 유머/썰, 연예/방송, IT/테크, 경제/재테크, 해외화제, 반려동물
+        1. topic_category (15 standard genres): 스포츠, 자동차/교통, 사건/사고, 생활/정보, 유머/썰, 연예/방송, IT/테크, 경제/재테크, 해외화제, 반려동물, 미스터리/심리, 역사/전쟁/비화, 과학/우주/경이, 산업현장/달인, 참교육/사이다
         2. media_type: 'video_clip' (direct video/mp4/highlights) | 'image_pack' (3+ images) | 'text_story'
         3. entity_tags: Granular topic tags (e.g. ["테니스", "라켓"], ["축구", "손흥민"], ["블랙박스", "과실비율"])
+        4. cross_topics: List of 2D synergistic topic pairs (e.g. [["스포츠", "참교육/사이다"]])
+        5. series_key: Normalized series clustering key for series pack handoff
         """
         corpus = f"{title} {body}".lower()
         imgs = images or []
@@ -572,9 +614,10 @@ class DiscoveryScraper:
         else:
             media_type = "text_story"
 
-        # B. 10 Standard Topic Rules and Granular Entity Mapping
         entity_tags: List[str] = []
+        cross_topics: List[List[str]] = []
         topic = "생활/정보"
+        series_key: Optional[str] = None
 
         # 1. 스포츠 (Sports)
         sports_entities = {
@@ -590,6 +633,8 @@ class DiscoveryScraper:
             if any(k in corpus for k in kws):
                 topic = "스포츠"
                 entity_tags.append(ent_name)
+                if ent_name in ["테니스", "축구", "야구"] and media_type == "video_clip":
+                    series_key = f"series_{ent_name}_highlights"
 
         # 2. 자동차/교통 (Cars & Traffic)
         car_entities = {
@@ -606,13 +651,53 @@ class DiscoveryScraper:
                 if topic == "생활/정보" or "보배" in corpus or "사고" in corpus or "차" in corpus:
                     topic = "자동차/교통"
                 entity_tags.append(ent_name)
+                if ent_name in ["블랙박스", "과실비율", "주차빌런"]:
+                    series_key = "series_dashcam_accident"
+
+        # 11. 미스터리/심리 (NEW)
+        mystery_kws = ["미스터리", "미제사건", "미제", "괴담", "도시전설", "의문사", "실종사건", "소름돋는", "불가사의", "심령", "unresolved", "creepy", "공포실화"]
+        if any(k in corpus for k in mystery_kws):
+            topic = "미스터리/심리"
+            entity_tags.append("미제사건/미스터리")
+            series_key = "series_unsolved_mystery"
+
+        # 12. 역사/전쟁/비화 (NEW)
+        history_kws = ["역사", "조선", "고려", "삼국시대", "로마", "2차대전", "전쟁", "유물", "고대", "왕조", "황제", "장군", "비사", "야담", "발굴", "artefact", "ancient"]
+        if any(k in corpus for k in history_kws):
+            if topic == "생활/정보":
+                topic = "역사/전쟁/비화"
+                entity_tags.append("역사비화/야담")
+                series_key = "series_history_untold"
+
+        # 13. 과학/우주/경이 (NEW)
+        science_kws = ["우주", "나사", "nasa", "블랙홀", "은하", "심해", "물리", "양자", "오로라", "화산", "자연경이", "natureisfuckinglit", "science", "지구촌"]
+        if any(k in corpus for k in science_kws):
+            if topic == "생활/정보":
+                topic = "과학/우주/경이"
+                entity_tags.append("우주/자연경이")
+                series_key = "series_nature_wonders"
+
+        # 14. 산업현장/달인 (NEW)
+        craft_kws = ["달인", "장인", "해체", "참치", "용접", "선박", "중장비", "제작과정", "수작업", "asmr", "satisfying", "fastworker", "specializedtool"]
+        if any(k in corpus for k in craft_kws):
+            if topic == "생활/정보":
+                topic = "산업현장/달인"
+                entity_tags.append("달인/산업현장")
+                series_key = "series_satisfying_craft"
+
+        # 15. 참교육/사이다 (NEW)
+        justice_kws = ["참교육", "사이다", "인과응보", "역관광", "정의구현", "빌런", "층간소음", "진상손님", "당근마켓빌런", "파혼", "불륜응징", "justiceserved", "instantkarma"]
+        if any(k in corpus for k in justice_kws):
+            if topic in ["생활/정보", "유머/썰"]:
+                topic = "참교육/사이다"
+            entity_tags.append("참교육/사이다")
+            series_key = "series_justice_served"
 
         # 3. 사건/사고 (Crime & Society)
         crime_entities = {
             "갑질폭로": ["갑질", "폭로", "횡포", "진상", "손님"],
             "사기/피싱": ["사기", "피싱", "보이스피싱", "전세사기", "먹튀", "사기꾼"],
             "학폭/폭행": ["학폭", "학교폭력", "폭행", "구타", "상해"],
-            "참교육/사이다": ["참교육", "사이다", "역관광", "인과응보", "정의구현"],
             "재판/수사": ["구속", "체포", "경찰", "검찰", "재판", "징역", "판결", "벌금형"]
         }
         for ent_name, kws in crime_entities.items():
@@ -700,7 +785,7 @@ class DiscoveryScraper:
                 entity_tags.append(ent_name)
 
         # 10. 해외화제 (Global)
-        if any(w in corpus for w in ["기상천외", "충격 실화", "미스터리", "해외토픽", "세계 최초", "외신", "bizarre"]):
+        if any(w in corpus for w in ["기상천외", "충격 실화", "해외토픽", "세계 최초", "외신", "bizarre"]):
             if topic == "생활/정보":
                 topic = "해외화제"
                 entity_tags.append("기상천외실화")
@@ -725,9 +810,23 @@ class DiscoveryScraper:
             else:
                 entity_tags.append("일반트렌드")
 
+        # 2D Cross-Thematic Synergy Detection
+        if topic == "스포츠" and any(k in corpus for k in justice_kws):
+            cross_topics.append(["스포츠", "참교육/사이다"])
+        if topic == "자동차/교통" and any(k in corpus for k in ["과실", "몇대몇", "법률", "보험"]):
+            cross_topics.append(["자동차/교통", "생활/정보"])
+        if topic == "자동차/교통" and any(k in corpus for k in justice_kws):
+            cross_topics.append(["자동차/교통", "참교육/사이다"])
+        if topic == "IT/테크" and any(k in corpus for k in ["꿀팁", "무료", "할인", "설정"]):
+            cross_topics.append(["IT/테크", "생활/정보"])
+        if topic == "미스터리/심리" and any(k in corpus for k in ["사망", "살인", "경찰", "수사"]):
+            cross_topics.append(["미스터리/심리", "사건/사고"])
+        if topic in ["유머/썰", "생활/정보"] and any(k in corpus for k in ["파혼", "시어머니", "시월드", "축의금"]):
+            cross_topics.append(["유머/썰", "참교육/사이다"])
+
         # Deduplicate entity tags
         unique_tags = list(dict.fromkeys(entity_tags))[:5]
-        return topic, media_type, unique_tags
+        return topic, media_type, unique_tags, cross_topics, series_key
 
     # ─────────────────────────────────────────────────────────────────────────────
     # 5.1 SITE-SPECIFIC 2-TIER DEEP ARTICLE DETAIL EXTRACTOR (본문/이미지/댓글)
@@ -2458,8 +2557,8 @@ class DiscoveryScraper:
                 soup = BeautifulSoup(raw_text, "html.parser")
                 candidates: List[Tuple[str, str, int, int]] = []
 
-                # 1. DCInside Best (Extract Real DOM Row Metrics)
-                if community_code == "dcinside_best":
+                # 1. DCInside Best & Singal (Extract Real DOM Row Metrics)
+                if community_code in ["dcinside_best", "dc_singal"]:
                     for tr in soup.select("tr.ub-content.us-post"):
                         num = tr.select_one("td.gall_num")
                         if num and num.get_text(strip=True).isdigit():
@@ -2488,8 +2587,8 @@ class DiscoveryScraper:
                         if self.is_valid_viral_candidate(t, full_h):
                             candidates.append((t, full_h, 18000, 80))
 
-                # 3. Nate Pann Ranking
-                elif community_code == "natepann":
+                # 3. Nate Pann Ranking & Talk
+                elif community_code in ["natepann", "natepann_talk"]:
                     seen_nate = set()
                     for a in soup.select("a[href*='/talk/']"):
                         h = a.get("href", "")
@@ -2624,8 +2723,8 @@ class DiscoveryScraper:
                         if self.is_valid_viral_candidate(t, full_h):
                             candidates.append((t, full_h, 28000, 110))
 
-                # 12. Bobae Dream Best
-                elif community_code == "bobae_best":
+                # 12. Bobae Dream Best & Accident (블박)
+                elif community_code in ["bobae_best", "bobae_accident"]:
                     for a in soup.select("td.plink a, a.bsubject, .plink"):
                         t = self.clean_title(a.get_text(" ", strip=True))
                         h = a.get("href", "")
@@ -2852,12 +2951,14 @@ class DiscoveryScraper:
         url = data.get("url", "")
         existing = db.query(models.ViralArticle).filter(models.ViralArticle.url == url).first()
 
-        # Classify topic, media_type, entity_tags if not already supplied
+        # Classify topic, media_type, entity_tags, cross_topics, series_key if not already supplied
         topic_cat = data.get("topic_category")
         med_type = data.get("media_type")
         ent_tags = data.get("entity_tags")
+        cross_topics = data.get("cross_topics")
+        series_key = data.get("series_key")
         if not topic_cat or not med_type or ent_tags is None:
-            calc_topic, calc_media, calc_tags = self.classify_topic_and_entities(
+            calc_topic, calc_media, calc_tags, calc_cross, calc_series = self.classify_topic_and_entities(
                 data.get("title", ""),
                 data.get("content_text", ""),
                 data.get("category", ""),
@@ -2866,6 +2967,8 @@ class DiscoveryScraper:
             topic_cat = topic_cat or calc_topic
             med_type = med_type or calc_media
             ent_tags = ent_tags if ent_tags is not None else calc_tags
+            cross_topics = cross_topics if cross_topics is not None else calc_cross
+            series_key = series_key or calc_series
 
         if existing:
             # Update with fresh enriched data
@@ -2881,6 +2984,8 @@ class DiscoveryScraper:
             existing.media_type = med_type
             existing.entity_tags = ent_tags
             existing.cluster_keywords = ent_tags
+            existing.cross_topics = cross_topics or []
+            existing.series_key = series_key
             if data.get("analysis_summary"):
                 existing.analysis_summary = data["analysis_summary"]
             if data.get("suggested_title"):
@@ -2917,6 +3022,8 @@ class DiscoveryScraper:
                 media_type=med_type,
                 entity_tags=ent_tags,
                 cluster_keywords=ent_tags,
+                cross_topics=cross_topics or [],
+                series_key=series_key,
                 title=data.get("title", "제목 없음"),
                 url=url,
                 author=data.get("author"),

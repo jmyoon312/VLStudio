@@ -257,11 +257,14 @@ export default function ViralIntelligenceCenter() {
     // 6-D Psychological Trigger Filter
     const [selectedTrigger, setSelectedTrigger] = useState<string>('all');
 
-    // 🏷️ 10대 테마 클러스터 & 미디어 유형 & 채널 큐 상태
+    // 🏷️ 15대 테마 클러스터 & 2D 크로스 시너지 & 시리즈 팩 & 채널 큐 상태
     const [selectedTopicCategory, setSelectedTopicCategory] = useState<string>('all');
     const [selectedEntityTag, setSelectedEntityTag] = useState<string>('all');
+    const [selectedCrossTopic, setSelectedCrossTopic] = useState<string>('all');
+    const [selectedSeriesKey, setSelectedSeriesKey] = useState<string>('all');
     const [selectedMediaType, setSelectedMediaType] = useState<string>('all');
     const [selectedChannelId, setSelectedChannelId] = useState<string>('all');
+    const [seriesModalOpen, setSeriesModalOpen] = useState<boolean>(false);
 
     // Multi-Selection State for Batch Handoff
     const [selectedArticleIds, setSelectedArticleIds] = useState<number[]>([]);
@@ -435,6 +438,26 @@ export default function ViralIntelligenceCenter() {
         staleTime: 20000,
     });
 
+    // 2-2. Fetch Series Packs (Omnibus short-form packs)
+    const { data: seriesPacksData } = useQuery({
+        queryKey: ['viral_series_packs'],
+        queryFn: async () => {
+            const res = await api.get('/viral/series-packs');
+            return res.data;
+        },
+        staleTime: 30000,
+    });
+
+    // 2-3. Fetch Realtime Spike Radar
+    const { data: spikeRadarData } = useQuery({
+        queryKey: ['viral_spike_radar'],
+        queryFn: async () => {
+            const res = await api.get('/viral/spike-radar');
+            return res.data;
+        },
+        refetchInterval: 20000,
+    });
+
     // Batch Claim Mutation (Assign multiple articles to specific BrandChannel)
     const claimBatchMutation = useMutation({
         mutationFn: async (payload: { article_ids: number[]; channel_id: string }) => {
@@ -463,6 +486,8 @@ export default function ViralIntelligenceCenter() {
             selectedRedditTopic,
             selectedTopicCategory,
             selectedEntityTag,
+            selectedCrossTopic,
+            selectedSeriesKey,
             selectedMediaType,
             selectedChannelId,
             statusFilter,
@@ -490,9 +515,11 @@ export default function ViralIntelligenceCenter() {
                 if (selectedRedditTopic !== 'all') params.topic = selectedRedditTopic;
             }
 
-            // 🏷️ Topic, Entity, Media Type & Channel Filters
+            // 🏷️ 15대 테마, 엔티티, 크로스 시너지, 시리즈 팩, 미디어 유형 & 채널 필터
             if (selectedTopicCategory !== 'all') params.topic_category = selectedTopicCategory;
             if (selectedEntityTag !== 'all') params.entity_tag = selectedEntityTag;
+            if (selectedCrossTopic !== 'all') params.cross_topic = selectedCrossTopic;
+            if (selectedSeriesKey !== 'all') params.series_key = selectedSeriesKey;
             if (selectedMediaType !== 'all') params.media_type = selectedMediaType;
             if (selectedChannelId !== 'all') params.claimed_by_channel_id = selectedChannelId;
 
@@ -711,9 +738,13 @@ export default function ViralIntelligenceCenter() {
     const articles: ViralArticle[] = articlesData?.articles || [];
     const totalCount = articlesData?.total || 0;
 
-    // Domestic 21 Platforms definitions (matching Pixeling UI)
+    // Domestic 25 Platforms definitions (matching Pixeling UI + Pinpoint Hubs)
     const domesticPlatforms = [
         { code: 'fmkorea', name: '에펨코리아' },
+        { code: 'blind_best', name: '🏢 블라인드 베스트' },
+        { code: 'dc_singal', name: '🌍 싱글벙글 지구촌' },
+        { code: 'bobae_accident', name: '🚗 보배 블박/사고관' },
+        { code: 'natepann_talk', name: '💍 네이트판 결시친' },
         { code: 'mlbpark', name: '엠엘비파크' },
         { code: 'ppomppu', name: '뽐뿌' },
         { code: 'ou', name: '오늘의유머' },
@@ -761,9 +792,16 @@ export default function ViralIntelligenceCenter() {
         { code: '스포츠', name: '스포츠' },
     ];
 
-    // Reddit 10 Topics
+    // Reddit 17 Topics (Core + Specialized Video Blueprints)
     const redditTopics = [
         { code: 'all', name: '전체 인기 (All Top)' },
+        { code: 'IdiotsInCars', name: '🚗 황당 운전/블박 (r/IdiotsInCars)' },
+        { code: 'JusticeServed', name: '🥊 참교육 사이다 (r/JusticeServed)' },
+        { code: 'SpecializedTools', name: '🛠️ 특수 기계/공구 (r/SpecializedTools)' },
+        { code: 'FastWorkers', name: '⚡ 현장 달인/스피드 (r/FastWorkers)' },
+        { code: 'NatureIsFuckingLit', name: '🌿 대자연의 경이 (r/NatureIsFuckingLit)' },
+        { code: 'Damnthatsinteresting', name: '✨ 신기한 실화 (r/Damnthatsinteresting)' },
+        { code: 'UnresolvedMysteries', name: '🕵️ 미제사건 미스터리 (r/UnresolvedMysteries)' },
         { code: 'AskReddit', name: '💬 AskReddit (인기 질문/답변 썰)' },
         { code: 'AITAH', name: '🔥 AITAH (사이다/갈등 썰)' },
         { code: 'tifu', name: '😱 TIFU (황당/실수 썰)' },
@@ -875,6 +913,50 @@ export default function ViralIntelligenceCenter() {
             />
         )}
 
+            {/* ⚡ 실시간 급상승 스파이크 레이더 티커 바 */}
+            {spikeRadarData?.spikes && spikeRadarData.spikes.length > 0 && (
+                <div className="flex items-center gap-2 p-2 rounded-xl bg-card border border-border/80 shadow-2xs overflow-hidden">
+                    <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 font-black text-xs shrink-0 border border-amber-500/20">
+                        <Zap className="w-3.5 h-3.5 animate-pulse" />
+                        <span>급상승 레이더</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 overflow-x-auto py-0.5 no-scrollbar">
+                        {spikeRadarData.spikes.map((sp: any) => {
+                            const isSel = selectedEntityTag === sp.tag;
+                            return (
+                                <button
+                                    key={sp.tag}
+                                    onClick={() => {
+                                        if (isSel) {
+                                            setSelectedEntityTag('all');
+                                        } else {
+                                            setSelectedEntityTag(sp.tag);
+                                        }
+                                        setPage(1);
+                                    }}
+                                    className={cn(
+                                        "flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold shrink-0 transition-all cursor-pointer border",
+                                        isSel
+                                            ? "bg-primary text-primary-foreground border-primary font-bold shadow-xs"
+                                            : "bg-muted/30 text-foreground border-border/60 hover:bg-muted/60"
+                                    )}
+                                    title={sp.sample_title}
+                                >
+                                    <span>{sp.is_video ? '🎬' : '🔥'}</span>
+                                    <span>{sp.tag}</span>
+                                    <span className="text-[10px] font-mono text-amber-600 dark:text-amber-400 font-black">
+                                        +{sp.spike_score}
+                                    </span>
+                                    <span className="text-[9.5px] text-muted-foreground font-mono">
+                                        ({sp.count})
+                                    </span>
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
+
             {/* 3. 🏛️ Pixeling 3 Tabs & Multi-Routes (커뮤니티 100 | 뉴스 100 | 레딧 100 | 구글 트렌드 | 쇼츠 | 보관함 | 대본실) */}
             <div className="flex items-center gap-1.5 p-1.5 rounded-2xl bg-card border border-border/80 overflow-x-auto shadow-2xs">
                 {[
@@ -916,34 +998,48 @@ export default function ViralIntelligenceCenter() {
                 })}
             </div>
 
-            {/* 🏷️ 10대 테마 클러스터 & 채널 주권 DNA 연동 바 */}
+            {/* 🏷️ 15대 킬러 테마 클러스터 & 채널 주권 DNA 연동 바 */}
             <div className="p-3.5 rounded-2xl bg-card border border-border/80 shadow-2xs space-y-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
                         <span className="text-xs font-black text-foreground flex items-center gap-1.5">
-                            🏷️ 10대 주제별 클러스터 & 채널 파이프라인
+                            🏷️ 15대 킬러 테마 클러스터 & 채널 파이프라인
                         </span>
                         <Badge variant="outline" className="text-[10px] font-bold border-primary/30 text-primary">
                             채널 결(DNA) 맞춤 공급
                         </Badge>
                     </div>
 
-                    {/* 채널 전용 큐 매칭 드롭다운 */}
-                    <div className="flex items-center gap-1.5 text-xs">
-                        <span className="text-muted-foreground font-bold shrink-0">내 채널 매칭 큐:</span>
-                        <select
-                            value={selectedChannelId}
-                            onChange={(e) => { setSelectedChannelId(e.target.value); setPage(1); }}
-                            className="h-7 text-xs rounded-md bg-muted/60 border border-border px-2 text-foreground font-medium cursor-pointer"
+                    <div className="flex flex-wrap items-center gap-2">
+                        {/* 🎬 시리즈 옴니버스 팩 열기 버튼 */}
+                        <button
+                            onClick={() => setSeriesModalOpen(true)}
+                            className="h-7 px-2.5 rounded-md bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5"
                         >
-                            <option value="all">전체 채널 소재 보기</option>
-                            <option value="unclaimed">미할당 신규 소재만</option>
-                            {(clusterData?.channels || []).map((ch: any) => (
-                                <option key={ch.id} value={ch.channel_id || ch.id}>
-                                    {ch.title} {ch.target_topics?.length > 0 ? `(${ch.target_topics.join(', ')})` : ''}
-                                </option>
-                            ))}
-                        </select>
+                            <Clapperboard className="w-3.5 h-3.5" />
+                            <span>시리즈 옴니버스 팩</span>
+                            <Badge className="bg-emerald-600 text-white text-[9px] px-1 py-0 h-4 min-w-4 flex items-center justify-center font-mono">
+                                {seriesPacksData?.total_packs || 0}
+                            </Badge>
+                        </button>
+
+                        {/* 채널 전용 큐 매칭 드롭다운 */}
+                        <div className="flex items-center gap-1.5 text-xs">
+                            <span className="text-muted-foreground font-bold shrink-0">내 채널 매칭 큐:</span>
+                            <select
+                                value={selectedChannelId}
+                                onChange={(e) => { setSelectedChannelId(e.target.value); setPage(1); }}
+                                className="h-7 text-xs rounded-md bg-muted/60 border border-border px-2 text-foreground font-medium cursor-pointer"
+                            >
+                                <option value="all">전체 채널 소재 보기</option>
+                                <option value="unclaimed">미할당 신규 소재만</option>
+                                {(clusterData?.channels || []).map((ch: any) => (
+                                    <option key={ch.id} value={ch.channel_id || ch.id}>
+                                        {ch.title} {ch.target_topics?.length > 0 ? `(${ch.target_topics.join(', ')})` : ''}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
                     </div>
                 </div>
 
@@ -1068,6 +1164,63 @@ export default function ViralIntelligenceCenter() {
                         ))}
                     </div>
                 </div>
+
+                {/* 2D 교차 시너지 칩 (Cross Thematic Synergies) */}
+                {clusterData?.cross_synergies && clusterData.cross_synergies.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-border/40 text-xs">
+                        <span className="text-muted-foreground font-bold shrink-0 flex items-center gap-1">
+                            <Sparkles className="w-3.5 h-3.5 text-purple-500" />
+                            <span>2D 교차 시너지:</span>
+                        </span>
+                        <button
+                            onClick={() => { setSelectedCrossTopic('all'); setPage(1); }}
+                            className={cn(
+                                "px-2 py-0.5 rounded text-[11px] font-semibold transition-all cursor-pointer",
+                                selectedCrossTopic === 'all'
+                                    ? "bg-secondary text-secondary-foreground font-bold"
+                                    : "text-muted-foreground hover:text-foreground"
+                            )}
+                        >
+                            전체 시너지
+                        </button>
+                        {clusterData.cross_synergies.map((cs: any) => (
+                            <button
+                                key={cs.label}
+                                onClick={() => {
+                                    setSelectedCrossTopic(selectedCrossTopic === cs.label ? 'all' : cs.label);
+                                    setPage(1);
+                                }}
+                                className={cn(
+                                    "px-2 py-0.5 rounded text-[11px] font-semibold transition-all cursor-pointer flex items-center gap-1 border",
+                                    selectedCrossTopic === cs.label
+                                        ? "bg-purple-600 text-white border-purple-600 font-bold shadow-xs"
+                                        : "bg-purple-500/10 text-purple-700 dark:text-purple-300 border-purple-500/20 hover:bg-purple-500/20"
+                                )}
+                            >
+                                <span>⚡ {cs.label}</span>
+                                <span className="text-[9px] font-mono opacity-80">({cs.count})</span>
+                            </button>
+                        ))}
+                    </div>
+                )}
+
+                {/* 활성 시리즈 필터 안내 배너 */}
+                {selectedSeriesKey !== 'all' && (
+                    <div className="flex items-center justify-between p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-xs animate-in fade-in">
+                        <div className="flex items-center gap-2">
+                            <Clapperboard className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                            <span className="font-bold text-foreground">
+                                시리즈 옴니버스 필터 적용 중: <span className="text-emerald-600 dark:text-emerald-400 font-black">{selectedSeriesKey}</span>
+                            </span>
+                        </div>
+                        <button
+                            onClick={() => { setSelectedSeriesKey('all'); setPage(1); }}
+                            className="px-2 py-0.5 rounded text-xs font-bold text-muted-foreground hover:text-foreground hover:bg-muted cursor-pointer"
+                        >
+                            필터 해제 ✕
+                        </button>
+                    </div>
+                )}
             </div>
 
             {/* 4. 🎛️ Pixeling Sub-Navigation Chips (지역별 29개 커뮤니티, 뉴스 8개 카테고리, 레딧 10개 토픽) */}
@@ -3142,6 +3295,120 @@ export default function ViralIntelligenceCenter() {
                         >
                             <X className="w-4 h-4" />
                         </button>
+                    </div>
+                </div>
+            )}
+
+            {/* 🎬 시리즈 옴니버스 팩 모달 */}
+            {seriesModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
+                    <div className="relative w-full max-w-4xl max-h-[85vh] flex flex-col rounded-2xl bg-card border border-border shadow-2xl overflow-hidden">
+                        {/* Modal Header */}
+                        <div className="flex items-center justify-between p-4 border-b border-border bg-muted/30">
+                            <div className="flex items-center gap-2.5">
+                                <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                                    <Clapperboard className="w-5 h-5" />
+                                </div>
+                                <div>
+                                    <h3 className="text-base font-black text-foreground flex items-center gap-2">
+                                        <span>시리즈 옴니버스 팩 (Series Stitching Packs)</span>
+                                        <Badge className="bg-emerald-600 text-white text-[10px] font-mono">
+                                            {seriesPacksData?.total_packs || 0}개 팩 준비완료
+                                        </Badge>
+                                    </h3>
+                                    <p className="text-xs text-muted-foreground mt-0.5">
+                                        연관성 높은 하이라이트 영상/소재를 3연타로 묶어 50초 옴니버스 쇼츠를 일괄 제작합니다.
+                                    </p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setSeriesModalOpen(false)}
+                                className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        {/* Modal Body: Series Packs Grid */}
+                        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                {(seriesPacksData?.series_packs || []).map((pack: any) => (
+                                    <div
+                                        key={pack.series_key}
+                                        className="p-3.5 rounded-xl bg-background border border-border/80 hover:border-primary/50 transition-all shadow-xs space-y-2.5"
+                                    >
+                                        <div className="flex items-start justify-between gap-2">
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-xl">{pack.icon}</span>
+                                                <div>
+                                                    <h4 className="text-sm font-bold text-foreground">
+                                                        {pack.title}
+                                                    </h4>
+                                                    <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground mt-0.5">
+                                                        <Badge variant="outline" className="text-[9.5px] px-1 py-0">
+                                                            {pack.topic}
+                                                        </Badge>
+                                                        <span>소재 {pack.count}개</span>
+                                                        <span>•</span>
+                                                        <span className="font-mono text-emerald-600 dark:text-emerald-400 font-bold">
+                                                            🎬 영상 {pack.video_count}개
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <Badge className="bg-primary/10 text-primary border border-primary/20 text-[10px] font-mono shrink-0">
+                                                평균 {pack.avg_viral_score}점
+                                            </Badge>
+                                        </div>
+
+                                        {/* Suggested Title */}
+                                        <div className="p-2 rounded-lg bg-muted/40 border border-border/60 text-xs">
+                                            <span className="text-muted-foreground font-semibold">추천 옴니버스 제목:</span>
+                                            <p className="font-bold text-foreground mt-0.5 line-clamp-1">
+                                                {pack.suggested_omnibus_title}
+                                            </p>
+                                        </div>
+
+                                        {/* Articles Preview */}
+                                        <div className="space-y-1">
+                                            {(pack.articles || []).slice(0, 3).map((art: any, aIdx: number) => (
+                                                <div key={art.id} className="flex items-center gap-1.5 text-[11.5px] text-muted-foreground line-clamp-1">
+                                                    <span className="font-mono text-primary font-bold">#{aIdx + 1}</span>
+                                                    <span className="truncate text-foreground/90">{art.title}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+
+                                        {/* Actions */}
+                                        <div className="flex items-center justify-end gap-2 pt-1 border-t border-border/40">
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                onClick={() => {
+                                                    setSelectedSeriesKey(pack.series_key);
+                                                    setPage(1);
+                                                    setSeriesModalOpen(false);
+                                                }}
+                                                className="h-7 text-xs px-2.5 cursor-pointer"
+                                            >
+                                                소재 모아보기 ({pack.count})
+                                            </Button>
+                                            <Button
+                                                size="sm"
+                                                onClick={() => {
+                                                    setSeriesModalOpen(false);
+                                                    handleSendToBatchStudio(pack.articles || []);
+                                                }}
+                                                className="h-7 text-xs px-3 font-bold bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer flex items-center gap-1"
+                                            >
+                                                <Zap className="w-3.5 h-3.5" />
+                                                <span>3연타 일괄 생성</span>
+                                            </Button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
                     </div>
                 </div>
             )}

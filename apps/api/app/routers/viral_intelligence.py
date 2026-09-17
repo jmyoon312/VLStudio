@@ -119,7 +119,7 @@ def _article_to_dict(art: models.ViralArticle, include_comments: bool = True) ->
 
     # Dynamic classification fallback if not populated in DB
     if d.get("topic_category") in [None, "", "일반"] or not d.get("entity_tags"):
-        calc_top, calc_med, calc_tags = discovery_scraper.classify_topic_and_entities(
+        calc_top, calc_med, calc_tags, calc_cross, calc_series = discovery_scraper.classify_topic_and_entities(
             art.title or "",
             art.content_text or "",
             art.category or "",
@@ -128,6 +128,11 @@ def _article_to_dict(art: models.ViralArticle, include_comments: bool = True) ->
         d["topic_category"] = calc_top
         d["entity_tags"] = calc_tags
         d["cluster_keywords"] = calc_tags
+        d["cross_topics"] = calc_cross
+        d["series_key"] = calc_series
+    else:
+        d["cross_topics"] = getattr(art, "cross_topics", []) or []
+        d["series_key"] = getattr(art, "series_key", None)
 
     # Accurate media_type override based on actual extracted videos / clean images
     if extracted_videos:
@@ -345,14 +350,19 @@ def get_topic_clusters(db: Session = Depends(database.get_db)):
     """
     articles = db.query(models.ViralArticle).order_by(desc(models.ViralArticle.id)).limit(600).all()
     
-    # 10 Standard Topic Categories Definition
+    # 15 Standard Killer Topic Categories Definition
     topics_def = [
         {"key": "스포츠", "label": "스포츠 (테니스/축구/야구)", "icon": "🎾", "keywords": ["테니스", "축구", "야구", "농구", "골프", "e스포츠"]},
         {"key": "자동차/교통", "label": "자동차/교통 (블박/사고)", "icon": "🚗", "keywords": ["블랙박스", "교통사고", "과실비율", "보복운전", "전기차"]},
+        {"key": "참교육/사이다", "label": "참교육/사이다 (갑질격파)", "icon": "🥊", "keywords": ["참교육", "사이다", "갑질폭로", "악플러고소", "진상퇴치"]},
         {"key": "생활/정보", "label": "생활/정보 (지원금/꿀팁)", "icon": "💰", "keywords": ["정부지원금", "세금/환급", "생활꿀팁", "가성비추천", "다이어트"]},
         {"key": "유머/썰", "label": "유머/썰 (레전드/네이트판)", "icon": "🔥", "keywords": ["레전드썰", "카톡대화", "직장생활", "연애/결혼", "폭소/반전"]},
-        {"key": "사건/사고", "label": "사건/사고 (갑질/참교육)", "icon": "⚖️", "keywords": ["갑질폭로", "사기/피싱", "학폭/폭행", "참교육/사이다", "재판/수사"]},
+        {"key": "사건/사고", "label": "사건/사고 (수사/재판)", "icon": "⚖️", "keywords": ["사기/피싱", "학폭/폭행", "재판/수사", "경찰/검찰", "음주운전"]},
         {"key": "IT/테크", "label": "IT/테크 (AI/엔비디아)", "icon": "💻", "keywords": ["AI/인공지능", "엔비디아/반도체", "스마트폰", "로봇/신기술"]},
+        {"key": "미스터리/심리", "label": "미스터리/심리 (미제/괴담)", "icon": "🕵️", "keywords": ["미스터리", "미제사건", "심리실험", "소시오패스", "도시괴담"]},
+        {"key": "역사/전쟁/비화", "label": "역사/전쟁/비화 (비하인드)", "icon": "⚔️", "keywords": ["세계대전", "조선왕조", "역사비화", "전술/무기", "비극적사건"]},
+        {"key": "과학/우주/경이", "label": "과학/우주/경이 (자연/우주)", "icon": "🚀", "keywords": ["블랙홀", "우주탐사", "심해생물", "양자역학", "지구경이"]},
+        {"key": "산업현장/달인", "label": "산업현장/달인 (특수공구)", "icon": "🛠️", "keywords": ["공장달인", "특수기계", "장인기술", "극한직업", "현장스피드"]},
         {"key": "연예/방송", "label": "연예/방송 (아이돌/드라마)", "icon": "🎬", "keywords": ["아이돌", "드라마", "예능/토크", "영화/배우"]},
         {"key": "경제/재테크", "label": "경제/재테크 (코인/주식)", "icon": "📈", "keywords": ["비트코인/코인", "주식/증시", "부동산/청약", "금리/환율"]},
         {"key": "해외화제", "label": "해외화제 (기상천외실화)", "icon": "🌍", "keywords": ["기상천외실화"]},
@@ -360,18 +370,34 @@ def get_topic_clusters(db: Session = Depends(database.get_db)):
     ]
 
     cluster_stats = {t["key"]: {"count": 0, "video_count": 0, "entities": {}} for t in topics_def}
+    cross_stats = {}
     media_counts = {"video_clip": 0, "image_pack": 0, "text_story": 0}
 
     for art in articles:
         top_cat = getattr(art, "topic_category", None)
         med_type = getattr(art, "media_type", None)
-        tags = getattr(art, "entity_tags", None) or art.cluster_keywords or []
+        raw_tags = getattr(art, "entity_tags", None) or art.cluster_keywords or []
         
         # On-the-fly categorization if empty
-        if not top_cat or top_cat == "일반" or not tags:
-            top_cat, med_type, tags = discovery_scraper.classify_topic_and_entities(
+        if not top_cat or top_cat == "일반" or not raw_tags:
+            top_cat, med_type, raw_tags, _, _ = discovery_scraper.classify_topic_and_entities(
                 art.title or "", art.content_text or "", art.category or "", art.images or []
             )
+
+        tags = []
+        if isinstance(raw_tags, str):
+            try:
+                import json
+                parsed = json.loads(raw_tags)
+                tags = parsed if isinstance(parsed, list) else [raw_tags]
+            except Exception:
+                tags = [raw_tags]
+        elif isinstance(raw_tags, (list, tuple)):
+            for tg in raw_tags:
+                if isinstance(tg, str):
+                    tags.append(tg)
+                elif isinstance(tg, list):
+                    tags.extend([str(x) for x in tg if isinstance(x, str)])
 
         if top_cat in cluster_stats:
             cluster_stats[top_cat]["count"] += 1
@@ -379,6 +405,26 @@ def get_topic_clusters(db: Session = Depends(database.get_db)):
                 cluster_stats[top_cat]["video_count"] += 1
             for tag in tags:
                 cluster_stats[top_cat]["entities"][tag] = cluster_stats[top_cat]["entities"].get(tag, 0) + 1
+
+        raw_cross = getattr(art, "cross_topics", None) or []
+        cr_list = []
+        if isinstance(raw_cross, str):
+            try:
+                import json
+                parsed = json.loads(raw_cross)
+                cr_list = parsed if isinstance(parsed, list) else [raw_cross]
+            except Exception:
+                cr_list = [raw_cross]
+        elif isinstance(raw_cross, (list, tuple)):
+            for cr in raw_cross:
+                if isinstance(cr, str):
+                    cr_list.append(cr)
+                elif isinstance(cr, list):
+                    cr_list.extend([str(x) for x in cr if isinstance(x, str)])
+
+        for cr in cr_list:
+            if isinstance(cr, str) and cr:
+                cross_stats[cr] = cross_stats.get(cr, 0) + 1
 
         if med_type in media_counts:
             media_counts[med_type] += 1
@@ -413,11 +459,196 @@ def get_topic_clusters(db: Session = Depends(database.get_db)):
             "top_entities": top_ents,
         })
 
+    cross_synergies = [
+        {"label": k, "count": v}
+        for k, v in sorted(cross_stats.items(), key=lambda x: x[1], reverse=True)[:8]
+    ]
+
     return {
         "clusters": clusters_result,
+        "cross_synergies": cross_synergies,
         "media_counts": media_counts,
         "channels": channel_list,
         "total_analyzed": len(articles),
+    }
+
+
+@router.get("/series-packs")
+def get_series_packs(
+    min_count: int = Query(2, ge=2, le=20),
+    limit: int = Query(20, ge=1, le=50),
+    db: Session = Depends(database.get_db)
+):
+    """
+    Groups articles by series_key (e.g. series_tennis_highlights, series_dashcam_accident)
+    having at least min_count clips/articles, ready for 3-clip omnibus short-form packaging.
+    """
+    series_keys = (
+        db.query(models.ViralArticle.series_key, func.count(models.ViralArticle.id).label("cnt"))
+        .filter(models.ViralArticle.series_key.isnot(None))
+        .group_by(models.ViralArticle.series_key)
+        .having(func.count(models.ViralArticle.id) >= min_count)
+        .order_by(desc("cnt"))
+        .limit(limit)
+        .all()
+    )
+
+    SERIES_METADATA = {
+        "series_tennis_highlights": {"title": "테니스 미친 랠리 & 하이라이트", "topic": "스포츠", "icon": "🎾", "suggested_omnibus_title": "[테니스] 보고도 안 믿기는 역대급 랠리 TOP 3"},
+        "series_football_highlights": {"title": "축구 원더골 & 슈퍼세이브", "topic": "스포츠", "icon": "⚽", "suggested_omnibus_title": "[축구] 관중석 뒤집어놓은 미친 원더골 모음"},
+        "series_축구_highlights": {"title": "축구 원더골 & 슈퍼세이브", "topic": "스포츠", "icon": "⚽", "suggested_omnibus_title": "[축구] 관중석 뒤집어놓은 미친 원더골 모음"},
+        "series_baseball_highlights": {"title": "야구 호수비 & 끝내기 홈런", "topic": "스포츠", "icon": "⚾", "suggested_omnibus_title": "[야구] 탄성 터져나온 역대급 호수비 모음"},
+        "series_야구_highlights": {"title": "야구 호수비 & 끝내기 홈런", "topic": "스포츠", "icon": "⚾", "suggested_omnibus_title": "[야구] 탄성 터져나온 역대급 호수비 모음"},
+        "series_dashcam_accident": {"title": "블랙박스 급발진 & 황당 사고", "topic": "자동차/교통", "icon": "🚗", "suggested_omnibus_title": "[블박] 한문철 변호사도 경악한 레전드 사고 3선"},
+        "series_justice_served": {"title": "진상·악플러 참교육 사이다", "topic": "참교육/사이다", "icon": "🥊", "suggested_omnibus_title": "[참교육] 갑질 진상 참교육당하고 무릎꿇은 사이다 실화"},
+        "series_unsolved_mystery": {"title": "미스터리 실종 & 심리 미제사건", "topic": "미스터리/심리", "icon": "🕵️", "suggested_omnibus_title": "[미스터리] 아직도 안 풀린 소름 돋는 미제사건 모음"},
+        "series_master_craftsman": {"title": "산업현장 달인 & 신의 손 기술", "topic": "산업현장/달인", "icon": "🛠️", "suggested_omnibus_title": "[달인] 0.1초 만에 척척 해내는 산업현장 신의 손들"},
+        "series_satisfying_craft": {"title": "산업현장 달인 & 특수 공구 기술", "topic": "산업현장/달인", "icon": "🛠️", "suggested_omnibus_title": "[달인] 0.1초 만에 척척 해내는 산업현장 신의 손들"},
+        "series_space_wonders": {"title": "우주 블랙홀 & 지구의 경이", "topic": "과학/우주/경이", "icon": "🚀", "suggested_omnibus_title": "[우주경이] 보면 볼수록 경이로운 우주와 심해의 신비"},
+        "series_nature_wonders": {"title": "대자연의 경이 & 야생의 세계", "topic": "과학/우주/경이", "icon": "🌿", "suggested_omnibus_title": "[자연경이] 상상을 초월하는 대자연의 경이로운 순간들"},
+        "series_history_war": {"title": "역사를 바꾼 전설의 전투 비화", "topic": "역사/전쟁/비화", "icon": "⚔️", "suggested_omnibus_title": "[역사비화] 교과서에 안 나오는 세계사 반전 실화 3선"},
+        "series_history_untold": {"title": "역사를 바꾼 전설의 비화 & 야담", "topic": "역사/전쟁/비화", "icon": "⚔️", "suggested_omnibus_title": "[역사비화] 교과서에 안 나오는 세계사 반전 실화 3선"},
+    }
+
+    packs = []
+    for row in series_keys:
+        s_key = row[0]
+        cnt = row[1]
+        articles = (
+            db.query(models.ViralArticle)
+            .filter(models.ViralArticle.series_key == s_key)
+            .order_by(desc(models.ViralArticle.viral_score))
+            .limit(6)
+            .all()
+        )
+        if not articles:
+            continue
+
+        meta = SERIES_METADATA.get(s_key, {
+            "title": s_key.replace("series_", "").replace("_", " ").title(),
+            "topic": articles[0].topic_category or "일반",
+            "icon": "🎬",
+            "suggested_omnibus_title": f"[{articles[0].topic_category}] 화제의 클립 3연타 모음"
+        })
+
+        video_count = sum(1 for a in articles if (getattr(a, "media_type", None) == "video_clip" or any(".mp4" in (im or "") or "thumb" in (im or "") for im in (a.images or []))))
+        avg_score = round(sum((a.viral_score or 80.0) for a in articles) / len(articles), 1)
+
+        packs.append({
+            "series_key": s_key,
+            "title": meta["title"],
+            "topic": meta["topic"],
+            "icon": meta["icon"],
+            "count": cnt,
+            "video_count": video_count,
+            "avg_viral_score": avg_score,
+            "suggested_omnibus_title": meta["suggested_omnibus_title"],
+            "articles": [_article_to_dict(a, include_comments=False) for a in articles[:4]],
+        })
+
+    return {
+        "series_packs": packs,
+        "total_packs": len(packs)
+    }
+
+
+@router.get("/spike-radar")
+def get_spike_radar(
+    hours: int = Query(24, ge=1, le=72),
+    limit: int = Query(12, ge=1, le=30),
+    db: Session = Depends(database.get_db)
+):
+    """
+    Surfaces real-time surging tags and cross-synergies weighted by velocity_score and recentness.
+    """
+    cutoff = datetime.now() - timedelta(hours=hours)
+    spiking_articles = (
+        db.query(models.ViralArticle)
+        .filter(
+            models.ViralArticle.scraped_at >= cutoff,
+            or_(models.ViralArticle.velocity_score >= 85.0, models.ViralArticle.viral_score >= 85.0)
+        )
+        .order_by(desc(models.ViralArticle.velocity_score))
+        .limit(200)
+        .all()
+    )
+
+    tag_stats = {}
+    for art in spiking_articles:
+        raw_tags = getattr(art, "entity_tags", None) or art.cluster_keywords or []
+        tags = []
+        if isinstance(raw_tags, str):
+            try:
+                import json
+                parsed = json.loads(raw_tags)
+                tags = parsed if isinstance(parsed, list) else [raw_tags]
+            except Exception:
+                tags = [raw_tags]
+        elif isinstance(raw_tags, (list, tuple)):
+            for tg in raw_tags:
+                if isinstance(tg, str):
+                    tags.append(tg)
+                elif isinstance(tg, list):
+                    tags.extend([str(x) for x in tg if isinstance(x, str)])
+
+        raw_cross = getattr(art, "cross_topics", None) or []
+        cross_topics = []
+        if isinstance(raw_cross, str):
+            try:
+                import json
+                parsed = json.loads(raw_cross)
+                cross_topics = parsed if isinstance(parsed, list) else [raw_cross]
+            except Exception:
+                cross_topics = [raw_cross]
+        elif isinstance(raw_cross, (list, tuple)):
+            for cr in raw_cross:
+                if isinstance(cr, str):
+                    cross_topics.append(cr)
+                elif isinstance(cr, list):
+                    cross_topics.extend([str(x) for x in cr if isinstance(x, str)])
+
+        combined_tags = [t for t in (tags + cross_topics) if isinstance(t, str)]
+        
+        vel = float(art.velocity_score or art.viral_score or 80.0)
+        top = getattr(art, "topic_category", "일반")
+        
+        for t in combined_tags:
+            if not t or len(t) < 2:
+                continue
+            if t not in tag_stats:
+                tag_stats[t] = {
+                    "tag": t,
+                    "topic": top,
+                    "count": 0,
+                    "velocity_sum": 0.0,
+                    "sample_title": art.title or "",
+                    "is_video": (getattr(art, "media_type", None) == "video_clip")
+                }
+            tag_stats[t]["count"] += 1
+            tag_stats[t]["velocity_sum"] += vel
+            if getattr(art, "media_type", None) == "video_clip":
+                tag_stats[t]["is_video"] = True
+
+    results = []
+    for t, data in tag_stats.items():
+        if data["count"] < 1:
+            continue
+        avg_vel = data["velocity_sum"] / data["count"]
+        # Velocity score weighting with frequency bonus
+        spike_score = round(min(99.9, avg_vel + (math.log2(data["count"] + 1) * 2.5)), 1)
+        results.append({
+            "tag": data["tag"],
+            "topic": data["topic"],
+            "count": data["count"],
+            "spike_score": spike_score,
+            "sample_title": data["sample_title"],
+            "is_video": data["is_video"]
+        })
+
+    results.sort(key=lambda x: x["spike_score"], reverse=True)
+    return {
+        "spikes": results[:limit],
+        "total_analyzed": len(spiking_articles)
     }
 
 
@@ -447,8 +678,10 @@ async def list_articles(
     community_name: Optional[str] = Query(None),     # specific community code
     category: Optional[str] = Query(None),           # news/community category
     topic: Optional[str] = Query(None),              # reddit topic
-    topic_category: Optional[str] = Query(None),     # 10대 대주제 (스포츠, 자동차/교통, 생활/정보 등)
+    topic_category: Optional[str] = Query(None),     # 15대 대주제 (스포츠, 자동차/교통, 생활/정보 등)
     entity_tag: Optional[str] = Query(None),         # 세부 엔티티 태그 (테니스, 축구, 블랙박스 등)
+    cross_topic: Optional[str] = Query(None),        # 2D 크로스 시너지 태그 (스포츠 × 참교육 등)
+    series_key: Optional[str] = Query(None),         # 시리즈 팩 식별 키 (series_tennis_highlights 등)
     media_type: Optional[str] = Query(None),         # all | video_clip | image_pack | text_story
     claimed_by_channel_id: Optional[str] = Query(None), # 채널 ID 또는 unclaimed
     status: Optional[str] = Query(None),             # all | collected | analyzed | scripted | longform | archived
@@ -624,6 +857,15 @@ async def list_articles(
                 models.ViralArticle.title.ilike(e_term),
             )
         )
+
+    # 2D Cross Topic Synergy Filter (e.g. "스포츠 × 참교육", "자동차 × 과실비율")
+    if cross_topic and cross_topic != "all":
+        c_term = f"%{cross_topic}%"
+        query = query.filter(models.ViralArticle.cross_topics.cast(String).ilike(c_term))
+
+    # Series Pack Key Filter (e.g. "series_tennis_highlights")
+    if series_key and series_key != "all":
+        query = query.filter(models.ViralArticle.series_key == series_key)
 
     # Media Type Filter ("video_clip", "image_pack", "text_story")
     if media_type and media_type != "all":
