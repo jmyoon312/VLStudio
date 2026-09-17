@@ -4,8 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import api from '../lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { getMediaUrl, cn } from "@/lib/utils";
+import { getMediaUrl, cn, handleImageErrorWithFallback } from "@/lib/utils";
 import {
     ArrowLeft, Play, Eye, Clock, Upload, Users,
     Flame, TrendingUp, ExternalLink, Loader2
@@ -113,7 +112,7 @@ const DiscoveryChannelDetail = () => {
                                     src={getMediaUrl(v.thumbnail_path, settings?.root_download_path)}
                                     alt={v.title}
                                     className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                                    onError={e => { e.currentTarget.src = `https://i.ytimg.com/vi/${v.video_id}/hqdefault.jpg`; }}
+                                    onError={handleImageErrorWithFallback}
                                 />
                                 <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                                     <Button
@@ -159,7 +158,7 @@ const DiscoveryChannelDetail = () => {
                                         src={getMediaUrl(v.thumbnail_path, settings?.root_download_path)}
                                         alt={v.title}
                                         className="w-full h-full object-cover"
-                                        onError={e => { e.currentTarget.src = `https://i.ytimg.com/vi/${v.video_id}/hqdefault.jpg`; }}
+                                        onError={handleImageErrorWithFallback}
                                     />
                                 </div>
                                 <div className="flex-1 min-w-0">

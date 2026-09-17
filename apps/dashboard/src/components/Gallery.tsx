@@ -1209,6 +1209,9 @@ const Gallery = () => {
                                     img.src = img.src.replace('hqdefault.jpg', 'mqdefault.jpg');
                                 } else if (channelThumb && img.src !== channelThumb) {
                                     img.src = channelThumb;
+                                } else {
+                                    img.onerror = null;
+                                    img.src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="320" height="180" viewBox="0 0 320 180" fill="%231e293b"><rect width="320" height="180" fill="%231e293b"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%2364748b" font-size="14" font-family="sans-serif">No Thumbnail</text></svg>';
                                 }
                             }}
                         />

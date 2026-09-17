@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Play, X } from 'lucide-react';
+import { handleImageErrorWithFallback } from '@/lib/utils';
 
 interface BypassVideoFrameProps {
   videoId: string;
@@ -59,6 +60,7 @@ export function BypassVideoFrame({ videoId, title, thumbnail, isActive = false }
           src={thumbnail} 
           alt={title} 
           className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 opacity-80 group-hover:opacity-100" 
+          onError={handleImageErrorWithFallback}
         />
         <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/10 transition-colors">
           <div className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center text-white shadow-xl transition-transform group-hover:scale-110">

@@ -5,8 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { getMediaUrl, cn } from "@/lib/utils";
+import { getMediaUrl, cn, handleImageErrorWithFallback } from "@/lib/utils";
 import {
     Eye, Clock, Flame, Zap, TrendingUp,
     Loader2, Play, Hash, Heart, ExternalLink, User
@@ -241,15 +240,14 @@ const HotVideos = () => {
                                         src={getMediaUrl(v.thumbnail_path, settings?.root_download_path)}
                                         alt={v.title}
                                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                                        onError={e => {
-                                            e.currentTarget.src = `https://i.ytimg.com/vi/${v.video_id}/hqdefault.jpg`;
-                                        }}
+                                        onError={handleImageErrorWithFallback}
                                     />
                                 ) : (
                                     <img
                                         src={`https://i.ytimg.com/vi/${v.video_id}/hqdefault.jpg`}
                                         alt={v.title}
                                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                                        onError={handleImageErrorWithFallback}
                                     />
                                 )}
 
