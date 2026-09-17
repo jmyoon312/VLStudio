@@ -295,6 +295,20 @@ def get_sources():
 def get_hud_stats(db: Session = Depends(database.get_db)):
     """Return real-time Pulse Quant HUD stats across all sources and production readiness."""
     total_articles = db.query(models.ViralArticle).count()
+    today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    today_collected_count = db.query(models.ViralArticle).filter(models.ViralArticle.scraped_at >= today_start).count()
+    
+    claimed_count = db.query(models.ViralArticle).filter(
+        models.ViralArticle.claimed_by_channel_id.isnot(None),
+        models.ViralArticle.claimed_by_channel_id != ""
+    ).count()
+    unclaimed_count = max(0, total_articles - claimed_count)
+
+    # Real physical media format breakdown
+    video_clip_count = db.query(models.ViralArticle).filter(models.ViralArticle.media_type == "video_clip").count()
+    image_pack_count = db.query(models.ViralArticle).filter(models.ViralArticle.media_type == "image_pack").count()
+    text_story_count = max(0, total_articles - video_clip_count - image_pack_count)
+
     surge_count = db.query(models.ViralArticle).filter(
         or_(models.ViralArticle.velocity_score >= 90.0, models.ViralArticle.lifespan_phase == "surge")
     ).count()
@@ -315,6 +329,16 @@ def get_hud_stats(db: Session = Depends(database.get_db)):
     return {
         "total_articles": total_combined,
         "raw_article_count": total_articles,
+        "today_collected_count": today_collected_count,
+        "channel_governance": {
+            "claimed_count": claimed_count,
+            "unclaimed_count": unclaimed_count,
+        },
+        "media_assets": {
+            "video_clip": video_clip_count,
+            "image_pack": image_pack_count,
+            "text_story": text_story_count,
+        },
         "surge_count": surge_count,
         "cluster_count": cluster_count,
         "golden_urgent_count": golden_urgent_count,
@@ -328,12 +352,61 @@ def get_hud_stats(db: Session = Depends(database.get_db)):
             "script_lab": script_lab_count,
         },
         "form_factor_readiness": {
-            "classic": youtube_count + video_vault_count,
-            "insta": int((total_articles + video_vault_count) * 0.42),
+            "classic": video_clip_count + video_vault_count,
+            "insta": image_pack_count,
             "gunlimbo": news_count + community_count,
-            "ssul": community_count + reddit_count + int(news_count * 0.35),
+            "ssul": text_story_count,
             "longform": script_lab_count,
         }
+    }
+
+
+@router.post("/harvest/sparse-topics")
+async def harvest_sparse_topics(
+    threshold: int = Query(30, ge=10, le=100),
+    limit_per_topic: int = Query(10, ge=5, le=20),
+    db: Session = Depends(database.get_db)
+):
+    """
+    Identifies topics below the target threshold (e.g. < 30 articles)
+    and harvests fresh material from their dedicated feeds in batch.
+    """
+    topic_counts = dict(
+        db.query(models.ViralArticle.topic_category, func.count(models.ViralArticle.id))
+        .group_by(models.ViralArticle.topic_category)
+        .all()
+    )
+    ALL_15_TOPICS = [
+        "스포츠", "자동차/교통", "참교육/사이다", "생활/정보", "유머/썰",
+        "사건/사고", "IT/테크", "미스터리/심리", "역사/전쟁/비화", "과학/우주/경이",
+        "산업현장/달인", "연예/방송", "경제/재테크", "해외화제", "반려동물"
+    ]
+    sparse = [t for t in ALL_15_TOPICS if topic_counts.get(t, 0) < threshold]
+    total_harvested = 0
+    results_by_topic = {}
+    for t in sparse:
+        try:
+            raw_arts = await discovery_scraper.scrape_topic_feed(t, limit=limit_per_topic)
+            saved = 0
+            for a in raw_arts:
+                try:
+                    discovery_scraper.sync_upsert_article(db, a)
+                    saved += 1
+                except Exception:
+                    pass
+            db.commit()
+            total_harvested += saved
+            results_by_topic[t] = saved
+        except Exception as e:
+            logger.error(f"[harvest_sparse_topics] Error on {t}: {e}")
+            results_by_topic[t] = 0
+
+    return {
+        "success": True,
+        "sparse_topics_count": len(sparse),
+        "sparse_topics": sparse,
+        "total_harvested": total_harvested,
+        "details": results_by_topic
     }
 
 

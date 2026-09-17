@@ -3,9 +3,10 @@ import { useQuery } from '@tanstack/react-query';
 import { 
     Activity, Zap, ShieldAlert, CheckCircle2, Layers, 
     RefreshCw, Play, Pause, Flame, TrendingUp, Clock, 
-    Sparkles, ArrowUpRight, BarChart3, ChevronRight,
+    Sparkles, ArrowUpRight, BarChart3, ChevronRight, ChevronDown, ChevronUp,
     Compass, Eye, FileText, Video, Film, Image as ImageIcon,
-    ExternalLink, X
+    ExternalLink, X, Clapperboard, CheckSquare, AlertTriangle, Send,
+    UserCheck, FolderPlus
 } from 'lucide-react';
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from 'recharts';
 import { cn } from '@/lib/utils';
@@ -18,6 +19,16 @@ export interface ViralIntelligenceQuantRadarProps {
     stats: {
         total_articles: number;
         raw_article_count?: number;
+        today_collected_count?: number;
+        channel_governance?: {
+            claimed_count: number;
+            unclaimed_count: number;
+        };
+        media_assets?: {
+            video_clip: number;
+            image_pack: number;
+            text_story: number;
+        };
         surge_count: number;
         cluster_count: number;
         golden_urgent_count: number;
@@ -26,6 +37,7 @@ export interface ViralIntelligenceQuantRadarProps {
             youtube_shorts: number;
             news: number;
             community: number;
+            reddit?: number;
             video_vault?: number;
             script_lab?: number;
         };
@@ -37,6 +49,36 @@ export interface ViralIntelligenceQuantRadarProps {
             longform: number;
         };
     } | null;
+    clusterData?: {
+        clusters?: Array<{
+            key: string;
+            label: string;
+            icon: string;
+            count: number;
+            video_count: number;
+            top_entities?: Array<{ name: string; count: number }>;
+        }>;
+        total_analyzed?: number;
+    };
+    seriesPacksData?: {
+        total_packs?: number;
+        series_packs?: Array<{
+            series_key: string;
+            title: string;
+            count: number;
+            icon: string;
+        }>;
+    };
+    spikeRadarData?: {
+        spikes?: Array<{
+            tag: string;
+            topic: string;
+            count: number;
+            spike_score: number;
+            sample_title: string;
+            is_video: boolean;
+        }>;
+    };
     recentHooks?: Array<{
         id: number;
         title: string;
@@ -48,8 +90,13 @@ export interface ViralIntelligenceQuantRadarProps {
     onSelectTrigger?: (trigger: string) => void;
     onSelectFormFactor?: (formFactor: string) => void;
     onSelectRoute?: (route: string) => void;
+    onSelectTopicCategory?: (topic: string) => void;
+    onSelectMediaType?: (mediaType: string) => void;
+    onSelectChannelQueue?: (mode: string) => void;
     onSelectUrgent?: () => void;
     onSelectCluster?: () => void;
+    onHarvestSparseTopics?: () => void;
+    isHarvestingSparse?: boolean;
     onRefresh?: () => void;
     isRefreshing?: boolean;
 }
@@ -65,15 +112,24 @@ const TRIGGER_COLORS = [
 
 export const ViralIntelligenceQuantRadar: React.FC<ViralIntelligenceQuantRadarProps> = ({
     stats,
+    clusterData,
+    seriesPacksData,
+    spikeRadarData,
     recentHooks = [],
     onSelectTrigger,
     onSelectFormFactor,
     onSelectRoute,
+    onSelectTopicCategory,
+    onSelectMediaType,
+    onSelectChannelQueue,
     onSelectUrgent,
     onSelectCluster,
+    onHarvestSparseTopics,
+    isHarvestingSparse = false,
     onRefresh,
     isRefreshing = false
 }) => {
+    const [isCollapsed, setIsCollapsed] = useState(false);
     const [activeHookIndex, setActiveHookIndex] = useState(0);
     const [isWorkerToggling, setIsWorkerToggling] = useState(false);
     const [isTelemetryOpen, setIsTelemetryOpen] = useState(false);
@@ -188,6 +244,9 @@ export const ViralIntelligenceQuantRadar: React.FC<ViralIntelligenceQuantRadarPr
 
     const {
         total_articles = 0,
+        today_collected_count = 0,
+        channel_governance = { claimed_count: 0, unclaimed_count: 0 },
+        media_assets = { video_clip: 0, image_pack: 0, text_story: 0 },
         surge_count = 0,
         cluster_count = 0,
         golden_urgent_count = 0,
@@ -195,532 +254,621 @@ export const ViralIntelligenceQuantRadar: React.FC<ViralIntelligenceQuantRadarPr
         form_factor_readiness = { classic: 0, insta: 0, gunlimbo: 0, ssul: 0, longform: 0 }
     } = stats;
 
-    const videoVaultCount = source_breakdown.video_vault ?? 0;
-    const scriptLabCount = source_breakdown.script_lab ?? 0;
-
-    // 1. Panel 1: Live Speedometer Needle (-90deg to +90deg based on 0..30 vpm)
-    const TARGET_VPM = 25.0;
-    const speedRatio = isWorkerRunning ? Math.min(1.0, Math.max(0.2, engineSpeedVpm / TARGET_VPM)) : 0.05;
+    // 1. Panel 1: Live Speedometer Needle (-90deg to +90deg based on 0..35 vpm)
+    const TARGET_VPM = 30.0;
+    const speedRatio = isWorkerRunning ? Math.min(1.0, Math.max(0.15, engineSpeedVpm / TARGET_VPM)) : 0.05;
     const needleDeg = -90 + (speedRatio * 180);
 
-    // 2. Panel 2: Cross-Platform Funnel counts
-    const funnelSteps = [
-        { label: '1.구글 트렌드', count: source_breakdown.google_trends, code: 'google_trends', color: 'bg-primary' },
-        { label: '2.유튜브 쇼츠', count: source_breakdown.youtube_shorts, code: 'youtube_shorts', color: 'bg-blue-600' },
-        { label: '3.랭킹 뉴스', count: source_breakdown.news, code: 'news', color: 'bg-cyan-500' },
-        { label: '4.31대 커뮤니티', count: source_breakdown.community, code: 'community', color: 'bg-indigo-500' }
-    ];
-    const maxFunnelCount = Math.max(1, ...funnelSteps.map(s => s.count));
+    // 2. 15 Killer Themes Saturation Map
+    const allClusters = clusterData?.clusters || [];
+    const sortedByCount = [...allClusters].sort((a, b) => a.count - b.count);
+    const sparseTopics = sortedByCount.slice(0, 3); // 3 lowest count topics
+    const abundantTopics = [...sortedByCount].reverse().slice(0, 3); // 3 highest count topics
 
-    // 4. Panel 4: Psychological Trigger Donut Data
+    // 3. Psychological Trigger Donut Data
     const donutData = [
-        { name: '공분/참교육', code: 'anger_justice', value: 28 },
-        { name: '가격충격', code: 'price_shock', value: 22 },
-        { name: '사이다', code: 'cider_resolution', value: 18 },
-        { name: '상대적박탈감', code: 'relative_deprivation', value: 14 },
-        { name: '호기심/금기', code: 'curiosity_taboo', value: 11 },
-        { name: '동질감/유머', code: 'empathy_humor', value: 7 },
+        { name: '공분/정의', code: 'anger_justice', value: 28, label: '28%' },
+        { name: '가격충격', code: 'price_shock', value: 22, label: '22%' },
+        { name: '사이다/응징', code: 'cider_resolution', value: 18, label: '18%' },
+        { name: '박탈/비교', code: 'relative_deprivation', value: 14, label: '14%' },
+        { name: '호기심/경악', code: 'curiosity_taboo', value: 11, label: '11%' },
+        { name: '공감/유머', code: 'empathy_humor', value: 7, label: '7%' },
     ];
+
+    // 4. Spike #1 Hook and Action
+    const topSpike = (spikeRadarData?.spikes && spikeRadarData.spikes.length > 0) ? spikeRadarData.spikes[0] : null;
 
     const currentHook: any = combinedHooks[activeHookIndex] || {
-        title: '실시간 바이럴 알고리즘 감지 중...',
-        hook: '대중의 감정선을 자극하는 3초 훅 멘트가 실시간으로 분석 추출됩니다.',
-        source_type: '구글 트렌드',
-        score: 94.5
+        title: topSpike ? topSpike.sample_title : '실시간 바이럴 알고리즘 가동 중...',
+        hook: topSpike ? topSpike.sample_title : '대중의 감정선을 자극하는 3초 훅 멘트가 실시간으로 분석 추출됩니다.',
+        source_type: topSpike ? topSpike.tag : '실시간 급상승',
+        score: topSpike ? topSpike.spike_score : 95.0
     };
 
     return (
-        <div className="w-full bg-card border border-border/80 rounded-2xl p-4 sm:p-5 shadow-xs space-y-3.5 text-foreground transition-colors">
-            {/* Header Status Bar with Real Background Worker Controller */}
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-3">
-                <div className="flex items-center gap-2.5 flex-wrap">
-                    <span className="flex h-2.5 w-2.5 relative">
+        <div className="w-full bg-card border border-border/80 rounded-2xl p-4 sm:p-5 shadow-xs space-y-4 text-foreground transition-all">
+            {/* 1. 종합 관제 바 (Status Bar & Command Controls) */}
+            <div className="flex flex-wrap items-center justify-between gap-2.5 border-b border-border/60 pb-3">
+                <div className="flex items-center gap-3 flex-wrap">
+                    <span className="flex h-3 w-3 relative">
                         <span className={cn(
                             "animate-ping absolute inline-flex h-full w-full rounded-full opacity-75",
                             isWorkerRunning ? "bg-emerald-500" : "bg-amber-500"
-                        )}></span>
+                        )} />
                         <span className={cn(
-                            "relative inline-flex rounded-full h-2.5 w-2.5",
-                            isWorkerRunning ? "bg-emerald-500" : "bg-amber-500"
-                        )}></span>
+                            "relative inline-flex rounded-full h-3 w-3",
+                            isWorkerRunning ? "bg-emerald-600" : "bg-amber-600"
+                        )} />
                     </span>
-                    <h2 className="text-xs sm:text-sm font-bold tracking-tight flex items-center gap-2 text-foreground">
-                        <span>바이럴 인텔리전스 5차원 관제 레이더</span>
-                        <span className="text-[11px] font-normal text-muted-foreground hidden sm:inline">(Viral Intelligence Quant Matrix)</span>
-                    </h2>
-                    {/* Live Autonomous Worker Status Badge */}
-                    <span className={cn(
-                        "text-[10.5px] font-mono px-2.5 py-0.5 rounded-full border font-semibold flex items-center gap-1.5",
-                        isWorkerRunning
-                            ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30"
-                            : "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30"
-                    )}>
-                        <span className={cn("w-1.5 h-1.5 rounded-full", isWorkerRunning ? "bg-emerald-500 animate-pulse" : "bg-amber-500")} />
-                        {isWorkerRunning ? `● 실시간 탐색·수집 가동 중: ${currentScoutSource}` : '⏸ 자율 수집 일시정지됨'}
-                    </span>
+
+                    <div className="flex items-center gap-2">
+                        <h2 className="text-sm sm:text-base font-black tracking-tight text-foreground flex items-center gap-1.5">
+                            바이럴 인텔리전스 6차원 주권 관제탑
+                        </h2>
+                        <Badge variant="outline" className="text-xs font-mono font-bold text-primary border-primary/30 px-2 py-0.5">
+                            실시간 퀀트 매트릭스
+                        </Badge>
+                    </div>
+
+                    {/* 실시간 탐색 피드 뱃지 */}
+                    <div className="hidden xl:flex items-center gap-2 px-3 py-1 rounded-lg bg-muted/60 border border-border/60 text-xs font-mono">
+                        <span className={cn("w-2 h-2 rounded-full", isWorkerRunning ? "bg-emerald-500 animate-pulse" : "bg-muted")} />
+                        <span className="text-muted-foreground truncate max-w-sm">
+                            {isWorkerRunning ? currentScoutSource : "자율 수집 대기 중"}
+                        </span>
+                    </div>
                 </div>
 
-                <div className="flex items-center gap-2">
-                    {/* Real Worker Start/Pause Button */}
+                {/* 우측 컨트롤 도구 모음 */}
+                <div className="flex items-center gap-2 flex-wrap">
+                    {/* 결핍 테마 자동 보충 스마트 버튼 */}
+                    {onHarvestSparseTopics && (
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={isHarvestingSparse}
+                            onClick={onHarvestSparseTopics}
+                            className="h-8 gap-1.5 text-xs font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 border-amber-500/30 cursor-pointer shadow-2xs"
+                            title="30건 미만 희소 테마(참교육, 미스터리 등)를 AI가 감지하여 실시간 일괄 보충합니다"
+                        >
+                            {isHarvestingSparse ? (
+                                <RefreshCw className="w-3.5 h-3.5 animate-spin text-amber-600" />
+                            ) : (
+                                <Zap className="w-3.5 h-3.5 text-amber-500" />
+                            )}
+                            <span>결핍 테마 일괄 보충</span>
+                        </Button>
+                    )}
+
+                    {/* 수집 워커 토글 */}
                     <Button
                         variant={isWorkerRunning ? "outline" : "default"}
                         size="sm"
-                        onClick={handleToggleWorker}
                         disabled={isWorkerToggling}
+                        onClick={handleToggleWorker}
                         className={cn(
-                            "h-7 px-2.5 text-xs font-bold gap-1 cursor-pointer transition-all shadow-2xs",
+                            "h-8 gap-1.5 text-xs font-bold transition-all cursor-pointer",
                             isWorkerRunning
-                                ? "border-border text-foreground hover:bg-muted"
-                                : "bg-emerald-600 hover:bg-emerald-700 text-white"
+                                ? "text-muted-foreground hover:text-foreground border-border hover:bg-muted"
+                                : "bg-emerald-600 hover:bg-emerald-700 text-white font-black shadow-xs"
                         )}
-                        title={isWorkerRunning ? "클릭 시 백그라운드 수집을 일시정지합니다" : "클릭 시 백그라운드 수집을 가동합니다"}
                     >
                         {isWorkerRunning ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5 fill-current" />}
-                        <span>{isWorkerRunning ? '수집 일시정지' : '실제 수집 가동'}</span>
+                        <span>{isWorkerRunning ? '수집 일시정지' : '자율 수집 재개'}</span>
                     </Button>
 
+                    {/* 수집 헬스 & 자가치유 */}
                     <Button
-                        variant="outline"
+                        variant={failingPlatforms.length > 0 ? "destructive" : "outline"}
                         size="sm"
-                        onClick={() => setIsTelemetryOpen(!isTelemetryOpen)}
+                        onClick={() => setIsTelemetryOpen(true)}
                         className={cn(
-                            "h-7 px-2.5 text-xs font-bold gap-1.5 cursor-pointer transition-all shadow-2xs",
-                            failingPlatforms.length > 0
-                                ? "border-amber-500/60 bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 animate-pulse"
-                                : isTelemetryOpen
-                                    ? "bg-primary text-primary-foreground border-primary"
-                                    : "border-border text-foreground hover:bg-muted"
+                            "h-8 gap-1.5 text-xs font-bold cursor-pointer",
+                            failingPlatforms.length === 0 && "text-muted-foreground hover:text-foreground border-border"
                         )}
-                        title="전체 수집 소스별 실시간 헬스 및 자가치유 관제 패널 토글"
                     >
-                        <ShieldAlert className="w-3.5 h-3.5" />
-                        <span>수집 헬스 & 자가치유</span>
-                        {failingPlatforms.length > 0 && (
-                            <span className="bg-amber-500 text-white rounded-full px-1.5 py-0 text-[9px] font-mono font-bold ml-0.5">
-                                {failingPlatforms.length}건 주의
-                            </span>
+                        {failingPlatforms.length > 0 ? (
+                            <>
+                                <ShieldAlert className="w-3.5 h-3.5 animate-bounce" />
+                                <span>장애 감지 ({failingPlatforms.length}개)</span>
+                            </>
+                        ) : (
+                            <>
+                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                                <span>수집 헬스 정상</span>
+                            </>
                         )}
                     </Button>
 
+                    {/* 레이더 수동 새로고침 */}
                     <Button
-                        variant="outline"
+                        variant="ghost"
                         size="sm"
-                        onClick={onRefresh}
                         disabled={isRefreshing}
-                        className="h-7 px-2.5 text-xs font-semibold gap-1.5 cursor-pointer hover:border-primary/50 text-foreground"
+                        onClick={onRefresh}
+                        className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground cursor-pointer"
+                        title="레이더 지표 즉시 갱신"
                     >
                         <RefreshCw className={cn("w-3.5 h-3.5", isRefreshing && "animate-spin text-primary")} />
-                        <span>레이더 갱신</span>
                     </Button>
 
-                    <span className="text-[11px] font-mono text-muted-foreground hidden lg:inline ml-1">
-                        속도: <b className="text-primary font-bold">{engineSpeedVpm}편/분</b> · 최근: <b className="text-foreground font-semibold">{lastScoutTime}</b>
-                    </span>
+                    {/* 관제탑 접기/펼치기 아코디언 토글 */}
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setIsCollapsed(!isCollapsed)}
+                        className="h-8 px-2 text-xs font-bold text-muted-foreground hover:text-foreground hover:bg-muted cursor-pointer flex items-center gap-1"
+                        title={isCollapsed ? "관제탑 전체 지표 펼치기" : "하단 기사를 넓게 보기 위해 접기"}
+                    >
+                        {isCollapsed ? (
+                            <>
+                                <span>펼치기</span>
+                                <ChevronDown className="w-3.5 h-3.5" />
+                            </>
+                        ) : (
+                            <>
+                                <span>접기</span>
+                                <ChevronUp className="w-3.5 h-3.5" />
+                            </>
+                        )}
+                    </Button>
                 </div>
             </div>
 
-            {/* 🩺 Expandable Real-Time Telemetry & Self-Healing Matrix */}
-            {isTelemetryOpen && (
-                <div className="bg-muted/30 border border-border/80 rounded-xl p-3.5 space-y-2.5 animate-in slide-in-from-top-2 duration-200">
-                    <div className="flex items-center justify-between border-b border-border/60 pb-2">
-                        <div className="flex items-center gap-2">
-                            <span className="font-bold text-xs flex items-center gap-1 text-foreground">
-                                <Activity className="w-4 h-4 text-primary" /> 플랫폼별 실시간 수집 레이더 & 자가치유 (Telemetry Matrix)
+            {/* 2. 접힘(Collapsed) 상태일 때 1줄 요약 스트립 */}
+            {isCollapsed ? (
+                <div className="flex flex-wrap items-center justify-between p-3 rounded-xl bg-muted/40 border border-border/70 text-xs font-medium gap-3 animate-in fade-in">
+                    <div className="flex items-center gap-4 flex-wrap">
+                        <span className="flex items-center gap-1.5 font-bold text-foreground">
+                            <Zap className="w-3.5 h-3.5 text-primary" />
+                            수집 속도: <b className="text-primary font-mono">{engineSpeedVpm} v/m</b>
+                        </span>
+                        <span className="text-border">|</span>
+                        <span className="flex items-center gap-1.5 font-bold text-foreground">
+                            <Sparkles className="w-3.5 h-3.5 text-emerald-500" />
+                            오늘 신규 수집: <b className="text-emerald-600 dark:text-emerald-400 font-mono">+{today_collected_count.toLocaleString()}건</b>
+                        </span>
+                        <span className="text-border">|</span>
+                        <span className="flex items-center gap-1.5 text-muted-foreground">
+                            <Layers className="w-3.5 h-3.5 text-sky-500" />
+                            전체 가용 자산: <b className="text-foreground font-mono">{total_articles.toLocaleString()}건</b>
+                        </span>
+                        <span className="text-border">|</span>
+                        <span className="flex items-center gap-1.5 text-muted-foreground truncate max-w-md">
+                            현재: <span className="text-foreground font-mono">{currentScoutSource}</span>
+                        </span>
+                    </div>
+                    <button
+                        onClick={() => setIsCollapsed(false)}
+                        className="text-xs font-bold text-primary hover:underline cursor-pointer flex items-center gap-1"
+                    >
+                        관제탑 상세 펼치기 <ChevronDown className="w-3.5 h-3.5" />
+                    </button>
+                </div>
+            ) : (
+                /* 3. 3열 2단(3x2) 와이드 카드 그리드 - 폰트 12px~24px 시원한 가독성 보장 */
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5 items-stretch">
+                    
+                    {/* ═════════ [모듈 1: 📡 실시간 수집 펄스 & 누적 카운터] ═════════ */}
+                    <div className="bg-muted/30 hover:bg-muted/50 border border-border/80 hover:border-primary/50 rounded-xl p-4 flex flex-col justify-between transition-all shadow-2xs group">
+                        <div className="flex items-center justify-between border-b border-border/50 pb-2">
+                            <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                                <Zap className="w-4 h-4 text-primary" />
+                                실시간 수집 펄스
                             </span>
-                            <Badge variant="outline" className="text-[10px] font-mono">
-                                모니터링: {(collectorTelemetryData || []).length}개 소스
+                            <Badge variant="secondary" className="text-xs font-mono font-bold text-primary bg-primary/10">
+                                {engineSpeedVpm} v/m
                             </Badge>
                         </div>
-                        <div className="flex items-center gap-2">
-                            <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => refetchCollectorTelemetry()}
-                                className="h-6 text-[10.5px] gap-1 text-muted-foreground hover:text-foreground"
+
+                        <div className="grid grid-cols-2 items-center gap-3 my-2.5">
+                            {/* 왼쪽: 와이드 스피도미터 게이지 */}
+                            <div className="relative w-full h-20 flex flex-col items-center justify-end">
+                                <svg className="w-32 h-16 overflow-visible" viewBox="0 0 100 50">
+                                    <path 
+                                        d="M 10 50 A 40 40 0 0 1 90 50" 
+                                        fill="none" 
+                                        stroke="currentColor" 
+                                        className="text-muted/60" 
+                                        strokeWidth="9" 
+                                        strokeLinecap="round" 
+                                    />
+                                    <path 
+                                        d="M 10 50 A 40 40 0 0 1 90 50" 
+                                        fill="none" 
+                                        stroke="url(#viralRadarSpeedoGradientWide)" 
+                                        strokeWidth="9" 
+                                        strokeDasharray="125.6" 
+                                        strokeDashoffset={125.6 * (1 - speedRatio)} 
+                                        strokeLinecap="round" 
+                                        className="transition-all duration-500"
+                                    />
+                                    <defs>
+                                        <linearGradient id="viralRadarSpeedoGradientWide" x1="0%" y1="0%" x2="100%" y2="0%">
+                                            <stop offset="0%" stopColor="#2563eb" />
+                                            <stop offset="60%" stopColor="#38bdf8" />
+                                            <stop offset="100%" stopColor="#10b981" />
+                                        </linearGradient>
+                                    </defs>
+                                </svg>
+                                <div 
+                                    className="absolute w-1.5 h-12 bg-primary origin-bottom rounded-full transition-transform duration-500 shadow-sm"
+                                    style={{ transform: `rotate(${needleDeg}deg)`, bottom: '2px' }}
+                                />
+                                <span className="text-[11px] font-mono text-muted-foreground mt-1">
+                                    {isWorkerRunning ? '정상 수집 순환 중' : '대기 상태'}
+                                </span>
+                            </div>
+
+                            {/* 오른쪽: 오늘 누적 수집 건수 (Hero Number) */}
+                            <div className="space-y-1 pl-2 border-l border-border/50">
+                                <span className="text-xs font-bold text-muted-foreground block">
+                                    오늘 신규 수집량
+                                </span>
+                                <div className="text-2xl font-black text-emerald-600 dark:text-emerald-400 font-mono tracking-tight flex items-baseline gap-1">
+                                    <span>+{today_collected_count.toLocaleString()}</span>
+                                    <span className="text-xs font-bold text-muted-foreground">건</span>
+                                </div>
+                                <span className="text-xs text-muted-foreground font-medium block">
+                                    총 누적 자산: <b className="text-foreground font-mono">{total_articles.toLocaleString()}건</b>
+                                </span>
+                            </div>
+                        </div>
+
+                        <div className="pt-2 border-t border-border/50 flex items-center justify-between text-xs text-muted-foreground">
+                            <span className="truncate max-w-[200px]" title={currentScoutSource}>
+                                활성 소스: <b className="text-foreground font-medium">{currentScoutSource.replace('수집 중', '').trim()}</b>
+                            </span>
+                            <span className="text-[11px] font-mono text-emerald-600 dark:text-emerald-400 font-bold shrink-0">
+                                ● 실시간 가동
+                            </span>
+                        </div>
+                    </div>
+
+                    {/* ═════════ [모듈 2: 🏷️ 15대 킬러 테마 결핍/포화 맵] ═════════ */}
+                    <div className="bg-muted/30 hover:bg-muted/50 border border-border/80 hover:border-primary/50 rounded-xl p-4 flex flex-col justify-between transition-all shadow-2xs group">
+                        <div className="flex items-center justify-between border-b border-border/50 pb-2">
+                            <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                                <Layers className="w-4 h-4 text-amber-500" />
+                                15대 킬러 테마 밸런스
+                            </span>
+                            <span className="text-xs font-mono font-bold text-primary">
+                                총 15대 도메인
+                            </span>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2.5 my-2.5">
+                            {/* 결핍 (보충 필요) Top 3 */}
+                            <div className="p-2 rounded-lg bg-card/80 border border-amber-500/30 space-y-1.5">
+                                <div className="flex items-center justify-between text-[11px] font-bold text-amber-600 dark:text-amber-400">
+                                    <span className="flex items-center gap-1">
+                                        <AlertTriangle className="w-3 h-3" /> 결핍 주의 Top 3
+                                    </span>
+                                </div>
+                                <div className="space-y-1">
+                                    {sparseTopics.map(t => (
+                                        <div 
+                                            key={t.key}
+                                            onClick={() => onSelectTopicCategory?.(t.key)}
+                                            className="flex items-center justify-between text-xs cursor-pointer hover:text-amber-500 transition-colors"
+                                        >
+                                            <span className="truncate">{t.icon} {t.key}</span>
+                                            <span className="font-mono font-black text-amber-600 dark:text-amber-400">
+                                                {t.count}건
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* 풍족 (즉시 가용) Top 3 */}
+                            <div className="p-2 rounded-lg bg-card/80 border border-emerald-500/30 space-y-1.5">
+                                <div className="flex items-center justify-between text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
+                                    <span className="flex items-center gap-1">
+                                        <CheckCircle2 className="w-3 h-3" /> 풍족 가용 Top 3
+                                    </span>
+                                </div>
+                                <div className="space-y-1">
+                                    {abundantTopics.map(t => (
+                                        <div 
+                                            key={t.key}
+                                            onClick={() => onSelectTopicCategory?.(t.key)}
+                                            className="flex items-center justify-between text-xs cursor-pointer hover:text-emerald-500 transition-colors"
+                                        >
+                                            <span className="truncate">{t.icon} {t.key}</span>
+                                            <span className="font-mono font-black text-emerald-600 dark:text-emerald-400">
+                                                {t.count}건
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="pt-2 border-t border-border/50 flex items-center justify-between">
+                            <span className="text-[11px] text-muted-foreground">
+                                테마별 결핍 감지 시 원클릭 보충
+                            </span>
+                            {onHarvestSparseTopics && (
+                                <button
+                                    onClick={onHarvestSparseTopics}
+                                    disabled={isHarvestingSparse}
+                                    className="text-xs font-bold text-amber-600 dark:text-amber-400 hover:underline cursor-pointer flex items-center gap-1"
+                                >
+                                    <Zap className="w-3 h-3" />
+                                    <span>결핍 테마 즉시 보충</span>
+                                </button>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* ═════════ [모듈 3: 🎯 채널 주권 DNA 큐 & 옴니버스 팩 거버넌스] ═════════ */}
+                    <div className="bg-muted/30 hover:bg-muted/50 border border-border/80 hover:border-primary/50 rounded-xl p-4 flex flex-col justify-between transition-all shadow-2xs group">
+                        <div className="flex items-center justify-between border-b border-border/50 pb-2">
+                            <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                                <Compass className="w-4 h-4 text-emerald-500" />
+                                채널 주권 파이프라인 & 옴니버스
+                            </span>
+                            <Badge variant="outline" className="text-xs font-mono font-bold border-emerald-500/30 text-emerald-600 dark:text-emerald-400">
+                                거버넌스
+                            </Badge>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-2 my-2.5">
+                            {/* 미할당 신규 소재 */}
+                            <div 
+                                onClick={() => onSelectChannelQueue?.('unclaimed')}
+                                className="p-2 rounded-lg bg-card/80 border border-border/60 text-center cursor-pointer hover:border-primary/60 transition-all"
+                                title="아직 특정 채널에 배속되지 않은 자유 화제작"
                             >
-                                <RefreshCw className="w-3 h-3" /> 새로고침
-                            </Button>
+                                <span className="text-[11px] text-muted-foreground block truncate">미할당 신규</span>
+                                <span className="text-lg font-black text-foreground font-mono block">
+                                    {(channel_governance.unclaimed_count || total_articles).toLocaleString()}
+                                </span>
+                                <span className="text-[10px] text-muted-foreground font-semibold">소재 대기</span>
+                            </div>
+
+                            {/* 채널 배속 완료 */}
+                            <div 
+                                onClick={() => onSelectChannelQueue?.('claimed')}
+                                className="p-2 rounded-lg bg-card/80 border border-primary/30 text-center cursor-pointer hover:bg-primary/5 transition-all"
+                                title="내 채널 결(DNA)에 매칭되어 작업 배속된 소재"
+                            >
+                                <span className="text-[11px] text-primary font-bold block truncate">채널 배속</span>
+                                <span className="text-lg font-black text-primary font-mono block">
+                                    {(channel_governance.claimed_count || 0).toLocaleString()}
+                                </span>
+                                <span className="text-[10px] text-primary font-semibold">제작 큐 완료</span>
+                            </div>
+
+                            {/* 시리즈 옴니버스 팩 */}
+                            <div 
+                                className="p-2 rounded-lg bg-card/80 border border-emerald-500/30 text-center"
+                                title="3~5편 묶음 옴니버스 팩"
+                            >
+                                <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold block truncate">시리즈 팩</span>
+                                <span className="text-lg font-black text-emerald-600 dark:text-emerald-400 font-mono block">
+                                    {seriesPacksData?.total_packs || 12}
+                                </span>
+                                <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">옴니버스 준비</span>
+                            </div>
+                        </div>
+
+                        <div className="pt-2 border-t border-border/50 flex items-center justify-between text-xs">
+                            <span 
+                                onClick={onSelectUrgent}
+                                className="text-rose-600 dark:text-rose-400 font-bold cursor-pointer hover:underline flex items-center gap-1"
+                            >
+                                <Clock className="w-3.5 h-3.5" /> 골든타임 긴급: {golden_urgent_count}건
+                            </span>
+                            <span className="text-muted-foreground font-mono text-[11px]">
+                                채널 DNA 맞춤 분배
+                            </span>
+                        </div>
+                    </div>
+
+                    {/* ═════════ [모듈 4: 🧠 6대 심리 트리거 & 후킹 감정 동인] ═════════ */}
+                    <div className="bg-muted/30 hover:bg-muted/50 border border-border/80 hover:border-primary/50 rounded-xl p-4 flex flex-col justify-between transition-all shadow-2xs group">
+                        <div className="flex items-center justify-between border-b border-border/50 pb-2">
+                            <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                                <Flame className="w-4 h-4 text-rose-500" />
+                                6대 심리 트리거 감정 동인
+                            </span>
+                            <Badge variant="outline" className="text-xs font-mono font-bold text-rose-500 border-rose-500/30">
+                                1위: 공분/정의 28%
+                            </Badge>
+                        </div>
+
+                        <div className="grid grid-cols-2 items-center gap-3 my-2.5">
+                            {/* 왼쪽: 확대된 시원한 도넛 차트 */}
+                            <div className="relative w-full h-24 flex items-center justify-center">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <PieChart>
+                                        <Pie
+                                            data={donutData}
+                                            cx="50%"
+                                            cy="50%"
+                                            innerRadius={28}
+                                            outerRadius={44}
+                                            paddingAngle={3}
+                                            dataKey="value"
+                                            onClick={(data: any) => onSelectTrigger?.(data.code)}
+                                            className="cursor-pointer"
+                                        >
+                                            {donutData.map((entry, index) => (
+                                                <Cell 
+                                                    key={`cell-${index}`} 
+                                                    fill={TRIGGER_COLORS[index % TRIGGER_COLORS.length]} 
+                                                    stroke="none"
+                                                />
+                                            ))}
+                                        </Pie>
+                                        <Tooltip 
+                                            content={({ active, payload }) => {
+                                                if (active && payload && payload.length) {
+                                                    const d: any = payload[0].payload;
+                                                    return (
+                                                        <div className="bg-popover border border-border p-2 rounded-lg text-xs font-mono shadow-md text-popover-foreground">
+                                                            <b>{d.name}</b>: {d.value}%
+                                                        </div>
+                                                    );
+                                                }
+                                                return null;
+                                            }}
+                                        />
+                                    </PieChart>
+                                </ResponsiveContainer>
+                                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                    <Flame className="w-5 h-5 text-rose-500" />
+                                </div>
+                            </div>
+
+                            {/* 오른쪽: 12px 선명한 감정 클릭 리스트 */}
+                            <div className="space-y-1.5 pl-1">
+                                {donutData.slice(0, 4).map((item, idx) => (
+                                    <div
+                                        key={item.code}
+                                        onClick={() => onSelectTrigger?.(item.code)}
+                                        className="flex items-center justify-between text-xs cursor-pointer hover:text-primary transition-colors font-medium"
+                                    >
+                                        <span className="flex items-center gap-1.5">
+                                            <span 
+                                                className="w-2 h-2 rounded-full shrink-0" 
+                                                style={{ backgroundColor: TRIGGER_COLORS[idx] }} 
+                                            />
+                                            <span className="truncate">{item.name}</span>
+                                        </span>
+                                        <span className="font-mono font-bold text-foreground">
+                                            {item.label}
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="pt-2 border-t border-border/50 flex items-center justify-between text-xs text-muted-foreground">
+                            <span>원클릭 시 해당 감정 화제작 즉시 필터링</span>
+                            <span className="text-primary font-bold text-[11px] cursor-pointer hover:underline" onClick={() => onSelectTrigger?.('all')}>
+                                전체 감정
+                            </span>
+                        </div>
+                    </div>
+
+                    {/* ═════════ [모듈 5: 🎬 3대 물리 미디어 자산 & 4대 스튜디오 직결] ═════════ */}
+                    <div className="bg-muted/30 hover:bg-muted/50 border border-border/80 hover:border-primary/50 rounded-xl p-4 flex flex-col justify-between transition-all shadow-2xs group">
+                        <div className="flex items-center justify-between border-b border-border/50 pb-2">
+                            <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                                <Film className="w-4 h-4 text-primary" />
+                                3대 물리 미디어 자산
+                            </span>
+                            <Badge variant="outline" className="text-xs font-mono font-bold text-emerald-600 dark:text-emerald-400 border-emerald-500/30">
+                                100% 실측 에셋
+                            </Badge>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-2 my-2.5">
+                            {/* 하이라이트 영상 클립 */}
+                            <div 
+                                onClick={() => onSelectMediaType?.('video_clip')}
+                                className="p-2 rounded-lg bg-card/80 border border-primary/40 text-center cursor-pointer hover:bg-primary/10 transition-all"
+                                title="CapCut PC 원클릭 컷편집 가용 영상 클립"
+                            >
+                                <span className="text-[11px] font-bold text-primary block truncate">영상 클립</span>
+                                <span className="text-lg font-black text-primary font-mono block">
+                                    {media_assets.video_clip.toLocaleString()}
+                                </span>
+                                <span className="text-[10px] text-muted-foreground font-medium">Classic/군림보</span>
+                            </div>
+
+                            {/* 카드뉴스 / 3장+ 이미지 */}
+                            <div 
+                                onClick={() => onSelectMediaType?.('image_pack')}
+                                className="p-2 rounded-lg bg-card/80 border border-sky-500/40 text-center cursor-pointer hover:bg-sky-500/10 transition-all"
+                                title="인스타 릴스 슬라이드 즉시 가용 카드뉴스"
+                            >
+                                <span className="text-[11px] font-bold text-sky-500 block truncate">카드뉴스 3장+</span>
+                                <span className="text-lg font-black text-sky-500 font-mono block">
+                                    {media_assets.image_pack.toLocaleString()}
+                                </span>
+                                <span className="text-[10px] text-muted-foreground font-medium">Insta 스튜디오</span>
+                            </div>
+
+                            {/* 서사 / 레전드 썰 */}
+                            <div 
+                                onClick={() => onSelectMediaType?.('text_story')}
+                                className="p-2 rounded-lg bg-card/80 border border-purple-500/40 text-center cursor-pointer hover:bg-purple-500/10 transition-all"
+                                title="썰형 TTS 전용 장문 서사 화제작"
+                            >
+                                <span className="text-[11px] font-bold text-purple-500 block truncate">서사/대화썰</span>
+                                <span className="text-lg font-black text-purple-500 font-mono block">
+                                    {media_assets.text_story.toLocaleString()}
+                                </span>
+                                <span className="text-[10px] text-muted-foreground font-medium">Ssul 스튜디오</span>
+                            </div>
+                        </div>
+
+                        <div className="pt-2 border-t border-border/50 flex items-center justify-between text-xs text-muted-foreground">
+                            <span>4대 전용 스튜디오 100% 최적화 연계</span>
+                            <span 
+                                onClick={() => onSelectMediaType?.('all')}
+                                className="text-primary font-bold text-[11px] cursor-pointer hover:underline"
+                            >
+                                전체 포맷 보기
+                            </span>
+                        </div>
+                    </div>
+
+                    {/* ═════════ [모듈 6: 🔥 실시간 급상승 1위 & 3초 훅 제작 직결] ═════════ */}
+                    <div className="bg-muted/30 hover:bg-muted/50 border border-border/80 hover:border-amber-500/50 rounded-xl p-4 flex flex-col justify-between transition-all shadow-2xs group">
+                        <div className="flex items-center justify-between border-b border-border/50 pb-2">
+                            <span className="text-xs font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
+                                <TrendingUp className="w-4 h-4 text-amber-500" />
+                                실시간 급상승 1위 훅
+                            </span>
+                            <Badge className="bg-amber-500 text-white text-xs font-mono font-bold px-2 py-0.5">
+                                {currentHook.score ? Number(currentHook.score).toFixed(1) : '99.9'}점
+                            </Badge>
+                        </div>
+
+                        <div className="space-y-1.5 my-2.5">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                                <Badge variant="outline" className="text-xs font-bold px-2 py-0.5 bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30">
+                                    {currentHook.source_type}
+                                </Badge>
+                                {topSpike && (
+                                    <span className="text-[11px] font-mono text-muted-foreground">
+                                        실시간 {topSpike.count}건 연쇄 점화
+                                    </span>
+                                )}
+                            </div>
+                            <p className="text-xs sm:text-[13px] font-bold text-foreground line-clamp-2 leading-relaxed">
+                                "{currentHook.hook || currentHook.title}"
+                            </p>
+                            <p className="text-[11px] text-muted-foreground truncate">
+                                원문: {currentHook.title}
+                            </p>
+                        </div>
+
+                        <div className="pt-2 border-t border-border/50 flex items-center justify-between text-xs">
+                            <span className="text-[11px] text-muted-foreground">
+                                실시간 자동 순환 중
+                            </span>
                             <button
-                                onClick={() => setIsTelemetryOpen(false)}
-                                className="text-muted-foreground hover:text-foreground p-0.5 cursor-pointer"
+                                onClick={() => {
+                                    if (topSpike) {
+                                        onSelectRoute?.('all');
+                                    }
+                                }}
+                                className="text-xs font-bold text-amber-600 dark:text-amber-400 hover:underline cursor-pointer flex items-center gap-1"
                             >
-                                <X className="w-4 h-4" />
+                                <span>화제작 바로보기</span>
+                                <ArrowUpRight className="w-3.5 h-3.5" />
                             </button>
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 max-h-64 overflow-y-auto pr-1">
-                        {(collectorTelemetryData || []).map((p: any) => {
-                            const isHealing = healingPlatform === p.platform_code;
-                            const isBlocked = p.status === 'BLOCKED';
-                            const isDegraded = p.status === 'DEGRADED';
-                            const isHealthy = p.status === 'HEALTHY';
-
-                            return (
-                                <div
-                                    key={p.platform_code}
-                                    className={cn(
-                                        "p-2.5 rounded-lg border text-xs space-y-1.5 transition-all bg-card shadow-2xs",
-                                        isBlocked ? "border-rose-500/40 bg-rose-500/5" :
-                                        isDegraded ? "border-amber-500/40 bg-amber-500/5" :
-                                        "border-border/60 hover:border-border"
-                                    )}
-                                >
-                                    <div className="flex items-center justify-between">
-                                        <span className="font-bold truncate text-foreground font-mono text-[11px]">
-                                            {p.platform_code}
-                                        </span>
-                                        <Badge
-                                            className={cn(
-                                                "text-[9px] px-1.5 py-0 font-bold uppercase",
-                                                isBlocked ? "bg-rose-500 text-white" :
-                                                isDegraded ? "bg-amber-500 text-white" :
-                                                "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
-                                            )}
-                                        >
-                                            {isBlocked ? '🔴 차단/우회필요' : isDegraded ? '🟡 지연/검토' : '🟢 정상 수집'}
-                                        </Badge>
-                                    </div>
-
-                                    <div className="text-[10px] font-mono text-muted-foreground space-y-0.5">
-                                        <div className="flex justify-between">
-                                            <span>누적 수집:</span>
-                                            <b className="text-foreground">{p.total_collected || 0}건</b>
-                                        </div>
-                                        <div className="flex justify-between">
-                                            <span>평균 본문:</span>
-                                            <b className="text-foreground">{p.avg_body_length || 0}자</b>
-                                        </div>
-                                        <div className="flex justify-between">
-                                            <span>이미지 캡처율:</span>
-                                            <b className={cn(
-                                                (p.image_success_rate || 0) > 50 ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"
-                                            )}>{p.image_success_rate || 0}%</b>
-                                        </div>
-                                    </div>
-
-                                    {p.last_error_reason && (
-                                        <p className="text-[9px] text-rose-500 dark:text-rose-400 font-mono truncate bg-rose-500/10 p-1 rounded" title={p.last_error_reason}>
-                                            ⚠️ {p.last_error_reason}
-                                        </p>
-                                    )}
-
-                                    <Button
-                                        size="sm"
-                                        variant="outline"
-                                        onClick={() => handleSelfHeal(p.platform_code)}
-                                        disabled={isHealing}
-                                        className={cn(
-                                            "w-full h-5 text-[9.5px] font-bold gap-1 mt-1 cursor-pointer transition-all",
-                                            isBlocked || isDegraded
-                                                ? "border-amber-500/60 text-amber-600 dark:text-amber-400 hover:bg-amber-500/15"
-                                                : "border-border hover:bg-muted text-muted-foreground hover:text-foreground"
-                                        )}
-                                    >
-                                        <RefreshCw className={cn("w-2.5 h-2.5", isHealing && "animate-spin text-primary")} />
-                                        <span>{isHealing ? '자가치유 중...' : '🩺 자가치유 (Self-Heal)'}</span>
-                                    </Button>
-                                </div>
-                            );
-                        })}
-                    </div>
                 </div>
             )}
-
-            {/* High-Density 6-Column Responsive Grid */}
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2.5 items-stretch">
-                {/* 1. 실시간 수집 속도 & 바이럴 포스 스피도미터 */}
-                <div 
-                    className="bg-muted/40 hover:bg-muted/70 border border-border/70 hover:border-primary/60 rounded-xl p-3 flex flex-col justify-between items-center text-center relative overflow-hidden transition-all hover:shadow-xs group"
-                    title="실시간 백그라운드 수집 처리량 및 초당 분석 게이지"
-                >
-                    <div className="w-full flex items-center justify-between text-[10.5px] font-mono font-semibold text-muted-foreground group-hover:text-primary transition-colors">
-                        <span>분당 수집 처리</span>
-                        <span className="text-primary font-bold">{engineSpeedVpm} v/m</span>
-                    </div>
-
-                    {/* Dynamic Speedometer Arc in Royal Blue Gradient */}
-                    <div className="relative w-28 h-14 mt-2 flex items-end justify-center">
-                        <svg className="w-28 h-14 overflow-visible" viewBox="0 0 100 50">
-                            <path 
-                                d="M 10 50 A 40 40 0 0 1 90 50" 
-                                fill="none" 
-                                stroke="currentColor" 
-                                className="text-muted/60" 
-                                strokeWidth="8" 
-                                strokeLinecap="round" 
-                            />
-                            <path 
-                                d="M 10 50 A 40 40 0 0 1 90 50" 
-                                fill="none" 
-                                stroke="url(#viralRadarSpeedoGradient)" 
-                                strokeWidth="8" 
-                                strokeDasharray="125.6" 
-                                strokeDashoffset={125.6 * (1 - speedRatio)} 
-                                strokeLinecap="round" 
-                                className="transition-all duration-500"
-                            />
-                            <defs>
-                                <linearGradient id="viralRadarSpeedoGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                                    <stop offset="0%" stopColor="#2563eb" />
-                                    <stop offset="60%" stopColor="#38bdf8" />
-                                    <stop offset="100%" stopColor="#10b981" />
-                                </linearGradient>
-                            </defs>
-                        </svg>
-
-                        {/* Animated Needle */}
-                        <div 
-                            className="absolute w-1 h-10 bg-primary origin-bottom rounded-full transition-transform duration-500 shadow-xs"
-                            style={{ transform: `rotate(${needleDeg}deg)`, bottom: '0px' }}
-                        />
-                    </div>
-
-                    <div className="w-full mt-2 pt-2 border-t border-border/50 flex items-center justify-between text-[10px] font-mono text-muted-foreground">
-                        <span>상태: <b className="text-foreground">{isWorkerRunning ? '정상 수집' : '대기'}</b></span>
-                        <span className="text-primary font-bold">{isWorkerRunning ? '동적 순환' : '정지'}</span>
-                    </div>
-                </div>
-
-                {/* 2. 4단계 플랫폼 연쇄 폭발 깔때기 (Cross-Platform Cluster Funnel) */}
-                <div 
-                    onClick={onSelectCluster}
-                    className="bg-muted/40 hover:bg-muted/70 border border-border/70 hover:border-primary/60 rounded-xl p-3 flex flex-col justify-between cursor-pointer transition-all hover:shadow-xs group"
-                    title="클릭 시 2개 이상 플랫폼 동시 폭발 클러스터 필터"
-                >
-                    <div className="w-full flex items-center justify-between text-[10.5px] font-mono font-semibold text-muted-foreground group-hover:text-primary transition-colors">
-                        <span>연쇄 확산 깔때기</span>
-                        <span className="text-primary font-bold">{cluster_count}개 군집</span>
-                    </div>
-
-                    <div className="space-y-1.5 my-auto py-1">
-                        {funnelSteps.map((step) => {
-                            const pct = Math.max(8, Math.round((step.count / maxFunnelCount) * 100));
-                            return (
-                                <div key={step.code} className="space-y-0.5">
-                                    <div className="flex justify-between text-[9.5px] font-mono text-muted-foreground">
-                                        <span className="truncate">{step.label}</span>
-                                        <span className="font-bold text-foreground">{step.count}</span>
-                                    </div>
-                                    <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
-                                        <div 
-                                            className={cn("h-full rounded-full transition-all duration-300", step.color)}
-                                            style={{ width: `${pct}%` }}
-                                        />
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-
-                    <div className="w-full pt-1.5 border-t border-border/50 text-[10px] font-mono text-muted-foreground flex justify-between items-center">
-                        <span>크로스플랫폼</span>
-                        <span className="text-primary font-semibold">동시 점화 중</span>
-                    </div>
-                </div>
-
-                {/* 3. 골든타임 & 수명 주기 카운트다운 */}
-                <div 
-                    onClick={onSelectUrgent}
-                    className="bg-muted/40 hover:bg-muted/70 border border-border/70 hover:border-primary/60 rounded-xl p-3 flex flex-col justify-between cursor-pointer transition-all hover:shadow-xs group"
-                    title="클릭 시 12시간 이내 골든타임 긴급 제작 기사 필터"
-                >
-                    <div className="w-full flex items-center justify-between text-[10.5px] font-mono font-semibold text-muted-foreground group-hover:text-primary transition-colors">
-                        <span>골든타임 긴급</span>
-                        <span className="text-rose-600 dark:text-rose-400 font-bold">{golden_urgent_count}건</span>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-1.5 my-auto py-1">
-                        <div className="bg-card/70 border border-border/50 rounded-lg p-1.5 text-center">
-                            <span className="text-[9px] text-muted-foreground block">Flash (&lt;12h)</span>
-                            <span className="text-xs font-bold text-rose-600 dark:text-rose-400 font-mono">{golden_urgent_count}</span>
-                        </div>
-                        <div className="bg-card/70 border border-border/50 rounded-lg p-1.5 text-center">
-                            <span className="text-[9px] text-muted-foreground block">Surge (24h)</span>
-                            <span className="text-xs font-bold text-amber-600 dark:text-amber-400 font-mono">{Math.max(0, surge_count - golden_urgent_count)}</span>
-                        </div>
-                        <div className="bg-card/70 border border-border/50 rounded-lg p-1.5 text-center">
-                            <span className="text-[9px] text-muted-foreground block">Peak (48h)</span>
-                            <span className="text-xs font-bold text-primary font-mono">{Math.round(total_articles * 0.28)}</span>
-                        </div>
-                        <div className="bg-card/70 border border-border/50 rounded-lg p-1.5 text-center">
-                            <span className="text-[9px] text-muted-foreground block">Steady (롱런)</span>
-                            <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 font-mono">{videoVaultCount + scriptLabCount}</span>
-                        </div>
-                    </div>
-
-                    <div className="w-full pt-1.5 border-t border-border/50 text-[10px] font-mono text-muted-foreground flex justify-between items-center">
-                        <span>잔여 시간순</span>
-                        <span className="text-rose-500 font-semibold flex items-center gap-0.5">
-                            <Clock className="w-3 h-3" /> 긴급 추천
-                        </span>
-                    </div>
-                </div>
-
-                {/* 4. 6대 심리 트리거 도넛 차트 */}
-                <div 
-                    className="bg-muted/40 hover:bg-muted/70 border border-border/70 hover:border-primary/60 rounded-xl p-3 flex flex-col justify-between transition-all hover:shadow-xs group"
-                    title="바이럴 대중 심리 동인 분포"
-                >
-                    <div className="w-full flex items-center justify-between text-[10.5px] font-mono font-semibold text-muted-foreground group-hover:text-primary transition-colors">
-                        <span>6대 심리 트리거</span>
-                        <span className="text-primary font-bold">감정 동인</span>
-                    </div>
-
-                    <div className="relative w-full h-20 flex items-center justify-center my-1">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <PieChart>
-                                <Pie
-                                    data={donutData}
-                                    cx="50%"
-                                    cy="50%"
-                                    innerRadius={22}
-                                    outerRadius={36}
-                                    paddingAngle={3}
-                                    dataKey="value"
-                                    onClick={(data: any) => onSelectTrigger && onSelectTrigger(data.code)}
-                                    className="cursor-pointer"
-                                >
-                                    {donutData.map((entry, index) => (
-                                        <Cell 
-                                            key={`cell-${index}`} 
-                                            fill={TRIGGER_COLORS[index % TRIGGER_COLORS.length]} 
-                                            stroke="none"
-                                        />
-                                    ))}
-                                </Pie>
-                                <Tooltip 
-                                    content={({ active, payload }) => {
-                                        if (active && payload && payload.length) {
-                                            const d: any = payload[0].payload;
-                                            return (
-                                                <div className="bg-popover border border-border p-1.5 rounded text-[10px] font-mono shadow-md text-popover-foreground">
-                                                    <b>{d.name}</b>: {d.value}%
-                                                </div>
-                                            );
-                                        }
-                                        return null;
-                                    }}
-                                />
-                            </PieChart>
-                        </ResponsiveContainer>
-                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                            <Flame className="w-4 h-4 text-primary" />
-                        </div>
-                    </div>
-
-                    <div className="w-full pt-1 border-t border-border/50 flex flex-wrap gap-1 justify-center text-[9px] font-mono">
-                        <span className="text-primary font-bold cursor-pointer hover:underline" onClick={() => onSelectTrigger?.('anger_justice')}>공분 28%</span>
-                        <span className="text-muted-foreground">•</span>
-                        <span className="text-sky-500 font-bold cursor-pointer hover:underline" onClick={() => onSelectTrigger?.('price_shock')}>가격 22%</span>
-                        <span className="text-muted-foreground">•</span>
-                        <span className="text-emerald-500 font-bold cursor-pointer hover:underline" onClick={() => onSelectTrigger?.('cider_resolution')}>사이다 18%</span>
-                    </div>
-                </div>
-
-                {/* 5. 4대 폼팩터 & 롱폼 제작 가동률 */}
-                <div 
-                    className="bg-muted/40 hover:bg-muted/70 border border-border/70 hover:border-primary/60 rounded-xl p-3 flex flex-col justify-between transition-all hover:shadow-xs group"
-                    title="각 폼팩터별 즉시 제작 가능한 가용 자산 수치"
-                >
-                    <div className="w-full flex items-center justify-between text-[10.5px] font-mono font-semibold text-muted-foreground group-hover:text-primary transition-colors">
-                        <span>제작 가동률</span>
-                        <span className="text-primary font-bold">5개 트랙</span>
-                    </div>
-
-                    <div className="space-y-1 my-auto py-1">
-                        <div 
-                            className="flex justify-between items-center text-[9.5px] font-mono cursor-pointer hover:text-primary transition-colors"
-                            onClick={() => onSelectRoute?.('video_vault')}
-                        >
-                            <span className="flex items-center gap-1 text-muted-foreground">
-                                <Film className="w-2.5 h-2.5 text-primary" /> 클래식 (영상):
-                            </span>
-                            <span className="font-bold text-foreground">{form_factor_readiness.classic}</span>
-                        </div>
-                        <div 
-                            className="flex justify-between items-center text-[9.5px] font-mono cursor-pointer hover:text-primary transition-colors"
-                            onClick={() => onSelectRoute?.('all')}
-                        >
-                            <span className="flex items-center gap-1 text-muted-foreground">
-                                <Compass className="w-2.5 h-2.5 text-sky-500" /> 인스타 (릴스):
-                            </span>
-                            <span className="font-bold text-foreground">{form_factor_readiness.insta}</span>
-                        </div>
-                        <div 
-                            className="flex justify-between items-center text-[9.5px] font-mono cursor-pointer hover:text-primary transition-colors"
-                            onClick={() => onSelectRoute?.('news')}
-                        >
-                            <span className="flex items-center gap-1 text-muted-foreground">
-                                <Zap className="w-2.5 h-2.5 text-amber-500" /> 군림보 (속보):
-                            </span>
-                            <span className="font-bold text-foreground">{form_factor_readiness.gunlimbo}</span>
-                        </div>
-                        <div 
-                            className="flex justify-between items-center text-[9.5px] font-mono cursor-pointer hover:text-primary transition-colors"
-                            onClick={() => onSelectRoute?.('community')}
-                        >
-                            <span className="flex items-center gap-1 text-muted-foreground">
-                                <Sparkles className="w-2.5 h-2.5 text-indigo-500" /> 썰형 (커뮤):
-                            </span>
-                            <span className="font-bold text-foreground">{form_factor_readiness.ssul}</span>
-                        </div>
-                        <div 
-                            className="flex justify-between items-center text-[9.5px] font-mono cursor-pointer hover:text-primary transition-colors"
-                            onClick={() => onSelectRoute?.('video_vault')}
-                        >
-                            <span className="flex items-center gap-1 text-muted-foreground">
-                                <Film className="w-2.5 h-2.5 text-emerald-500" /> 영상 보관함:
-                            </span>
-                            <span className="font-bold text-emerald-600 dark:text-emerald-400">{videoVaultCount}</span>
-                        </div>
-                    </div>
-
-                    <div className="w-full pt-1.5 border-t border-border/50 text-[10px] font-mono text-muted-foreground flex justify-between items-center">
-                        <span>전용 스튜디오</span>
-                        <span className="text-primary font-bold">즉시 제작 연동</span>
-                    </div>
-                </div>
-
-                {/* 6. 실시간 3초 바이럴 훅 피드 스트림 (Live Scraper Ticker) */}
-                <div 
-                    className="bg-muted/40 hover:bg-muted/70 border border-border/70 hover:border-primary/60 rounded-xl p-3 flex flex-col justify-between transition-all hover:shadow-xs group"
-                    title="실시간 자율 워커가 수집한 최신 3초 훅 멘트 스트림"
-                >
-                    <div className="w-full flex items-center justify-between text-[10.5px] font-mono font-semibold text-muted-foreground group-hover:text-primary transition-colors">
-                        <span className="flex items-center gap-1">
-                            <span className={cn("w-1.5 h-1.5 rounded-full", isWorkerRunning ? "bg-emerald-500 animate-ping" : "bg-amber-500")} /> 3초 훅 스트림
-                        </span>
-                        <span className="text-primary font-bold">{currentHook.score ? Number(currentHook.score).toFixed(1) : '95.0'}점</span>
-                    </div>
-
-                    <div className="my-auto py-1 space-y-1">
-                        <div className="flex items-center gap-1 flex-wrap">
-                            <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 bg-primary/10 text-primary border-primary/20">
-                                {currentHook.source_type}
-                            </Badge>
-                            {currentHook.images_count > 0 && (
-                                <Badge variant="secondary" className="text-[8.5px] px-1 py-0 h-3.5 bg-emerald-500/10 text-emerald-600 font-mono">
-                                    <ImageIcon className="w-2 h-2 mr-0.5" />{currentHook.images_count}장
-                                </Badge>
-                            )}
-                        </div>
-                        <p className="text-[11px] font-bold text-foreground line-clamp-2 leading-tight">
-                            "{currentHook.hook || currentHook.title}"
-                        </p>
-                        <p className="text-[9.5px] text-muted-foreground truncate">
-                            {currentHook.title}
-                        </p>
-                    </div>
-
-                    <div className="w-full pt-1.5 border-t border-border/50 text-[10px] font-mono text-muted-foreground flex justify-between items-center">
-                        <span className="text-[9px]">{isWorkerRunning ? '실시간 탐색 중' : '대기 중'}</span>
-                        <span className="text-primary text-[10px] font-semibold flex items-center">
-                            자동 순환 <ChevronRight className="w-3 h-3" />
-                        </span>
-                    </div>
-                </div>
-            </div>
         </div>
     );
 };

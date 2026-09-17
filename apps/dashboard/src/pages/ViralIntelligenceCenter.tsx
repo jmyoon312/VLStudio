@@ -587,6 +587,24 @@ export default function ViralIntelligenceCenter() {
         }
     });
 
+    // 빈약 테마 원클릭 자동 보충 수집 뮤테이션 (Sparse Topics Auto-Harvest)
+    const sparseHarvestMutation = useMutation({
+        mutationFn: async () => {
+            const res = await api.post('/viral/harvest/sparse-topics');
+            return res.data;
+        },
+        onSuccess: (data) => {
+            toast.success(`빈약 테마 긴급 수집 완료! (${data.total_harvested || 0}건 신규 확보)`);
+            queryClient.invalidateQueries({ queryKey: ['viral_articles'] });
+            queryClient.invalidateQueries({ queryKey: ['viral_topic_clusters'] });
+            queryClient.invalidateQueries({ queryKey: ['viral_spike_radar'] });
+            queryClient.invalidateQueries({ queryKey: ['viral_hud_stats'] });
+        },
+        onError: (err: any) => {
+            toast.error(`빈약 테마 수집 실패: ${err.message || '오류 발생'}`);
+        }
+    });
+
     // Deep Fetch Details Mutation
     const fetchDetailsMutation = useMutation({
         mutationFn: async (articleId: number) => {
@@ -1122,32 +1140,51 @@ export default function ViralIntelligenceCenter() {
             </div>
             {radarMode === 'quant' ? (
                 <ViralIntelligenceQuantRadar
-                stats={hudStats}
-                recentHooks={recentHooks}
-                onSelectRoute={(r) => {
-                    setSelectedRoute(r as MasterRouteKey);
-                    setSelectedPlatform('all');
-                    setPage(1);
-                }}
-                onSelectTrigger={(t) => {
-                    setSelectedTrigger(t);
-                    setPage(1);
-                }}
-                onSelectUrgent={() => {
-                    setSortBy('velocity');
-                    setPage(1);
-                }}
-                onSelectCluster={() => {
-                    setSortBy('viral_score');
-                    setPage(1);
-                }}
-                onRefresh={() => {
-                    refetchHudStats();
-                    refetchArticles();
-                }}
-                isRefreshing={isRefreshingHud || articlesLoading}
-            />
-        ) : (
+                    stats={hudStats}
+                    clusterData={clusterData}
+                    seriesPacksData={seriesPacksData}
+                    spikeRadarData={spikeRadarData}
+                    recentHooks={recentHooks}
+                    onSelectRoute={(r) => {
+                        setSelectedRoute(r as MasterRouteKey);
+                        setSelectedPlatform('all');
+                        setPage(1);
+                    }}
+                    onSelectTrigger={(t) => {
+                        setSelectedTrigger(t);
+                        setPage(1);
+                    }}
+                    onSelectTopicCategory={(cat) => {
+                        setSelectedTopicCategory(cat);
+                        setSelectedEntityTag('all');
+                        setPage(1);
+                    }}
+                    onSelectMediaType={(m) => {
+                        setSelectedMediaType(m);
+                        setPage(1);
+                    }}
+                    onSelectChannelQueue={(q) => {
+                        setSelectedChannelId(q);
+                        setPage(1);
+                    }}
+                    onSelectUrgent={() => {
+                        setSortBy('velocity');
+                        setPage(1);
+                    }}
+                    onSelectCluster={() => {
+                        setSortBy('viral_score');
+                        setPage(1);
+                    }}
+                    onHarvestSparseTopics={() => sparseHarvestMutation.mutate()}
+                    isHarvestingSparse={sparseHarvestMutation.isPending}
+                    onRefresh={() => {
+                        refetchHudStats();
+                        refetchClusters();
+                        refetchArticles();
+                    }}
+                    isRefreshing={isRefreshingHud || articlesLoading}
+                />
+            ) : (
             <CollectorTelemetryPanel 
                 metrics={telemetryData?.metrics || []} 
                 onRefresh={() => refetchTelemetry()} 
