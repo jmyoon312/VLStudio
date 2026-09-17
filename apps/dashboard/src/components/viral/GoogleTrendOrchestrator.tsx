@@ -261,6 +261,7 @@ export const GoogleTrendOrchestrator: React.FC = () => {
             toast.success(`'${data.keyword}' 관련 기사 ${data.harvested_count}건을 수집하여 DB에 적재했습니다.`);
             queryClient.invalidateQueries({ queryKey: ['viralArticles'] });
             queryClient.invalidateQueries({ queryKey: ['hudStats'] });
+            queryClient.invalidateQueries({ queryKey: ['crossIndex', data.keyword] });
         },
         onError: (err) => {
             toast.error(`뉴스 수집 실패: ${err.message}`);
@@ -809,14 +810,14 @@ export const GoogleTrendOrchestrator: React.FC = () => {
             {/* 4. LOCAL 5,000+ DB CROSS-INDEX MODAL                                      */}
             {/* ═════════════════════════════════════════════════════════════════════════ */}
             <Dialog open={!!activeCrossIndexKeyword} onOpenChange={(open) => !open && setActiveCrossIndexKeyword(null)}>
-                <DialogContent className="sm:max-w-3xl max-h-[80vh] overflow-y-auto p-6 rounded-2xl bg-card border border-border/80 shadow-xl">
+                <DialogContent className="w-[94vw] sm:max-w-4xl max-h-[85vh] overflow-y-auto p-4 sm:p-6 rounded-2xl bg-card border border-border/80 shadow-xl">
                     <DialogHeader className="space-y-1.5">
-                        <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                        <div className="flex items-center gap-2.5">
+                            <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 shrink-0">
                                 <BookOpen className="w-4 h-4" />
                             </div>
-                            <div>
-                                <DialogTitle className="text-lg font-black text-foreground">
+                            <div className="min-w-0">
+                                <DialogTitle className="text-lg font-black text-foreground truncate">
                                     로컬 커뮤니티 DB 교차 역색인: '{activeCrossIndexKeyword}'
                                 </DialogTitle>
                                 <DialogDescription className="text-xs text-muted-foreground">
@@ -832,20 +833,58 @@ export const GoogleTrendOrchestrator: React.FC = () => {
                             <p className="text-xs text-muted-foreground">로컬 데이터베이스 역색인 매칭 중...</p>
                         </div>
                     ) : (crossIndexData?.articles || []).length === 0 ? (
-                        <div className="py-12 text-center text-muted-foreground space-y-2">
+                        <div className="py-12 text-center text-muted-foreground space-y-3">
                             <BookOpen className="w-8 h-8 mx-auto opacity-40" />
                             <p className="text-sm font-semibold">로컬 DB에 일치하는 커뮤니티 썰이 없습니다.</p>
-                            <p className="text-xs">상단의 <strong>[원천 수집]</strong> 버튼을 누르면 구글 뉴스를 통해 실시간 기사를 즉시 수집할 수 있습니다.</p>
+                            <p className="text-xs max-w-md mx-auto">
+                                아래 <strong>[원천 기사 수집]</strong> 버튼을 누르면 구글 뉴스를 통해 실시간 기사를 즉시 수집하여 DB에 적재할 수 있습니다.
+                            </p>
+                            {activeCrossIndexKeyword && (
+                                <Button
+                                    size="sm"
+                                    onClick={() =>
+                                        harvestNewsMutation.mutate({
+                                            keyword: activeCrossIndexKeyword,
+                                        })
+                                    }
+                                    disabled={harvestNewsMutation.isPending}
+                                    className="text-xs font-bold gap-1.5 bg-blue-600 hover:bg-blue-700 text-white cursor-pointer"
+                                >
+                                    <RefreshCw className={`w-3.5 h-3.5 ${harvestNewsMutation.isPending ? 'animate-spin' : ''}`} />
+                                    <span>'{activeCrossIndexKeyword}' 원천 기사 수집</span>
+                                </Button>
+                            )}
                         </div>
                     ) : (
                         <div className="space-y-2.5 pt-2">
+                            <div className="flex items-center justify-between px-1 pb-1">
+                                <span className="text-xs text-muted-foreground">
+                                    총 <strong className="text-foreground">{crossIndexData?.articles?.length || 0}건</strong>의 연관 자료가 매칭되었습니다.
+                                </span>
+                                {activeCrossIndexKeyword && (
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() =>
+                                            harvestNewsMutation.mutate({
+                                                keyword: activeCrossIndexKeyword,
+                                            })
+                                        }
+                                        disabled={harvestNewsMutation.isPending}
+                                        className="h-7 text-xs font-semibold gap-1 text-muted-foreground hover:text-foreground cursor-pointer"
+                                    >
+                                        <RefreshCw className={`w-3 h-3 ${harvestNewsMutation.isPending ? 'animate-spin' : ''}`} />
+                                        <span>추가 원천 뉴스 수집</span>
+                                    </Button>
+                                )}
+                            </div>
                             {(crossIndexData?.articles || []).map((art) => (
                                 <div
                                     key={art.id}
-                                    className="p-3 rounded-xl bg-muted/30 border border-border/70 hover:border-primary/50 transition-all flex items-start justify-between gap-3"
+                                    className="p-3.5 rounded-xl bg-muted/30 border border-border/70 hover:border-primary/50 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3"
                                 >
                                     <div className="space-y-1 min-w-0 flex-1">
-                                        <div className="flex items-center gap-2">
+                                        <div className="flex flex-wrap items-center gap-2">
                                             <Badge variant="outline" className="text-[10px] font-semibold border-border/80">
                                                 {art.community_name || art.source_type}
                                             </Badge>
@@ -862,22 +901,22 @@ export const GoogleTrendOrchestrator: React.FC = () => {
                                             </span>
                                         </div>
 
-                                        <h4 className="text-xs font-bold text-foreground truncate">
+                                        <h4 className="text-xs sm:text-sm font-bold text-foreground truncate">
                                             {art.title}
                                         </h4>
-                                        <p className="text-[11px] text-muted-foreground line-clamp-2">
+                                        <p className="text-[11px] text-muted-foreground line-clamp-2 leading-relaxed">
                                             {art.snippet}
                                         </p>
                                     </div>
 
-                                    {/* Edit Button */}
+                                    {/* Edit Button - Responsive & Never Clipped */}
                                     <Button
                                         size="sm"
                                         onClick={() => {
                                             setActiveCrossIndexKeyword(null);
                                             navigate(`/shorts-editor/ssul?article_id=${art.id}`);
                                         }}
-                                        className="h-8 text-xs font-bold shrink-0 gap-1 cursor-pointer bg-primary text-primary-foreground hover:bg-primary/90"
+                                        className="h-8.5 px-3.5 text-xs font-bold shrink-0 w-full sm:w-auto min-w-[105px] whitespace-nowrap gap-1.5 cursor-pointer bg-primary text-primary-foreground hover:bg-primary/90 shadow-xs"
                                     >
                                         <Film className="w-3.5 h-3.5" />
                                         <span>편집기 열기</span>
