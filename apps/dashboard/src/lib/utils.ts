@@ -224,20 +224,15 @@ export function getMediaUrl(path: string | null, rootDownloadPath?: string): str
  */
 export const handleImageErrorWithFallback = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
     const img = e.currentTarget;
+    img.onerror = null;
     const currentSrc = img.src || '';
-    if (currentSrc.includes('hq720')) {
-        img.src = currentSrc.replace(/hq720.*\.jpg.*/, 'hqdefault.jpg');
-    } else if (currentSrc.includes('maxresdefault.jpg')) {
-        img.src = currentSrc.replace('maxresdefault.jpg', 'hqdefault.jpg');
-    } else if (currentSrc.includes('hqdefault.jpg')) {
-        img.src = currentSrc.replace('hqdefault.jpg', 'mqdefault.jpg');
-    } else if (currentSrc.includes('mqdefault.jpg')) {
-        img.src = currentSrc.replace('mqdefault.jpg', 'default.jpg');
+    if (currentSrc.includes('hq720') || currentSrc.includes('maxresdefault.jpg')) {
+        img.src = currentSrc.replace(/hq720.*\.jpg.*/, 'hqdefault.jpg').replace('maxresdefault.jpg', 'hqdefault.jpg');
     } else {
-        img.onerror = null;
         img.src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="320" height="180" viewBox="0 0 320 180" fill="%231e293b"><rect width="320" height="180" fill="%231e293b"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%2364748b" font-size="14" font-family="sans-serif">No Thumbnail</text></svg>';
     }
 };
+
 
 
 /**

@@ -34,7 +34,7 @@ import {
     Wifi, 
     Zap
 } from 'lucide-react';
-import { cn, getMediaUrl } from '@/lib/utils';
+import { cn, getMediaUrl, handleImageErrorWithFallback } from '@/lib/utils';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '@/lib/api';
 import { toast } from 'sonner';
@@ -886,22 +886,8 @@ const Home = () => {
 
                 }
 
-                if (!realThumbUrl && v.video_id) {
-
-                    realThumbUrl = `https://i.ytimg.com/vi/${v.video_id}/hqdefault.jpg`;
-
-                }
-
-                if (!realThumbUrl && v.url) {
-
-                    const match = v.url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|shorts\/))([\w-]{11})/);
-
-                    if (match && match[1]) {
-
-                        realThumbUrl = `https://i.ytimg.com/vi/${match[1]}/hqdefault.jpg`;
-
-                    }
-
+                if (!realThumbUrl) {
+                    realThumbUrl = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="320" height="180" viewBox="0 0 320 180" fill="%231e293b"><rect width="320" height="180" fill="%231e293b"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%2364748b" font-size="14" font-family="sans-serif">No Thumbnail</text></svg>';
                 }
 
                 const realVideoUrl = getMediaUrl(v.file_path, settings?.root_download_path);
@@ -1770,26 +1756,7 @@ const Home = () => {
 
                                                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
 
-                                                onError={(e) => {
-
-                                                    const img = e.currentTarget;
-
-                                                    if (img.src.includes('maxresdefault.jpg')) {
-
-                                                        img.src = img.src.replace('maxresdefault.jpg', 'hqdefault.jpg');
-
-                                                    } else if (img.src.includes('hqdefault.jpg')) {
-
-                                                        img.src = img.src.replace('hqdefault.jpg', 'mqdefault.jpg');
-
-                                                    } else {
-
-                                                        img.style.display = 'none';
-
-                                                    }
-
-                                                }}
-
+                                                onError={handleImageErrorWithFallback}
                                             />
 
                                         ) : item.videoUrl ? (

@@ -200,11 +200,14 @@ class ShadowWorkerPool:
 
     def _call_llm(self, system_prompt: str, user_prompt: str) -> str:
         try:
-            from app.agent.llm_client import LLMClient
-            client = LLMClient()
+            from app.llm_manager import LLMClient
+            from app import database, crud
+            with database.SessionLocal() as db:
+                settings = crud.get_settings(db)
+            client = LLMClient(settings)
             full_prompt = f"{system_prompt}\n\n[사용자 지시]\n{user_prompt}"
-            res = client.generate(prompt=full_prompt, temperature=0.7)
-            if res and len(res) > 20:
+            res = client.generate(prompt=full_prompt)
+            if res and len(res) > 20 and not res.startswith("ERROR:"):
                 return res
         except Exception as e:
             logger.warning(f"LLMClient call failed: {e}. Using intelligent fallback.")

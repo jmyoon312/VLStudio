@@ -1839,60 +1839,47 @@ class WorkerTestRequest(BaseModel):
     temperature: Optional[float] = 0.7
 
 @router.post("/agent-roster/test")
-async def test_worker_agent(req: WorkerTestRequest):
+async def test_worker_agent(req: WorkerTestRequest, db: Session = Depends(database.get_db)):
     """
-    Real execution of a worker test using LangChain / BrainRouter and DB Settings SSOT.
+    Real execution of a worker test using LLMClient (Single Source of Truth) and DB Settings.
     No fake or simulated text.
     """
     import time
     start_time = time.time()
+    settings = crud.get_settings(db)
+    target_model = req.model or getattr(settings, "script_analysis_model", None) or getattr(settings, "default_llm_model", None) or "omniroute/viraloop1"
     
     try:
-        from app.agent.brain_router import brain_router
-        from langchain_core.messages import SystemMessage, HumanMessage
+        from app.llm_manager import LLMClient
+        client = LLMClient(settings)
+        prompt = f"{req.custom_system_prompt}\n\n[사용자 지시]: {req.prompt}" if req.custom_system_prompt else req.prompt
         
-        # Initialize or get LLM based on active brain
-        llm = brain_router.get_active_llm()
-        
-        messages = []
-        if req.custom_system_prompt:
-            messages.append(SystemMessage(content=req.custom_system_prompt))
-        messages.append(HumanMessage(content=req.prompt))
-        
-        # Execute invocation
-        response = await llm.ainvoke(messages)
+        output_text = await client.generate_text(
+            prompt=prompt,
+            model_name=target_model,
+            system_instruction=req.custom_system_prompt,
+            temperature=req.temperature or 0.7
+        )
         latency_ms = int((time.time() - start_time) * 1000)
         
-        output_text = response.content if hasattr(response, "content") else str(response)
+        if output_text.startswith("ERROR:"):
+            raise ValueError(output_text)
+            
         return {
             "success": True,
             "worker_id": req.worker_id,
             "response": output_text,
             "latency_ms": latency_ms,
-            "model_used": str(llm)
+            "model_used": target_model
         }
     except Exception as e:
         logger.error(f"Worker test execution failed: {e}")
         latency_ms = int((time.time() - start_time) * 1000)
-        # Fallback to direct client call if brain_router LangChain fails
-        try:
-            from app.agent.llm_client import LLMClient
-            client = LLMClient()
-            prompt = f"{req.custom_system_prompt}\n\n[사용자 지시]: {req.prompt}" if req.custom_system_prompt else req.prompt
-            res = client.generate(prompt=prompt, temperature=req.temperature)
-            return {
-                "success": True,
-                "worker_id": req.worker_id,
-                "response": res,
-                "latency_ms": latency_ms,
-                "model_used": "LLMClient (Single Source of Truth)"
-            }
-        except Exception as e2:
-            return {
-                "success": False,
-                "error": f"AI 워커 추론 실패: {str(e2)} (주요 원인: {str(e)})",
-                "latency_ms": latency_ms
-            }
+        return {
+            "success": False,
+            "error": f"AI 워커 추론 실패: {str(e)}",
+            "latency_ms": latency_ms
+        }
 
 @router.get("/available-ai-models")
 def get_available_ai_models(db: Session = Depends(database.get_db)):

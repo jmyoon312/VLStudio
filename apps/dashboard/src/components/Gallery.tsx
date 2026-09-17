@@ -185,23 +185,7 @@ const getVideoThumbnailUrl = (video: Video, rootDownloadPath?: string): string =
 
     }
 
-    if (video.video_id) {
-
-        return `https://i.ytimg.com/vi/${video.video_id}/hqdefault.jpg`;
-
-    }
-
-    if (video.url) {
-
-        const match = video.url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|shorts\/))([\w-]{11})/);
-
-        if (match && match[1]) {
-
-            return `https://i.ytimg.com/vi/${match[1]}/hqdefault.jpg`;
-
-        }
-
-    }
+    return '';
 
     return '';
 
@@ -1203,14 +1187,12 @@ const Gallery = () => {
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                             onError={(e) => {
                                 const img = e.currentTarget;
+                                img.onerror = null;
                                 if (img.src.includes('maxresdefault.jpg')) {
                                     img.src = img.src.replace('maxresdefault.jpg', 'hqdefault.jpg');
-                                } else if (img.src.includes('hqdefault.jpg')) {
-                                    img.src = img.src.replace('hqdefault.jpg', 'mqdefault.jpg');
                                 } else if (channelThumb && img.src !== channelThumb) {
                                     img.src = channelThumb;
                                 } else {
-                                    img.onerror = null;
                                     img.src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="320" height="180" viewBox="0 0 320 180" fill="%231e293b"><rect width="320" height="180" fill="%231e293b"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%2364748b" font-size="14" font-family="sans-serif">No Thumbnail</text></svg>';
                                 }
                             }}

@@ -166,15 +166,7 @@ const getVideoThumbnailUrl = (video: Video): string => {
 
     if (meta?.thumbnail) return meta.thumbnail;
 
-    if (video.video_id) return `https://i.ytimg.com/vi/${video.video_id}/hqdefault.jpg`;
-
-    if (video.url) {
-
-        const match = video.url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|shorts\/))([\w-]{11})/);
-
-        if (match && match[1]) return `https://i.ytimg.com/vi/${match[1]}/hqdefault.jpg`;
-
-    }
+    return '';
 
     return '';
 

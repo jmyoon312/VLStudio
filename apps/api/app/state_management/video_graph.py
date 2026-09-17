@@ -492,3 +492,6 @@ async def run_sovereign_video_pipeline(
             "draft_project_path": f"05_Exports/{project_id}_draft_content.json",
             "hitl_status": "APPROVED"
         }
+
+run_video_pipeline = run_sovereign_video_pipeline
+
