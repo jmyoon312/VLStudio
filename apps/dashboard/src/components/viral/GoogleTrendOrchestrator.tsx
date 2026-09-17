@@ -30,8 +30,14 @@ import {
     MessageSquare,
     Heart,
     ChevronRight,
+    ChevronDown,
+    ChevronUp,
     X,
-    Maximize2
+    Maximize2,
+    Bot,
+    Send,
+    FileText,
+    Check
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -113,6 +119,50 @@ export interface CrossIndexResponse {
     articles: CrossIndexArticle[];
 }
 
+export interface ChannelAllocation {
+    channel_name: string;
+    recommended_studio: 'ssul' | 'gunlimbo' | 'insta' | 'classic';
+    keyword: string;
+    action_directive: string;
+}
+
+export interface ExecutiveBriefingResponse {
+    success: boolean;
+    model_used: string;
+    generated_at: string;
+    briefing: {
+        macro_sentiment: string;
+        golden_time_pick: {
+            keyword: string;
+            reason: string;
+            hook_formula: string;
+        };
+        channel_allocations: ChannelAllocation[];
+    };
+}
+
+export interface PipelineDispatchResponse {
+    success: boolean;
+    pipeline_res: {
+        project_id: string;
+        current_phase: string;
+        critic_score: number;
+        critic_feedback: string;
+        script_content: string;
+        draft_project_path?: string;
+        video_path?: string;
+        hitl_status: string;
+        article_id?: number;
+    };
+    channel_title: string;
+    critic_score: number;
+    critic_feedback: string;
+    current_phase: string;
+    script_content: string;
+    draft_project_path?: string;
+    message: string;
+}
+
 const CATEGORY_MAP: Record<string, { label: string; icon: string }> = {
     all: { label: '전체 카테고리', icon: '🌐' },
     drama_movie: { label: '드라마/영화/연예', icon: '🎭' },
@@ -147,7 +197,16 @@ export const GoogleTrendOrchestrator: React.FC = () => {
     const [activePrismTrend, setActivePrismTrend] = useState<TrendItem | null>(null);
     const [activeCrossIndexKeyword, setActiveCrossIndexKeyword] = useState<string | null>(null);
 
+    // Executive AI Briefing state
+    const [isBriefingExpanded, setIsBriefingExpanded] = useState<boolean>(true);
+    const [isManualBriefingRefreshing, setIsManualBriefingRefreshing] = useState<boolean>(false);
+
+    // LangGraph Pipeline Dispatch state & modal
+    const [dispatchingKeyword, setDispatchingKeyword] = useState<string | null>(null);
+    const [activePipelineResult, setActivePipelineResult] = useState<PipelineDispatchResponse | null>(null);
+
     // ── Queries ──
+    // 1. Dual-Lens Trends Query
     const {
         data: trendData,
         isLoading,
@@ -166,6 +225,69 @@ export const GoogleTrendOrchestrator: React.FC = () => {
             return res.data;
         },
         staleTime: 1000 * 60 * 3, // 3 mins cache
+    });
+
+    // 2. Executive AI Briefing Query
+    const {
+        data: aiBriefingData,
+        isLoading: isBriefingLoading,
+        refetch: refetchBriefing,
+    } = useQuery<ExecutiveBriefingResponse>({
+        queryKey: ['trendAiBriefing'],
+        queryFn: async () => {
+            const res = await axios.get('/api/viral/trends/ai-briefing');
+            return res.data;
+        },
+        staleTime: 1000 * 60 * 10, // 10 mins cache
+    });
+
+    // Refresh Executive Briefing manually (forces LLM execution and token generation)
+    const handleRefreshBriefing = async () => {
+        setIsManualBriefingRefreshing(true);
+        try {
+            toast.info('🧠 루피 AI 사령탑이 실시간 트렌드 및 대중 심리를 심층 분석 중입니다 (LLM 가동)...');
+            const res = await axios.get('/api/viral/trends/ai-briefing', { params: { refresh: true } });
+            queryClient.setQueryData(['trendAiBriefing'], res.data);
+            toast.success(`AI 사령탑 브리핑 갱신 완료 (모델: ${res.data?.model_used || 'viraloop1'})`);
+        } catch (err: any) {
+            toast.error(`브리핑 갱신 실패: ${err.message}`);
+        } finally {
+            setIsManualBriefingRefreshing(false);
+        }
+    };
+
+    // 3. LangGraph Auto-Dispatch Mutation
+    const autoDispatchMutation = useMutation<
+        PipelineDispatchResponse,
+        Error,
+        {
+            trend_keyword: string;
+            headline?: string;
+            target_studio?: string;
+            target_emotion?: string;
+            channel_id?: string;
+            channel_title?: string;
+            modality?: string;
+            render_engine?: string;
+            auto_approve_hitl?: boolean;
+        }
+    >({
+        mutationFn: async (payload) => {
+            setDispatchingKeyword(payload.trend_keyword);
+            const res = await axios.post('/api/viral/trends/auto-dispatch-pipeline', payload);
+            return res.data;
+        },
+        onSuccess: (data) => {
+            setDispatchingKeyword(null);
+            setActivePipelineResult(data);
+            toast.success(`🚀 LangGraph 자율 파이프라인 제작 완료! (Critic 점수: ${data.critic_score}점)`);
+            queryClient.invalidateQueries({ queryKey: ['viralArticles'] });
+            queryClient.invalidateQueries({ queryKey: ['hudStats'] });
+        },
+        onError: (err) => {
+            setDispatchingKeyword(null);
+            toast.error(`파이프라인 발주 실패: ${err.message}`);
+        },
     });
 
     // Cross-Index Query
@@ -296,6 +418,224 @@ export const GoogleTrendOrchestrator: React.FC = () => {
 
     return (
         <div className="space-y-4">
+            {/* ═════════════════════════════════════════════════════════════════════════ */}
+            {/* 0. TIER 1 HERMES BRAIN: EXECUTIVE AI TREND BRIEFING                       */}
+            {/* ═════════════════════════════════════════════════════════════════════════ */}
+            <div className="rounded-2xl bg-card border border-primary/30 shadow-xs overflow-hidden transition-all">
+                {/* Briefing Header */}
+                <div className="p-4 bg-gradient-to-r from-primary/10 via-card to-amber-500/10 border-b border-border/80 flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-primary text-primary-foreground flex items-center justify-center shadow-xs">
+                            <Bot className="w-5 h-5 animate-pulse" />
+                        </div>
+                        <div>
+                            <div className="flex items-center gap-2">
+                                <h2 className="text-base font-black text-foreground tracking-tight flex items-center gap-1.5">
+                                    루피 AI 사령탑 실시간 트렌드 전략 브리핑
+                                </h2>
+                                <Badge className="bg-primary/20 text-primary border-primary/30 text-[10px] font-mono px-2 py-0.5">
+                                    Tier 1 Brain
+                                </Badge>
+                            </div>
+                            <div className="flex items-center gap-2 mt-0.5 text-xs text-muted-foreground">
+                                <span>지능 엔진: <strong className="text-foreground font-mono">{aiBriefingData?.model_used || 'DB Settings 실시간 연동'}</strong></span>
+                                {aiBriefingData?.generated_at && (
+                                    <>
+                                        <span>•</span>
+                                        <span>분석 시각: <strong className="text-foreground font-mono">{aiBriefingData.generated_at}</strong></span>
+                                    </>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleRefreshBriefing}
+                            disabled={isManualBriefingRefreshing || isBriefingLoading}
+                            className="h-8 gap-1.5 text-xs font-bold border-primary/40 text-primary hover:bg-primary/10 cursor-pointer shadow-2xs"
+                        >
+                            <BrainCircuit className={cn('w-3.5 h-3.5', isManualBriefingRefreshing && 'animate-spin')} />
+                            <span>{isManualBriefingRefreshing ? '심층 분석 중...' : 'AI 사령탑 실시간 심층 분석'}</span>
+                        </Button>
+
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setIsBriefingExpanded(!isBriefingExpanded)}
+                            className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground cursor-pointer"
+                        >
+                            {isBriefingExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                        </Button>
+                    </div>
+                </div>
+
+                {/* Briefing Content */}
+                {isBriefingExpanded && (
+                    <div className="p-4 space-y-4">
+                        {isBriefingLoading ? (
+                            <div className="py-8 text-center space-y-2">
+                                <RefreshCw className="w-6 h-6 animate-spin mx-auto text-primary" />
+                                <p className="text-xs text-muted-foreground">루피 사령탑이 150+ 트렌드 및 대중 심리 지형도를 연산 중입니다...</p>
+                            </div>
+                        ) : aiBriefingData?.briefing ? (
+                            <div className="space-y-3.5">
+                                {/* Top Row: Macro Sentiment & Golden Pick */}
+                                <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5">
+                                    {/* 1. Macro Sentiment Card */}
+                                    <div className="lg:col-span-6 p-3.5 rounded-xl bg-muted/40 border border-border/80 flex flex-col justify-between space-y-2">
+                                        <div>
+                                            <div className="flex items-center justify-between gap-2 mb-1.5">
+                                                <span className="text-xs font-extrabold text-foreground flex items-center gap-1.5">
+                                                    <TrendingUp className="w-4 h-4 text-primary" />
+                                                    대중 심리 지형도 (Macro Sentiment)
+                                                </span>
+                                                <Badge variant="outline" className="text-[10px] border-primary/30 text-primary bg-primary/5">
+                                                    대한민국 집단 심리
+                                                </Badge>
+                                            </div>
+                                            <p className="text-xs text-foreground/90 font-medium leading-relaxed">
+                                                {aiBriefingData.briefing.macro_sentiment}
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    {/* 2. Prime Golden Pick Card */}
+                                    {aiBriefingData.briefing.golden_time_pick && (
+                                        <div className="lg:col-span-6 p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 flex flex-col justify-between space-y-2">
+                                            <div>
+                                                <div className="flex items-center justify-between gap-2 mb-1.5">
+                                                    <span className="text-xs font-extrabold text-amber-700 dark:text-amber-400 flex items-center gap-1.5">
+                                                        <Sparkles className="w-4 h-4 text-amber-500" />
+                                                        골든타임 추천 1위 선점 키워드
+                                                    </span>
+                                                    <Badge className="bg-amber-500/20 text-amber-700 dark:text-amber-300 border-amber-500/40 text-[10px] font-mono">
+                                                        18시간 골든타임
+                                                    </Badge>
+                                                </div>
+                                                <div className="flex items-baseline gap-2">
+                                                    <h3 className="text-base font-black text-foreground">
+                                                        {aiBriefingData.briefing.golden_time_pick.keyword}
+                                                    </h3>
+                                                </div>
+                                                <p className="text-xs text-muted-foreground mt-1">
+                                                    💡 {aiBriefingData.briefing.golden_time_pick.reason}
+                                                </p>
+                                                <div className="mt-2 p-2 rounded-lg bg-card/80 border border-amber-500/20 text-[11px] text-foreground font-semibold flex items-center gap-1.5">
+                                                    <Zap className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                                                    <span>공식: {aiBriefingData.briefing.golden_time_pick.hook_formula}</span>
+                                                </div>
+                                            </div>
+
+                                            <Button
+                                                size="sm"
+                                                onClick={() =>
+                                                    autoDispatchMutation.mutate({
+                                                        trend_keyword: aiBriefingData.briefing.golden_time_pick.keyword,
+                                                        headline: aiBriefingData.briefing.golden_time_pick.reason,
+                                                        target_studio: 'gunlimbo',
+                                                    })
+                                                }
+                                                disabled={autoDispatchMutation.isPending && dispatchingKeyword === aiBriefingData.briefing.golden_time_pick.keyword}
+                                                className="w-full h-7 text-xs font-extrabold bg-amber-600 hover:bg-amber-700 text-white cursor-pointer mt-1 gap-1.5"
+                                            >
+                                                {autoDispatchMutation.isPending && dispatchingKeyword === aiBriefingData.briefing.golden_time_pick.keyword ? (
+                                                    <>
+                                                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                                                        <span>LangGraph 워커 파이프라인 가동 중...</span>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <Zap className="w-3.5 h-3.5" />
+                                                        <span>이 키워드로 자율 파이프라인 즉시 가동</span>
+                                                    </>
+                                                )}
+                                            </Button>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Bottom Row: 4-Channel Directives Matrix */}
+                                <div>
+                                    <div className="flex items-center justify-between mb-2">
+                                        <span className="text-xs font-extrabold text-foreground flex items-center gap-1.5">
+                                            <Layers className="w-3.5 h-3.5 text-primary" />
+                                            4대 채널 중간 관리자(Channel Directors) 맞춤 전략 오더
+                                        </span>
+                                        <span className="text-[11px] text-muted-foreground">
+                                            채널별 독립 주권 DNA에 맞춰 실시간으로 배분된 전략 지침입니다.
+                                        </span>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2.5">
+                                        {(aiBriefingData.briefing.channel_allocations || []).map((alloc, idx) => {
+                                            const studioBadges: Record<string, { label: string; color: string }> = {
+                                                ssul: { label: '썰형 스튜디오', color: 'border-emerald-500/40 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10' },
+                                                gunlimbo: { label: '군림보 고발', color: 'border-red-500/40 text-red-600 dark:text-red-400 bg-red-500/10' },
+                                                insta: { label: '인스타 카드', color: 'border-purple-500/40 text-purple-600 dark:text-purple-400 bg-purple-500/10' },
+                                                classic: { label: '클래식 정석', color: 'border-blue-500/40 text-blue-600 dark:text-blue-400 bg-blue-500/10' },
+                                            };
+                                            const badgeInfo = studioBadges[alloc.recommended_studio] || { label: alloc.recommended_studio, color: 'bg-muted' };
+
+                                            return (
+                                                <div
+                                                    key={idx}
+                                                    className="p-3 rounded-xl bg-card border border-border/80 flex flex-col justify-between space-y-2 hover:border-primary/40 transition-all shadow-2xs"
+                                                >
+                                                    <div className="space-y-1.5">
+                                                        <div className="flex items-center justify-between gap-1.5">
+                                                            <span className="text-xs font-black text-foreground truncate">
+                                                                {alloc.channel_name}
+                                                            </span>
+                                                            <Badge className={cn('text-[9px] px-1.5 py-0 border', badgeInfo.color)}>
+                                                                {badgeInfo.label}
+                                                            </Badge>
+                                                        </div>
+
+                                                        <div className="text-xs font-extrabold text-primary flex items-center gap-1">
+                                                            <span>🎯</span>
+                                                            <span className="truncate">{alloc.keyword}</span>
+                                                        </div>
+
+                                                        <p className="text-[11px] text-muted-foreground line-clamp-2 leading-relaxed">
+                                                            {alloc.action_directive}
+                                                        </p>
+                                                    </div>
+
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        onClick={() =>
+                                                            autoDispatchMutation.mutate({
+                                                                trend_keyword: alloc.keyword,
+                                                                headline: alloc.action_directive,
+                                                                target_studio: alloc.recommended_studio,
+                                                                channel_title: alloc.channel_name,
+                                                            })
+                                                        }
+                                                        disabled={autoDispatchMutation.isPending && dispatchingKeyword === alloc.keyword}
+                                                        className="h-7 w-full text-[11px] font-bold border-border/80 hover:bg-primary hover:text-primary-foreground cursor-pointer transition-all gap-1"
+                                                    >
+                                                        {autoDispatchMutation.isPending && dispatchingKeyword === alloc.keyword ? (
+                                                            <RefreshCw className="w-3 h-3 animate-spin" />
+                                                        ) : (
+                                                            <Zap className="w-3 h-3" />
+                                                        )}
+                                                        <span>자율 발주</span>
+                                                    </Button>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            </div>
+                        ) : null}
+                    </div>
+                )}
+            </div>
+
             {/* ═════════════════════════════════════════════════════════════════════════ */}
             {/* 1. TOP DUAL-LENS CONTROL CONSOLE                                         */}
             {/* ═════════════════════════════════════════════════════════════════════════ */}
@@ -595,10 +935,39 @@ export const GoogleTrendOrchestrator: React.FC = () => {
 
                                 {/* Bottom Action Buttons */}
                                 <div className="pt-3.5 mt-3.5 border-t border-border/60 space-y-2">
-                                    {/* Primary 1-Click AI Prism Expansion */}
+                                    {/* 1. Auto-Dispatch Pipeline Button (LangGraph StateGraph) */}
                                     <Button
+                                        onClick={() =>
+                                            autoDispatchMutation.mutate({
+                                                trend_keyword: item.keyword,
+                                                headline: item.headline || item.snippet,
+                                                target_studio: isGolden ? 'gunlimbo' : 'ssul',
+                                                target_emotion: item.primary_trigger || '호기심',
+                                            })
+                                        }
+                                        disabled={autoDispatchMutation.isPending && dispatchingKeyword === item.keyword}
+                                        className="w-full h-8 text-xs font-extrabold bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white shadow-xs gap-1.5 cursor-pointer"
+                                        title="Scout -> Writer -> Critic-85 -> CapCut 조립 -> WorkQueue 등록까지 자율 실행"
+                                    >
+                                        {autoDispatchMutation.isPending && dispatchingKeyword === item.keyword ? (
+                                            <>
+                                                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                                                <span>LangGraph 제작 진행 중...</span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Zap className="w-3.5 h-3.5" />
+                                                <span>🚀 자율 팩토리 파이프라인 발주</span>
+                                                <ChevronRight className="w-3.5 h-3.5 ml-auto" />
+                                            </>
+                                        )}
+                                    </Button>
+
+                                    {/* 2. Primary 1-Click AI Prism Expansion */}
+                                    <Button
+                                        variant="outline"
                                         onClick={() => handleOpenPrism(item)}
-                                        className="w-full h-8 text-xs font-extrabold bg-gradient-to-r from-primary to-primary/80 hover:opacity-90 text-primary-foreground shadow-xs gap-1.5 cursor-pointer"
+                                        className="w-full h-7 text-xs font-bold border-primary/30 text-primary hover:bg-primary/10 gap-1.5 cursor-pointer"
                                     >
                                         <BrainCircuit className="w-3.5 h-3.5" />
                                         <span>AI 트렌드 프리즘 (4채널 분광)</span>
@@ -923,6 +1292,142 @@ export const GoogleTrendOrchestrator: React.FC = () => {
                                     </Button>
                                 </div>
                             ))}
+                        </div>
+                    )}
+                </DialogContent>
+            </Dialog>
+
+            {/* ═════════════════════════════════════════════════════════════════════════ */}
+            {/* 5. LANGGRAPH AUTONOMOUS PIPELINE RESULT MODAL                             */}
+            {/* ═════════════════════════════════════════════════════════════════════════ */}
+            <Dialog open={!!activePipelineResult} onOpenChange={(open) => !open && setActivePipelineResult(null)}>
+                <DialogContent className="w-[94vw] sm:max-w-2xl max-h-[85vh] overflow-y-auto p-4 sm:p-6 rounded-2xl bg-card border border-border/80 shadow-xl">
+                    <DialogHeader className="space-y-2">
+                        <div className="flex items-center gap-2.5">
+                            <div className="w-9 h-9 rounded-xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center justify-center border border-emerald-500/30 shrink-0">
+                                <CheckCircle2 className="w-5 h-5" />
+                            </div>
+                            <div className="min-w-0">
+                                <DialogTitle className="text-lg font-black text-foreground truncate">
+                                    LangGraph 자율 팩토리 영상 제작 완료!
+                                </DialogTitle>
+                                <DialogDescription className="text-xs text-muted-foreground">
+                                    Scout 노드부터 Critic-85 게이트키퍼 통과 및 CapCut 조립까지 전자동 수행되었습니다.
+                                </DialogDescription>
+                            </div>
+                        </div>
+                    </DialogHeader>
+
+                    {activePipelineResult && (
+                        <div className="space-y-4 pt-2">
+                            {/* 6-Stage Phase Stepper Visual */}
+                            <div className="p-3 rounded-xl bg-muted/40 border border-border/70 space-y-2">
+                                <span className="text-[11px] font-extrabold text-muted-foreground">
+                                    ⚡ 자율 상태 머신 (StateGraph) 통과 경로:
+                                </span>
+                                <div className="flex items-center gap-1.5 flex-wrap text-[11px] font-mono">
+                                    <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30">
+                                        ✓ 1. Scout
+                                    </Badge>
+                                    <span className="text-muted-foreground">➔</span>
+                                    <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30">
+                                        ✓ 2. Writer-Pro
+                                    </Badge>
+                                    <span className="text-muted-foreground">➔</span>
+                                    <Badge className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30 font-bold">
+                                        ✓ 3. Critic ({activePipelineResult.critic_score}점)
+                                    </Badge>
+                                    <span className="text-muted-foreground">➔</span>
+                                    <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30">
+                                        ✓ 4. HITL 승인
+                                    </Badge>
+                                    <span className="text-muted-foreground">➔</span>
+                                    <Badge className="bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/30">
+                                        ✓ 5. CapCut 드래프트
+                                    </Badge>
+                                    <span className="text-muted-foreground">➔</span>
+                                    <Badge className="bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/30 font-bold">
+                                        ✓ 6. WorkQueue 등록
+                                    </Badge>
+                                </div>
+                            </div>
+
+                            {/* Critic Feedback Banner */}
+                            <div className="p-3 rounded-xl bg-card border border-border/80 flex items-start gap-2.5">
+                                <span className="text-base">🧐</span>
+                                <div className="space-y-0.5 min-w-0 flex-1">
+                                    <div className="flex items-center justify-between text-xs font-bold text-foreground">
+                                        <span>Critic-85 게이트키퍼 감사 결과:</span>
+                                        <span className="font-mono text-primary">{activePipelineResult.critic_score}점 / 100점 (합격)</span>
+                                    </div>
+                                    <p className="text-xs text-muted-foreground">
+                                        {activePipelineResult.critic_feedback || '우수한 후킹 강도와 시청 유지 확률로 심사를 통과했습니다.'}
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Generated Script Preview */}
+                            <div className="p-3.5 rounded-xl bg-muted/30 border border-border/70 space-y-1.5">
+                                <div className="flex items-center justify-between text-xs font-bold text-foreground">
+                                    <span className="flex items-center gap-1.5">
+                                        <FileText className="w-3.5 h-3.5 text-primary" />
+                                        생성된 숏폼 완성 대본 (9-Wave & 0.8s jab):
+                                    </span>
+                                </div>
+                                <pre className="text-xs font-sans text-foreground/90 whitespace-pre-wrap leading-relaxed max-h-48 overflow-y-auto p-2.5 rounded-lg bg-card border border-border/50">
+                                    {activePipelineResult.script_content || activePipelineResult.pipeline_res?.script_content}
+                                </pre>
+                            </div>
+
+                            {/* Draft Path Notice */}
+                            {activePipelineResult.draft_project_path && (
+                                <div className="p-2.5 rounded-lg bg-muted/50 border border-border/60 text-[11px] text-muted-foreground flex items-center justify-between">
+                                    <span>📦 조립 완료 드래프트 파일:</span>
+                                    <span className="font-mono text-foreground font-semibold truncate max-w-xs">
+                                        {activePipelineResult.draft_project_path}
+                                    </span>
+                                </div>
+                            )}
+
+                            {/* Dialog Footer Actions */}
+                            <div className="flex items-center justify-between pt-2 border-t border-border/60">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => navigate('/channels')}
+                                    className="text-xs font-semibold gap-1.5 cursor-pointer"
+                                >
+                                    <Layers className="w-3.5 h-3.5" />
+                                    <span>대기열(WorkQueue) 확인</span>
+                                </Button>
+
+                                <div className="flex items-center gap-2">
+                                    <Button
+                                        size="sm"
+                                        onClick={() => {
+                                            const artId = activePipelineResult.pipeline_res?.article_id;
+                                            setActivePipelineResult(null);
+                                            if (artId) {
+                                                navigate(`/shorts-editor/gunlimbo?article_id=${artId}`);
+                                            } else {
+                                                navigate('/shorts-editor/gunlimbo');
+                                            }
+                                        }}
+                                        className="text-xs font-bold bg-primary text-primary-foreground hover:bg-primary/90 gap-1.5 cursor-pointer"
+                                    >
+                                        <Film className="w-3.5 h-3.5" />
+                                        <span>전용 편집기에서 확인</span>
+                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => setActivePipelineResult(null)}
+                                        className="text-xs font-semibold cursor-pointer"
+                                    >
+                                        닫기
+                                    </Button>
+                                </div>
+                            </div>
                         </div>
                     )}
                 </DialogContent>

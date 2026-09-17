@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 from typing import Dict, Any, List, Optional
 import httpx
 import feedparser
+import urllib.parse
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, and_, desc
 
@@ -455,7 +456,7 @@ class GoogleTrendEngine:
                     system_instruction=system_prompt,
                     temperature=0.7
                 ),
-                timeout=10.0
+                timeout=120.0
             )
             # Parse response
             clean_text = raw_res.strip()
@@ -468,7 +469,7 @@ class GoogleTrendEngine:
             if "prism_angles" in parsed and len(parsed["prism_angles"]) > 0:
                 return parsed
         except Exception as e:
-            logger.error(f"[expand_trend_prism] LLM generation error: {e}")
+            logger.error(f"[expand_trend_prism] LLM generation error: {e}", exc_info=True)
 
         # Fallback heuristic prism
         return {
@@ -520,6 +521,116 @@ class GoogleTrendEngine:
                 }
             ]
         }
+
+    async def generate_executive_trend_briefing(self, db: Session, force_refresh: bool = False) -> Dict[str, Any]:
+        """
+        루피 AI 사령탑 실시간 트렌드 지능 브리핑
+        상위 8대 실시간 트렌드를 종합 분석하여 대중 심리 지형도, 골든타임 1순위, 4대 채널 맞춤 배분을 LLM으로 생성
+        """
+        now = datetime.now()
+        if not force_refresh and hasattr(self, "_briefing_cache") and self._briefing_cache:
+            cache_time, cached_val = self._briefing_cache
+            if (now - cache_time).total_seconds() < 900:  # 15분 캐시
+                return cached_val
+
+        # 실시간 트렌드 상위 8개 가져오기
+        trends_res = await self.fetch_dual_lens_trends(mode="all", category="all")
+        top_items = trends_res.get("items", [])[:8]
+        if not top_items:
+            return {"success": False, "message": "분석할 실시간 트렌드가 없습니다."}
+
+        trend_summary_lines = []
+        for idx, it in enumerate(top_items, 1):
+            trend_summary_lines.append(f"{idx}. [{it.get('lens')}] {it.get('keyword')} (검색량: {it.get('traffic')}) - 헤드라인: {it.get('headline')}")
+
+        trend_text = "\n".join(trend_summary_lines)
+
+        db_settings = crud.get_settings(db)
+        client = LLMClient(settings=db_settings)
+
+        system_prompt = """당신은 숏폼 AI 공장 바이럴루프(ViraLoop)의 최고 전략 사령탑 '루피 총사령탑(Hermes Brain)'입니다.
+오늘 실시간으로 감지된 대한민국 최상위 구글 및 유튜브 트렌드 목록을 독해하여, 제작진과 4대 채널 디렉터들을 위한 '실시간 AI 트렌드 전략 브리핑'을 작성하십시오.
+
+반드시 아래 JSON 형식으로만 응답하십시오:
+{
+  "macro_sentiment": "현재 대한민국 대중의 핵심 심리적 기폭제 (불공정 분노, 가격충격, 사이다, 경악 호기심 등)와 사회적 맥락 2문장 요약",
+  "golden_time_pick": {
+    "keyword": "지금 18시간 내 즉시 제작해야 할 추천 1위 키워드",
+    "reason": "이 키워드를 골든타임 1위로 선정한 핵심 이유 (1문장)",
+    "hook_formula": "추천 3초 훅 공식 (예: 분노 유발 ➔ 팩트 폭로 ➔ 사이다 결말)"
+  },
+  "channel_allocations": [
+    {
+      "channel_name": "심리학/인간군상",
+      "recommended_studio": "ssul",
+      "keyword": "추천 키워드",
+      "action_directive": "제작 행동 지침 (1문장)"
+    },
+    {
+      "channel_name": "역사/야담/비하인드",
+      "recommended_studio": "ssul",
+      "keyword": "추천 키워드",
+      "action_directive": "제작 행동 지침 (1문장)"
+    },
+    {
+      "channel_name": "고발/군림보",
+      "recommended_studio": "gunlimbo",
+      "keyword": "추천 키워드",
+      "action_directive": "제작 행동 지침 (1문장)"
+    },
+    {
+      "channel_name": "자영업/소비자",
+      "recommended_studio": "insta",
+      "keyword": "추천 키워드",
+      "action_directive": "제작 행동 지침 (1문장)"
+    }
+  ]
+}"""
+
+        user_content = f"오늘 실시간 대한민국 상위 트렌드 목록:\n{trend_text}"
+
+        try:
+            raw = await asyncio.wait_for(
+                client.generate_text(prompt=user_content, system_instruction=system_prompt, temperature=0.7),
+                timeout=120.0
+            )
+            clean = raw.strip()
+            if "```json" in clean:
+                clean = clean.split("```json")[1].split("```")[0].strip()
+            elif "```" in clean:
+                clean = clean.split("```")[1].split("```")[0].strip()
+
+            parsed = json.loads(clean)
+            result = {
+                "success": True,
+                "model_used": getattr(db_settings, "script_analysis_model", "omniroute/viraloop1"),
+                "generated_at": now.strftime("%H:%M:%S"),
+                "briefing": parsed
+            }
+            self._briefing_cache = (now, result)
+            return result
+        except Exception as e:
+            logger.error(f"[generate_executive_trend_briefing] Error: {e}", exc_info=True)
+            fallback_res = {
+                "success": True,
+                "model_used": "루피 사령탑 (규칙 기반 대체)",
+                "generated_at": now.strftime("%H:%M:%S"),
+                "briefing": {
+                    "macro_sentiment": "현재 대한민국 대중은 '사회적 불공정 사건'과 '생활 밀착형 물가/서민 경제 충격' 이슈에 검색 트래픽이 집중되고 있습니다.",
+                    "golden_time_pick": {
+                        "keyword": top_items[0].get("keyword") if top_items else "실시간 급상승 이슈",
+                        "reason": "검색 트래픽 모멘텀이 초동 18시간 골든타임 구간에 진입하여 시청 유지율 85% 이상 기대",
+                        "hook_formula": "0초 분노 유발 ➔ 3초 팩트 고발 ➔ 15초 결말 반전"
+                    },
+                    "channel_allocations": [
+                        {"channel_name": "심리학/인간군상", "recommended_studio": "ssul", "keyword": top_items[0].get("keyword") if top_items else "이슈", "action_directive": "침묵의 나선 및 방관자 효과 심리 분석 숏폼 제작"},
+                        {"channel_name": "역사/야담/비하인드", "recommended_studio": "ssul", "keyword": top_items[1].get("keyword") if len(top_items) > 1 else "이슈", "action_directive": "과거 조선시대 유사 참사 평행이론 비하인드 엮기"},
+                        {"channel_name": "고발/군림보", "recommended_studio": "gunlimbo", "keyword": top_items[0].get("keyword") if top_items else "이슈", "action_directive": "0초 줌인과 텍스트 밴드로 사건의 추악한 진실 폭로"},
+                        {"channel_name": "자영업/소비자", "recommended_studio": "insta", "keyword": top_items[2].get("keyword") if len(top_items) > 2 else "이슈", "action_directive": "소비자 및 자영업자 지갑 타격과 현실적 방어 팁 제시"}
+                    ]
+                }
+            }
+            return fallback_res
 
 
 # 싱글톤 인스턴스

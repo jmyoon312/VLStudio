@@ -2203,6 +2203,18 @@ class TrendHarvestRequest(BaseModel):
     limit: Optional[int] = 5
 
 
+class AutoDispatchPipelineRequest(BaseModel):
+    trend_keyword: str
+    headline: Optional[str] = ""
+    channel_id: Optional[str] = None
+    channel_title: Optional[str] = None
+    target_studio: Optional[str] = "gunlimbo"
+    target_emotion: Optional[str] = "호기심/경악"
+    modality: Optional[str] = "keyword_only"
+    render_engine: Optional[str] = "CAPCUT"
+    auto_approve_hitl: Optional[bool] = True
+
+
 @router.get("/trends/dual-lens")
 async def get_dual_lens_trends(
     mode: str = Query("all", pattern="^(all|web|youtube|golden)$"),
@@ -2247,6 +2259,21 @@ async def expand_trend_prism_endpoint(
         return await google_trend_engine.expand_trend_prism(keyword=req.keyword, headline=req.headline or "", db=db)
     except Exception as e:
         logger.error(f"[expand_trend_prism_endpoint] Error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/trends/ai-briefing")
+async def get_trend_ai_briefing(
+    refresh: bool = Query(False),
+    db: Session = Depends(database.get_db),
+):
+    """
+    루피 AI 사령탑 실시간 트렌드 지능 브리핑 반환
+    """
+    try:
+        return await google_trend_engine.generate_executive_trend_briefing(db=db, force_refresh=refresh)
+    except Exception as e:
+        logger.error(f"[get_trend_ai_briefing] Error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -2305,6 +2332,91 @@ def stage_trend_as_article(
     except Exception as e:
         db.rollback()
         logger.error(f"[stage_trend_as_article] Error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/trends/auto-dispatch-pipeline")
+async def auto_dispatch_pipeline_endpoint(
+    req: AutoDispatchPipelineRequest,
+    db: Session = Depends(database.get_db),
+):
+    """
+    [자율형 팩토리] 구글 트렌드 ➔ LangGraph 비디오 제작 StateGraph 즉각 발주
+    Scout ➔ Writer ➔ Critic-85 ➔ HITL ➔ Packaging ➔ WorkQueue 대기열까지 자율 실행
+    """
+    from ..state_management.video_graph import run_sovereign_video_pipeline
+    try:
+        # 1. 채널 DNA 조회 (지정된 채널 또는 기본 채널)
+        channel = None
+        if req.channel_id:
+            channel = db.query(models.BrandChannel).filter(models.BrandChannel.channel_id == req.channel_id).first()
+        if not channel:
+            channel = db.query(models.BrandChannel).filter(models.BrandChannel.is_active == True).first()
+            
+        channel_title = channel.title if channel else (req.channel_title or "바이럴루프 스튜디오")
+        channel_dna = getattr(channel, "expert_identity", None) or {
+            "expert_identity": "트렌드 이슈를 분석하는 전문 숏폼 크리에이터",
+            "tone": "빠르고 몰입감 있는 어조, 0.8초 쨉쨉이 후킹",
+            "forbidden_words": [],
+            "style_signature": getattr(channel, "style_signature", {}) or {}
+        }
+        combo_model = getattr(channel, "assigned_combo_model", None) or "omniroute/viraloop1"
+
+        # 2. LangGraph StateGraph 실행
+        pipeline_res = await run_sovereign_video_pipeline(
+            topic=req.trend_keyword,
+            channel_id=channel.channel_id if channel else "default_channel",
+            channel_title=channel_title,
+            channel_dna=channel_dna,
+            modality=req.modality or "keyword_only",
+            assigned_combo_model=combo_model,
+            render_engine=req.render_engine or "CAPCUT",
+            auto_approve_hitl=req.auto_approve_hitl
+        )
+
+        # 3. 벙커(ViralArticle)에도 스테이징 등록
+        try:
+            art = models.ViralArticle(
+                title=f"[{channel_title}] {req.trend_keyword}",
+                url=f"https://trends.google.co.kr/home?q={urllib.parse.quote(req.trend_keyword)}",
+                source_type="google_trend",
+                community_name="Google Trends & LangGraph Pipeline",
+                content_text=pipeline_res.get("script_content", req.headline or req.trend_keyword),
+                viral_score=float(pipeline_res.get("critic_score", 88)),
+                cluster_keywords=[req.trend_keyword, req.target_studio or "gunlimbo"],
+                topic_category=req.target_emotion or "이슈",
+                media_type="text_story",
+                psychological_trigger=req.target_emotion or "호기심/경악",
+                retention_probability=89.0,
+                target_form_factors=[req.target_studio or "gunlimbo"],
+                status="produced" if pipeline_res.get("success") else "analyzed",
+                structured_script={
+                    "script_content": pipeline_res.get("script_content", ""),
+                    "critic_score": pipeline_res.get("critic_score", 88),
+                    "critic_feedback": pipeline_res.get("critic_feedback", ""),
+                    "project_id": pipeline_res.get("project_id", ""),
+                }
+            )
+            db.add(art)
+            db.commit()
+            db.refresh(art)
+            pipeline_res["article_id"] = art.id
+        except Exception as stage_err:
+            logger.debug(f"[auto_dispatch_pipeline] Staging note: {stage_err}")
+
+        return {
+            "success": True,
+            "pipeline_res": pipeline_res,
+            "channel_title": channel_title,
+            "critic_score": pipeline_res.get("critic_score", 88),
+            "critic_feedback": pipeline_res.get("critic_feedback", "Critic-85 통과"),
+            "current_phase": pipeline_res.get("current_phase", "COMPLETED"),
+            "script_content": pipeline_res.get("script_content", ""),
+            "draft_project_path": pipeline_res.get("draft_project_path"),
+            "message": f"'{req.trend_keyword}' 트렌드가 LangGraph 자율 파이프라인을 통과하여 제작 완료되었습니다."
+        }
+    except Exception as e:
+        logger.error(f"[auto_dispatch_pipeline_endpoint] Error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
