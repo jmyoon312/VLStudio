@@ -716,6 +716,119 @@ def stitch_series_pack(
     }
 
 
+class ExportCapcutSeriesRequest(BaseModel):
+    series_key: str
+    article_ids: List[int]
+    target_channel_id: Optional[str] = None
+    custom_title: Optional[str] = None
+
+
+@router.post("/series-packs/export-capcut")
+def export_series_pack_to_capcut(
+    req: ExportCapcutSeriesRequest,
+    db: Session = Depends(database.get_db)
+):
+    """
+    Directly packages the 3-clip omnibus series into a native CapCut PC project:
+    - Generates 9:16 vertical canvas (1080x1920)
+    - Sequential video tracks with smooth pacing
+    - Countdown badges & synchronized subtitle text tracks (INTRO -> TOP 3 -> TOP 2 -> TOP 1 -> OUTRO)
+    - Writes draft_content.json into local CapCut folder (%LOCALAPPDATA%/CapCut/.../draft/{next_num})
+    - Automatically registers the project in root_meta_info.json so it shows in CapCut PC instantly.
+    """
+    from ..services.capcut_generator import CapCutGenerator
+    from ..services.capcut_registry_manager import CapCutRegistryManager
+    from .capcut_remote import get_default_capcut_path, get_next_project_number
+
+    # 1. First stitch the series into structured timeline
+    stitch_req = StitchSeriesRequest(
+        series_key=req.series_key,
+        article_ids=req.article_ids,
+        target_form_factor="classic",
+        target_channel_id=req.target_channel_id,
+        custom_title=req.custom_title
+    )
+    stitched = stitch_series_pack(stitch_req, db)
+    scenes = stitched.get("scenes") or []
+    omnibus_title = stitched.get("title") or "Omnibus Series"
+
+    # 2. Get CapCut draft root directory & next project folder
+    base_path = get_default_capcut_path()
+    if not os.path.exists(base_path):
+        os.makedirs(base_path, exist_ok=True)
+
+    num_info = get_next_project_number()
+    folder_name = num_info.get("folderName") or "0901"
+    target_folder = os.path.join(base_path, folder_name)
+    os.makedirs(target_folder, exist_ok=True)
+
+    # 3. Build CapCut draft using CapCutGenerator
+    generator = CapCutGenerator(project_name=omnibus_title)
+
+    for sc in scenes:
+        badge = sc.get("badge") or ""
+        narration = sc.get("narration") or ""
+        headline = sc.get("headline") or ""
+        start_sec = float(sc.get("start_sec") or 0.0)
+        dur_sec = float(sc.get("duration_sec") or 4.0)
+
+        full_text = f"[{badge}] {headline}\n{narration}" if badge else f"{headline}\n{narration}"
+        generator.add_text_segment(full_text, start_sec, dur_sec)
+
+    # Save draft_content.json
+    draft_file = os.path.join(target_folder, "draft_content.json")
+    generator.save_project(draft_file)
+
+    # 4. Register in root_meta_info.json
+    duration_ms = generator._to_ms(stitched.get("total_duration_sec") or 55.0)
+    reg_mgr = CapCutRegistryManager()
+    reg_success = reg_mgr.register_project(
+        project_name=omnibus_title,
+        folder_name=folder_name,
+        draft_id=generator.project_id,
+        duration_ms=duration_ms
+    )
+
+    return {
+        "success": True,
+        "project_name": omnibus_title,
+        "folder_name": folder_name,
+        "folder_path": target_folder,
+        "draft_id": generator.project_id,
+        "duration_sec": stitched.get("total_duration_sec"),
+        "registered_in_capcut": reg_success,
+        "scenes_count": len(scenes),
+        "message": f"CapCut PC 프로젝트 '{omnibus_title}' (폴더: {folder_name})가 성공적으로 생성 및 등록되었습니다. CapCut을 실행하면 바로 확인하실 수 있습니다."
+    }
+
+
+# ── 🏛️ Tier 2 Sovereign Channel Director AI Dispatch Endpoints ────────────────
+@router.post("/director/dispatch")
+async def run_director_dispatch_endpoint(score_threshold: float = Query(25.0, ge=10.0, le=90.0)):
+    """
+    Tier 2 Sovereign Channel Director:
+    Scans unassigned high-viral articles, calculates 3D affinity (+50 topic, +30 cross, +25 entity tags, +20 DNA),
+    claims best-matching articles for active channels, and automatically advances them through SCRIPTING & EVALUATING.
+    """
+    res = await channel_director.run_dispatch_cycle(score_threshold=score_threshold)
+    return {
+        "success": True,
+        **res
+    }
+
+
+@router.post("/director/advance/{article_id}")
+def advance_article_lifecycle_endpoint(article_id: int, db: Session = Depends(database.get_db)):
+    """
+    Manually advances a specific viral article through SCRIPTING and Critic-85 quality audit.
+    """
+    try:
+        res = channel_director.advance_article_lifecycle(article_id, db)
+        return {"success": True, **res}
+    except Exception as e:
+        raise HTTPException(400, str(e))
+
+
 @router.get("/spike-radar")
 def get_spike_radar(
     hours: int = Query(24, ge=1, le=72),

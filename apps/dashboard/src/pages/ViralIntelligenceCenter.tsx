@@ -55,7 +55,8 @@ import {
     Trash2,
     Calendar,
     AlertTriangle,
-    FolderPlus
+    FolderPlus,
+    Bot
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -760,6 +761,61 @@ export default function ViralIntelligenceCenter() {
         }
     };
 
+    // 🎬 Export Series Pack to Native CapCut PC Project
+    const [isExportingCapcut, setIsExportingCapcut] = useState<boolean>(false);
+    const handleExportSeriesToCapcut = async (pack: any) => {
+        if (!pack || !pack.articles || pack.articles.length === 0) {
+            toast.error('CapCut 프로젝트 생성을 위해 최소 1개 이상의 클립이 필요합니다.');
+            return;
+        }
+        setIsExportingCapcut(true);
+        try {
+            const articleIds = pack.articles.slice(0, 3).map((a: any) => a.id);
+            const res = await api.post('/viral/series-packs/export-capcut', {
+                series_key: pack.series_key,
+                article_ids: articleIds,
+                custom_title: pack.suggested_omnibus_title
+            });
+            if (res.data?.success) {
+                toast.success(`🎉 CapCut PC 프로젝트가 생성되었습니다! (${res.data.project_name})`);
+                if (res.data.draft_path) {
+                    toast.info(`경로: ${res.data.draft_path}`, { duration: 6000 });
+                }
+            } else {
+                toast.error(res.data?.message || 'CapCut 프로젝트 생성 실패');
+            }
+        } catch (err: any) {
+            console.error('[ExportCapcut] Error:', err);
+            toast.error(err.response?.data?.detail || 'CapCut 프로젝트 생성 중 오류가 발생했습니다.');
+        } finally {
+            setIsExportingCapcut(false);
+        }
+    };
+
+    // 🤖 Trigger Tier 2 Channel Director Autonomous Claim & Dispatch Cycle
+    const [isDispatching, setIsDispatching] = useState<boolean>(false);
+    const handleRunDirectorDispatch = async () => {
+        setIsDispatching(true);
+        try {
+            const channelId = selectedChannelFilter !== 'all' ? selectedChannelFilter : undefined;
+            const res = await api.post('/viral/director/dispatch', null, {
+                params: channelId ? { channel_id: channelId } : {}
+            });
+            if (res.data?.success) {
+                const count = res.data.claimed_count || 0;
+                toast.success(`🤖 AI 채널 배분 완료! (${count}개 기사 자동 채널 매칭 및 대본 생성)`);
+                queryClient.invalidateQueries({ queryKey: ['viral_articles'] });
+            } else {
+                toast.error(res.data?.message || 'AI 채널 배분 실패');
+            }
+        } catch (err: any) {
+            console.error('[DirectorDispatch] Error:', err);
+            toast.error(err.response?.data?.detail || 'AI 채널 배분 중 오류가 발생했습니다.');
+        } finally {
+            setIsDispatching(false);
+        }
+    };
+
     // Free Media Search Handler
     const handleMediaSearch = async () => {
         if (!mediaQuery.trim()) return;
@@ -889,6 +945,18 @@ export default function ViralIntelligenceCenter() {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2 w-full md:w-auto justify-end">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleRunDirectorDispatch}
+                        disabled={isDispatching}
+                        className="h-8 gap-1.5 text-xs font-semibold hover:border-purple-500/40 text-foreground shadow-2xs cursor-pointer"
+                        title="등록된 채널 DNA와 기사 연관도를 분석하여 자동 배분 및 대본 생성을 실행합니다"
+                    >
+                        <Bot className={cn("w-3.5 h-3.5 text-purple-500", isDispatching && "animate-spin")} />
+                        {isDispatching ? '채널 배분 중...' : '🤖 AI 채널 자동 배분'}
+                    </Button>
+
                     <Button
                         variant="outline"
                         size="sm"
@@ -3431,6 +3499,21 @@ export default function ViralIntelligenceCenter() {
                                                 className="h-7 text-xs px-2.5 cursor-pointer"
                                             >
                                                 소재 모아보기 ({pack.count})
+                                            </Button>
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                disabled={isExportingCapcut}
+                                                onClick={() => handleExportSeriesToCapcut(pack)}
+                                                className="h-7 text-xs px-2.5 font-semibold border-cyan-500/40 hover:bg-cyan-500/10 text-foreground cursor-pointer flex items-center gap-1.5 shadow-2xs transition-all"
+                                                title="CapCut PC 원클릭 드래프트(draft_content.json 및 root_meta_info 등록) 생성"
+                                            >
+                                                {isExportingCapcut ? (
+                                                    <RefreshCw className="w-3.5 h-3.5 animate-spin text-cyan-500" />
+                                                ) : (
+                                                    <Film className="w-3.5 h-3.5 text-cyan-500" />
+                                                )}
+                                                <span>CapCut PC 내보내기</span>
                                             </Button>
                                             <Button
                                                 size="sm"
