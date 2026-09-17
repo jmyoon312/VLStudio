@@ -439,7 +439,8 @@ export default function ViralIntelligenceCenter() {
             const res = await api.get('/viral/topic-clusters');
             return res.data;
         },
-        staleTime: 20000,
+        refetchInterval: 12000,
+        staleTime: 10000,
     });
 
     // 2-2. Fetch Series Packs (Omnibus short-form packs)
@@ -579,6 +580,7 @@ export default function ViralIntelligenceCenter() {
             queryClient.invalidateQueries({ queryKey: ['viral_articles'] });
             queryClient.invalidateQueries({ queryKey: ['viral_topic_clusters'] });
             queryClient.invalidateQueries({ queryKey: ['viral_spike_radar'] });
+            queryClient.invalidateQueries({ queryKey: ['viral_hud_stats'] });
         },
         onError: (err: any) => {
             toast.error(`테마 수집 실패: ${err.message || '오류 발생'}`);
@@ -1217,6 +1219,7 @@ export default function ViralIntelligenceCenter() {
                                 setSelectedPlatform('all');
                                 setSelectedNewsCategory('all');
                                 setSelectedRedditTopic('all');
+                                setSelectedEntityTag('all');
                                 setPage(1);
                             }}
                             className={cn(

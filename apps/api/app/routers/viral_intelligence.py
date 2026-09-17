@@ -348,7 +348,31 @@ def get_topic_clusters(db: Session = Depends(database.get_db)):
     Returns live topic clusters, entity tag statistics, media type counts,
     and registered brand channels for one-click channel routing.
     """
-    articles = db.query(models.ViralArticle).order_by(desc(models.ViralArticle.id)).limit(600).all()
+    total_db_articles = db.query(models.ViralArticle).count()
+    topic_counts = dict(
+        db.query(models.ViralArticle.topic_category, func.count(models.ViralArticle.id))
+        .group_by(models.ViralArticle.topic_category)
+        .all()
+    )
+    video_counts = dict(
+        db.query(models.ViralArticle.topic_category, func.count(models.ViralArticle.id))
+        .filter(models.ViralArticle.media_type == "video_clip")
+        .group_by(models.ViralArticle.topic_category)
+        .all()
+    )
+    media_counts_raw = dict(
+        db.query(models.ViralArticle.media_type, func.count(models.ViralArticle.id))
+        .group_by(models.ViralArticle.media_type)
+        .all()
+    )
+    media_counts = {
+        "video_clip": media_counts_raw.get("video_clip", 0),
+        "image_pack": media_counts_raw.get("image_pack", 0),
+        "text_story": media_counts_raw.get("text_story", 0) + media_counts_raw.get(None, 0)
+    }
+
+    # Sample latest 500 articles for real-time entity tags and cross synergies
+    recent_articles = db.query(models.ViralArticle).order_by(desc(models.ViralArticle.id)).limit(500).all()
     
     # 15 Standard Killer Topic Categories Definition
     topics_def = [
@@ -369,21 +393,20 @@ def get_topic_clusters(db: Session = Depends(database.get_db)):
         {"key": "반려동물", "label": "반려동물 (강아지/고양이)", "icon": "🐾", "keywords": ["강아지", "고양이", "동물구출"]},
     ]
 
-    cluster_stats = {t["key"]: {"count": 0, "video_count": 0, "entities": {}} for t in topics_def}
+    cluster_stats = {
+        t["key"]: {
+            "count": topic_counts.get(t["key"], 0),
+            "video_count": video_counts.get(t["key"], 0),
+            "entities": {}
+        }
+        for t in topics_def
+    }
     cross_stats = {}
-    media_counts = {"video_clip": 0, "image_pack": 0, "text_story": 0}
 
-    for art in articles:
+    for art in recent_articles:
         top_cat = getattr(art, "topic_category", None)
-        med_type = getattr(art, "media_type", None)
         raw_tags = getattr(art, "entity_tags", None) or art.cluster_keywords or []
         
-        # On-the-fly categorization if empty
-        if not top_cat or top_cat == "일반" or not raw_tags:
-            top_cat, med_type, raw_tags, _, _ = discovery_scraper.classify_topic_and_entities(
-                art.title or "", art.content_text or "", art.category or "", art.images or []
-            )
-
         tags = []
         if isinstance(raw_tags, str):
             try:
@@ -400,9 +423,6 @@ def get_topic_clusters(db: Session = Depends(database.get_db)):
                     tags.extend([str(x) for x in tg if isinstance(x, str)])
 
         if top_cat in cluster_stats:
-            cluster_stats[top_cat]["count"] += 1
-            if med_type == "video_clip":
-                cluster_stats[top_cat]["video_count"] += 1
             for tag in tags:
                 cluster_stats[top_cat]["entities"][tag] = cluster_stats[top_cat]["entities"].get(tag, 0) + 1
 
@@ -425,11 +445,6 @@ def get_topic_clusters(db: Session = Depends(database.get_db)):
         for cr in cr_list:
             if isinstance(cr, str) and cr:
                 cross_stats[cr] = cross_stats.get(cr, 0) + 1
-
-        if med_type in media_counts:
-            media_counts[med_type] += 1
-        else:
-            media_counts["text_story"] += 1
 
     # Channels
     channels = db.query(models.BrandChannel).all()
@@ -469,7 +484,7 @@ def get_topic_clusters(db: Session = Depends(database.get_db)):
         "cross_synergies": cross_synergies,
         "media_counts": media_counts,
         "channels": channel_list,
-        "total_analyzed": len(articles),
+        "total_analyzed": total_db_articles,
     }
 
 
