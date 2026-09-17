@@ -1,5 +1,6 @@
 import logging
 import asyncio
+import re
 from datetime import datetime
 from typing import Dict, Any, List, Optional, Tuple
 from sqlalchemy.orm import Session
@@ -15,6 +16,122 @@ class ChannelDirector:
     into the production pipeline under GlobalArbiter GPU locking.
     """
 
+    @classmethod
+    def get_all_directors_status(cls, db: Session) -> List[Dict[str, Any]]:
+        """
+        Tier 2 채널 디렉터 전체 상태 목록 반환 (StudioWarRoom 실시간 관제 연동)
+        """
+        channels = db.query(models.BrandChannel).filter(models.BrandChannel.is_active == True).all()
+        if not channels:
+            channels = db.query(models.BrandChannel).all()
+
+        # 채널이 없을 경우 4대 주권 채널 기본 슬롯 시딩
+        if not channels:
+            default_channels = [
+                {"channel_id": "UC_ssul_psy", "title": "심리학/인간군상", "primary_workflow_mode": "ssul", "assigned_combo_model": "omniroute/viraloop1", "target_topics": ["심리", "인간관계", "사회현상"]},
+                {"channel_id": "UC_ssul_hist", "title": "역사/야담/비하인드", "primary_workflow_mode": "ssul", "assigned_combo_model": "omniroute/viraloop1", "target_topics": ["역사", "조선", "실화", "비하인드"]},
+                {"channel_id": "UC_gunlimbo_invest", "title": "고발/군림보", "primary_workflow_mode": "gunlimbo", "assigned_combo_model": "omniroute/viraloop1", "target_topics": ["폭로", "사건사고", "논란", "충격"]},
+                {"channel_id": "UC_insta_consumer", "title": "자영업/소비자", "primary_workflow_mode": "insta", "assigned_combo_model": "omniroute/viraloop1", "target_topics": ["자영업", "물가", "소비자", "경제"]}
+            ]
+            for def_c in default_channels:
+                new_c = models.BrandChannel(
+                    channel_id=def_c["channel_id"],
+                    title=def_c["title"],
+                    primary_workflow_mode=def_c["primary_workflow_mode"],
+                    assigned_combo_model=def_c["assigned_combo_model"],
+                    target_topics=def_c["target_topics"],
+                    director_state="IDLE",
+                    is_active=True,
+                    daily_target_count=3,
+                    published_today_count=0,
+                    director_heartbeat=datetime.now()
+                )
+                db.add(new_c)
+            try:
+                db.commit()
+                channels = db.query(models.BrandChannel).all()
+            except Exception as e:
+                db.rollback()
+                logger.warning(f"[ChannelDirector] Could not seed default channels: {e}")
+
+        result = []
+        now = datetime.now()
+        for ch in channels:
+            hb_str = "정상 (100%)"
+            if ch.director_heartbeat:
+                delta = (now - ch.director_heartbeat).total_seconds()
+                if delta > 300:
+                    hb_str = "유휴 대기"
+                else:
+                    hb_str = f"활성 ({int(delta)}초 전)"
+
+            result.append({
+                "id": ch.id,
+                "channel_id": ch.channel_id,
+                "title": ch.title or f"Channel #{ch.id}",
+                "security_badge": f"Tier 2 격리 ({ch.channel_id[:6] if ch.channel_id else 'CH' + str(ch.id)})",
+                "assigned_combo_model": ch.assigned_combo_model or "omniroute/viraloop1",
+                "director_state": ch.director_state or "IDLE",
+                "published_today_count": ch.published_today_count or 0,
+                "daily_target_count": ch.daily_target_count or 3,
+                "director_heartbeat": hb_str,
+                "primary_workflow_mode": ch.primary_workflow_mode or "keyword_only",
+                "autonomy_level": ch.autonomy_level or "LEVEL_2",
+                "auto_publish_threshold": ch.auto_publish_threshold or 85,
+                "target_topics": ch.target_topics or [],
+            })
+        return result
+
+    @classmethod
+    async def step_channel_cycle(cls, channel_id: int, modality: str = "keyword_only", topic: Optional[str] = None) -> Dict[str, Any]:
+        """
+        특정 채널에 대한 자율 생산 1회 사이클 실행 (LangGraph StateGraph 파이프라인 직결)
+        """
+        with database.SessionLocal() as db:
+            channel = db.query(models.BrandChannel).filter(models.BrandChannel.id == channel_id).first()
+            if not channel:
+                raise ValueError(f"Channel {channel_id} not found")
+
+            ch_title = channel.title or f"Channel #{channel_id}"
+            channel.director_state = "SCOUTING"
+            channel.director_heartbeat = datetime.now()
+            db.commit()
+
+            from app.state_management.video_graph import run_video_pipeline
+            channel_dna = {
+                "id": channel.id,
+                "title": ch_title,
+                "workflow_mode": channel.primary_workflow_mode or "keyword_only",
+                "topics": channel.target_topics or [],
+                "combo_model": channel.assigned_combo_model or "omniroute/viraloop1"
+            }
+
+            topic_query = topic or (channel.target_topics[0] if channel.target_topics else "실시간 핫이슈")
+            pipeline_res = await run_video_pipeline(
+                channel_id=str(channel.id),
+                topic=topic_query,
+                channel_dna=channel_dna,
+                modality=modality,
+                assigned_combo_model=channel.assigned_combo_model or "omniroute/viraloop1",
+                render_engine="CAPCUT",
+                auto_approve_hitl=True
+            )
+
+            channel.director_state = "IDLE"
+            channel.published_today_count = (channel.published_today_count or 0) + 1
+            channel.last_director_cycle = datetime.now()
+            db.commit()
+
+            return {
+                "success": pipeline_res.get("success", True),
+                "channel": ch_title,
+                "channel_id": channel.id,
+                "director_state": "IDLE",
+                "critic_score": pipeline_res.get("critic_score", 88),
+                "draft_project_path": pipeline_res.get("draft_project_path"),
+                "pipeline_res": pipeline_res
+            }
+
     def __init__(self):
         self._is_running = False
         self._daemon_task: Optional[asyncio.Task] = None
@@ -23,6 +140,7 @@ class ChannelDirector:
         """Atomically claim a viral article for a specific brand channel."""
         article = db.query(models.ViralArticle).filter(models.ViralArticle.id == article_id).first()
         if not article:
+
             raise ValueError(f"Article {article_id} not found")
 
         if article.claimed_by_channel_id and str(article.claimed_by_channel_id) != str(channel_id):

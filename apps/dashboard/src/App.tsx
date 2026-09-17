@@ -89,6 +89,19 @@ class RouteErrorBoundary extends React.Component<{children: React.ReactNode}, {h
     }
     componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
         console.error("=== RouteErrorBoundary ===\nError:", error.message, "\nStack:", error.stack, "\nComponent Stack:", errorInfo.componentStack);
+        
+        // [Auto-Recovery] Vite 모듈 동적 임포트 / 캐시 불일치 시 1회 자동 새로고침 자가 치유
+        const isChunkError = error.message?.includes('dynamically imported module') ||
+                             error.message?.includes('Outdated Optimize Dep') ||
+                             error.message?.includes('Failed to fetch');
+        if (isChunkError && typeof window !== 'undefined') {
+            const reloadKey = 'route_err_reload_' + window.location.hash;
+            if (!sessionStorage.getItem(reloadKey)) {
+                sessionStorage.setItem(reloadKey, '1');
+                console.log("🔄 [RouteErrorBoundary] 동적 모듈 캐시 갱신을 위해 1회 자동 새로고침을 실행합니다.");
+                window.location.reload();
+            }
+        }
     }
     render() {
         if (this.state.hasError) {
@@ -100,27 +113,46 @@ class RouteErrorBoundary extends React.Component<{children: React.ReactNode}, {h
                             {this.state.error?.message || '모듈을 불러오는 중 문제가 발생했습니다.'}
                         </strong>
                         <p style={{ fontSize: '12px', marginTop: '6px', color: '#450a0a' }}>
-                            네트워크 터널 순단 또는 캐시 동기화 지연일 수 있습니다.
+                            신규 의존성 패키징 또는 캐시 갱신 지연일 수 있습니다. 새로고침을 클릭하여 다시 시도해주세요.
                         </p>
                     </div>
-                    <button
-                        onClick={() => {
-                            this.setState({ hasError: false, error: null });
-                            window.location.hash = '#/';
-                        }}
-                        style={{
-                            padding: '8px 16px',
-                            background: '#2563eb',
-                            color: '#fff',
-                            border: 'none',
-                            borderRadius: '4px',
-                            cursor: 'pointer',
-                            fontWeight: 'bold',
-                            fontSize: '13px'
-                        }}
-                    >
-                        홈으로 이동하기
-                    </button>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                        <button
+                            onClick={() => {
+                                window.location.reload();
+                            }}
+                            style={{
+                                padding: '8px 16px',
+                                background: '#2563eb',
+                                color: '#fff',
+                                border: 'none',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                fontWeight: 'bold',
+                                fontSize: '13px'
+                            }}
+                        >
+                            🔄 새로고침하여 다시 로드
+                        </button>
+                        <button
+                            onClick={() => {
+                                this.setState({ hasError: false, error: null });
+                                window.location.hash = '#/';
+                            }}
+                            style={{
+                                padding: '8px 16px',
+                                background: '#64748b',
+                                color: '#fff',
+                                border: 'none',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                fontWeight: 'bold',
+                                fontSize: '13px'
+                            }}
+                        >
+                            홈으로 이동
+                        </button>
+                    </div>
                 </div>
             );
         }
