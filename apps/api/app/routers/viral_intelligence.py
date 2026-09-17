@@ -19,6 +19,7 @@ from ..services.channel_director import channel_director
 from ..services.free_media_scraper import free_media_scraper
 from ..services.viral_radar_engine import viral_radar_worker, viral_radar_telemetry
 from ..services.article_body_extractor import article_body_extractor
+from ..services.google_trend_engine import google_trend_engine
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/viral", tags=["viral_intelligence"])
@@ -2172,4 +2173,208 @@ def cleanup_viral_articles(
         "deleted_count": deleted_count,
         "message": f"총 {deleted_count}건의 수집 기사가 성공적으로 삭제되었습니다."
     }
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 🌐 GOOGLE TRENDS DUAL-LENS & AI TREND RESONANCE ENGINE ENDPOINTS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class PrismExpandRequest(BaseModel):
+    keyword: str
+    headline: Optional[str] = ""
+
+
+class TrendStageRequest(BaseModel):
+    keyword: str
+    headline: Optional[str] = ""
+    target_studio: str = "gunlimbo"
+    target_emotion: Optional[str] = "호기심/경악"
+    hook_title: Optional[str] = None
+    hook_intro_script: Optional[str] = None
+    narrative_summary: Optional[str] = None
+    category: Optional[str] = "일반"
+    channel_name: Optional[str] = None
+
+
+class TrendHarvestRequest(BaseModel):
+    keyword: str
+    category: Optional[str] = "일반"
+    limit: Optional[int] = 5
+
+
+@router.get("/trends/dual-lens")
+async def get_dual_lens_trends(
+    mode: str = Query("all", pattern="^(all|web|youtube|golden)$"),
+    category: str = Query("all"),
+    geo: str = Query("KR"),
+):
+    """
+    구글 트렌드 듀얼 렌즈 (웹 검색 vs 유튜브 영상 검색) 실시간 트렌드 및 NVS 분석 목록 반환
+    """
+    try:
+        return await google_trend_engine.fetch_dual_lens_trends(mode=mode, category=category, geo=geo)
+    except Exception as e:
+        logger.error(f"[get_dual_lens_trends] Error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/trends/cross-index")
+async def get_trend_cross_index(
+    keyword: str = Query(..., min_length=1),
+    limit: int = Query(12, ge=1, le=50),
+    db: Session = Depends(database.get_db),
+):
+    """
+    구글 트렌드 키워드와 로컬 5,000+ 커뮤니티 기사/썰 DB 교차 역색인 매칭
+    """
+    try:
+        return await google_trend_engine.cross_index_with_db(keyword=keyword, db=db, limit=limit)
+    except Exception as e:
+        logger.error(f"[get_trend_cross_index] Error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/trends/prism-expand")
+async def expand_trend_prism_endpoint(
+    req: PrismExpandRequest,
+    db: Session = Depends(database.get_db),
+):
+    """
+    AI 트렌드 프리즘: 1개 키워드를 4대 엄선 채널별 숏폼 3초 훅 및 추천 스튜디오로 동시 분광
+    """
+    try:
+        return await google_trend_engine.expand_trend_prism(keyword=req.keyword, headline=req.headline or "", db=db)
+    except Exception as e:
+        logger.error(f"[expand_trend_prism_endpoint] Error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/trends/stage")
+def stage_trend_as_article(
+    req: TrendStageRequest,
+    db: Session = Depends(database.get_db),
+):
+    """
+    트렌드 키워드 및 AI 프리즘 분광 결과를 벙커(ViralArticle)로 즉시 등록하여
+    스튜디오 제작 또는 일괄 렌더링 대기열로 직결
+    """
+    try:
+        existing = db.query(models.ViralArticle).filter(
+            models.ViralArticle.title == (req.hook_title or req.headline or req.keyword)
+        ).first()
+        if existing:
+            return {"success": True, "article_id": existing.id, "already_exists": True}
+
+        new_art = models.ViralArticle(
+            source_type="google_trends",
+            community_name="구글 트렌드 관제탑",
+            category=req.category or "트렌드",
+            title=req.hook_title or req.headline or f"[트렌드] {req.keyword}",
+            url=f"https://trends.google.co.kr/home?geo=KR&q={urllib.parse.quote(req.keyword)}",
+            author="Google Trends Radar",
+            views=50000,
+            likes=1200,
+            comments_count=150,
+            content_text=f"[트렌드 키워드]: {req.keyword}\n[헤드라인]: {req.headline}\n\n[3초 훅 인트로]:\n{req.hook_intro_script or ''}\n\n[서사 구성]:\n{req.narrative_summary or ''}",
+            analysis_summary=req.narrative_summary or req.headline or req.keyword,
+            suggested_title=req.hook_title or req.headline or req.keyword,
+            viral_score=89.5,
+            velocity_score=94.0,
+            cluster_count=3,
+            cluster_keywords=[req.keyword, req.target_studio, req.target_emotion or "호기심"],
+            topic_category=req.category or "일반",
+            media_type="text_story",
+            psychological_trigger=req.target_emotion or "호기심/경악",
+            retention_probability=89.0,
+            lifespan_phase="surge",
+            golden_time_hours=18.0,
+            target_form_factors=[req.target_studio],
+            structured_script={
+                "hook_headline_line1": req.keyword,
+                "hook_headline_line2": (req.hook_title or req.headline or "")[:24],
+                "suggested_form_factor": req.target_studio,
+                "target_channel": req.channel_name or "트렌드 채널",
+            },
+            status="analyzed",
+        )
+        db.add(new_art)
+        db.commit()
+        db.refresh(new_art)
+        return {"success": True, "article_id": new_art.id, "already_exists": False}
+    except Exception as e:
+        db.rollback()
+        logger.error(f"[stage_trend_as_article] Error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/trends/harvest-news")
+async def harvest_trend_news(
+    req: TrendHarvestRequest,
+    db: Session = Depends(database.get_db),
+):
+    """
+    특정 트렌드 키워드에 대한 최신 뉴스/기사를 실시간 수집하여 로컬 DB에 자동 적재
+    """
+    try:
+        encoded_kw = urllib.parse.quote(req.keyword)
+        rss_url = f"https://news.google.com/rss/search?q={encoded_kw}&hl=ko&gl=KR&ceid=KR:ko"
+        async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
+            resp = await client.get(rss_url, headers={
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"
+            })
+            if resp.status_code != 200:
+                return {"success": False, "harvested_count": 0, "message": f"HTTP {resp.status_code}"}
+            
+            feed = feedparser.parse(resp.text)
+            harvested = []
+            for entry in feed.entries[:(req.limit or 5)]:
+                clean_title = re.sub(r'<[^>]+>', '', getattr(entry, 'title', '')).strip()
+                summary = re.sub(r'<[^>]+>', '', getattr(entry, 'summary', clean_title)).strip()
+                link = getattr(entry, 'link', '')
+
+                exists = db.query(models.ViralArticle).filter(models.ViralArticle.title == clean_title).first()
+                if exists:
+                    continue
+
+                new_art = models.ViralArticle(
+                    source_type="google_trends",
+                    community_name="구글 트렌드 심층수집",
+                    category=req.category or "트렌드",
+                    title=clean_title,
+                    url=link,
+                    author=getattr(entry, 'source', {}).get('title', 'Google News'),
+                    views=15000,
+                    likes=350,
+                    comments_count=45,
+                    content_text=summary,
+                    analysis_summary=summary[:120],
+                    suggested_title=clean_title,
+                    viral_score=85.0,
+                    velocity_score=88.0,
+                    cluster_count=2,
+                    cluster_keywords=[req.keyword],
+                    topic_category=req.category or "일반",
+                    media_type="text_story",
+                    psychological_trigger="호기심/경악",
+                    retention_probability=82.0,
+                    lifespan_phase="surge",
+                    golden_time_hours=24.0,
+                    target_form_factors=["gunlimbo", "ssul"],
+                    status="collected",
+                )
+                db.add(new_art)
+                harvested.append(clean_title)
+
+            db.commit()
+            return {
+                "success": True,
+                "keyword": req.keyword,
+                "harvested_count": len(harvested),
+                "titles": harvested
+            }
+    except Exception as e:
+        db.rollback()
+        logger.error(f"[harvest_trend_news] Error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
 

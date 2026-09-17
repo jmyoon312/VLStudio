@@ -75,6 +75,7 @@ import { cn } from '@/lib/utils';
 import { ViralIntelligenceQuantRadar } from '@/components/viral/ViralIntelligenceQuantRadar';
 import { CollectorTelemetryPanel, TelemetryMetric } from '@/components/viral/CollectorTelemetryPanel';
 import { InlineArticleRenderer } from '@/components/viral/InlineArticleRenderer';
+import { GoogleTrendOrchestrator } from '@/components/viral/GoogleTrendOrchestrator';
 
 export const getProxyImageUrl = (url?: string | null): string => {
     if (!url) return '';
@@ -1279,7 +1280,9 @@ export default function ViralIntelligenceCenter() {
             </div>
 
             {/* 🏷️ 15대 킬러 테마 클러스터 & 채널 주권 DNA 연동 바 */}
-            <div className="p-3.5 rounded-2xl bg-card border border-border/80 shadow-2xs space-y-3">
+            {selectedRoute !== 'google_trends' && (
+                <>
+                <div className="p-3.5 rounded-2xl bg-card border border-border/80 shadow-2xs space-y-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
                         <span className="text-xs font-black text-foreground flex items-center gap-1.5">
@@ -1885,11 +1888,15 @@ export default function ViralIntelligenceCenter() {
                     </div>
                 </CardContent>
             </Card>
+            </>
+            )}
 
             {/* ═════════════════════════════════════════════════════════════════════ */}
             {/* 6. Content Section: Pixeling 2-Column Dual Grid vs Flat Table View */}
             {/* ═════════════════════════════════════════════════════════════════════ */}
-            {articlesLoading ? (
+            {selectedRoute === 'google_trends' ? (
+                <GoogleTrendOrchestrator />
+            ) : articlesLoading ? (
                 <div className="py-24 text-center text-muted-foreground text-sm flex items-center justify-center gap-2">
                     <RefreshCw className="w-4 h-4 animate-spin text-primary" />
                     50대 플랫폼 화제작 및 미디어 자산 실시간 색인 중...
