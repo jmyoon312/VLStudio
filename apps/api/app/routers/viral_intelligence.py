@@ -1125,13 +1125,18 @@ def get_spike_radar(
             if getattr(art, "media_type", None) == "video_clip":
                 tag_stats[t]["is_video"] = True
 
+    EXCLUDED_SPIKE_TAGS = {
+        "일반", "일반트렌드", "생활/정보", "스포츠", "스포츠종합", 
+        "커뮤니티유머", "정치/사회", "경제일반", "게임/IT", "기상천외실화"
+    }
+
     results = []
     for t, data in tag_stats.items():
-        if data["count"] < 1:
+        if data["count"] < 2 or t in EXCLUDED_SPIKE_TAGS:
             continue
         avg_vel = data["velocity_sum"] / data["count"]
         # Velocity score weighting with frequency bonus
-        spike_score = round(min(99.9, avg_vel + (math.log2(data["count"] + 1) * 2.5)), 1)
+        spike_score = round(min(99.9, avg_vel + (math.log2(data["count"]) * 2.0)), 1)
         results.append({
             "tag": data["tag"],
             "topic": data["topic"],
@@ -1164,6 +1169,59 @@ def claim_articles_for_channel(payload: ClaimBatchPayload, db: Session = Depends
     
     db.commit()
     return {"success": True, "claimed_count": updated, "channel_id": payload.channel_id}
+
+
+class HarvestTopicRequest(BaseModel):
+    topic: Optional[str] = None
+    limit: Optional[int] = 20
+
+
+@router.post("/harvest/topic")
+@router.post("/harvest/topic/{topic_name:path}")
+async def harvest_topic_articles(
+    topic_name: Optional[str] = None,
+    payload: Optional[HarvestTopicRequest] = None,
+    topic: Optional[str] = Query(None),
+    limit: int = Query(20, ge=5, le=50),
+    db: Session = Depends(database.get_db)
+):
+    """
+    On-demand targeted harvester for any of the 15 Killer Themes.
+    Scrapes high-retention dedicated feeds (specialized subreddits/boards) and upserts them into DB.
+    """
+    target_topic = ""
+    if payload and payload.topic:
+        target_topic = payload.topic
+        if payload.limit:
+            limit = payload.limit
+    elif topic:
+        target_topic = topic
+    elif topic_name:
+        target_topic = topic_name
+
+    try:
+        decoded_topic = urllib.parse.unquote(target_topic)
+    except Exception:
+        decoded_topic = target_topic
+
+    if not decoded_topic:
+        raise HTTPException(status_code=400, detail="Topic name is required")
+
+    raw_articles = await discovery_scraper.scrape_topic_feed(decoded_topic, limit=limit)
+    saved_count = 0
+    for art_data in raw_articles:
+        try:
+            discovery_scraper.sync_upsert_article(db, art_data)
+            saved_count += 1
+        except Exception as e:
+            logger.error(f"[harvest_topic] Error saving article: {e}")
+    db.commit()
+    return {
+        "success": True,
+        "topic": decoded_topic,
+        "harvested_count": saved_count,
+        "total_scraped": len(raw_articles)
+    }
 
 
 @router.get("/articles")

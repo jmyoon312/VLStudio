@@ -309,14 +309,20 @@ REDDIT_TOPICS = {
     "technology": "테크/IT",
     "funny": "유머/밈",
     "gaming": "게임",
-    # ── 7대 전문 비디오/쇼츠 특화 서브레딧 (NEW) ──
+    # ── 13대 전문 비디오/쇼츠 특화 서브레딧 (15대 테마 1:1 직결) ──
     "IdiotsInCars": "차량블박/사고",
     "Damnthatsinteresting": "과학/우주/경이",
     "SpecializedTools": "산업/특수도구",
     "FastWorkers": "달인/초고속작업",
     "NatureIsFuckingLit": "자연/동물경이",
     "JusticeServed": "참교육/사이다",
+    "InstantKarma": "참교육/사이다",
     "UnresolvedMysteries": "미제사건/미스터리",
+    "aww": "반려동물/동물힐링",
+    "AnimalsBeingDerps": "반려동물/유머",
+    "oddlysatisfying": "산업현장/달인",
+    "space": "과학/우주/경이",
+    "BeAmazed": "과학/우주/경이",
 }
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -628,18 +634,27 @@ class DiscoveryScraper:
         topic = "생활/정보"
         series_key: Optional[str] = None
 
+        def match_any(kws: List[str]) -> bool:
+            for k in kws:
+                if re.match(r'^[a-zA-Z0-9_-]{1,4}$', k):
+                    if re.search(rf'\b{re.escape(k)}\b', corpus, re.IGNORECASE):
+                        return True
+                elif k in corpus:
+                    return True
+            return False
+
         # 1. 스포츠 (Sports)
         sports_entities = {
-            "테니스": ["테니스", "라켓", "윔블던", "us오픈", "호주오픈", "프랑스오픈", "페더러", "나달", "조코비치", "알카라스", "시너", "권순우", "정현", "서브 에이스", "스트로크", "백핸드"],
-            "축구": ["축구", "손흥민", "이강인", "김민재", "황희찬", "메시", "호날두", "토트넘", "psg", "파리생제르맹", "뮌헨", "바이에른", "레알", "바르샤", "맨시티", "리버풀", "아스날", "epl", "프리미어리그", "챔피언스리그", "챔스", "k리그", "원더골", "골장면", "어시스트", "해트트릭", "오프사이드", "월드컵", "클린스만", "홍명보"],
-            "야구": ["야구", "kbo", "mlb", "메이저리그", "오타니", "류현진", "이정후", "김하성", "홈런", "삼진", "호수비", "만루홈런", "투수", "타자", "포수"],
-            "농구": ["농구", "nba", "르브론", "커리", "골든스테이트", "레이커스", "덩크", "버저비터", "kbl"],
+            "테니스": ["테니스", "윔블던", "us오픈", "호주오픈", "프랑스오픈", "페더러", "나달", "조코비치", "알카라스", "시너", "서브 에이스", "스트로크", "백핸드"],
+            "축구": ["축구", "손흥민", "이강인", "김민재", "황희찬", "메시", "호날두", "토트넘", "psg", "파리생제르맹", "바이에른", "레알마드리드", "바르샤", "맨시티", "리버풀", "아스날", "epl", "프리미어리그", "챔피언스리그", "챔스", "k리그", "원더골", "골장면", "어시스트", "해트트릭", "오프사이드", "월드컵"],
+            "야구": ["야구", "kbo", "mlb", "메이저리그", "오타니", "류현진", "이정후", "김하성", "홈런", "삼진", "호수비", "만루홈런", "선발투수"],
+            "농구": ["농구", "nba", "르브론", "커리", "골든스테이트", "레이커스", "덩크슛", "버저비터", "kbl"],
             "골프": ["골프", "홀인원", "버디", "이글", "알바트로스", "타이거우즈", "pga", "lpga"],
-            "e스포츠": ["e스포츠", "롤", "t1", "페이커", "lck", "발로란트", "배그", "오버워치", "스타크래프트"],
-            "격투기/UFC": ["ufc", "격투기", "복싱", "ko", "tko", "헤비급", "페더급", "옥타곤"]
+            "e스포츠": ["e스포츠", "롤", "t1", "페이커", "lck", "발로란트", "배틀그라운드", "오버워치", "스타크래프트"],
+            "격투기/UFC": ["ufc", "격투기", "복싱", "tko", "헤비급", "페더급", "옥타곤", "mma", "이종격투기", "로드fc"]
         }
         for ent_name, kws in sports_entities.items():
-            if any(k in corpus for k in kws):
+            if match_any(kws):
                 topic = "스포츠"
                 entity_tags.append(ent_name)
                 if ent_name in ["테니스", "축구", "야구"] and media_type == "video_clip":
@@ -650,45 +665,45 @@ class DiscoveryScraper:
             "블랙박스": ["블랙박스", "블박", "한문철", "dashcam"],
             "교통사고": ["교통사고", "접촉사고", "추돌", "전복", "무단횡단", "신호위반"],
             "과실비율": ["과실", "몇대몇", "백대영", "100:0", "과실비율"],
-            "보복운전": ["보복운전", "난폭운전", "칼치기", "보복"],
-            "주차빌런": ["주차빌런", "주차", "문콕", "이중주차", "불법주차"],
-            "전기차/테슬라": ["테슬라", "전기차", "ev", "배터리", "사이버트럭", "오토파일럿"],
-            "신차/슈퍼카": ["현대차", "기아", "제네시스", "포르쉐", "페라리", "람보르기니", "벤츠", "bmw", "아우디"]
+            "보복운전": ["보복운전", "난폭운전", "칼치기", "보복운전"],
+            "주차빌런": ["주차빌런", "이중주차", "불법주차", "문콕"],
+            "전기차/테슬라": ["테슬라", "전기차", "ev", "사이버트럭", "오토파일럿"],
+            "신차/슈퍼카": ["현대차", "기아차", "제네시스", "포르쉐", "페라리", "람보르기니", "벤츠", "bmw", "아우디"]
         }
         for ent_name, kws in car_entities.items():
-            if any(k in corpus for k in kws):
-                if topic == "생활/정보" or "보배" in corpus or "사고" in corpus or "차" in corpus:
+            if match_any(kws):
+                if topic == "생활/정보" and (any(w in corpus for w in ["자동차", "차량", "신차", "전기차", "슈퍼카", "시승", "운전", "도로", "과속", "접촉사고", "교통"]) or "보배드림" in corpus):
                     topic = "자동차/교통"
                 entity_tags.append(ent_name)
                 if ent_name in ["블랙박스", "과실비율", "주차빌런"]:
                     series_key = "series_dashcam_accident"
 
         # 11. 미스터리/심리 (NEW)
-        mystery_kws = ["미스터리", "미제사건", "미제", "괴담", "도시전설", "의문사", "실종사건", "소름돋는", "불가사의", "심령", "unresolved", "creepy", "공포실화"]
-        if any(k in corpus for k in mystery_kws):
+        mystery_kws = ["미스터리", "미제사건", "괴담", "도시전설", "의문사", "실종사건", "소름돋는", "불가사의", "심령", "unresolved", "creepy", "공포실화"]
+        if match_any(mystery_kws):
             topic = "미스터리/심리"
             entity_tags.append("미제사건/미스터리")
             series_key = "series_unsolved_mystery"
 
         # 12. 역사/전쟁/비화 (NEW)
-        history_kws = ["역사", "조선", "고려", "삼국시대", "로마", "2차대전", "전쟁", "유물", "고대", "왕조", "황제", "장군", "비사", "야담", "발굴", "artefact", "ancient"]
-        if any(k in corpus for k in history_kws):
+        history_kws = ["역사", "조선시대", "고려시대", "삼국시대", "로마제국", "2차대전", "세계대전", "유물", "고대", "왕조", "황제", "장군", "비사", "야담", "발굴", "artefact", "ancient"]
+        if match_any(history_kws):
             if topic == "생활/정보":
                 topic = "역사/전쟁/비화"
                 entity_tags.append("역사비화/야담")
                 series_key = "series_history_untold"
 
         # 13. 과학/우주/경이 (NEW)
-        science_kws = ["우주", "나사", "nasa", "블랙홀", "은하", "심해", "물리", "양자", "오로라", "화산", "자연경이", "natureisfuckinglit", "science", "지구촌"]
-        if any(k in corpus for k in science_kws):
+        science_kws = ["우주", "나사", "nasa", "블랙홀", "은하", "심해", "오로라", "화산", "자연경이", "natureisfuckinglit", "초신성", "제임스웹", "태양계"]
+        if match_any(science_kws):
             if topic == "생활/정보":
                 topic = "과학/우주/경이"
                 entity_tags.append("우주/자연경이")
                 series_key = "series_nature_wonders"
 
         # 14. 산업현장/달인 (NEW)
-        craft_kws = ["달인", "장인", "해체", "참치", "용접", "선박", "중장비", "제작과정", "수작업", "asmr", "satisfying", "fastworker", "specializedtool"]
-        if any(k in corpus for k in craft_kws):
+        craft_kws = ["달인", "장인", "공예", "목공", "해체", "참치 해체", "용접", "선박", "중장비", "제작과정", "수작업", "satisfying", "fastworker", "specializedtool"]
+        if match_any(craft_kws):
             if topic == "생활/정보":
                 topic = "산업현장/달인"
                 entity_tags.append("달인/산업현장")
@@ -696,7 +711,7 @@ class DiscoveryScraper:
 
         # 15. 참교육/사이다 (NEW)
         justice_kws = ["참교육", "사이다", "인과응보", "역관광", "정의구현", "빌런", "층간소음", "진상손님", "당근마켓빌런", "파혼", "불륜응징", "justiceserved", "instantkarma"]
-        if any(k in corpus for k in justice_kws):
+        if match_any(justice_kws):
             if topic in ["생활/정보", "유머/썰"]:
                 topic = "참교육/사이다"
             entity_tags.append("참교육/사이다")
@@ -704,39 +719,39 @@ class DiscoveryScraper:
 
         # 3. 사건/사고 (Crime & Society)
         crime_entities = {
-            "갑질폭로": ["갑질", "폭로", "횡포", "진상", "손님"],
+            "갑질폭로": ["갑질", "폭로", "횡포", "진상손님", "갑질논란"],
             "사기/피싱": ["사기", "피싱", "보이스피싱", "전세사기", "먹튀", "사기꾼"],
             "학폭/폭행": ["학폭", "학교폭력", "폭행", "구타", "상해"],
-            "재판/수사": ["구속", "체포", "경찰", "검찰", "재판", "징역", "판결", "벌금형"]
+            "재판/수사": ["구속영장", "체포", "경찰조사", "검찰수사", "징역형", "재판부", "실형"]
         }
         for ent_name, kws in crime_entities.items():
-            if any(k in corpus for k in kws):
+            if match_any(kws):
                 if topic == "생활/정보":
                     topic = "사건/사고"
                 entity_tags.append(ent_name)
 
         # 4. IT/테크 (Tech & AI)
         tech_entities = {
-            "AI/인공지능": ["ai", "인공지능", "chatgpt", "gpt", "클로드", "오픈ai", "llm", "딥러닝", "생성형"],
+            "AI/인공지능": ["인공지능", "chatgpt", "gpt", "클로드", "오픈ai", "llm", "딥러닝", "생성형", "생성ai"],
             "엔비디아/반도체": ["엔비디아", "nvidia", "반도체", "gpu", "h100", "tsmc", "하이닉스"],
             "스마트폰": ["아이폰", "갤럭시", "애플", "삼성전자", "스마트폰", "태블릿"],
             "로봇/신기술": ["로봇", "휴머노이드", "양자컴퓨터", "우주선", "스타링크"]
         }
         for ent_name, kws in tech_entities.items():
-            if any(k in corpus for k in kws):
+            if match_any(kws) or (ent_name == "AI/인공지능" and bool(re.search(r'\b(ai|chatgpt|llm)\b', corpus, re.IGNORECASE))):
                 if topic == "생활/정보":
                     topic = "IT/테크"
                 entity_tags.append(ent_name)
 
         # 5. 경제/재테크 (Economy & Finance)
         econ_entities = {
-            "비트코인/코인": ["비트코인", "코인", "가상화폐", "암호화폐", "이더리움", "업비트", "빗썸", "리플"],
-            "주식/증시": ["주식", "코스피", "코스닥", "나스닥", "배당", "상한가", "매수", "매도", "종목"],
-            "부동산/청약": ["부동산", "아파트", "청약", "전세", "월세", "분양", "집값"],
-            "금리/환율": ["금리", "환율", "한국은행", "연준", "기준금리", "물가"]
+            "비트코인/코인": ["비트코인", "가상화폐", "암호화폐", "이더리움", "업비트", "빗썸", "리플"],
+            "주식/증시": ["주식", "코스피", "코스닥", "나스닥", "배당금", "상한가", "매수", "매도", "종목추천"],
+            "부동산/청약": ["부동산", "아파트 매매", "청약홈", "전세사기", "월세계약", "아파트 분양", "집값 폭락", "집값 상승"],
+            "금리/환율": ["기준금리", "환율", "한국은행", "연준", "금리인하", "금리인상", "물가상승"]
         }
         for ent_name, kws in econ_entities.items():
-            if any(k in corpus for k in kws):
+            if match_any(kws):
                 if topic == "생활/정보":
                     topic = "경제/재테크"
                 entity_tags.append(ent_name)
@@ -745,11 +760,11 @@ class DiscoveryScraper:
         ent_entities = {
             "아이돌": ["아이돌", "걸그룹", "보이그룹", "컴백", "직캠", "콘서트", "뉴진스", "에스파", "아이브", "bts"],
             "드라마": ["드라마", "본방", "엔딩", "줄거리", "명대사", "시청률"],
-            "예능/토크": ["예능", "유재석", "신동엽", "나영석", "토크", "런닝맨", "유퀴즈"],
+            "예능/토크": ["예능", "유재석", "신동엽", "나영석", "런닝맨", "유퀴즈", "토크쇼", "예능프로"],
             "영화/배우": ["영화", "배우", "넷플릭스", "천만관객", "박스오피스"]
         }
         for ent_name, kws in ent_entities.items():
-            if any(k in corpus for k in kws):
+            if match_any(kws):
                 if topic == "생활/정보":
                     topic = "연예/방송"
                 entity_tags.append(ent_name)
@@ -758,38 +773,38 @@ class DiscoveryScraper:
         pet_entities = {
             "강아지": ["강아지", "댕댕이", "반려견", "멍멍이", "골든리트리버", "시바견"],
             "고양이": ["고양이", "냥이", "반려묘", "집사", "치즈냥", "길고양이"],
-            "동물구출": ["동물", "구출", "야생동물", "팬더", "푸바오", "수달"]
+            "동물구출": ["동물구출", "야생동물", "팬더", "푸바오", "수달", "동물보호"]
         }
         for ent_name, kws in pet_entities.items():
-            if any(k in corpus for k in kws):
+            if match_any(kws):
                 if topic == "생활/정보":
                     topic = "반려동물"
                 entity_tags.append(ent_name)
 
         # 8. 유머/썰 (Humor & Stories)
         humor_entities = {
-            "레전드썰": ["썰", "네이트판", "레전드썰", "익명썰"],
-            "카톡대화": ["카톡", "단톡", "문자"],
-            "직장생활": ["직장", "회사", "상사", "신입", "퇴사", "이직", "야근", "회식"],
-            "연애/결혼": ["연애", "남친", "여친", "결혼", "시월드", "처가", "소개팅", "파혼"],
-            "폭소/반전": ["폭소", "반전", "웃긴", "뿜었다", "ㅋㅋㅋ", "개그", "유머"]
+            "레전드썰": ["네이트판 썰", "레전드썰", "익명썰", "웃긴썰"],
+            "카톡대화": ["카톡", "단톡", "단톡방", "카톡대화"],
+            "직장생활": ["직장상사", "신입사원", "퇴사", "이직", "야근", "회식자리"],
+            "연애/결혼": ["남친", "여친", "시월드", "소개팅", "파혼", "불륜"],
+            "폭소/반전": ["폭소", "반전유머", "웃긴", "뿜었다", "ㅋㅋㅋ", "개그"]
         }
         for ent_name, kws in humor_entities.items():
-            if any(k in corpus for k in kws):
+            if match_any(kws):
                 if topic == "생활/정보":
                     topic = "유머/썰"
                 entity_tags.append(ent_name)
 
         # 9. 생활/정보 (Life Hacks & Info)
         info_entities = {
-            "정부지원금": ["지원금", "청년", "보조금", "장려금", "청년도약", "환급금"],
-            "세금/환급": ["환급", "세금", "연말정산", "절세", "종합소득세"],
-            "생활꿀팁": ["꿀팁", "노하우", "청소", "보관법", "요리법", "레시피"],
-            "가성비추천": ["다이소", "이케아", "코스트코", "추천템", "가성비"],
-            "건강/다이어트": ["다이어트", "식단", "운동", "헬스", "칼로리", "체중", "비타민"]
+            "정부지원금": ["지원금", "청년지원금", "보조금", "장려금", "청년도약", "환급금"],
+            "세금/환급": ["환급", "연말정산", "절세", "종합소득세"],
+            "생활꿀팁": ["꿀팁", "살림노하우", "청소법", "보관법", "요리법", "레시피"],
+            "가성비추천": ["다이소추천", "이케아추천", "코스트코추천", "추천템", "가성비템"],
+            "건강/다이어트": ["다이어트식단", "헬스", "칼로리", "체중감량", "비타민"]
         }
         for ent_name, kws in info_entities.items():
-            if any(k in corpus for k in kws):
+            if match_any(kws):
                 topic = "생활/정보"
                 entity_tags.append(ent_name)
 
@@ -804,6 +819,24 @@ class DiscoveryScraper:
             if "스포츠" in raw_category:
                 topic = "스포츠"
                 entity_tags.append("스포츠종합")
+            elif "참교육" in raw_category or "사이다" in raw_category:
+                topic = "참교육/사이다"
+                entity_tags.append("참교육/사이다")
+            elif "미제사건" in raw_category or "미스터리" in raw_category:
+                topic = "미스터리/심리"
+                entity_tags.append("미제사건/미스터리")
+            elif "자연" in raw_category or "우주" in raw_category or "경이" in raw_category:
+                topic = "과학/우주/경이"
+                entity_tags.append("우주/자연경이")
+            elif "산업" in raw_category or "달인" in raw_category or "도구" in raw_category:
+                topic = "산업현장/달인"
+                entity_tags.append("달인/산업현장")
+            elif "반려동물" in raw_category or "동물" in raw_category:
+                topic = "반려동물"
+                entity_tags.append("반려동물")
+            elif "차량블박" in raw_category or "사고" in raw_category:
+                topic = "자동차/교통"
+                entity_tags.append("블랙박스")
             elif "정치" in raw_category:
                 topic = "사건/사고"
                 entity_tags.append("정치/사회")
@@ -813,7 +846,7 @@ class DiscoveryScraper:
             elif "IT" in raw_category or "게임" in raw_category:
                 topic = "IT/테크"
                 entity_tags.append("게임/IT")
-            elif "유머" in raw_category:
+            elif "유머" in raw_category or "썰" in raw_category:
                 topic = "유머/썰"
                 entity_tags.append("커뮤니티유머")
             else:
@@ -1838,6 +1871,37 @@ class DiscoveryScraper:
             logger.error(f"[Scraper] Reddit error r/{subreddit}: {e}")
 
         return results
+
+    async def scrape_topic_feed(self, topic_name: str, limit: int = 20) -> List[Dict[str, Any]]:
+        """
+        Pinpoint harvester for 15 Killer Themes.
+        Fetches high-retention dedicated sources (subreddits + targeted boards) for any theme.
+        """
+        TOPIC_SOURCE_MAP = {
+            "참교육/사이다": ["JusticeServed", "InstantKarma"],
+            "미스터리/심리": ["UnresolvedMysteries"],
+            "과학/우주/경이": ["NatureIsFuckingLit", "space", "BeAmazed", "Damnthatsinteresting"],
+            "산업현장/달인": ["oddlysatisfying", "SpecializedTools", "FastWorkers"],
+            "반려동물": ["aww", "AnimalsBeingDerps"],
+            "자동차/교통": ["IdiotsInCars"],
+            "해외화제": ["mildlyinteresting", "interestingasfuck"],
+            "스포츠": ["sports"],
+            "유머/썰": ["AskReddit", "tifu"],
+            "IT/테크": ["technology"],
+        }
+        subs = TOPIC_SOURCE_MAP.get(topic_name, ["Damnthatsinteresting", "mildlyinteresting"])
+        collected: List[Dict[str, Any]] = []
+        per_sub = max(5, limit // len(subs))
+        for sub in subs:
+            try:
+                sub_res = await self.scrape_reddit_top(subreddit=sub, limit=per_sub)
+                if sub_res:
+                    for r in sub_res:
+                        r["topic_category"] = topic_name
+                    collected.extend(sub_res)
+            except Exception as e:
+                logger.error(f"[scrape_topic_feed] Error on {sub}: {e}")
+        return collected
 
     async def scrape_google_trends(self, max_articles: int = 20, geo: str = "KR") -> List[Dict[str, Any]]:
         """Scrape Google Trends Real-Time Trending RSS with Related News Articles."""

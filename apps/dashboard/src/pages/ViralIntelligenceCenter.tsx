@@ -565,6 +565,26 @@ export default function ViralIntelligenceCenter() {
         }
     });
 
+    // 15대 테마 집중 수집 뮤테이션 (On-Demand Theme Harvester)
+    const harvestTopicMutation = useMutation({
+        mutationFn: async (topicName: string) => {
+            const res = await api.post('/viral/harvest/topic', {
+                topic: topicName,
+                limit: 20
+            });
+            return res.data;
+        },
+        onSuccess: (data) => {
+            toast.success(`[${data.topic}] 테마 집중 수집 완료! (${data.harvested_count || 0}건 신규 확보)`);
+            queryClient.invalidateQueries({ queryKey: ['viral_articles'] });
+            queryClient.invalidateQueries({ queryKey: ['viral_topic_clusters'] });
+            queryClient.invalidateQueries({ queryKey: ['viral_spike_radar'] });
+        },
+        onError: (err: any) => {
+            toast.error(`테마 수집 실패: ${err.message || '오류 발생'}`);
+        }
+    });
+
     // Deep Fetch Details Mutation
     const fetchDetailsMutation = useMutation({
         mutationFn: async (articleId: number) => {
@@ -1150,6 +1170,7 @@ export default function ViralIntelligenceCenter() {
                                             setSelectedEntityTag('all');
                                         } else {
                                             setSelectedEntityTag(sp.tag);
+                                            if (selectedRoute !== 'all') setSelectedRoute('all');
                                         }
                                         setPage(1);
                                     }}
@@ -1240,6 +1261,24 @@ export default function ViralIntelligenceCenter() {
                             <Badge className="bg-emerald-600 text-white text-[9px] px-1 py-0 h-4 min-w-4 flex items-center justify-center font-mono">
                                 {seriesPacksData?.total_packs || 0}
                             </Badge>
+                        </button>
+
+                        {/* ⚡ 15대 테마 집중 수집 (On-Demand Harvester) */}
+                        <button
+                            disabled={harvestTopicMutation.isPending}
+                            onClick={() => {
+                                const targetTopic = selectedTopicCategory !== 'all' ? selectedTopicCategory : '과학/우주/경이';
+                                harvestTopicMutation.mutate(targetTopic);
+                            }}
+                            className="h-7 px-2.5 rounded-md bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30 text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+                            title={selectedTopicCategory !== 'all' ? `[${selectedTopicCategory}] 특화 서브레딧 및 커뮤니티에서 실시간 양질 소재를 집중 수집합니다` : '희소 테마 실시간 양질 소재를 집중 수집합니다'}
+                        >
+                            {harvestTopicMutation.isPending ? (
+                                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                            ) : (
+                                <Zap className="w-3.5 h-3.5" />
+                            )}
+                            <span>{selectedTopicCategory !== 'all' ? `${selectedTopicCategory} 보충` : '테마 집중 수집'}</span>
                         </button>
 
                         {/* 채널 전용 큐 매칭 드롭다운 */}
@@ -1443,6 +1482,27 @@ export default function ViralIntelligenceCenter() {
                             className="px-2 py-0.5 rounded text-xs font-bold text-muted-foreground hover:text-foreground hover:bg-muted cursor-pointer"
                         >
                             필터 해제 ✕
+                        </button>
+                    </div>
+                )}
+
+                {/* 활성 급상승 레이더 태그 필터 안내 배너 */}
+                {selectedEntityTag !== 'all' && (
+                    <div className="flex items-center justify-between p-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-xs animate-in fade-in">
+                        <div className="flex items-center gap-2">
+                            <Zap className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                            <span className="font-bold text-foreground">
+                                ⚡ 급상승 레이더 태그 필터 적용 중:{' '}
+                                <span className="text-amber-600 dark:text-amber-400 font-black">
+                                    #{selectedEntityTag}
+                                </span>
+                            </span>
+                        </div>
+                        <button
+                            onClick={() => { setSelectedEntityTag('all'); setPage(1); }}
+                            className="px-2 py-0.5 rounded text-xs font-bold text-muted-foreground hover:text-foreground hover:bg-muted cursor-pointer"
+                        >
+                            태그 필터 해제 ✕
                         </button>
                     </div>
                 )}
