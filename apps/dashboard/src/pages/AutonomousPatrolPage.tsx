@@ -324,11 +324,11 @@ export const AutonomousPatrolPage: React.FC = () => {
                     <CardHeader className="border-b border-border/80 pb-3">
                         <div className="flex items-center justify-between">
                             <CardTitle className="text-sm font-bold flex items-center gap-2">
-                                <Activity className="w-4 h-4 text-indigo-500" />
-                                자율 트렌드 순찰 레이더 (Scout Engine)
+                                <Activity className="w-4 h-4 text-primary" />
+                                트렌드 자동 탐색
                             </CardTitle>
-                            <Badge variant="outline" className="text-[10px] font-bold text-indigo-500 border-indigo-500/30">
-                                24채널 백그라운드 스캔
+                            <Badge variant="outline" className="text-[10px] font-bold text-primary border-primary/20 bg-primary/10">
+                                24시간 탐색
                             </Badge>
                         </div>
                         <CardDescription className="text-xs">
@@ -343,7 +343,7 @@ export const AutonomousPatrolPage: React.FC = () => {
                             </div>
                             <div className="flex items-center justify-between text-xs">
                                 <span className="text-muted-foreground">다음 예정 순찰:</span>
-                                <span className="font-mono font-bold text-indigo-500">{patrolStatus?.next_patrol_at || '오늘 18:30:00'}</span>
+                                <span className="font-mono font-bold text-primary">{patrolStatus?.next_patrol_at || '오늘 18:30:00'}</span>
                             </div>
                             <div className="flex items-center justify-between text-xs">
                                 <span className="text-muted-foreground">순찰 타겟:</span>
@@ -351,20 +351,20 @@ export const AutonomousPatrolPage: React.FC = () => {
                             </div>
                             <div className="flex items-center justify-between text-xs">
                                 <span className="text-muted-foreground">자동 조치:</span>
-                                <span className="font-medium text-emerald-500">85점 초과 시 인큐베이터 자동 적재</span>
+                                <span className="font-medium text-emerald-600 dark:text-emerald-400">85점 통과 시 자동 대기열 추가</span>
                             </div>
                         </div>
 
-                        <div className="flex items-center justify-between p-3 rounded-lg bg-indigo-500/5 border border-indigo-500/20 text-xs">
+                        <div className="flex items-center justify-between p-3 rounded-lg bg-muted/40 border border-border/80 text-xs">
                             <div className="flex items-center gap-2 text-muted-foreground">
-                                <ShieldCheck className="w-4 h-4 text-indigo-500 shrink-0" />
-                                <span>Cron 스케줄 변경은 <b>[운영·설정 ➔ 환경설정]</b>에서 제어 가능합니다.</span>
+                                <ShieldCheck className="w-4 h-4 text-primary shrink-0" />
+                                <span>Cron 스케줄 변경은 <b>[환경설정]</b>에서 제어 가능합니다.</span>
                             </div>
                             <Button 
                                 variant="ghost" 
                                 size="sm" 
                                 onClick={() => navigate('/settings')} 
-                                className="h-6 text-[11px] text-indigo-600 dark:text-indigo-400 gap-1 px-2 font-bold hover:bg-indigo-500/10"
+                                className="h-6 text-[11px] text-primary gap-1 px-2 font-bold hover:bg-primary/10"
                             >
                                 환경설정 이동 <ArrowUpRight className="w-3 h-3" />
                             </Button>
@@ -376,11 +376,11 @@ export const AutonomousPatrolPage: React.FC = () => {
                     <CardHeader className="border-b border-border/80 pb-3">
                         <div className="flex items-center justify-between">
                             <CardTitle className="text-sm font-bold flex items-center gap-2">
-                                <Smartphone className="w-4 h-4 text-sky-500" />
-                                텔레그램 원격 지휘 타워 (Telegram Remote)
+                                <Smartphone className="w-4 h-4 text-primary" />
+                                모바일 알림 관리
                             </CardTitle>
-                            <Badge variant="outline" className="text-[10px] font-bold text-sky-500 border-sky-500/30">
-                                스마트폰 실시간 결재/제어
+                            <Badge variant="outline" className="text-[10px] font-bold text-primary border-primary/20 bg-primary/10">
+                                원격 제어
                             </Badge>
                         </div>
                         <CardDescription className="text-xs">
@@ -403,7 +403,7 @@ export const AutonomousPatrolPage: React.FC = () => {
                         )}
                         <div className="space-y-2">
                             <label className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                                <MessageSquare className="w-3.5 h-3.5 text-sky-500" />
+                                <MessageSquare className="w-3.5 h-3.5 text-primary" />
                                 테스트 메시지 전송
                             </label>
                             <div className="flex gap-2">
@@ -417,7 +417,7 @@ export const AutonomousPatrolPage: React.FC = () => {
                                     size="sm"
                                     onClick={() => sendTelegramMutation.mutate()}
                                     disabled={sendTelegramMutation.isPending}
-                                    className="h-9 text-xs font-bold bg-sky-600 hover:bg-sky-700 text-white shrink-0 gap-1.5"
+                                    className="h-9 text-xs font-bold bg-primary hover:bg-primary/90 text-primary-foreground shrink-0 gap-1.5"
                                 >
                                     <Send className={`w-3.5 h-3.5 ${sendTelegramMutation.isPending ? 'animate-spin' : ''}`} />
                                     전송
@@ -425,12 +425,12 @@ export const AutonomousPatrolPage: React.FC = () => {
                             </div>
                         </div>
 
-                        <div className="p-3 rounded-lg bg-sky-500/5 border border-sky-500/20 text-xs text-muted-foreground space-y-1">
-                            <div className="font-bold text-foreground">💡 텔레그램 스마트폰 실시간 지휘 명령어:</div>
-                            <div>• <code>/status</code> : 현재 GPU 세마포어 및 채널 디렉터 상태 조회</div>
-                            <div>• <code>/approve [작업ID]</code> : 텔레그램 HITL 게이트 승인 ➔ 렌더 착수</div>
-                            <div>• <code>/reject [작업ID]</code> : 대본 반려 ➔ Critic-85 피드백 재작성</div>
-                            <div>• <code>/kill</code> : 긴급 킬스위치 즉시 발동 및 전 채널 정지</div>
+                        <div className="p-3 rounded-lg bg-muted/40 border border-border/80 text-xs text-muted-foreground space-y-1">
+                            <div className="font-bold text-foreground">💡 스마트폰 텔레그램 명령어 안내:</div>
+                            <div>• <code className="text-primary font-mono">/status</code> : GPU 및 제작 상태 실시간 조회</div>
+                            <div>• <code className="text-primary font-mono">/approve [ID]</code> : 모바일 즉시 승인 및 렌더 가동</div>
+                            <div>• <code className="text-primary font-mono">/reject [ID]</code> : 대본 반려 및 AI 자동 재작성</div>
+                            <div>• <code className="text-primary font-mono">/kill</code> : 긴급 중단 및 전 채널 일시 정지</div>
                         </div>
                     </CardContent>
                 </Card>
@@ -441,8 +441,8 @@ export const AutonomousPatrolPage: React.FC = () => {
                 <CardHeader className="border-b border-border/80 py-3">
                     <div className="flex items-center justify-between flex-wrap gap-2">
                         <div className="flex items-center gap-2">
-                            <Terminal className="w-4 h-4 text-emerald-500" />
-                            <CardTitle className="text-sm font-bold">실시간 자율 순찰 & 관제 이벤트 로그</CardTitle>
+                            <Terminal className="w-4 h-4 text-primary" />
+                            <CardTitle className="text-sm font-bold">실시간 실행 로그</CardTitle>
                         </div>
                         <div className="flex items-center gap-1.5">
                             <Button
@@ -459,7 +459,7 @@ export const AutonomousPatrolPage: React.FC = () => {
                                 onClick={() => setLogFilter('success')}
                                 className="h-7 text-[11px] px-2.5 rounded-lg"
                             >
-                                스킬/성과만
+                                성과 로그
                             </Button>
                             <Button
                                 size="sm"
@@ -467,21 +467,21 @@ export const AutonomousPatrolPage: React.FC = () => {
                                 onClick={() => setLogFilter('telegram')}
                                 className="h-7 text-[11px] px-2.5 rounded-lg"
                             >
-                                텔레그램 발송
+                                알림 로그
                             </Button>
                         </div>
                     </div>
                 </CardHeader>
                 <CardContent className="p-0">
-                    <div className="p-4 font-mono text-xs space-y-2 max-h-64 overflow-y-auto bg-black/20 dark:bg-black/40 rounded-b-2xl">
+                    <div className="p-4 font-mono text-xs space-y-2 max-h-64 overflow-y-auto bg-muted/30 border-t border-border/60 rounded-b-2xl">
                         {filteredLogs.map(log => (
                             <div key={log.id} className="flex items-start gap-3 py-1 border-b border-border/40 last:border-0">
-                                <span className="text-muted-foreground/60 text-[11px] shrink-0 font-bold">[{log.timestamp}]</span>
+                                <span className="text-muted-foreground/70 text-[11px] shrink-0 font-bold">[{log.timestamp}]</span>
                                 <span className={
-                                    log.type === 'success' ? 'text-emerald-400 font-medium' :
-                                    log.type === 'telegram' ? 'text-sky-400 font-medium' :
-                                    log.type === 'warning' ? 'text-amber-400 font-medium' :
-                                    'text-foreground/80'
+                                    log.type === 'success' ? 'text-emerald-600 dark:text-emerald-400 font-medium' :
+                                    log.type === 'telegram' ? 'text-primary font-medium' :
+                                    log.type === 'warning' ? 'text-amber-600 dark:text-amber-400 font-medium' :
+                                    'text-foreground'
                                 }>
                                     {log.message}
                                 </span>
