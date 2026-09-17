@@ -419,6 +419,7 @@ class DiscoveryScraper:
     def is_valid_viral_candidate(self, title: str, url: str, is_global: bool = False) -> bool:
         """Strict Viral Video Quality Gate:
         Eliminate ads, commerce specs, trivia chatter, notices, and ultra-short texts.
+        Zero Tolerance for community announcements, rule changes, security notices, and app promos.
         """
         if not title:
             return False
@@ -428,12 +429,26 @@ class DiscoveryScraper:
         max_title_len = 220 if is_global else 120
         if len(clean) < 8 or len(clean) > max_title_len:
             return False
+
+        # 2. Comprehensive Notice & Administrative Blacklist (Zero Tolerance)
+        notice_kws = [
+            "공지", "필독", "안내", "규정", "운영원칙", "이용규칙", "이용안내", "게시판 개편",
+            "서버 점검", "시스템 점검", "비밀번호", "어플 출시", "모바일 앱", "앱 이용", "업데이트",
+            "패치노트", "게시 금지", "자료 금지", "차단 안내", "제재 내역", "당첨자 발표", "당첨자",
+            "이벤트", "출석체크", "출석", "출첵", "공식 어플", "가입인사", "등업신청", "사이트 소개",
+            "신고게시판", "버그제보", "광고문의", "개인정보", "약관 개정", "고객센터", "바로가기",
+            "이슈 갤러리 규정"
+        ]
+        clean_lower = clean.lower()
+        for kw in notice_kws:
+            if kw in clean or kw in clean_lower:
+                return False
             
-        # 2. Blacklisted keywords check
+        # 2-1. Blacklisted keywords check from discard_keywords
         for kw in self.discard_keywords:
             if clean == kw or clean.startswith(f"[{kw}]") or clean.startswith(f"({kw})") or clean.startswith(f"[{kw}"):
                 return False
-            if kw in ["바로가기", "이용규칙", "Contáctenos", "출석체크", "출석", "출첵", "개인정보처리방침", "핫딜", "특가", "공동구매", "공구"] and kw in clean:
+            if kw in ["바로가기", "이용규칙", "Contáctenos", "출석체크", "출석", "출첵", "개인정보처리방침", "핫딜", "특가", "공동구매", "공구", "무료배송"] and kw in clean:
                 return False
 
         # 3. Product spec detection (e.g. "20cm, 1개", "3.7L 2개")
@@ -444,8 +459,10 @@ class DiscoveryScraper:
         if self.price_pattern.search(clean):
             return False
 
-        # 5. Trivia / simple questions
-        if clean.endswith("?") and len(clean) <= 14:
+        # 5. Trivia / simple chatter without narrative or visual potential
+        if clean.endswith("?") and len(clean) <= 16:
+            return False
+        if any(clean.endswith(end) for end in ["질문이요", "질문드립니다", "질문합니다", "궁금합니다", "알려주세요", "찾아줘", "괜찮나요", "어떤가요", "뻘글", "잡담"]):
             return False
         if self.trivia_question_pattern.search(clean):
             return False
@@ -457,7 +474,7 @@ class DiscoveryScraper:
                 return False
 
         # 7. URL path inspection
-        bad_paths = ["/login", "/register", "/member", "/notice", "/policy", "/rules", "/market", "/shop", "/deal", "/hotdeal", "/attendance"]
+        bad_paths = ["/login", "/register", "/member", "/notice", "/policy", "/rules", "/market", "/shop", "/deal", "/hotdeal", "/attendance", "/event"]
         if any(bad in url.lower() for bad in bad_paths):
             return False
 
@@ -489,18 +506,228 @@ class DiscoveryScraper:
         t = re.sub(r'\s{2,}', ' ', t).strip()
         return t
 
-    def compute_viral_score(self, views: int, likes: int, comments: int, rank: int = 1, body_len: int = 0, has_images: bool = False) -> float:
-        """Composite viral index with realistic quantum distribution (62.0 ~ 97.5)."""
-        base = 42.0
-        # Views logarithmic component: 100 -> 0, 1000 -> 7, 10000 -> 14, 100000 -> 21
-        views_score = min(22.0, (math.log10(max(views, 100)) - 2.0) * 7.0)
-        cmt_score = min(15.0, (comments / 30.0) * 12.0)
-        like_score = min(12.0, (likes / 80.0) * 10.0)
-        body_score = min(8.0, (body_len / 600.0) * 6.0)
-        img_score = 4.0 if has_images else 0.0
-        rank_bonus = max(0.0, (11 - rank) * 0.6)
-        raw = base + views_score + cmt_score + like_score + body_score + img_score + rank_bonus
-        return round(min(97.5, max(60.0, raw)), 1)
+    def compute_viral_score(
+        self,
+        views: int,
+        likes: int,
+        comments: int,
+        rank: int = 1,
+        body_len: int = 0,
+        has_images: bool = False,
+        has_videos: bool = False
+    ) -> float:
+        """Composite viral index prioritizing engagement density and video asset richness (65.0 ~ 98.5)."""
+        base = 45.0
+        # 1. Engagement Density: Comments and likes relative to views (Algorithm trigger)
+        v = max(views, 50)
+        c = comments
+        l = likes
+        engagement_ratio = (c * 15.0 + l * 5.0) / (v + 200.0)
+        density_score = min(20.0, engagement_ratio * 40.0)
+        
+        # 2. Logarithmic view volume
+        views_score = min(14.0, (math.log10(max(v, 100)) - 2.0) * 4.5)
+        
+        # 3. Visual media asset richness (Huge bonus for ready-to-produce video clips)
+        if has_videos:
+            media_score = 14.0  # Video highlights are S-Rank shortcuts for Shorts
+        elif has_images:
+            media_score = 7.0   # Visual carousel/infographics
+        else:
+            media_score = 2.0
+            
+        # 4. Narrative length (if text story)
+        body_score = min(6.0, (body_len / 400.0) * 4.0)
+        rank_bonus = max(0.0, (11 - min(rank, 10)) * 0.4)
+        
+        raw = base + density_score + views_score + media_score + body_score + rank_bonus
+        return round(min(98.5, max(62.0, raw)), 1)
+
+    def classify_topic_and_entities(
+        self,
+        title: str,
+        body: str = "",
+        raw_category: str = "",
+        images: Optional[List[str]] = None
+    ) -> Tuple[str, str, List[str]]:
+        """
+        Classifies content into:
+        1. topic_category (10 standard genres): 스포츠, 자동차/교통, 사건/사고, 생활/정보, 유머/썰, 연예/방송, IT/테크, 경제/재테크, 해외화제, 반려동물
+        2. media_type: 'video_clip' (direct video/mp4/highlights) | 'image_pack' (3+ images) | 'text_story'
+        3. entity_tags: Granular topic tags (e.g. ["테니스", "라켓"], ["축구", "손흥민"], ["블랙박스", "과실비율"])
+        """
+        corpus = f"{title} {body}".lower()
+        imgs = images or []
+        
+        # A. Media Type Detection
+        has_video = any(
+            (".mp4" in img or "mediak5jvqbd.fmkorea.com" in img or ".thumb.webp" in img or "video" in img.lower())
+            for img in imgs
+        ) or "[동영상:" in body or "[비디오:" in body
+        
+        if has_video:
+            media_type = "video_clip"
+        elif len(imgs) >= 3:
+            media_type = "image_pack"
+        else:
+            media_type = "text_story"
+
+        # B. 10 Standard Topic Rules and Granular Entity Mapping
+        entity_tags: List[str] = []
+        topic = "생활/정보"
+
+        # 1. 스포츠 (Sports)
+        sports_entities = {
+            "테니스": ["테니스", "라켓", "윔블던", "us오픈", "호주오픈", "프랑스오픈", "페더러", "나달", "조코비치", "알카라스", "시너", "권순우", "정현", "서브 에이스", "스트로크", "백핸드"],
+            "축구": ["축구", "손흥민", "이강인", "김민재", "황희찬", "메시", "호날두", "토트넘", "psg", "파리생제르맹", "뮌헨", "바이에른", "레알", "바르샤", "맨시티", "리버풀", "아스날", "epl", "프리미어리그", "챔피언스리그", "챔스", "k리그", "원더골", "골장면", "어시스트", "해트트릭", "오프사이드", "월드컵", "클린스만", "홍명보"],
+            "야구": ["야구", "kbo", "mlb", "메이저리그", "오타니", "류현진", "이정후", "김하성", "홈런", "삼진", "호수비", "만루홈런", "투수", "타자", "포수"],
+            "농구": ["농구", "nba", "르브론", "커리", "골든스테이트", "레이커스", "덩크", "버저비터", "kbl"],
+            "골프": ["골프", "홀인원", "버디", "이글", "알바트로스", "타이거우즈", "pga", "lpga"],
+            "e스포츠": ["e스포츠", "롤", "t1", "페이커", "lck", "발로란트", "배그", "오버워치", "스타크래프트"],
+            "격투기/UFC": ["ufc", "격투기", "복싱", "ko", "tko", "헤비급", "페더급", "옥타곤"]
+        }
+        for ent_name, kws in sports_entities.items():
+            if any(k in corpus for k in kws):
+                topic = "스포츠"
+                entity_tags.append(ent_name)
+
+        # 2. 자동차/교통 (Cars & Traffic)
+        car_entities = {
+            "블랙박스": ["블랙박스", "블박", "한문철", "dashcam"],
+            "교통사고": ["교통사고", "접촉사고", "추돌", "전복", "무단횡단", "신호위반"],
+            "과실비율": ["과실", "몇대몇", "백대영", "100:0", "과실비율"],
+            "보복운전": ["보복운전", "난폭운전", "칼치기", "보복"],
+            "주차빌런": ["주차빌런", "주차", "문콕", "이중주차", "불법주차"],
+            "전기차/테슬라": ["테슬라", "전기차", "ev", "배터리", "사이버트럭", "오토파일럿"],
+            "신차/슈퍼카": ["현대차", "기아", "제네시스", "포르쉐", "페라리", "람보르기니", "벤츠", "bmw", "아우디"]
+        }
+        for ent_name, kws in car_entities.items():
+            if any(k in corpus for k in kws):
+                if topic == "생활/정보" or "보배" in corpus or "사고" in corpus or "차" in corpus:
+                    topic = "자동차/교통"
+                entity_tags.append(ent_name)
+
+        # 3. 사건/사고 (Crime & Society)
+        crime_entities = {
+            "갑질폭로": ["갑질", "폭로", "횡포", "진상", "손님"],
+            "사기/피싱": ["사기", "피싱", "보이스피싱", "전세사기", "먹튀", "사기꾼"],
+            "학폭/폭행": ["학폭", "학교폭력", "폭행", "구타", "상해"],
+            "참교육/사이다": ["참교육", "사이다", "역관광", "인과응보", "정의구현"],
+            "재판/수사": ["구속", "체포", "경찰", "검찰", "재판", "징역", "판결", "벌금형"]
+        }
+        for ent_name, kws in crime_entities.items():
+            if any(k in corpus for k in kws):
+                if topic == "생활/정보":
+                    topic = "사건/사고"
+                entity_tags.append(ent_name)
+
+        # 4. IT/테크 (Tech & AI)
+        tech_entities = {
+            "AI/인공지능": ["ai", "인공지능", "chatgpt", "gpt", "클로드", "오픈ai", "llm", "딥러닝", "생성형"],
+            "엔비디아/반도체": ["엔비디아", "nvidia", "반도체", "gpu", "h100", "tsmc", "하이닉스"],
+            "스마트폰": ["아이폰", "갤럭시", "애플", "삼성전자", "스마트폰", "태블릿"],
+            "로봇/신기술": ["로봇", "휴머노이드", "양자컴퓨터", "우주선", "스타링크"]
+        }
+        for ent_name, kws in tech_entities.items():
+            if any(k in corpus for k in kws):
+                if topic == "생활/정보":
+                    topic = "IT/테크"
+                entity_tags.append(ent_name)
+
+        # 5. 경제/재테크 (Economy & Finance)
+        econ_entities = {
+            "비트코인/코인": ["비트코인", "코인", "가상화폐", "암호화폐", "이더리움", "업비트", "빗썸", "리플"],
+            "주식/증시": ["주식", "코스피", "코스닥", "나스닥", "배당", "상한가", "매수", "매도", "종목"],
+            "부동산/청약": ["부동산", "아파트", "청약", "전세", "월세", "분양", "집값"],
+            "금리/환율": ["금리", "환율", "한국은행", "연준", "기준금리", "물가"]
+        }
+        for ent_name, kws in econ_entities.items():
+            if any(k in corpus for k in kws):
+                if topic == "생활/정보":
+                    topic = "경제/재테크"
+                entity_tags.append(ent_name)
+
+        # 6. 연예/방송 (Entertainment)
+        ent_entities = {
+            "아이돌": ["아이돌", "걸그룹", "보이그룹", "컴백", "직캠", "콘서트", "뉴진스", "에스파", "아이브", "bts"],
+            "드라마": ["드라마", "본방", "엔딩", "줄거리", "명대사", "시청률"],
+            "예능/토크": ["예능", "유재석", "신동엽", "나영석", "토크", "런닝맨", "유퀴즈"],
+            "영화/배우": ["영화", "배우", "넷플릭스", "천만관객", "박스오피스"]
+        }
+        for ent_name, kws in ent_entities.items():
+            if any(k in corpus for k in kws):
+                if topic == "생활/정보":
+                    topic = "연예/방송"
+                entity_tags.append(ent_name)
+
+        # 7. 반려동물 (Pets)
+        pet_entities = {
+            "강아지": ["강아지", "댕댕이", "반려견", "멍멍이", "골든리트리버", "시바견"],
+            "고양이": ["고양이", "냥이", "반려묘", "집사", "치즈냥", "길고양이"],
+            "동물구출": ["동물", "구출", "야생동물", "팬더", "푸바오", "수달"]
+        }
+        for ent_name, kws in pet_entities.items():
+            if any(k in corpus for k in kws):
+                if topic == "생활/정보":
+                    topic = "반려동물"
+                entity_tags.append(ent_name)
+
+        # 8. 유머/썰 (Humor & Stories)
+        humor_entities = {
+            "레전드썰": ["썰", "네이트판", "레전드썰", "익명썰"],
+            "카톡대화": ["카톡", "단톡", "문자"],
+            "직장생활": ["직장", "회사", "상사", "신입", "퇴사", "이직", "야근", "회식"],
+            "연애/결혼": ["연애", "남친", "여친", "결혼", "시월드", "처가", "소개팅", "파혼"],
+            "폭소/반전": ["폭소", "반전", "웃긴", "뿜었다", "ㅋㅋㅋ", "개그", "유머"]
+        }
+        for ent_name, kws in humor_entities.items():
+            if any(k in corpus for k in kws):
+                if topic == "생활/정보":
+                    topic = "유머/썰"
+                entity_tags.append(ent_name)
+
+        # 9. 생활/정보 (Life Hacks & Info)
+        info_entities = {
+            "정부지원금": ["지원금", "청년", "보조금", "장려금", "청년도약", "환급금"],
+            "세금/환급": ["환급", "세금", "연말정산", "절세", "종합소득세"],
+            "생활꿀팁": ["꿀팁", "노하우", "청소", "보관법", "요리법", "레시피"],
+            "가성비추천": ["다이소", "이케아", "코스트코", "추천템", "가성비"],
+            "건강/다이어트": ["다이어트", "식단", "운동", "헬스", "칼로리", "체중", "비타민"]
+        }
+        for ent_name, kws in info_entities.items():
+            if any(k in corpus for k in kws):
+                topic = "생활/정보"
+                entity_tags.append(ent_name)
+
+        # 10. 해외화제 (Global)
+        if any(w in corpus for w in ["기상천외", "충격 실화", "미스터리", "해외토픽", "세계 최초", "외신", "bizarre"]):
+            if topic == "생활/정보":
+                topic = "해외화제"
+                entity_tags.append("기상천외실화")
+
+        # Fallback category mapping from source
+        if topic == "생활/정보" and not entity_tags:
+            if "스포츠" in raw_category:
+                topic = "스포츠"
+                entity_tags.append("스포츠종합")
+            elif "정치" in raw_category:
+                topic = "사건/사고"
+                entity_tags.append("정치/사회")
+            elif "경제" in raw_category:
+                topic = "경제/재테크"
+                entity_tags.append("경제일반")
+            elif "IT" in raw_category or "게임" in raw_category:
+                topic = "IT/테크"
+                entity_tags.append("게임/IT")
+            elif "유머" in raw_category:
+                topic = "유머/썰"
+                entity_tags.append("커뮤니티유머")
+            else:
+                entity_tags.append("일반트렌드")
+
+        # Deduplicate entity tags
+        unique_tags = list(dict.fromkeys(entity_tags))[:5]
+        return topic, media_type, unique_tags
 
     # ─────────────────────────────────────────────────────────────────────────────
     # 5.1 SITE-SPECIFIC 2-TIER DEEP ARTICLE DETAIL EXTRACTOR (본문/이미지/댓글)
@@ -1093,6 +1320,16 @@ class DiscoveryScraper:
         """
         clean_title = re.sub(r'\[.*?\]|\(.*?\)', '', title).strip()
         cleaned_body = self.clean_body_noise(content or "")
+
+        # Pure Media Enhancement (Sports/Dashcam/Video Clip with short or empty body)
+        is_video_clip = any((".mp4" in img or "mediak5jvqbd.fmkorea.com" in img or ".thumb.webp" in img or "video" in img.lower()) for img in images) or "[동영상:" in cleaned_body or "[비디오:" in cleaned_body
+        if is_video_clip and (not cleaned_body or len(cleaned_body) < 80):
+            if comments:
+                best_cmts = " / ".join([c for c in comments[:3] if len(c) > 4])
+                cleaned_body = f"{clean_title}\n\n[실시간 현장 반응 및 베스트 댓글]\n{best_cmts}"
+            else:
+                cleaned_body = f"{clean_title}\n\n[영상 하이라이트 클립] 화제의 순간을 담은 원본 영상 클립입니다."
+
         snippet = (cleaned_body[:600] if cleaned_body else clean_title).replace("\n", " ")
 
         # ── 0. English Localization Helper for Global / Reddit Sources ──
@@ -2611,9 +2848,24 @@ class DiscoveryScraper:
     # 5.4 DATABASE SYNC & PERSISTENCE
     # ─────────────────────────────────────────────────────────────────────────────
     def sync_upsert_article(self, db: Session, data: Dict[str, Any]) -> models.ViralArticle:
-        """Upsert pristine article into viral_articles table."""
+        """Upsert pristine article into viral_articles table with topic and media taxonomy."""
         url = data.get("url", "")
         existing = db.query(models.ViralArticle).filter(models.ViralArticle.url == url).first()
+
+        # Classify topic, media_type, entity_tags if not already supplied
+        topic_cat = data.get("topic_category")
+        med_type = data.get("media_type")
+        ent_tags = data.get("entity_tags")
+        if not topic_cat or not med_type or ent_tags is None:
+            calc_topic, calc_media, calc_tags = self.classify_topic_and_entities(
+                data.get("title", ""),
+                data.get("content_text", ""),
+                data.get("category", ""),
+                data.get("images", [])
+            )
+            topic_cat = topic_cat or calc_topic
+            med_type = med_type or calc_media
+            ent_tags = ent_tags if ent_tags is not None else calc_tags
 
         if existing:
             # Update with fresh enriched data
@@ -2625,6 +2877,10 @@ class DiscoveryScraper:
             existing.likes = max(existing.likes, data.get("likes", 0))
             existing.comments_count = max(existing.comments_count, data.get("comments_count", 0))
             existing.viral_score = max(existing.viral_score, data.get("viral_score", 0.0))
+            existing.topic_category = topic_cat
+            existing.media_type = med_type
+            existing.entity_tags = ent_tags
+            existing.cluster_keywords = ent_tags
             if data.get("analysis_summary"):
                 existing.analysis_summary = data["analysis_summary"]
             if data.get("suggested_title"):
@@ -2657,6 +2913,10 @@ class DiscoveryScraper:
                 source_type=data.get("source_type", "community"),
                 community_name=data.get("community_name", "unknown"),
                 category=data.get("category", "일반"),
+                topic_category=topic_cat,
+                media_type=med_type,
+                entity_tags=ent_tags,
+                cluster_keywords=ent_tags,
                 title=data.get("title", "제목 없음"),
                 url=url,
                 author=data.get("author"),

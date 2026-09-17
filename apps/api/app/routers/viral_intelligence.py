@@ -10,7 +10,7 @@ import httpx
 from pydantic import BaseModel
 from fastapi import APIRouter, Depends, Query, HTTPException, BackgroundTasks, Response
 from sqlalchemy.orm import Session
-from sqlalchemy import desc, or_, func
+from sqlalchemy import desc, or_, func, String
 
 from .. import models, database
 from ..services.discovery_scraper import discovery_scraper, COMMUNITY_SOURCES, NAVER_NEWS_SECTIONS as NAVER_SECTIONS, collector_telemetry
@@ -48,11 +48,14 @@ def _article_to_dict(art: models.ViralArticle, include_comments: bool = True) ->
         "status": art.status,
         "claimed_by_channel_id": art.claimed_by_channel_id,
         "claimed_at": art.claimed_at.isoformat() if art.claimed_at else None,
-        # 🌐 5-D 인텔리전스 메트릭
+        # 🌐 5-D 인텔리전스 메트릭 & 테마/토픽 분류
         "search_traffic": art.search_traffic,
         "velocity_score": art.velocity_score or art.viral_score or 0.0,
         "cluster_count": art.cluster_count or 1,
         "cluster_keywords": art.cluster_keywords or [],
+        "topic_category": getattr(art, "topic_category", None) or "일반",
+        "media_type": getattr(art, "media_type", None) or "text_story",
+        "entity_tags": getattr(art, "entity_tags", None) or art.cluster_keywords or [],
         "psychological_trigger": art.psychological_trigger or "호기심/금기",
         "retention_probability": art.retention_probability or round(max(70.0, (art.viral_score or 82.0) - 1.5), 1),
         "lifespan_phase": art.lifespan_phase or "surge",
@@ -113,6 +116,27 @@ def _article_to_dict(art: models.ViralArticle, include_comments: bool = True) ->
     d["content_text"] = resp_text
     d["images"] = clean_images
     d["extracted_videos"] = extracted_videos
+
+    # Dynamic classification fallback if not populated in DB
+    if d.get("topic_category") in [None, "", "일반"] or not d.get("entity_tags"):
+        calc_top, calc_med, calc_tags = discovery_scraper.classify_topic_and_entities(
+            art.title or "",
+            art.content_text or "",
+            art.category or "",
+            clean_images + extracted_videos
+        )
+        d["topic_category"] = calc_top
+        d["entity_tags"] = calc_tags
+        d["cluster_keywords"] = calc_tags
+
+    # Accurate media_type override based on actual extracted videos / clean images
+    if extracted_videos:
+        d["media_type"] = "video_clip"
+    elif len(clean_images) >= 3:
+        d["media_type"] = "image_pack"
+    elif not d.get("media_type") or d["media_type"] == "text_story":
+        d["media_type"] = "text_story"
+
     d["hook_line"] = hook_line
     d["hook_headline_line1"] = hook_l1
     d["hook_headline_line2"] = hook_l2
@@ -308,6 +332,113 @@ def get_hud_stats(db: Session = Depends(database.get_db)):
     }
 
 
+class ClaimBatchPayload(BaseModel):
+    article_ids: List[int]
+    channel_id: str
+
+
+@router.get("/topic-clusters")
+def get_topic_clusters(db: Session = Depends(database.get_db)):
+    """
+    Returns live topic clusters, entity tag statistics, media type counts,
+    and registered brand channels for one-click channel routing.
+    """
+    articles = db.query(models.ViralArticle).order_by(desc(models.ViralArticle.id)).limit(600).all()
+    
+    # 10 Standard Topic Categories Definition
+    topics_def = [
+        {"key": "스포츠", "label": "스포츠 (테니스/축구/야구)", "icon": "🎾", "keywords": ["테니스", "축구", "야구", "농구", "골프", "e스포츠"]},
+        {"key": "자동차/교통", "label": "자동차/교통 (블박/사고)", "icon": "🚗", "keywords": ["블랙박스", "교통사고", "과실비율", "보복운전", "전기차"]},
+        {"key": "생활/정보", "label": "생활/정보 (지원금/꿀팁)", "icon": "💰", "keywords": ["정부지원금", "세금/환급", "생활꿀팁", "가성비추천", "다이어트"]},
+        {"key": "유머/썰", "label": "유머/썰 (레전드/네이트판)", "icon": "🔥", "keywords": ["레전드썰", "카톡대화", "직장생활", "연애/결혼", "폭소/반전"]},
+        {"key": "사건/사고", "label": "사건/사고 (갑질/참교육)", "icon": "⚖️", "keywords": ["갑질폭로", "사기/피싱", "학폭/폭행", "참교육/사이다", "재판/수사"]},
+        {"key": "IT/테크", "label": "IT/테크 (AI/엔비디아)", "icon": "💻", "keywords": ["AI/인공지능", "엔비디아/반도체", "스마트폰", "로봇/신기술"]},
+        {"key": "연예/방송", "label": "연예/방송 (아이돌/드라마)", "icon": "🎬", "keywords": ["아이돌", "드라마", "예능/토크", "영화/배우"]},
+        {"key": "경제/재테크", "label": "경제/재테크 (코인/주식)", "icon": "📈", "keywords": ["비트코인/코인", "주식/증시", "부동산/청약", "금리/환율"]},
+        {"key": "해외화제", "label": "해외화제 (기상천외실화)", "icon": "🌍", "keywords": ["기상천외실화"]},
+        {"key": "반려동물", "label": "반려동물 (강아지/고양이)", "icon": "🐾", "keywords": ["강아지", "고양이", "동물구출"]},
+    ]
+
+    cluster_stats = {t["key"]: {"count": 0, "video_count": 0, "entities": {}} for t in topics_def}
+    media_counts = {"video_clip": 0, "image_pack": 0, "text_story": 0}
+
+    for art in articles:
+        top_cat = getattr(art, "topic_category", None)
+        med_type = getattr(art, "media_type", None)
+        tags = getattr(art, "entity_tags", None) or art.cluster_keywords or []
+        
+        # On-the-fly categorization if empty
+        if not top_cat or top_cat == "일반" or not tags:
+            top_cat, med_type, tags = discovery_scraper.classify_topic_and_entities(
+                art.title or "", art.content_text or "", art.category or "", art.images or []
+            )
+
+        if top_cat in cluster_stats:
+            cluster_stats[top_cat]["count"] += 1
+            if med_type == "video_clip":
+                cluster_stats[top_cat]["video_count"] += 1
+            for tag in tags:
+                cluster_stats[top_cat]["entities"][tag] = cluster_stats[top_cat]["entities"].get(tag, 0) + 1
+
+        if med_type in media_counts:
+            media_counts[med_type] += 1
+        else:
+            media_counts["text_story"] += 1
+
+    # Channels
+    channels = db.query(models.BrandChannel).all()
+    channel_list = [
+        {
+            "id": str(ch.id),
+            "channel_id": ch.channel_id,
+            "title": ch.title,
+            "target_topics": ch.target_topics or [],
+            "thumbnail_url": ch.thumbnail_url,
+        }
+        for ch in channels
+    ]
+
+    clusters_result = []
+    for t in topics_def:
+        k = t["key"]
+        st = cluster_stats[k]
+        sorted_entities = sorted(st["entities"].items(), key=lambda x: x[1], reverse=True)
+        top_ents = [{"name": ent[0], "count": ent[1]} for ent in sorted_entities[:6]]
+        clusters_result.append({
+            "key": k,
+            "label": t["label"],
+            "icon": t["icon"],
+            "count": st["count"],
+            "video_count": st["video_count"],
+            "top_entities": top_ents,
+        })
+
+    return {
+        "clusters": clusters_result,
+        "media_counts": media_counts,
+        "channels": channel_list,
+        "total_analyzed": len(articles),
+    }
+
+
+@router.post("/claim-batch")
+def claim_articles_for_channel(payload: ClaimBatchPayload, db: Session = Depends(database.get_db)):
+    """Assigns multiple articles to a specific BrandChannel."""
+    if not payload.article_ids:
+        raise HTTPException(status_code=400, detail="선택된 기사가 없습니다.")
+    
+    updated = db.query(models.ViralArticle).filter(
+        models.ViralArticle.id.in_(payload.article_ids)
+    ).update({
+        "claimed_by_channel_id": payload.channel_id,
+        "claimed_at": datetime.now(),
+        "status": "claimed"
+    }, synchronize_session=False)
+    
+    db.commit()
+    return {"success": True, "claimed_count": updated, "channel_id": payload.channel_id}
+
+
 @router.get("/articles")
 async def list_articles(
     tab: Optional[str] = Query(None),                 # community | news | reddit | google_trends | youtube_shorts | video_vault | script_lab | all
@@ -316,6 +447,10 @@ async def list_articles(
     community_name: Optional[str] = Query(None),     # specific community code
     category: Optional[str] = Query(None),           # news/community category
     topic: Optional[str] = Query(None),              # reddit topic
+    topic_category: Optional[str] = Query(None),     # 10대 대주제 (스포츠, 자동차/교통, 생활/정보 등)
+    entity_tag: Optional[str] = Query(None),         # 세부 엔티티 태그 (테니스, 축구, 블랙박스 등)
+    media_type: Optional[str] = Query(None),         # all | video_clip | image_pack | text_story
+    claimed_by_channel_id: Optional[str] = Query(None), # 채널 ID 또는 unclaimed
     status: Optional[str] = Query(None),             # all | collected | analyzed | scripted | longform | archived
     length: Optional[str] = Query(None),             # all | short (<500) | standard (500~1500) | long (>1500)
     time_range: Optional[str] = Query(None),         # all | 1d | 3d | 7d | 30d
@@ -474,6 +609,49 @@ async def list_articles(
 
     if min_score > 0:
         query = query.filter(models.ViralArticle.viral_score >= min_score)
+
+    # 10 Standard Topic Category Filter
+    if topic_category and topic_category != "all":
+        query = query.filter(models.ViralArticle.topic_category == topic_category)
+
+    # Entity Tag Filter (e.g. "테니스", "축구", "블랙박스")
+    if entity_tag and entity_tag != "all":
+        e_term = f"%{entity_tag}%"
+        query = query.filter(
+            or_(
+                models.ViralArticle.entity_tags.cast(String).ilike(e_term),
+                models.ViralArticle.cluster_keywords.cast(String).ilike(e_term),
+                models.ViralArticle.title.ilike(e_term),
+            )
+        )
+
+    # Media Type Filter ("video_clip", "image_pack", "text_story")
+    if media_type and media_type != "all":
+        if media_type == "video_clip":
+            query = query.filter(
+                or_(
+                    models.ViralArticle.media_type == "video_clip",
+                    models.ViralArticle.images.cast(String).ilike("%thumb%"),
+                    models.ViralArticle.images.cast(String).ilike("%.mp4%"),
+                    models.ViralArticle.content_text.ilike("%[동영상:%"),
+                )
+            )
+        elif media_type == "image_pack":
+            query = query.filter(models.ViralArticle.media_type == "image_pack")
+        elif media_type == "text_story":
+            query = query.filter(
+                or_(
+                    models.ViralArticle.media_type == "text_story",
+                    models.ViralArticle.media_type.is_(None),
+                )
+            )
+
+    # Channel Claim Filter
+    if claimed_by_channel_id and claimed_by_channel_id != "all":
+        if claimed_by_channel_id == "unclaimed":
+            query = query.filter(models.ViralArticle.claimed_by_channel_id.is_(None))
+        else:
+            query = query.filter(models.ViralArticle.claimed_by_channel_id == claimed_by_channel_id)
 
     if curated_only:
         query = query.filter(

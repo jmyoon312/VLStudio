@@ -152,6 +152,7 @@ class BrandChannel(Base):
     autonomy_level = Column(String, default="LEVEL_2") # LEVEL_1 (수동 결재), LEVEL_2 (조건부 90점 패스), LEVEL_3 (100% 무인)
     auto_publish_threshold = Column(Integer, default=90)
     primary_workflow_mode = Column(String, default="keyword_only") # 5대 제작 모드
+    target_topics = Column(JSON, default=list) # 채널 관심 타겟 주제/엔티티 태그 리스트 (예: ["테니스", "축구"])
     
     created_at = Column(DateTime, default=datetime.now)
 
@@ -1644,6 +1645,9 @@ class ViralArticle(Base):
     velocity_score = Column(Float, default=0.0)  # 시간당 반응 가속도 (CPH/VPH)
     cluster_count = Column(Integer, default=1)  # 교차 플랫폼 군집 개수 (동시 보도/언급 수)
     cluster_keywords = Column(JSON, default=list)  # 핵심 주제 엔티티 키워드
+    topic_category = Column(String, index=True, default="일반")  # 10대 표준 대주제 (스포츠, 자동차/교통, 생활/정보 등)
+    media_type = Column(String, index=True, default="text_story")  # video_clip (하이라이트 영상) | image_pack (카드뉴스) | text_story (서사)
+    entity_tags = Column(JSON, default=list)  # 세부 토픽 태그 (예: ["테니스", "라켓", "윔블던"])
     psychological_trigger = Column(String, nullable=True)  # 6대 심리 트리거 (공분/참교육, 가격충격, 사이다 등)
     retention_probability = Column(Float, default=0.0)  # 쇼츠 10만뷰 도달 예측 확률 (0-100%)
     lifespan_phase = Column(String, default="surge")  # flash_burn (속보) | surge (급상승) | peak (피크) | steady_burn (에버그린)

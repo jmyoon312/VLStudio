@@ -54,7 +54,8 @@ import {
     Activity,
     Trash2,
     Calendar,
-    AlertTriangle
+    AlertTriangle,
+    FolderPlus
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -137,11 +138,15 @@ export interface ViralArticle {
     suggested_title?: string;
     viral_score: number;
     target_form_factors: string[];
-    // 🌐 5-D 멀티 루트 인텔리전스
+    // 🌐 5-D 멀티 루트 인텔리전스 & 10대 테마 분류
     search_traffic?: string;
     velocity_score?: number;
     cluster_count?: number;
     cluster_keywords?: string[];
+    topic_category?: string;
+    media_type?: string;
+    entity_tags?: string[];
+    claimed_by_channel_id?: string | null;
     psychological_trigger?: string;
     retention_probability?: number;
     lifespan_phase?: string;
@@ -252,8 +257,15 @@ export default function ViralIntelligenceCenter() {
     // 6-D Psychological Trigger Filter
     const [selectedTrigger, setSelectedTrigger] = useState<string>('all');
 
+    // 🏷️ 10대 테마 클러스터 & 미디어 유형 & 채널 큐 상태
+    const [selectedTopicCategory, setSelectedTopicCategory] = useState<string>('all');
+    const [selectedEntityTag, setSelectedEntityTag] = useState<string>('all');
+    const [selectedMediaType, setSelectedMediaType] = useState<string>('all');
+    const [selectedChannelId, setSelectedChannelId] = useState<string>('all');
+
     // Multi-Selection State for Batch Handoff
     const [selectedArticleIds, setSelectedArticleIds] = useState<number[]>([]);
+    const [targetClaimChannel, setTargetClaimChannel] = useState<string>('');
 
     // 🖼️ In-App Electron Lightbox Modal State
     const [lightboxImage, setLightboxImage] = useState<{ url: string; title: string; source: string; articleUrl?: string } | null>(null);
@@ -413,6 +425,33 @@ export default function ViralIntelligenceCenter() {
         refetchInterval: 15000,
     });
 
+    // 2-1. Fetch Topic Clusters & Channel Bindings
+    const { data: clusterData, refetch: refetchClusters } = useQuery({
+        queryKey: ['viral_topic_clusters'],
+        queryFn: async () => {
+            const res = await api.get('/viral/topic-clusters');
+            return res.data;
+        },
+        staleTime: 20000,
+    });
+
+    // Batch Claim Mutation (Assign multiple articles to specific BrandChannel)
+    const claimBatchMutation = useMutation({
+        mutationFn: async (payload: { article_ids: number[]; channel_id: string }) => {
+            const res = await api.post('/viral/claim-batch', payload);
+            return res.data;
+        },
+        onSuccess: (data) => {
+            toast.success(`${data.claimed_count}개 소재가 [${data.channel_id}] 채널 큐에 성공적으로 배속되었습니다.`);
+            queryClient.invalidateQueries({ queryKey: ['viral_articles'] });
+            queryClient.invalidateQueries({ queryKey: ['viral_topic_clusters'] });
+            setSelectedArticleIds([]);
+        },
+        onError: (err: any) => {
+            toast.error(`채널 배속 실패: ${err.message}`);
+        }
+    });
+
     // 3. Fetch Articles with Realtime Queries
     const { data: articlesData, isLoading: articlesLoading, refetch: refetchArticles } = useQuery({
         queryKey: [
@@ -422,6 +461,10 @@ export default function ViralIntelligenceCenter() {
             selectedPlatform,
             selectedNewsCategory,
             selectedRedditTopic,
+            selectedTopicCategory,
+            selectedEntityTag,
+            selectedMediaType,
+            selectedChannelId,
             statusFilter,
             lengthFilter,
             rangeFilter,
@@ -446,6 +489,12 @@ export default function ViralIntelligenceCenter() {
             } else if (selectedRoute === 'reddit') {
                 if (selectedRedditTopic !== 'all') params.topic = selectedRedditTopic;
             }
+
+            // 🏷️ Topic, Entity, Media Type & Channel Filters
+            if (selectedTopicCategory !== 'all') params.topic_category = selectedTopicCategory;
+            if (selectedEntityTag !== 'all') params.entity_tag = selectedEntityTag;
+            if (selectedMediaType !== 'all') params.media_type = selectedMediaType;
+            if (selectedChannelId !== 'all') params.claimed_by_channel_id = selectedChannelId;
 
             if (statusFilter !== 'all') params.status = statusFilter;
             if (lengthFilter !== 'all') params.length = lengthFilter;
@@ -865,6 +914,160 @@ export default function ViralIntelligenceCenter() {
                         </button>
                     );
                 })}
+            </div>
+
+            {/* 🏷️ 10대 테마 클러스터 & 채널 주권 DNA 연동 바 */}
+            <div className="p-3.5 rounded-2xl bg-card border border-border/80 shadow-2xs space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                        <span className="text-xs font-black text-foreground flex items-center gap-1.5">
+                            🏷️ 10대 주제별 클러스터 & 채널 파이프라인
+                        </span>
+                        <Badge variant="outline" className="text-[10px] font-bold border-primary/30 text-primary">
+                            채널 결(DNA) 맞춤 공급
+                        </Badge>
+                    </div>
+
+                    {/* 채널 전용 큐 매칭 드롭다운 */}
+                    <div className="flex items-center gap-1.5 text-xs">
+                        <span className="text-muted-foreground font-bold shrink-0">내 채널 매칭 큐:</span>
+                        <select
+                            value={selectedChannelId}
+                            onChange={(e) => { setSelectedChannelId(e.target.value); setPage(1); }}
+                            className="h-7 text-xs rounded-md bg-muted/60 border border-border px-2 text-foreground font-medium cursor-pointer"
+                        >
+                            <option value="all">전체 채널 소재 보기</option>
+                            <option value="unclaimed">미할당 신규 소재만</option>
+                            {(clusterData?.channels || []).map((ch: any) => (
+                                <option key={ch.id} value={ch.channel_id || ch.id}>
+                                    {ch.title} {ch.target_topics?.length > 0 ? `(${ch.target_topics.join(', ')})` : ''}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                </div>
+
+                {/* 10대 테마 칩 버튼 */}
+                <div className="flex flex-wrap items-center gap-1.5">
+                    <button
+                        onClick={() => { setSelectedTopicCategory('all'); setSelectedEntityTag('all'); setPage(1); }}
+                        className={cn(
+                            "px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1",
+                            selectedTopicCategory === 'all'
+                                ? "bg-primary text-primary-foreground shadow-xs"
+                                : "bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground"
+                        )}
+                    >
+                        <span>전체 주제</span>
+                        <span className="text-[9.5px] opacity-75">({clusterData?.total_analyzed || totalCount})</span>
+                    </button>
+
+                    {(clusterData?.clusters || []).map((cl: any) => {
+                        const isSel = selectedTopicCategory === cl.key;
+                        return (
+                            <button
+                                key={cl.key}
+                                onClick={() => {
+                                    if (isSel) {
+                                        setSelectedTopicCategory('all');
+                                        setSelectedEntityTag('all');
+                                    } else {
+                                        setSelectedTopicCategory(cl.key);
+                                        setSelectedEntityTag('all');
+                                    }
+                                    setPage(1);
+                                }}
+                                className={cn(
+                                    "px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1",
+                                    isSel
+                                        ? "bg-primary text-primary-foreground shadow-xs font-black"
+                                        : "bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground"
+                                )}
+                            >
+                                <span>{cl.icon}</span>
+                                <span>{cl.key}</span>
+                                <span className={cn(
+                                    "px-1.5 py-0.2 rounded-full text-[9.5px] font-mono",
+                                    isSel ? "bg-white/20 text-white" : "bg-muted text-muted-foreground"
+                                )}>
+                                    {cl.count}
+                                </span>
+                                {cl.video_count > 0 && (
+                                    <span className={cn(
+                                        "px-1 py-0.2 rounded-full text-[9px] font-mono font-bold",
+                                        isSel ? "bg-emerald-400/30 text-emerald-100" : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                                    )}>
+                                        🎬 {cl.video_count}
+                                    </span>
+                                )}
+                            </button>
+                        );
+                    })}
+                </div>
+
+                {/* 세부 엔티티 칩 (예: 스포츠 클릭 시 테니스, 축구, 야구, 농구 등 노출) */}
+                {selectedTopicCategory !== 'all' && (() => {
+                    const activeCluster = (clusterData?.clusters || []).find((c: any) => c.key === selectedTopicCategory);
+                    if (!activeCluster || !activeCluster.top_entities || activeCluster.top_entities.length === 0) return null;
+                    return (
+                        <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-border/40 text-xs">
+                            <span className="text-muted-foreground font-bold shrink-0">세부 엔티티:</span>
+                            <button
+                                onClick={() => { setSelectedEntityTag('all'); setPage(1); }}
+                                className={cn(
+                                    "px-2 py-0.5 rounded text-[11px] font-semibold transition-all cursor-pointer",
+                                    selectedEntityTag === 'all'
+                                        ? "bg-secondary text-secondary-foreground font-bold"
+                                        : "text-muted-foreground hover:text-foreground"
+                                )}
+                            >
+                                전체 {activeCluster.key}
+                            </button>
+                            {activeCluster.top_entities.map((ent: any) => (
+                                <button
+                                    key={ent.name}
+                                    onClick={() => { setSelectedEntityTag(ent.name); setPage(1); }}
+                                    className={cn(
+                                        "px-2 py-0.5 rounded text-[11px] font-semibold transition-all cursor-pointer flex items-center gap-1",
+                                        selectedEntityTag === ent.name
+                                            ? "bg-primary text-primary-foreground font-bold shadow-xs"
+                                            : "bg-muted/50 text-muted-foreground hover:text-foreground"
+                                    )}
+                                >
+                                    <span>{ent.name}</span>
+                                    <span className="text-[9px] opacity-75 font-mono">({ent.count})</span>
+                                </button>
+                            ))}
+                        </div>
+                    );
+                })()}
+
+                {/* 미디어 포맷 필터 (전체 | 하이라이트 영상 | 카드뉴스 | 썰/스토리) */}
+                <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-border/40 text-xs">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="text-muted-foreground font-bold shrink-0">미디어 포맷:</span>
+                        {[
+                            { key: 'all', label: '전체 포맷', count: (clusterData?.media_counts?.video_clip || 0) + (clusterData?.media_counts?.image_pack || 0) + (clusterData?.media_counts?.text_story || 0) },
+                            { key: 'video_clip', label: '🎬 하이라이트 영상 (클립)', count: clusterData?.media_counts?.video_clip || 0, color: 'text-emerald-600 dark:text-emerald-400' },
+                            { key: 'image_pack', label: '🖼️ 카드뉴스/인포 (3장+)', count: clusterData?.media_counts?.image_pack || 0, color: 'text-sky-600 dark:text-sky-400' },
+                            { key: 'text_story', label: '📝 서사/썰 스토리', count: clusterData?.media_counts?.text_story || 0, color: 'text-amber-600 dark:text-amber-400' },
+                        ].map((m) => (
+                            <button
+                                key={m.key}
+                                onClick={() => { setSelectedMediaType(m.key); setPage(1); }}
+                                className={cn(
+                                    "px-2.5 py-1 rounded-md text-xs font-bold transition-all cursor-pointer flex items-center gap-1",
+                                    selectedMediaType === m.key
+                                        ? "bg-secondary text-secondary-foreground shadow-xs font-black border border-primary/30"
+                                        : "bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground"
+                                )}
+                            >
+                                <span className={m.color}>{m.label}</span>
+                                <span className="text-[9.5px] font-mono opacity-80 font-bold">({m.count})</span>
+                            </button>
+                        ))}
+                    </div>
+                </div>
             </div>
 
             {/* 4. 🎛️ Pixeling Sub-Navigation Chips (지역별 29개 커뮤니티, 뉴스 8개 카테고리, 레딧 10개 토픽) */}
@@ -1305,6 +1508,35 @@ export default function ViralIntelligenceCenter() {
                                             {art.title}
                                         </h3>
 
+                                        {/* 🏷️ Topic & Media Taxonomy Badges */}
+                                        <div className="flex flex-wrap items-center gap-1 pt-0.5">
+                                            {art.topic_category && art.topic_category !== '일반' && (
+                                                <Badge variant="outline" className="text-[9.5px] h-4 px-1.5 font-bold bg-primary/10 text-primary border-primary/25">
+                                                    {art.topic_category}
+                                                </Badge>
+                                            )}
+                                            {art.media_type === 'video_clip' && (
+                                                <Badge className="text-[9.5px] h-4 px-1.5 font-black bg-emerald-600 text-white border-0 shadow-2xs">
+                                                    🎬 영상 클립
+                                                </Badge>
+                                            )}
+                                            {art.media_type === 'image_pack' && (
+                                                <Badge variant="secondary" className="text-[9.5px] h-4 px-1.5 font-bold text-sky-700 dark:text-sky-300 bg-sky-500/15 border-sky-500/30">
+                                                    🖼️ 카드뉴스
+                                                </Badge>
+                                            )}
+                                            {(art.entity_tags || []).slice(0, 2).map((tag, tIdx) => (
+                                                <span key={tIdx} className="text-[9px] font-medium text-muted-foreground bg-muted/60 px-1 py-0.2 rounded border border-border/40">
+                                                    #{tag}
+                                                </span>
+                                            ))}
+                                            {art.claimed_by_channel_id && (
+                                                <span className="text-[9px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 border border-indigo-500/20 px-1.5 py-0.2 rounded ml-auto">
+                                                    📌 배속됨
+                                                </span>
+                                            )}
+                                        </div>
+
                                         {/* ⚡ Form Factor Viability Badges & Dopamine */}
                                         <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
                                             <span className={cn(
@@ -1491,6 +1723,35 @@ export default function ViralIntelligenceCenter() {
                                         >
                                             {art.title}
                                         </h3>
+
+                                        {/* 🏷️ Topic & Media Taxonomy Badges */}
+                                        <div className="flex flex-wrap items-center gap-1 pt-0.5">
+                                            {art.topic_category && art.topic_category !== '일반' && (
+                                                <Badge variant="outline" className="text-[9.5px] h-4 px-1.5 font-bold bg-primary/10 text-primary border-primary/25">
+                                                    {art.topic_category}
+                                                </Badge>
+                                            )}
+                                            {art.media_type === 'video_clip' && (
+                                                <Badge className="text-[9.5px] h-4 px-1.5 font-black bg-emerald-600 text-white border-0 shadow-2xs">
+                                                    🎬 영상 클립
+                                                </Badge>
+                                            )}
+                                            {art.media_type === 'image_pack' && (
+                                                <Badge variant="secondary" className="text-[9.5px] h-4 px-1.5 font-bold text-sky-700 dark:text-sky-300 bg-sky-500/15 border-sky-500/30">
+                                                    🖼️ 카드뉴스
+                                                </Badge>
+                                            )}
+                                            {(art.entity_tags || []).slice(0, 2).map((tag, tIdx) => (
+                                                <span key={tIdx} className="text-[9px] font-medium text-muted-foreground bg-muted/60 px-1 py-0.2 rounded border border-border/40">
+                                                    #{tag}
+                                                </span>
+                                            ))}
+                                            {art.claimed_by_channel_id && (
+                                                <span className="text-[9px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 border border-indigo-500/20 px-1.5 py-0.2 rounded ml-auto">
+                                                    📌 배속됨
+                                                </span>
+                                            )}
+                                        </div>
 
                                         {/* ⚡ Form Factor Viability Badges & Dopamine */}
                                         <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
@@ -1685,6 +1946,33 @@ export default function ViralIntelligenceCenter() {
                                                     >
                                                         {art.title}
                                                     </h4>
+                                                    <div className="flex flex-wrap items-center gap-1 py-0.5">
+                                                        {art.topic_category && art.topic_category !== '일반' && (
+                                                            <Badge variant="outline" className="text-[9px] h-3.5 px-1 font-bold bg-primary/10 text-primary border-primary/25">
+                                                                {art.topic_category}
+                                                            </Badge>
+                                                        )}
+                                                        {art.media_type === 'video_clip' && (
+                                                            <Badge className="text-[9px] h-3.5 px-1 font-black bg-emerald-600 text-white border-0">
+                                                                🎬 영상 클립
+                                                            </Badge>
+                                                        )}
+                                                        {art.media_type === 'image_pack' && (
+                                                            <Badge variant="secondary" className="text-[9px] h-3.5 px-1 font-bold text-sky-700 dark:text-sky-300 bg-sky-500/15 border-sky-500/30">
+                                                                🖼️ 카드뉴스
+                                                            </Badge>
+                                                        )}
+                                                        {(art.entity_tags || []).slice(0, 2).map((tag, tIdx) => (
+                                                            <span key={tIdx} className="text-[9px] font-medium text-muted-foreground bg-muted/60 px-1 rounded border border-border/40">
+                                                                #{tag}
+                                                            </span>
+                                                        ))}
+                                                        {art.claimed_by_channel_id && (
+                                                            <span className="text-[9px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 border border-indigo-500/20 px-1 rounded">
+                                                                📌 배속됨
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                     <p className="text-[11px] text-muted-foreground line-clamp-1">
                                                         {extractHookSentence(art.content_text, art.title)}
                                                     </p>
@@ -2752,6 +3040,108 @@ export default function ViralIntelligenceCenter() {
                                 {cleanupMutation.isPending ? '삭제 진행 중...' : '확인 및 삭제 실행'}
                             </Button>
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ═════════════════════════════════════════════════════════════════════ */}
+            {/* 9. 🚀 Floating Multi-Selection Action Bar (Channel Claim & Batch Hub) */}
+            {/* ═════════════════════════════════════════════════════════════════════ */}
+            {selectedArticleIds.length > 0 && (
+                <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 max-w-4xl w-[94%] sm:w-auto flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 rounded-2xl border border-primary/40 bg-card/95 backdrop-blur-md shadow-2xl animate-in slide-in-from-bottom-4 duration-300">
+                    {/* Counter */}
+                    <div className="flex items-center gap-2 pr-3 border-r border-border">
+                        <CheckSquare className="w-4 h-4 text-primary" />
+                        <span className="text-xs font-bold text-foreground whitespace-nowrap">
+                            <b className="text-primary font-mono text-sm mr-1">{selectedArticleIds.length}</b>건 선택됨
+                        </span>
+                    </div>
+
+                    {/* Channel Claim Group */}
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                        <select
+                            value={targetClaimChannel}
+                            onChange={(e) => setTargetClaimChannel(e.target.value)}
+                            className="h-7 px-2 text-xs rounded-lg bg-muted/60 border border-border text-foreground font-semibold focus:outline-hidden focus:ring-1 focus:ring-primary max-w-[160px] sm:max-w-[200px]"
+                        >
+                            <option value="">배속할 브랜드 채널...</option>
+                            {(clusterData?.brand_channels || []).map((ch: any) => (
+                                <option key={ch.id} value={ch.id}>
+                                    📺 {ch.name} ({ch.id})
+                                </option>
+                            ))}
+                        </select>
+                        <Button
+                            size="sm"
+                            disabled={!targetClaimChannel || claimBatchMutation.isPending}
+                            onClick={() => {
+                                if (!targetClaimChannel) {
+                                    toast.error('배속할 브랜드 채널을 선택해 주세요.');
+                                    return;
+                                }
+                                claimBatchMutation.mutate({
+                                    article_ids: selectedArticleIds,
+                                    channel_id: targetClaimChannel
+                                });
+                            }}
+                            className="h-7 px-2.5 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white cursor-pointer shadow-xs gap-1"
+                            title="선택된 소재들을 지정한 브랜드 채널 전용 제작 큐로 배속"
+                        >
+                            <FolderPlus className="w-3.5 h-3.5" />
+                            <span>채널 배속</span>
+                        </Button>
+                    </div>
+
+                    {/* Quick Studio Handoffs */}
+                    <div className="flex items-center gap-1.5">
+                        <Button
+                            size="sm"
+                            onClick={() => {
+                                const selected = articles.filter(a => selectedArticleIds.includes(a.id));
+                                handleSendToBatchStudio(selected);
+                            }}
+                            className="h-7 px-2.5 text-xs font-bold bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer shadow-xs gap-1"
+                            title="선택된 기사들로 숏폼 일괄 대본 생성"
+                        >
+                            <Sparkles className="w-3.5 h-3.5" />
+                            <span>⚡ 숏폼 일괄 제작</span>
+                        </Button>
+
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                                const selected = articles.filter(a => selectedArticleIds.includes(a.id));
+                                handleSendToCreativeStudioBatch(selected);
+                            }}
+                            className="h-7 px-2.5 text-xs font-bold border-border bg-muted/40 hover:bg-muted text-foreground cursor-pointer gap-1"
+                            title="선택된 기사들로 미디어 일괄 생성 스튜디오 이동"
+                        >
+                            <Layers className="w-3.5 h-3.5 text-primary" />
+                            <span>미디어 생성</span>
+                        </Button>
+
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                                setCleanupMode('selected');
+                                setIsCleanupModalOpen(true);
+                            }}
+                            className="h-7 px-2 text-xs font-bold border-destructive/40 text-destructive hover:bg-destructive/10 cursor-pointer gap-1"
+                            title="선택된 기사들 삭제"
+                        >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span>삭제</span>
+                        </Button>
+
+                        <button
+                            onClick={() => setSelectedArticleIds([])}
+                            className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/50 cursor-pointer ml-0.5"
+                            title="선택 해제"
+                        >
+                            <X className="w-4 h-4" />
+                        </button>
                     </div>
                 </div>
             )}
