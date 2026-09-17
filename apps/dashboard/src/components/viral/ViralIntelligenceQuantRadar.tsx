@@ -255,8 +255,8 @@ export const ViralIntelligenceQuantRadar: React.FC<ViralIntelligenceQuantRadarPr
     } = stats;
 
     // 1. Panel 1: Live Speedometer Needle (-90deg to +90deg based on 0..35 vpm)
-    const TARGET_VPM = 30.0;
-    const speedRatio = isWorkerRunning ? Math.min(1.0, Math.max(0.15, engineSpeedVpm / TARGET_VPM)) : 0.05;
+    const TARGET_VPM = 35.0;
+    const speedRatio = isWorkerRunning ? Math.min(1.0, Math.max(0.04, engineSpeedVpm / TARGET_VPM)) : 0.0;
     const needleDeg = -90 + (speedRatio * 180);
 
     // 2. 15 Killer Themes Saturation Map
@@ -463,40 +463,86 @@ export const ViralIntelligenceQuantRadar: React.FC<ViralIntelligenceQuantRadarPr
 
                         <div className="grid grid-cols-2 items-center gap-3 my-2.5">
                             {/* 왼쪽: 와이드 스피도미터 게이지 */}
-                            <div className="relative w-full h-20 flex flex-col items-center justify-end">
-                                <svg className="w-32 h-16 overflow-visible" viewBox="0 0 100 50">
-                                    <path 
-                                        d="M 10 50 A 40 40 0 0 1 90 50" 
-                                        fill="none" 
-                                        stroke="currentColor" 
-                                        className="text-muted/60" 
-                                        strokeWidth="9" 
-                                        strokeLinecap="round" 
-                                    />
-                                    <path 
-                                        d="M 10 50 A 40 40 0 0 1 90 50" 
-                                        fill="none" 
-                                        stroke="url(#viralRadarSpeedoGradientWide)" 
-                                        strokeWidth="9" 
-                                        strokeDasharray="125.6" 
-                                        strokeDashoffset={125.6 * (1 - speedRatio)} 
-                                        strokeLinecap="round" 
-                                        className="transition-all duration-500"
-                                    />
+                            <div className="relative w-full flex flex-col items-center justify-center">
+                                <svg className="w-32 h-16 overflow-visible" viewBox="0 0 100 56">
                                     <defs>
                                         <linearGradient id="viralRadarSpeedoGradientWide" x1="0%" y1="0%" x2="100%" y2="0%">
-                                            <stop offset="0%" stopColor="#2563eb" />
-                                            <stop offset="60%" stopColor="#38bdf8" />
+                                            <stop offset="0%" stopColor="#3b82f6" />
+                                            <stop offset="50%" stopColor="#06b6d4" />
                                             <stop offset="100%" stopColor="#10b981" />
                                         </linearGradient>
                                     </defs>
+                                    {/* 게이지 배경 트랙 */}
+                                    <path 
+                                        d="M 12 50 A 38 38 0 0 1 88 50" 
+                                        fill="none" 
+                                        stroke="currentColor" 
+                                        className="text-muted/40 dark:text-muted/60" 
+                                        strokeWidth="8" 
+                                        strokeLinecap="round" 
+                                    />
+                                    {/* 게이지 활성 속도 트랙 */}
+                                    <path 
+                                        d="M 12 50 A 38 38 0 0 1 88 50" 
+                                        fill="none" 
+                                        stroke="url(#viralRadarSpeedoGradientWide)" 
+                                        strokeWidth="8" 
+                                        strokeDasharray="119.38" 
+                                        strokeDashoffset={119.38 * (1 - speedRatio)} 
+                                        strokeLinecap="round" 
+                                        className="transition-all duration-700 ease-out"
+                                    />
+                                    {/* 회전 바늘 그룹 (중심 피벗: 50, 50) */}
+                                    <g
+                                        transform={`rotate(${needleDeg} 50 50)`}
+                                        style={{
+                                            transformOrigin: '50px 50px',
+                                            transformBox: 'view-box',
+                                            transform: `rotate(${needleDeg}deg)`,
+                                            transition: 'transform 600ms cubic-bezier(0.34, 1.56, 0.64, 1)'
+                                        }}
+                                    >
+                                        {/* 바늘 본체 */}
+                                        <line 
+                                            x1="50" 
+                                            y1="50" 
+                                            x2="50" 
+                                            y2="17" 
+                                            stroke="currentColor" 
+                                            className="text-foreground" 
+                                            strokeWidth="2.5" 
+                                            strokeLinecap="round" 
+                                        />
+                                        {/* 바늘 끝 레드 인디케이터 포인트 */}
+                                        <line 
+                                            x1="50" 
+                                            y1="23" 
+                                            x2="50" 
+                                            y2="17" 
+                                            stroke="#ef4444" 
+                                            strokeWidth="2.5" 
+                                            strokeLinecap="round" 
+                                        />
+                                        {/* 뒤쪽 꼬리 카운터웨이트 */}
+                                        <line 
+                                            x1="50" 
+                                            y1="50" 
+                                            x2="50" 
+                                            y2="54" 
+                                            stroke="currentColor" 
+                                            className="text-muted-foreground" 
+                                            strokeWidth="3" 
+                                            strokeLinecap="round" 
+                                        />
+                                    </g>
+                                    {/* 중심 피벗 캡 (Center Pivot Pin) */}
+                                    <circle cx="50" cy="50" r="4.5" className="fill-foreground stroke-card" strokeWidth="1.5" />
+                                    <circle cx="50" cy="50" r="1.8" className="fill-background" />
                                 </svg>
-                                <div 
-                                    className="absolute w-1.5 h-12 bg-primary origin-bottom rounded-full transition-transform duration-500 shadow-sm"
-                                    style={{ transform: `rotate(${needleDeg}deg)`, bottom: '2px' }}
-                                />
-                                <span className="text-[11px] font-mono text-muted-foreground mt-1">
-                                    {isWorkerRunning ? '정상 수집 순환 중' : '대기 상태'}
+
+                                <span className="text-[11px] font-mono text-muted-foreground mt-1.5 flex items-center gap-1 font-semibold">
+                                    <span className={cn("w-1.5 h-1.5 rounded-full", isWorkerRunning ? "bg-emerald-500 animate-pulse" : "bg-amber-500")} />
+                                    <span>{isWorkerRunning ? '정상 수집 가동 중' : '수집 대기 중'}</span>
                                 </span>
                             </div>
 
