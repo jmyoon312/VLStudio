@@ -357,17 +357,17 @@ export const AgentRosterPage: React.FC = () => {
                     <div>
                         <div className="flex items-center gap-2 flex-wrap">
                             <h1 className="text-lg sm:text-xl font-black text-foreground tracking-tight">
-                                [Tier 3] 8대 전문 에이전트 인력소 (Agent Roster)
+                                AI 제작팀 관리
                             </h1>
-                            <Badge variant="outline" className="text-[10px] font-mono font-bold bg-blue-500/10 text-blue-600 border-blue-500/20">
-                                Tier 3 전문 실행 하수인
+                            <Badge variant="outline" className="text-[10px] font-mono font-bold bg-primary/10 text-primary border-primary/20">
+                                전문 제작진
                             </Badge>
-                            <Badge variant="outline" className="text-[10px] font-mono text-emerald-500 bg-emerald-500/10 border-emerald-500/20">
-                                OmniRoute Combo 바인딩
+                            <Badge variant="outline" className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/20 font-bold">
+                                AI 모델 연동
                             </Badge>
                         </div>
                         <p className="text-xs text-muted-foreground mt-0.5">
-                            루피(Tier 1)의 지휘와 채널 디렉터(Tier 2)의 샌드박스 아래에서 8인의 전문 에이전트가 채널별 콤보 모델로 미디어를 제작합니다.
+                            역할별 전문 AI가 영상 기획부터 조립까지 전 과정을 전담합니다.
                         </p>
                     </div>
                 </div>
@@ -375,7 +375,7 @@ export const AgentRosterPage: React.FC = () => {
                 <div className="flex items-center gap-3 flex-wrap">
                     {/* Target Channel Selector */}
                     <div className="flex items-center gap-2 bg-muted/40 border border-border px-3 py-1.5 rounded-2xl">
-                        <Tv className="w-4 h-4 text-blue-500 shrink-0" />
+                        <Tv className="w-4 h-4 text-primary shrink-0" />
                         <span className="text-[11px] font-bold text-muted-foreground shrink-0">대상 채널:</span>
                         <select
                             value={selectedChannelId}
@@ -391,9 +391,9 @@ export const AgentRosterPage: React.FC = () => {
                     </div>
 
                     {/* OmniRoute Combo Model Slot */}
-                    <div className="flex items-center gap-2 bg-gradient-to-r from-blue-500/10 to-indigo-500/10 border border-blue-500/30 px-3 py-1.5 rounded-2xl">
-                        <Cpu className="w-4 h-4 text-indigo-500 shrink-0" />
-                        <span className="text-[11px] font-bold text-blue-600 dark:text-blue-400 shrink-0">[축 3 콤보 모델]:</span>
+                    <div className="flex items-center gap-2 bg-muted/40 border border-border px-3 py-1.5 rounded-2xl">
+                        <Cpu className="w-4 h-4 text-primary shrink-0" />
+                        <span className="text-[11px] font-bold text-muted-foreground shrink-0">AI 모델 선택:</span>
                         <select
                             value={channelComboModel}
                             onChange={(e) => handleUpdateChannelCombo(e.target.value)}
@@ -412,14 +412,14 @@ export const AgentRosterPage: React.FC = () => {
             </div>
 
             {/* [축 1] 채널 주권 DNA 샌드박스 주입 프리뷰 바 */}
-            <div className="p-3.5 rounded-2xl bg-gradient-to-r from-blue-950/20 via-indigo-950/20 to-purple-950/20 border border-blue-500/20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
+            <div className="p-3.5 rounded-2xl bg-card border border-border/80 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
                 <div className="flex items-center gap-2 shrink-0">
-                    <Badge variant="outline" className="bg-blue-500/10 text-blue-400 border-blue-500/30 text-[10px] font-mono font-bold flex items-center gap-1">
-                        <ShieldCheck className="w-3 h-3 text-blue-400" />
-                        [축 1] 채널 DNA 주권 격리
+                    <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20 text-[10px] font-mono font-bold flex items-center gap-1">
+                        <ShieldCheck className="w-3 h-3 text-primary" />
+                        채널 스타일 적용
                     </Badge>
                     <span className="text-[11px] font-bold text-foreground">
-                        CH #{selectedChannelId} 주입 페르소나:
+                        CH #{selectedChannelId} 스타일:
                     </span>
                 </div>
                 <div className="flex-1 truncate font-mono text-[11px] text-muted-foreground">
@@ -427,27 +427,27 @@ export const AgentRosterPage: React.FC = () => {
                         "{channelDnaPreview?.strategy || '0.8초 쨉쨉이 도파민 쇼츠 공식'}"
                     </span>
                     <span className="mx-2">•</span>
-                    <span className="text-indigo-400">
+                    <span className="text-primary font-medium">
                         톤: {channelDnaPreview?.tone || '몰입도 높은 0.8초 쨉쨉이 어투'}
                     </span>
                     <span className="mx-2">•</span>
-                    <span className="text-rose-400">
+                    <span className="text-rose-600 dark:text-rose-400 font-medium">
                         금기어: {Array.isArray(channelDnaPreview?.forbidden_words) ? channelDnaPreview.forbidden_words.join(', ') : '비방, 가짜뉴스 배제'}
                     </span>
                 </div>
-                <Badge variant="outline" className="text-[10px] font-mono text-emerald-400 border-emerald-500/30 shrink-0">
-                    정보 오염 0% 격리 보장
+                <Badge variant="outline" className="text-[10px] font-mono font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/20 shrink-0">
+                    채널별 독립 적용
                 </Badge>
             </div>
 
             {/* Layer Filter Tabs */}
             <div className="flex items-center gap-2 overflow-x-auto pb-1">
                 {[
-                    { id: 'all', label: '전체 8인 워커 보기' },
-                    { id: 'Layer 1: 전략 인텔리전스', label: 'Layer 1: 전략 인텔리전스' },
-                    { id: 'Layer 2: 크리에이티브 대본', label: 'Layer 2: 크리에이티브 대본' },
-                    { id: 'Layer 3: 멀티모달 생성', label: 'Layer 3: 멀티모달 생성' },
-                    { id: 'Layer 4: 바이너리 패키징', label: 'Layer 4: 바이너리 패키징' }
+                    { id: 'all', label: '전체 보기' },
+                    { id: 'Layer 1: 전략 인텔리전스', label: '기획 및 분석' },
+                    { id: 'Layer 2: 크리에이티브 대본', label: '대본 작성' },
+                    { id: 'Layer 3: 멀티모달 생성', label: '영상 및 음성' },
+                    { id: 'Layer 4: 바이너리 패키징', label: '편집 및 패키징' }
                 ].map(tab => (
                     <button
                         key={tab.id}
@@ -455,7 +455,7 @@ export const AgentRosterPage: React.FC = () => {
                         className={cn(
                             "px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer",
                             selectedLayer === tab.id
-                                ? "bg-blue-600 text-white shadow-xs"
+                                ? "bg-primary text-primary-foreground shadow-xs"
                                 : "bg-muted/40 text-muted-foreground hover:text-foreground border border-border/60"
                         )}
                     >
@@ -517,73 +517,73 @@ export const AgentRosterPage: React.FC = () => {
                                 <CardContent className="p-4 space-y-4 text-xs">
                                     {/* Bound Channel Skills Badges */}
                                     <div className="p-2.5 rounded-2xl bg-muted/20 border border-border/70 space-y-1.5">
-                                        <div className="flex items-center justify-between text-[10px] font-bold text-muted-foreground">
-                                            <span className="flex items-center gap-1 text-indigo-400 font-mono">
-                                                <BookOpen className="w-3 h-3" />
-                                                [CH #{selectedChannelId}] 연동 스킬 플레이북
-                                            </span>
-                                            <span className="font-mono text-[9px]">자동 주입</span>
-                                        </div>
-                                        <div className="flex flex-wrap gap-1.5">
-                                            {worker.boundSkills.map((sk, skIdx) => (
-                                                <Badge 
-                                                    key={skIdx} 
-                                                    variant="outline" 
-                                                    className="text-[10px] font-mono font-bold bg-indigo-500/10 text-indigo-400 border-indigo-500/30"
-                                                >
-                                                    #{sk}
-                                                </Badge>
-                                            ))}
-                                        </div>
-                                    </div>
+                                         <div className="flex items-center justify-between text-[10px] font-bold text-muted-foreground">
+                                             <span className="flex items-center gap-1 text-primary font-mono">
+                                                 <BookOpen className="w-3 h-3" />
+                                                 [CH #{selectedChannelId}] 연동 스킬
+                                             </span>
+                                             <span className="font-mono text-[9px]">자동 주입</span>
+                                         </div>
+                                         <div className="flex flex-wrap gap-1.5">
+                                             {worker.boundSkills.map((sk, skIdx) => (
+                                                 <Badge 
+                                                     key={skIdx} 
+                                                     variant="outline" 
+                                                     className="text-[10px] font-mono font-bold bg-primary/10 text-primary border-primary/20"
+                                                 >
+                                                     #{sk}
+                                                 </Badge>
+                                             ))}
+                                         </div>
+                                     </div>
 
-                                    {/* SPECIAL: Situation-Aware Script Branch Matrix for Writer-Pro */}
-                                    {isWriter && (
-                                        <div className="p-3 rounded-2xl bg-gradient-to-br from-blue-500/5 via-indigo-500/5 to-purple-500/5 border border-indigo-500/30 space-y-3">
-                                            <div className="flex items-center justify-between">
-                                                <div className="text-[11px] font-black text-indigo-400 flex items-center gap-1.5">
-                                                    <Sparkles className="w-3.5 h-3.5" />
-                                                    대본 작가 상황 인지형 3대 분기 매트릭스
-                                                </div>
-                                                <Badge variant="outline" className="text-[9px] font-bold text-amber-400 border-amber-400/30 bg-amber-400/10">
-                                                    실시간 대응
-                                                </Badge>
-                                            </div>
+                                     {/* SPECIAL: Situation-Aware Script Branch Matrix for Writer-Pro */}
+                                     {isWriter && (
+                                         <div className="p-3 rounded-2xl bg-muted/30 border border-border/80 space-y-3">
+                                             <div className="flex items-center justify-between">
+                                                 <div className="text-[11px] font-black text-foreground flex items-center gap-1.5">
+                                                     <Sparkles className="w-3.5 h-3.5 text-primary" />
+                                                     대본 작가 3대 분기 모드
+                                                 </div>
+                                                 <Badge variant="outline" className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 border-emerald-500/20 bg-emerald-500/10">
+                                                     실시간 대응
+                                                 </Badge>
+                                             </div>
 
-                                            {/* Mode Selector */}
-                                            <div className="grid grid-cols-3 gap-1.5">
-                                                {[
-                                                    { id: 'video_present', label: '1. 원본 영상 보유', desc: '0.8초 쨉쨉이 코멘터리 연출' },
-                                                    { id: 'script_present', label: '2. 대본 텍스트 보유', desc: '숏폼 호흡 최적화 경량화/윤문' },
-                                                    { id: 'keyword_only', label: '3. 소재/키워드만', desc: '9-Wave 감정 파도 전면 창작' }
-                                                ].map(m => (
-                                                    <button
-                                                        key={m.id}
-                                                        type="button"
-                                                        onClick={() => {
-                                                            setRoster(prev => prev.map(w => {
-                                                                if (w.id !== 'writer') return w;
-                                                                return {
-                                                                    ...w,
-                                                                    writerMatrix: {
-                                                                        ...w.writerMatrix!,
-                                                                        activeMode: m.id as any
-                                                                    }
-                                                                };
-                                                            }));
-                                                        }}
-                                                        className={cn(
-                                                            "p-2 rounded-xl border text-left transition-all cursor-pointer",
-                                                            worker.writerMatrix?.activeMode === m.id
-                                                                ? "bg-indigo-600 text-white border-indigo-600 shadow-xs"
-                                                                : "bg-muted/40 border-border/80 text-muted-foreground hover:text-foreground"
-                                                        )}
-                                                    >
-                                                        <div className="text-[10px] font-bold truncate">{m.label}</div>
-                                                        <div className="text-[9px] opacity-80 mt-0.5 line-clamp-1">{m.desc}</div>
-                                                    </button>
-                                                ))}
-                                            </div>
+                                             {/* Mode Selector */}
+                                             <div className="grid grid-cols-3 gap-1.5">
+                                                 {[
+                                                     { id: 'video_present', label: '1. 원본 영상 보유', desc: '0.8초 쨉쨉이 연출' },
+                                                     { id: 'script_present', label: '2. 대본 텍스트 보유', desc: '숏폼 호흡 최적화' },
+                                                     { id: 'keyword_only', label: '3. 소재/키워드만', desc: '스토리 전면 창작' }
+                                                 ].map(m => (
+                                                     <button
+                                                         key={m.id}
+                                                         type="button"
+                                                         onClick={() => {
+                                                             setRoster(prev => prev.map(w => {
+                                                                 if (w.id !== 'writer') return w;
+                                                                 return {
+                                                                     ...w,
+                                                                     writerMatrix: {
+                                                                         ...w.writerMatrix!,
+                                                                         activeMode: m.id as any
+                                                                     }
+                                                                 };
+                                                             }));
+                                                         }}
+                                                         className={cn(
+                                                             "p-2 rounded-xl border text-left transition-all cursor-pointer",
+                                                             worker.writerMatrix?.activeMode === m.id
+                                                                 ? "bg-primary text-primary-foreground border-primary shadow-xs font-bold"
+                                                                 : "bg-background border-border/80 text-muted-foreground hover:text-foreground"
+                                                         )}
+                                                     >
+                                                         <div className="text-[10px] font-bold truncate">{m.label}</div>
+                                                         <div className="text-[9px] opacity-80 mt-0.5 line-clamp-1">{m.desc}</div>
+                                                     </button>
+                                                 ))}
+                                             </div>
 
                                             {/* Tone & Niche & Shield Guardrails */}
                                             <div className="grid grid-cols-3 gap-2 pt-1 border-t border-border/50 text-[10px]">

@@ -380,27 +380,27 @@ export const BrainVaultPage: React.FC = () => {
             {/* Top Header & Channel Switcher */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-5 rounded-3xl bg-card border border-border shadow-xs">
                 <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500 via-purple-600 to-pink-500 flex items-center justify-center text-white shadow-lg shadow-indigo-500/20 shrink-0">
+                    <div className="w-12 h-12 rounded-2xl bg-primary/10 text-primary border border-primary/20 flex items-center justify-center shadow-xs shrink-0">
                         <BrainCircuit className="w-6 h-6" />
                     </div>
                     <div>
                         <div className="flex items-center gap-2 flex-wrap">
                             <h1 className="text-xl sm:text-2xl font-black tracking-tight text-foreground">
-                                [축 1] 채널 주권 DNA 금고 (Channel Sovereign DNA)
+                                채널 스타일 보관소
                             </h1>
-                            <Badge variant="outline" className="text-[10px] bg-indigo-500/10 text-indigo-400 border-indigo-500/30 font-mono font-bold">
-                                Hermes FTS5 BM25 Core
+                            <Badge variant="outline" className="text-[10px] bg-primary/10 text-primary border-primary/20 font-mono font-bold">
+                                스타일 DB
                             </Badge>
-                            <Badge variant="outline" className="text-[10px] bg-emerald-500/10 text-emerald-500 border-emerald-500/30 font-bold">
-                                샌드박스 격리: 정보 오염 0% 보장
+                            <Badge variant="outline" className="text-[10px] bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 font-bold">
+                                채널별 독립 보관
                             </Badge>
-                            <span className="flex items-center gap-1 text-[10px] text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 rounded-full font-bold">
-                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                                6-Layer 가상 클론 & Auto-Skill 가동
+                            <span className="flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 rounded-full font-bold">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                제작 공식 활성화
                             </span>
                         </div>
                         <p className="text-xs text-muted-foreground mt-1">
-                            수십~수백 개 채널의 일괄 대량 생산을 위해 채널별 8대 실전 스킬팩과 0.01초 FTS5 초고속 떡상 기억고를 독립 운영합니다.
+                            채널 고유의 톤앤매너와 바이럴 제작 공식을 독립적으로 관리합니다.
                         </p>
                     </div>
                 </div>
@@ -409,7 +409,7 @@ export const BrainVaultPage: React.FC = () => {
                 <div className="flex items-center gap-3 flex-wrap">
                     {/* Target Channel Selector */}
                     <div className="flex items-center gap-2 bg-muted/40 border border-border px-3 py-1.5 rounded-2xl">
-                        <Tv className="w-4 h-4 text-indigo-400 shrink-0" />
+                        <Tv className="w-4 h-4 text-primary shrink-0" />
                         <span className="text-[11px] font-bold text-muted-foreground shrink-0">대상 채널:</span>
                         <select
                             value={selectedChannelId}
@@ -442,59 +442,59 @@ export const BrainVaultPage: React.FC = () => {
 
             {/* Target Channel Telemetry Bar */}
             <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-                <Card className="bg-card/70 border-border/80 p-3.5 rounded-2xl flex items-center justify-between">
+                <Card className="bg-card border-border/80 p-3.5 rounded-2xl flex items-center justify-between shadow-xs">
                     <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center font-black">
+                        <div className="w-9 h-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-black">
                             <BookOpen className="w-4 h-4" />
                         </div>
                         <div>
-                            <div className="text-[10px] font-bold text-muted-foreground">채널 통합 스킬팩</div>
+                            <div className="text-[10px] font-bold text-muted-foreground">채널 제작 스킬</div>
                             <div className="text-sm font-black text-foreground">
                                 {skills.length} 개 등록
                             </div>
                         </div>
                     </div>
                     {skills.length < 8 ? (
-                        <Badge variant="outline" className="text-[9px] bg-amber-500/10 text-amber-500 border-amber-500/30">
+                        <Badge variant="outline" className="text-[9px] bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20">
                             민팅 권장
                         </Badge>
                     ) : (
-                        <Badge variant="outline" className="text-[9px] bg-emerald-500/10 text-emerald-500 border-emerald-500/30">
+                        <Badge variant="outline" className="text-[9px] bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20">
                             8대 완비
                         </Badge>
                     )}
                 </Card>
 
-                <Card className="bg-card/70 border-border/80 p-3.5 rounded-2xl flex items-center justify-between">
+                <Card className="bg-card border-border/80 p-3.5 rounded-2xl flex items-center justify-between shadow-xs">
                     <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-purple-500/10 text-purple-400 flex items-center justify-center font-black">
+                        <div className="w-9 h-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-black">
                             <Database className="w-4 h-4" />
                         </div>
                         <div>
-                            <div className="text-[10px] font-bold text-muted-foreground">Hermes FTS5 회상 인덱스</div>
+                            <div className="text-[10px] font-bold text-muted-foreground">성공 사례 DB</div>
                             <div className="text-sm font-black text-foreground">
                                 {ftsMemoryResults.length} 건 즉시 인출
                             </div>
                         </div>
                     </div>
-                    <Badge variant="outline" className="text-[9px] bg-purple-500/10 text-purple-400 border-purple-500/30 font-mono">
-                        0.01s Latency
+                    <Badge variant="outline" className="text-[9px] bg-muted text-muted-foreground border-border font-mono">
+                        0.01초 회상
                     </Badge>
                 </Card>
 
-                <Card className="bg-card/70 border-border/80 p-3.5 rounded-2xl flex items-center justify-between">
+                <Card className="bg-card border-border/80 p-3.5 rounded-2xl flex items-center justify-between shadow-xs">
                     <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-pink-500/10 text-pink-400 flex items-center justify-center font-black">
+                        <div className="w-9 h-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-black">
                             <ShieldCheck className="w-4 h-4" />
                         </div>
                         <div>
-                            <div className="text-[10px] font-bold text-muted-foreground">디렉팅 헌법 (soul.md)</div>
+                            <div className="text-[10px] font-bold text-muted-foreground">채널 연출 가이드</div>
                             <div className="text-sm font-black text-foreground">
                                 {soul.length > 0 ? `${soul.length.toLocaleString()} 자` : '0 자'}
                             </div>
                         </div>
                     </div>
-                    <Badge variant="outline" className="text-[9px] bg-emerald-500/10 text-emerald-500 border-emerald-500/30">
+                    <Badge variant="outline" className="text-[9px] bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20">
                         100% 준수
                     </Badge>
                 </Card>
@@ -504,14 +504,14 @@ export const BrainVaultPage: React.FC = () => {
                     <Button
                         disabled={isMintingSkills}
                         onClick={handleMintAllSkills}
-                        className="w-full h-full min-h-[56px] rounded-2xl bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:opacity-95 text-white font-black text-xs shadow-md shadow-purple-500/20 flex items-center justify-center gap-2"
+                        className="w-full h-full min-h-[56px] rounded-2xl bg-primary hover:bg-primary/90 text-primary-foreground font-black text-xs shadow-xs flex items-center justify-center gap-2"
                     >
                         {isMintingSkills ? (
                             <RefreshCcw className="w-4 h-4 animate-spin" />
                         ) : (
-                            <Wand2 className="w-4 h-4 text-amber-300" />
+                            <Wand2 className="w-4 h-4" />
                         )}
-                        <span>이 채널 8대 실전 스킬팩 AI 일괄 민팅</span>
+                        <span>스킬 일괄 생성</span>
                     </Button>
                 </div>
             </div>
@@ -522,36 +522,36 @@ export const BrainVaultPage: React.FC = () => {
                     onClick={() => setActiveTab('skills')}
                     className={`px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-2 cursor-pointer ${
                         activeTab === 'skills'
-                            ? 'bg-indigo-600 text-white shadow-xs'
+                            ? 'bg-primary text-primary-foreground shadow-xs'
                             : 'bg-muted/40 text-muted-foreground hover:text-foreground'
                     }`}
                 >
                     <BookOpen className="w-3.5 h-3.5" />
-                    <span>채널 통합 스킬팩 ({skills.length})</span>
+                    <span>제작 스킬 ({skills.length})</span>
                 </button>
 
                 <button
                     onClick={() => setActiveTab('memory')}
                     className={`px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-2 cursor-pointer ${
                         activeTab === 'memory'
-                            ? 'bg-indigo-600 text-white shadow-xs'
+                            ? 'bg-primary text-primary-foreground shadow-xs'
                             : 'bg-muted/40 text-muted-foreground hover:text-foreground'
                     }`}
                 >
                     <Database className="w-3.5 h-3.5" />
-                    <span>Hermes FTS5 초고속 떡상 기억고 ({ftsMemoryResults.length})</span>
+                    <span>성공 사례 ({ftsMemoryResults.length})</span>
                 </button>
 
                 <button
                     onClick={() => setActiveTab('soul')}
                     className={`px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-2 cursor-pointer ${
                         activeTab === 'soul'
-                            ? 'bg-indigo-600 text-white shadow-xs'
+                            ? 'bg-primary text-primary-foreground shadow-xs'
                             : 'bg-muted/40 text-muted-foreground hover:text-foreground'
                     }`}
                 >
                     <ShieldCheck className="w-3.5 h-3.5" />
-                    <span>총괄 디렉터 헌법 (soul.md)</span>
+                    <span>연출 가이드</span>
                 </button>
 
                 <button
@@ -561,12 +561,12 @@ export const BrainVaultPage: React.FC = () => {
                     }}
                     className={`px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-2 cursor-pointer ${
                         activeTab === 'clones'
-                            ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-xs'
+                            ? 'bg-primary text-primary-foreground shadow-xs'
                             : 'bg-muted/40 text-muted-foreground hover:text-foreground'
                     }`}
                 >
                     <Sliders className="w-3.5 h-3.5" />
-                    <span>가상 클론 6-Layer 프리셋</span>
+                    <span>스타일 프리셋</span>
                 </button>
 
             </div>

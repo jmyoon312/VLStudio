@@ -62,17 +62,17 @@ export interface MenuGroup {
 }
 
 export const getMenuGroups = (captainId: string | null): MenuGroup[] => [
-    // 0. AI_ORCHESTRATION (3계층 주권 자율 팩토리 사령탑)
+    // 0. AI_ORCHESTRATION (AI 프로덕션 자동 제작)
     {
-        title: "🏛️ 총사령탑",
+        title: "🎬 자동 제작",
         mode: "AI_ORCHESTRATION",
         defaultExpanded: true,
         items: [
-            { name: '루피 총사령탑', path: '/war-room', icon: Cpu, highlight: true },
+            { name: '스튜디오 관제', path: '/war-room', icon: Cpu, highlight: true },
             { name: '제작 파이프라인', path: '/pipeline-builder', icon: GitBranch, highlight: true },
-            { name: '에이전트 인력소', path: '/agent-roster', icon: Users, highlight: true },
-            { name: '채널 DNA 금고', path: '/brain-vault', icon: BrainCircuit, highlight: true },
-            { name: '자율 순찰 & 알림', path: '/autonomous-patrol', icon: Radio, highlight: true },
+            { name: 'AI 제작팀', path: '/agent-roster', icon: Users, highlight: true },
+            { name: '채널 스타일', path: '/brain-vault', icon: BrainCircuit, highlight: true },
+            { name: '자동 스케줄', path: '/autonomous-patrol', icon: Radio, highlight: true },
         ]
     },
 

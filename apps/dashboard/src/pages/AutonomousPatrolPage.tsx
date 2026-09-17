@@ -124,20 +124,20 @@ export const AutonomousPatrolPage: React.FC = () => {
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-5 rounded-3xl bg-card border border-border shadow-xs">
                 <div>
                     <div className="flex items-center gap-2.5 flex-wrap">
-                        <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-indigo-500 via-purple-600 to-pink-500 flex items-center justify-center text-white shadow-md shadow-indigo-500/20">
+                        <div className="w-10 h-10 rounded-2xl bg-primary/10 text-primary border border-primary/20 flex items-center justify-center shadow-xs">
                             <Radio className="w-5 h-5 animate-pulse" />
                         </div>
                         <div>
                             <div className="flex items-center gap-2">
                                 <h1 className="text-xl sm:text-2xl font-black tracking-tight text-foreground">
-                                    자율 순찰 & 원격 관제실 (Autonomous Patrol)
+                                    자동 스케줄 관리
                                 </h1>
-                                <Badge variant="outline" className="text-[10px] bg-indigo-500/10 text-indigo-500 border-indigo-500/30 font-bold">
-                                    Tier 1 총사령탑
+                                <Badge variant="outline" className="text-[10px] bg-primary/10 text-primary border-primary/20 font-bold">
+                                    24시간 자동화
                                 </Badge>
                             </div>
                             <p className="text-xs text-muted-foreground mt-0.5">
-                                루피 총사령탑의 24시간 무인 트렌드 발굴 순찰과 모바일 텔레그램 스마트폰 결재 센터를 총괄 제어합니다.
+                                트렌드 자동 탐색과 실시간 모바일 알림을 관리합니다.
                             </p>
                         </div>
                     </div>
@@ -157,7 +157,7 @@ export const AutonomousPatrolPage: React.FC = () => {
                         size="sm"
                         onClick={() => triggerPatrolMutation.mutate()}
                         disabled={triggerPatrolMutation.isPending}
-                        className="text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white gap-1.5 shadow-sm rounded-xl h-9"
+                        className="text-xs font-bold bg-primary hover:bg-primary/90 text-primary-foreground gap-1.5 shadow-xs rounded-xl h-9"
                     >
                         <Zap className={`w-3.5 h-3.5 ${triggerPatrolMutation.isPending ? 'animate-spin' : ''}`} />
                         {triggerPatrolMutation.isPending ? '순찰 가동 중...' : '즉시 1회 순찰 가동'}
@@ -169,21 +169,21 @@ export const AutonomousPatrolPage: React.FC = () => {
             <div className="p-4 rounded-2xl bg-muted/40 border border-border/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
                 <div className="flex items-center gap-4 flex-wrap">
                     <div className="flex items-center gap-2">
-                        <Cpu className="w-4 h-4 text-indigo-500" />
-                        <span className="font-bold text-foreground">GPU 세마포어:</span>
+                        <Cpu className="w-4 h-4 text-primary" />
+                        <span className="font-bold text-foreground">GPU 슬롯:</span>
                         <Badge variant="secondary" className="font-mono text-xs">
                             {arbiterStatus?.gpu_semaphore?.active_slots ?? 0} / {arbiterStatus?.gpu_semaphore?.max_slots ?? 2} 슬롯 가동
                         </Badge>
                     </div>
                     <div className="flex items-center gap-2">
-                        <ShieldCheck className="w-4 h-4 text-emerald-500" />
+                        <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                         <span className="font-bold text-foreground">API 예산 보호:</span>
                         <span className="text-muted-foreground font-mono">
                             ${arbiterStatus?.api_budget?.used_today ?? 0} / ${arbiterStatus?.api_budget?.daily_limit ?? 50}
                         </span>
                     </div>
                     <div className="flex items-center gap-2">
-                        <span className="font-bold text-foreground">프록시 지터:</span>
+                        <span className="font-bold text-foreground">프록시 지연:</span>
                         <span className="text-muted-foreground font-mono">{arbiterStatus?.proxy_jitter?.jitter_window ?? '5.0s ~ 8.0s'}</span>
                     </div>
                 </div>
@@ -218,15 +218,15 @@ export const AutonomousPatrolPage: React.FC = () => {
                 <Card className="border-border bg-card shadow-xs">
                     <CardContent className="p-4 flex items-center justify-between">
                         <div className="space-y-1">
-                            <span className="text-[11px] font-medium text-muted-foreground">자율 순찰 데몬</span>
+                            <span className="text-[11px] font-medium text-muted-foreground">자동 순찰 상태</span>
                             <div className="text-lg font-black text-foreground flex items-center gap-2">
                                 {patrolStatus?.enabled ? '● 24시간 가동 중' : '○ 대기 중'}
                             </div>
-                            <span className="text-[10px] text-emerald-500 font-mono">
+                            <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-mono">
                                 스케줄: {patrolStatus?.schedule || '08:30, 18:30'}
                             </span>
                         </div>
-                        <div className="p-2.5 rounded-xl bg-indigo-500/10 text-indigo-500">
+                        <div className="p-2.5 rounded-xl bg-primary/10 text-primary">
                             <Clock className="w-5 h-5" />
                         </div>
                     </CardContent>
@@ -235,7 +235,7 @@ export const AutonomousPatrolPage: React.FC = () => {
                 <Card className="border-border bg-card shadow-xs">
                     <CardContent className="p-4 flex items-center justify-between">
                         <div className="space-y-1">
-                            <span className="text-[11px] font-medium text-muted-foreground">텔레그램 원격 관제</span>
+                            <span className="text-[11px] font-medium text-muted-foreground">모바일 알림 상태</span>
                             <div className="text-lg font-black text-foreground flex items-center gap-2">
                                 {patrolStatus?.telegram_connected ? (
                                     <span className="text-emerald-600 dark:text-emerald-400">● 연결 정상</span>
@@ -243,9 +243,9 @@ export const AutonomousPatrolPage: React.FC = () => {
                                     <span className="text-amber-500">○ 미연결 (토큰 필요)</span>
                                 )}
                             </div>
-                            <span className="text-[10px] text-muted-foreground">스마트폰 푸시 & 원격 명령</span>
+                            <span className="text-[10px] text-muted-foreground">스마트폰 푸시 & 원격 승인</span>
                         </div>
-                        <div className="p-2.5 rounded-xl bg-sky-500/10 text-sky-500">
+                        <div className="p-2.5 rounded-xl bg-primary/10 text-primary">
                             <Smartphone className="w-5 h-5" />
                         </div>
                     </CardContent>
@@ -254,13 +254,13 @@ export const AutonomousPatrolPage: React.FC = () => {
                 <Card className="border-border bg-card shadow-xs">
                     <CardContent className="p-4 flex items-center justify-between">
                         <div className="space-y-1">
-                            <span className="text-[11px] font-medium text-muted-foreground">오늘 무인 발굴 영상</span>
+                            <span className="text-[11px] font-medium text-muted-foreground">오늘 발굴 영상</span>
                             <div className="text-lg font-black text-foreground font-mono">
                                 {patrolStatus?.videos_scouted_today ?? 28} <span className="text-xs font-normal text-muted-foreground">편</span>
                             </div>
-                            <span className="text-[10px] text-emerald-500">퀀트 레이더 랭킹 탑재</span>
+                            <span className="text-[10px] text-emerald-600 dark:text-emerald-400">트렌드 랭킹 탐색</span>
                         </div>
-                        <div className="p-2.5 rounded-xl bg-purple-500/10 text-purple-500">
+                        <div className="p-2.5 rounded-xl bg-primary/10 text-primary">
                             <Sparkles className="w-5 h-5" />
                         </div>
                     </CardContent>
@@ -269,13 +269,13 @@ export const AutonomousPatrolPage: React.FC = () => {
                 <Card className="border-border bg-card shadow-xs">
                     <CardContent className="p-4 flex items-center justify-between">
                         <div className="space-y-1">
-                            <span className="text-[11px] font-medium text-muted-foreground">자동 민팅 스킬</span>
+                            <span className="text-[11px] font-medium text-muted-foreground">자동 생성 스킬</span>
                             <div className="text-lg font-black text-foreground font-mono">
                                 {patrolStatus?.skills_minted_today ?? 3} <span className="text-xs font-normal text-muted-foreground">개</span>
                             </div>
-                            <span className="text-[10px] text-indigo-500">Hermes 기억고 즉시 각인</span>
+                            <span className="text-[10px] text-primary">제작 공식 자동 저장</span>
                         </div>
-                        <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-500">
+                        <div className="p-2.5 rounded-xl bg-primary/10 text-primary">
                             <Zap className="w-5 h-5" />
                         </div>
                     </CardContent>
@@ -287,25 +287,25 @@ export const AutonomousPatrolPage: React.FC = () => {
                 <CardHeader className="border-b border-border/80 pb-3">
                     <div className="flex items-center justify-between">
                         <CardTitle className="text-sm font-bold flex items-center gap-2">
-                            <Calendar className="w-4 h-4 text-indigo-500" />
-                            루피 24시 자율 순찰 & 양산 라이프사이클 (24h Autonomous Timeline)
+                            <Calendar className="w-4 h-4 text-primary" />
+                            24시간 자동 제작 일정
                         </CardTitle>
-                        <Badge variant="outline" className="text-[10px] font-bold text-indigo-500 border-indigo-500/30">
-                            100% 무인 자동화
+                        <Badge variant="outline" className="text-[10px] font-bold text-primary border-primary/20 bg-primary/10">
+                            자동 운영 중
                         </Badge>
                     </div>
                 </CardHeader>
                 <CardContent className="p-4">
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                         {[
-                            { time: '08:30', title: '조간 바이럴 트렌드 스카우트', desc: '글로벌 틱톡 및 유튜브 인기 급상승 120개 영상 데이터 인제스트 및 떡상 DNA 추출', color: 'border-blue-500/30 bg-blue-500/5 text-blue-600 dark:text-blue-400' },
-                            { time: '13:00', title: '축2 5대 모드 매칭 & 대본 검수', desc: '채널 주권 DNA 결합 후 Critic-85 퀄리티 게이트 검수 통과 (85점 미달 시 자동 재생성)', color: 'border-amber-500/30 bg-amber-500/5 text-amber-600 dark:text-amber-400' },
-                            { time: '18:30', title: '골든타임 렌더 & 자동 배포', desc: 'GlobalArbiter GPU 세마포어 통과 ➔ CapCut No-ZIP 조립 ➔ 채널 큐 자동 배포', color: 'border-emerald-500/30 bg-emerald-500/5 text-emerald-600 dark:text-emerald-400' },
-                            { time: '23:00', title: '일일 결산 & Auto-Skill 민팅', desc: '당일 조회수/반응도 결산 후 승리 공식을 SKILL.md로 자동 민팅하여 Hermes FTS5에 영구 각인', color: 'border-purple-500/30 bg-purple-500/5 text-purple-600 dark:text-purple-400' },
+                            { time: '08:30', title: '조간 트렌드 탐색', desc: '글로벌 틱톡 및 유튜브 인기 급상승 영상 분석 및 바이럴 소재 자동 수집' },
+                            { time: '13:00', title: '대본 및 품질 검수', desc: '채널 맞춤 톤앤매너 결합 후 85점 이상 기준 자동 검수 통과' },
+                            { time: '18:30', title: '영상 생성 및 배포', desc: 'GPU 세마포어 통과 ➔ 영상 렌더링 및 타임라인 조립 후 채널 예약 배포' },
+                            { time: '23:00', title: '성과 분석 및 최적화', desc: '당일 조회수/반응도 분석 후 우수 제작 공식을 데이터베이스에 영구 저장' },
                         ].map((item, idx) => (
-                            <div key={idx} className={`p-3.5 rounded-2xl border ${item.color} space-y-1.5`}>
+                            <div key={idx} className="p-3.5 rounded-2xl border border-border/80 bg-card space-y-1.5 shadow-2xs">
                                 <div className="flex items-center justify-between">
-                                    <span className="text-xs font-black font-mono px-2 py-0.5 rounded-md bg-background/80 border border-current">
+                                    <span className="text-xs font-black font-mono px-2 py-0.5 rounded-md bg-muted text-foreground border border-border">
                                         {item.time}
                                     </span>
                                     <span className="text-[10px] font-bold text-muted-foreground">단계 {idx + 1}</span>

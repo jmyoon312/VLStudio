@@ -589,7 +589,7 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
                 <div className="px-3.5 pt-3 pb-2 shrink-0">
                     <div className="bg-[#f0f3f8] dark:bg-zinc-900/90 dark:border dark:border-zinc-800/80 p-1.5 rounded-2xl grid grid-cols-2 gap-1 sidebar-mode-grid">
                         {[
-                            { id: 'AI_ORCHESTRATION', name: 'AI 사령탑', sub: '지휘', icon: Cpu },
+                            { id: 'AI_ORCHESTRATION', name: 'AI 프로덕션', sub: '자동화', icon: Cpu },
                             { id: 'DISCOVERY', name: '트렌드 분석', sub: '소싱', icon: Search },
                             { id: 'CREATION', name: '콘텐츠 제작', sub: '제작', icon: Palette },
                             { id: 'OPERATION_SYSTEM', name: '운영 · 설정', sub: '관리', icon: Settings2 },

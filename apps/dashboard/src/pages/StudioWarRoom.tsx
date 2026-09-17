@@ -55,107 +55,107 @@ interface ChannelItem {
 const INITIAL_WORKERS: WorkerState[] = [
     { 
         id: 'w1', 
-        role: '트렌드 스카우터', 
+        role: '트렌드 분석', 
         name: 'Scout-Alpha', 
         avatarEmoji: '📡',
         status: 'working', 
-        task: '글로벌 틱톡/릴스 떡상 DNA 실시간 스캐닝 중', 
+        task: '글로벌 틱톡/릴스 떡상 소재 발굴 중', 
         model: 'OmniRoute viraloop1', 
         loadPct: 68, 
         processedToday: 142, 
         avgLatencyMs: 420,
-        recentLog: '유튜브 쇼츠 급상승 랭킹 #1~#20 떡상 패턴 매핑 완료'
+        recentLog: '인기 급상승 숏폼 랭킹 분석 완료'
     },
     { 
         id: 'w2', 
-        role: '대본 기획자', 
+        role: '대본 작가', 
         name: 'Writer-Pro', 
         avatarEmoji: '✍️',
         status: 'working', 
-        task: '상황별 3대 분기 매트릭스 & 0.8초 쨉쨉이 코멘터리 연출 각색', 
+        task: '첫 3초 후킹 및 숏폼 대본 각색', 
         model: 'OmniRoute viraloop1', 
         loadPct: 84, 
         processedToday: 89, 
         avgLatencyMs: 850,
-        recentLog: '첫 3초 충격 질문형 후킹 카피 3종 및 쨉쨉이 단어 배치 완료'
+        recentLog: '후킹 카피 3종 및 씬 대본 생성 완료'
     },
     { 
         id: 'w3', 
-        role: '바이럴 비평가', 
+        role: '품질 검수', 
         name: 'Critic-85', 
         avatarEmoji: '🧐',
         status: 'idle', 
-        task: '대본 품질 85점 게이트키퍼 검수 대기', 
+        task: '대본 퀄리티 85점 기준 검수 대기', 
         model: 'OmniRoute viraloop1', 
         loadPct: 15, 
         processedToday: 89, 
         avgLatencyMs: 310,
-        recentLog: '직전 검수 점수 92.4점 (통과 및 락 해제)'
+        recentLog: '직전 검수 점수 92.4점 통과'
     },
     { 
         id: 'w4', 
-        role: '사운드 디렉터', 
+        role: '보이스 더빙', 
         name: 'Voice-Sync', 
         avatarEmoji: '🎙️',
         status: 'working', 
-        task: 'ElevenLabs / Typecast / Supertonic 성우 합성 및 쨉쨉이 효과음 싱크', 
+        task: 'AI 성우 더빙 및 자막 싱크 정렬', 
         model: 'ElevenLabs / Typecast / Supertonic', 
         loadPct: 72, 
         processedToday: 64, 
         avgLatencyMs: 680,
-        recentLog: '나레이션 MP3 스트리밍(1.08x, +18%) 버퍼 및 BGM -18dB 덕킹 완료'
+        recentLog: '나레이션 MP3 및 BGM 덕킹 완료'
     },
     { 
         id: 'w5', 
-        role: '비주얼 디렉터', 
+        role: '영상 생성', 
         name: 'Flow-Artist', 
         avatarEmoji: '🎨',
         status: 'idle', 
-        task: 'Google Flow AI 시네마틱 렌더 파이프라인 대기', 
+        task: 'Google Flow AI 시네마틱 렌더 대기', 
         model: 'Google Flow AI v2.0', 
         loadPct: 10, 
         processedToday: 38, 
         avgLatencyMs: 3200,
-        recentLog: 'Flow 세션 토큰 유효성 검증 완료 (Ready)'
+        recentLog: 'Flow 세션 검증 완료 (Ready)'
     },
     { 
         id: 'w6', 
-        role: '스마트 컷터', 
+        role: '컷 편집', 
         name: 'Smart-Cutter', 
         avatarEmoji: '✂️',
         status: 'idle', 
-        task: '무음 구간(-35dB) 초정밀 절삭 및 씬 분할 대기', 
+        task: '무음 구간 정밀 절삭 및 씬 분할', 
         model: 'FFmpeg Native Core', 
         loadPct: 5, 
         processedToday: 51, 
         avgLatencyMs: 190,
-        recentLog: '무음 절삭 필터 28초 컷팅 완료 (0.05초 단위 정밀도)'
+        recentLog: '무음 절삭 필터 컷팅 완료'
     },
     { 
         id: 'w7', 
-        role: '캡컷 조립기', 
+        role: '타임라인 조립', 
         name: 'CapCut-Assembler', 
         avatarEmoji: '📦',
         status: 'idle', 
-        task: 'CapCut 프로젝트 No-ZIP 멀티트랙 조립 대기', 
+        task: 'CapCut 프로젝트 멀티트랙 조립 대기', 
         model: 'CapCut Native Bridge', 
         loadPct: 20, 
         processedToday: 47, 
         avgLatencyMs: 140,
-        recentLog: 'draft_content.json 로컬 타임라인 패키징 완료'
+        recentLog: '로컬 타임라인 패키징 완료'
     },
     { 
         id: 'w8', 
-        role: '배포 관리자', 
+        role: '채널 발행', 
         name: 'Queue-Deployer', 
         avatarEmoji: '🚀',
         status: 'idle', 
-        task: 'WorkQueue 백그라운드 렌더 및 예약 발행 감시', 
+        task: '배경 렌더링 및 채널 예약 발행', 
         model: 'WorkQueue Engine v2', 
         loadPct: 30, 
         processedToday: 45, 
         avgLatencyMs: 80,
-        recentLog: '대기열 0건 잔여 (모든 예약 작업 정상 송출 완료)'
+        recentLog: '모든 예약 작업 정상 송출 완료'
     }
 ];
 
@@ -167,7 +167,13 @@ export const StudioWarRoom: React.FC = () => {
     const [launchModalPreset, setLaunchModalPreset] = useState<any | null>(null);
     const [isLaunchpadOpen, setIsLaunchpadOpen] = useState(false);
     const [launchTopic, setLaunchTopic] = useState('');
+    const [instantTopic, setInstantTopic] = useState('');
     const [shadowJobs, setShadowJobs] = useState<ShadowJobItem[]>([]);
+    // Template-driven batch production states (Codex / Astra workflow)
+    const [batchTemplate, setBatchTemplate] = useState<'gunlimbo' | 'ssul' | 'instagram' | 'classic'>('gunlimbo');
+    const [batchSourceMode, setBatchSourceMode] = useState<'news' | 'ssul' | 'keyword'>('news');
+    const [batchCount, setBatchCount] = useState<number>(5);
+    const [isBatchLaunching, setIsBatchLaunching] = useState(false);
 
     const queryClient = useQueryClient();
 
@@ -452,25 +458,25 @@ export const StudioWarRoom: React.FC = () => {
                     <div>
                         <div className="flex items-center gap-2 flex-wrap">
                             <h1 className="text-lg sm:text-xl font-black tracking-tight text-foreground">
-                                [Tier 1] 루피 총사령탑 & [Tier 2] 채널 디렉터 워룸 (Sovereign War Room)
+                                스튜디오 관제 센터
                             </h1>
                             <Badge variant="outline" className="text-[10px] font-mono font-bold bg-indigo-500/10 text-indigo-500 border-indigo-500/30">
-                                3-Tier Sovereign Topology
+                                자동 제작 엔진
                             </Badge>
                             {isFsdActive ? (
                                 <Badge className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 text-[10px] font-bold gap-1 px-2 py-0.5">
                                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                    자율 주행 가동 중 ({fsdStatus?.progress || 0}%)
+                                    자동 제작 진행 중 ({fsdStatus?.progress || 0}%)
                                 </Badge>
                             ) : (
                                 <Badge className="bg-blue-500/15 text-blue-600 dark:text-blue-400 border border-blue-500/30 text-[10px] font-bold gap-1 px-2 py-0.5">
                                     <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
-                                    무인 프로덕션 상시 대기 (대기큐: {queuedTasks}건)
+                                    제작 대기 {queuedTasks}건
                                 </Badge>
                             )}
                         </div>
                         <p className="text-xs text-muted-foreground mt-0.5">
-                            루피 총사령탑(Tier 1)이 전역 GPU 세마포어와 API 예산을 중재하고, 채널 디렉터(Tier 2)들이 7단계 상태 머신으로 100% 무인 자율 양산합니다.
+                            영상 전 과정 자동 제작
                         </p>
                     </div>
                 </div>
@@ -478,7 +484,7 @@ export const StudioWarRoom: React.FC = () => {
                 {/* Right Channel Switcher */}
                 <div className="flex items-center gap-2 bg-muted/40 border border-border px-3.5 py-2 rounded-2xl shrink-0">
                     <Tv className="w-4 h-4 text-blue-500 shrink-0" />
-                    <span className="text-[11px] font-bold text-muted-foreground shrink-0">생산 대상 채널:</span>
+                    <span className="text-[11px] font-bold text-muted-foreground shrink-0">대상 채널:</span>
                     <select
                         value={selectedChannelId}
                         onChange={(e) => setSelectedChannelId(Number(e.target.value))}
@@ -493,64 +499,247 @@ export const StudioWarRoom: React.FC = () => {
                 </div>
             </div>
 
-            {/* 1.5 Hermes FTS5 Live Recall Ticker Bar */}
-            <div className="p-3 rounded-2xl bg-gradient-to-r from-purple-950/20 via-indigo-950/20 to-blue-950/20 border border-purple-500/30 flex items-center justify-between gap-3 text-xs overflow-hidden">
+            {/* 1.5 Live Recall Ticker Bar */}
+            <div className="p-3 rounded-2xl bg-card border border-border/80 shadow-xs flex items-center justify-between gap-3 text-xs overflow-hidden">
                 <div className="flex items-center gap-2 shrink-0">
-                    <Badge variant="outline" className="bg-purple-500/10 text-purple-400 border-purple-500/30 text-[10px] font-mono font-bold flex items-center gap-1">
+                    <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20 text-[10px] font-mono font-bold flex items-center gap-1">
                         <Database className="w-3 h-3" />
-                        Hermes FTS5 회상
+                        바이럴 공식
                     </Badge>
                     <span className="text-[11px] font-bold text-muted-foreground">
-                        [CH #{selectedChannelId} 떡상 공식]:
+                        [성공 패턴]:
                     </span>
                 </div>
 
                 <div className="flex-1 truncate font-mono text-[11px] text-foreground flex items-center gap-3">
                     {recalledWisdom.length > 0 ? (
                         <>
-                            <span className="text-amber-400 font-bold truncate">
+                            <span className="text-foreground font-bold truncate">
                                 ⚡ "{recalledWisdom[0].winning_hook || recalledWisdom[0].topic}"
                             </span>
                             <span className="text-muted-foreground shrink-0">•</span>
-                            <span className="text-indigo-400 truncate">
-                                쨉쨉이: {recalledWisdom[0].jjap_pattern || '0.8초 템포 싱크'}
+                            <span className="text-primary font-medium truncate">
+                                템포: {recalledWisdom[0].jjap_pattern || '0.8초 싱크'}
                             </span>
                             {recalledWisdom[0].score && (
-                                <Badge variant="outline" className="text-[9px] font-mono text-emerald-400 border-emerald-500/30 shrink-0">
+                                <Badge variant="outline" className="text-[9px] font-mono font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/20 shrink-0">
                                     ★ {recalledWisdom[0].score}점
                                 </Badge>
                             )}
                         </>
                     ) : (
                         <span className="text-muted-foreground italic">
-                            등록된 떡상 공식이 회상 대기 중입니다.
+                            등록된 바이럴 공식 대기 중
                         </span>
                     )}
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0">
-                    <Badge variant="outline" className="text-[9px] font-mono text-blue-400 border-blue-500/30">
-                        스킬팩 {channelSkillsCount}종 바인딩
+                    <Badge variant="outline" className="text-[9px] font-mono font-bold text-muted-foreground bg-muted/40 border-border">
+                        전용 스킬 {channelSkillsCount}개
                     </Badge>
                 </div>
             </div>
 
-            
-            {/* [Tier 1] 루피 AI 총사령탑 전역 자원 HUD & 인터락 거버넌스 */}
+            {/* 1.55 Codex / Astra 스타일 원클릭 즉시 제작 바 */}
+            <div className="p-4 rounded-2xl bg-card border border-border/80 shadow-xs space-y-2.5">
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        <Sparkles className="w-4 h-4 text-primary shrink-0" />
+                        <span className="text-xs font-black text-foreground">원클릭 즉시 제작</span>
+                        <Badge variant="outline" className="text-[9px] font-bold bg-primary/10 text-primary border-primary/20">
+                            초고속 자동화
+                        </Badge>
+                    </div>
+                    <span className="text-[10px] text-muted-foreground hidden sm:inline">
+                        주제 입력 즉시 제작
+                    </span>
+                </div>
+                <div className="flex items-center gap-2">
+                    <Input
+                        value={instantTopic}
+                        onChange={(e) => setInstantTopic(e.target.value)}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter' && instantTopic.trim()) {
+                                triggerDirectorCycleMutation.mutate({ channelId: selectedChannelId, modality: 'keyword_only', topic: instantTopic.trim() });
+                                setInstantTopic('');
+                            }
+                        }}
+                        placeholder="영상 주제 또는 유튜브 링크 입력..."
+                        className="bg-background text-xs h-9 rounded-xl border-border text-foreground placeholder:text-muted-foreground focus-visible:ring-primary"
+                    />
+                    <Button
+                        size="sm"
+                        disabled={!instantTopic.trim() || triggerDirectorCycleMutation.isPending}
+                        onClick={() => {
+                            if (instantTopic.trim()) {
+                                triggerDirectorCycleMutation.mutate({ channelId: selectedChannelId, modality: 'keyword_only', topic: instantTopic.trim() });
+                                setInstantTopic('');
+                            }
+                        }}
+                        className="h-9 px-4 text-xs font-bold bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl shrink-0 gap-1.5 shadow-xs"
+                    >
+                        {triggerDirectorCycleMutation.isPending ? (
+                            <>
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                제작 중...
+                            </>
+                        ) : (
+                            <>
+                                <PlayCircle className="w-3.5 h-3.5" />
+                                즉시 제작
+                            </>
+                        )}
+                    </Button>
+                </div>
+            </div>
+
+            {/* 1.58 템플릿 확정 다중 소재 대량 제작 (Codex/Astra Workflow) */}
+            <div className="p-4 rounded-2xl bg-card border border-border/80 shadow-xs space-y-3">
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        <Layers className="w-4 h-4 text-primary shrink-0" />
+                        <span className="text-xs font-black text-foreground">템플릿 확정 대량 제작</span>
+                        <Badge variant="outline" className="text-[9px] font-bold bg-primary/10 text-primary border-primary/20">
+                            올인원 일괄 생산
+                        </Badge>
+                    </div>
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => navigate('/shorts-batch')}
+                        className="h-6 text-[11px] font-bold text-muted-foreground hover:text-foreground gap-1 px-2"
+                    >
+                        <span>상세 일괄 작업실</span>
+                        <ArrowRight className="w-3 h-3" />
+                    </Button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
+                    {/* 1. 템플릿 고정 선택 (5칸) */}
+                    <div className="md:col-span-5 space-y-1.5">
+                        <span className="text-[10px] font-bold text-muted-foreground block">1. 템플릿 고정:</span>
+                        <div className="grid grid-cols-2 gap-1.5">
+                            {[
+                                { id: 'gunlimbo', label: '군림보 속보', desc: '2단 헤드라인' },
+                                { id: 'ssul', label: '커뮤니티 썰', desc: '게시판 자막' },
+                                { id: 'instagram', label: '인스타 릴스', desc: '프로필/베댓' },
+                                { id: 'classic', label: '클래식 쇼츠', desc: '레터박스 대제목' },
+                            ].map(t => (
+                                <button
+                                    key={t.id}
+                                    type="button"
+                                    onClick={() => setBatchTemplate(t.id as any)}
+                                    className={cn(
+                                        "p-2 rounded-xl text-left border transition-all cursor-pointer flex flex-col justify-center",
+                                        batchTemplate === t.id
+                                            ? "bg-primary/10 border-primary text-primary font-bold shadow-2xs"
+                                            : "bg-background border-border text-foreground hover:bg-muted/50"
+                                    )}
+                                >
+                                    <span className="text-xs">{t.label}</span>
+                                    <span className="text-[9.5px] text-muted-foreground font-normal">{t.desc}</span>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* 2. 소재 발굴 방식 & 수량 (7칸) */}
+                    <div className="md:col-span-7 space-y-3 flex flex-col justify-between">
+                        <div className="space-y-1.5">
+                            <span className="text-[10px] font-bold text-muted-foreground block">2. 소재 발굴 방식:</span>
+                            <div className="grid grid-cols-3 gap-1.5">
+                                {[
+                                    { id: 'news', label: '실시간 화제 기사' },
+                                    { id: 'ssul', label: '인기 커뮤니티 썰' },
+                                    { id: 'keyword', label: '키워드 다중 탐색' },
+                                ].map(m => (
+                                    <button
+                                        key={m.id}
+                                        type="button"
+                                        onClick={() => setBatchSourceMode(m.id as any)}
+                                        className={cn(
+                                            "py-2 px-1.5 rounded-xl text-center border text-xs transition-all cursor-pointer truncate",
+                                            batchSourceMode === m.id
+                                                ? "bg-primary/10 border-primary text-primary font-bold shadow-2xs"
+                                                : "bg-background border-border text-foreground hover:bg-muted/50"
+                                        )}
+                                    >
+                                        {m.label}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="flex items-center justify-between gap-2 pt-1">
+                            <div className="flex items-center gap-1.5">
+                                <span className="text-[10px] font-bold text-muted-foreground">제작 수량:</span>
+                                {[3, 5, 10].map(cnt => (
+                                    <button
+                                        key={cnt}
+                                        type="button"
+                                        onClick={() => setBatchCount(cnt)}
+                                        className={cn(
+                                            "px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer border",
+                                            batchCount === cnt
+                                                ? "bg-primary text-primary-foreground border-primary"
+                                                : "bg-background border-border text-muted-foreground hover:text-foreground"
+                                        )}
+                                    >
+                                        {cnt}편
+                                    </button>
+                                ))}
+                            </div>
+
+                            <Button
+                                size="sm"
+                                disabled={isBatchLaunching}
+                                onClick={async () => {
+                                    setIsBatchLaunching(true);
+                                    toast.info(`[${batchTemplate.toUpperCase()}] 템플릿에 맞춘 ${batchCount}편 자동 수집 일괄 제작을 시작합니다.`);
+                                    try {
+                                        await triggerDirectorCycleMutation.mutateAsync({
+                                            channelId: selectedChannelId,
+                                            modality: batchSourceMode === 'news' ? 'script_present' : 'keyword_only'
+                                        });
+                                        toast.success(`${batchCount}편 일괄 제작 큐가 정상 등록되었습니다!`);
+                                    } catch (_) {}
+                                    setIsBatchLaunching(false);
+                                }}
+                                className="h-8 px-4 text-xs font-bold bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl shadow-xs gap-1.5"
+                            >
+                                {isBatchLaunching ? (
+                                    <>
+                                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                        수집 및 제작 중...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Zap className="w-3.5 h-3.5 fill-current" />
+                                        {batchCount}편 일괄 제작 시작
+                                    </>
+                                )}
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* 1.6 전역 자원 HUD */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                 <div className="p-3.5 rounded-2xl bg-card border border-border shadow-xs flex items-center justify-between">
                     <div className="space-y-1">
                         <span className="text-[10px] text-muted-foreground font-bold flex items-center gap-1.5">
-                            <Cpu className="w-3.5 h-3.5 text-blue-500" />
-                            GPU 렌더링 세마포어
+                            <Cpu className="w-3.5 h-3.5 text-primary" />
+                            렌더링 슬롯
                         </span>
                         <div className="text-sm sm:text-base font-black text-foreground">
-                            {arbiterStatus.gpu_in_use || 0} / {arbiterStatus.gpu_limit || 2} <span className="text-xs text-muted-foreground font-normal">슬롯 사용 중</span>
+                            {arbiterStatus.gpu_in_use || 0} / {arbiterStatus.gpu_limit || 2} <span className="text-xs text-muted-foreground font-normal">슬롯 가동 중</span>
                         </div>
                     </div>
                     <Badge variant="outline" className={cn(
-                        "text-[10px] font-mono font-bold",
-                        (arbiterStatus.gpu_in_use || 0) >= (arbiterStatus.gpu_limit || 2) ? "bg-amber-500/10 text-amber-500 border-amber-500/30" : "bg-emerald-500/10 text-emerald-500 border-emerald-500/30"
+                        "text-[10px] font-mono font-bold shrink-0 whitespace-nowrap",
+                        (arbiterStatus.gpu_in_use || 0) >= (arbiterStatus.gpu_limit || 2) ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20" : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
                     )}>
                         {(arbiterStatus.gpu_in_use || 0) >= (arbiterStatus.gpu_limit || 2) ? "슬롯 포화" : "여유"}
                     </Badge>
@@ -559,54 +748,57 @@ export const StudioWarRoom: React.FC = () => {
                 <div className="p-3.5 rounded-2xl bg-card border border-border shadow-xs flex items-center justify-between">
                     <div className="space-y-1">
                         <span className="text-[10px] text-muted-foreground font-bold flex items-center gap-1.5">
-                            <Lock className="w-3.5 h-3.5 text-indigo-500" />
-                            보안 격리 & 지터링
+                            <Lock className="w-3.5 h-3.5 text-primary" />
+                            네트워크 보안
                         </span>
                         <div className="text-sm sm:text-base font-black text-foreground">
-                            {arbiterStatus.active_network_nodes || 0} <span className="text-xs text-muted-foreground font-normal">개 노드 감시</span>
+                            {arbiterStatus.active_network_nodes || 0} <span className="text-xs text-muted-foreground font-normal">개 노드 보호</span>
                         </div>
                     </div>
-                    <Badge variant="outline" className="text-[10px] font-mono font-bold bg-indigo-500/10 text-indigo-500 border-indigo-500/30">
-                        5~8초 지터링
+                    <Badge variant="outline" className="text-[10px] font-mono font-bold bg-muted text-muted-foreground border-border shrink-0 whitespace-nowrap">
+                        안전 지연 5초
                     </Badge>
                 </div>
 
                 <div className="p-3.5 rounded-2xl bg-card border border-border shadow-xs flex items-center justify-between">
-                    <div className="space-y-1">
+                    <div className="min-w-0 flex-1 space-y-1">
                         <span className="text-[10px] text-muted-foreground font-bold flex items-center gap-1.5">
-                            <DollarSign className="w-3.5 h-3.5 text-emerald-500" />
-                            일일 API 예산 거버넌스
+                            <DollarSign className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                            생성 비용 관리
                         </span>
-                        <div className="text-sm sm:text-base font-black text-foreground">
+                        <div className="text-sm sm:text-base font-black text-foreground truncate">
                             ${arbiterStatus.daily_budget_used || 0.0} / <span className="text-xs text-muted-foreground font-normal">${arbiterStatus.daily_budget_limit || 50.0}</span>
                         </div>
                     </div>
-                    <Badge variant="outline" className="text-[10px] font-mono font-bold bg-emerald-500/10 text-emerald-500 border-emerald-500/30">
-                        한도 보호 중
+                    <Badge variant="outline" className="text-[10px] font-mono font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 shrink-0 whitespace-nowrap ml-2">
+                        정상 가동
                     </Badge>
                 </div>
 
                 <div className="p-3.5 rounded-2xl bg-card border border-border shadow-xs flex items-center justify-between">
                     <div className="space-y-1">
                         <span className="text-[10px] text-muted-foreground font-bold flex items-center gap-1.5">
-                            <AlertTriangle className={cn("w-3.5 h-3.5", arbiterStatus.kill_switch_active ? "text-rose-500" : "text-slate-400")} />
-                            글로벌 비상 정지 (Kill-Switch)
+                            <AlertTriangle className={cn("w-3.5 h-3.5", arbiterStatus.kill_switch_active ? "text-rose-500" : "text-muted-foreground")} />
+                            긴급 정지
                         </span>
                         <div className="text-sm font-black text-foreground">
                             {arbiterStatus.kill_switch_active ? (
-                                <span className="text-rose-500 font-bold">비상 동결 발동 중</span>
+                                <span className="text-rose-600 dark:text-rose-400 font-bold">일시 정지 중</span>
                             ) : (
-                                <span className="text-emerald-500 font-bold">정상 가동 중</span>
+                                <span className="text-emerald-600 dark:text-emerald-400 font-bold">정상 가동 중</span>
                             )}
                         </div>
                     </div>
                     <Button
                         size="sm"
-                        variant={arbiterStatus.kill_switch_active ? "default" : "destructive"}
+                        variant={arbiterStatus.kill_switch_active ? "default" : "outline"}
                         onClick={() => toggleKillSwitchMutation.mutate(!arbiterStatus.kill_switch_active)}
-                        className="text-[10px] font-bold h-7 px-2.5 rounded-xl shadow-xs"
+                        className={cn(
+                            "text-[10px] font-bold h-7 px-2.5 rounded-xl shadow-xs shrink-0 whitespace-nowrap",
+                            !arbiterStatus.kill_switch_active && "border-border text-muted-foreground hover:text-destructive hover:border-destructive/30"
+                        )}
                     >
-                        {arbiterStatus.kill_switch_active ? "동결 해제" : "비상 정지"}
+                        {arbiterStatus.kill_switch_active ? "재가동" : "긴급 정지"}
                     </Button>
                 </div>
             </div>
@@ -615,22 +807,22 @@ export const StudioWarRoom: React.FC = () => {
             <div className="space-y-3">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                        <Layers className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                        <Layers className="w-4 h-4 text-primary" />
                         <h2 className="text-sm font-black text-foreground">
-                            Tier 2 채널 디렉터 (Channel Directors) 실시간 상태 머신 보드
+                            채널별 자동 제작
                         </h2>
                     </div>
                     <div className="flex items-center gap-2">
                         <Badge variant="outline" className="text-[10px] font-mono text-muted-foreground hidden sm:inline-flex">
-                            총 {directors.length}개 주권 채널 자율 순환
+                            총 {directors.length}개 채널 가동
                         </Badge>
                         <Button
                             size="sm"
                             onClick={() => setIsLaunchpadOpen(true)}
-                            className="h-8 text-xs font-bold bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-xl shadow-xs gap-1.5 px-3"
+                            className="h-8 text-xs font-bold bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl shadow-xs gap-1.5 px-3"
                         >
                             <Sparkles className="w-3.5 h-3.5" />
-                            + 새 채널 디렉터 임명 (레퍼런스 복제)
+                            + 새 채널 추가
                         </Button>
                     </div>
                 </div>
@@ -643,16 +835,16 @@ export const StudioWarRoom: React.FC = () => {
                                 key={d.id} 
                                 className={cn(
                                     "p-3.5 rounded-2xl border bg-card transition-all shadow-2xs space-y-2.5",
-                                    isWorking ? "border-indigo-500/50 shadow-indigo-500/5 ring-1 ring-indigo-500/20" : "border-border"
+                                    isWorking ? "border-primary/50 ring-1 ring-primary/20" : "border-border"
                                 )}
                             >
                                 <div className="flex items-start justify-between gap-2">
                                     <div className="min-w-0">
                                         <div className="flex items-center gap-1.5 flex-wrap">
-                                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-muted/60 text-muted-foreground font-mono">
+                                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-mono">
                                                 {d.security_badge}
                                             </span>
-                                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400 font-mono">
+                                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/20 font-mono">
                                                 {d.assigned_combo_model}
                                             </span>
                                         </div>
@@ -663,26 +855,32 @@ export const StudioWarRoom: React.FC = () => {
                                     
                                     <Badge className={cn(
                                         "text-[9px] font-bold px-2 py-0.5 shrink-0",
-                                        d.director_state === "IDLE" && "bg-slate-500/15 text-slate-600 dark:text-slate-400 border border-slate-500/20",
-                                        d.director_state === "SCOUTING" && "bg-blue-500/15 text-blue-600 dark:text-blue-400 border border-blue-500/30 animate-pulse",
-                                        d.director_state === "SCRIPTING" && "bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border border-indigo-500/30 animate-pulse",
-                                        d.director_state === "EVALUATING" && "bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 animate-pulse",
-                                        d.director_state === "PRODUCING" && "bg-purple-500/15 text-purple-600 dark:text-purple-400 border border-purple-500/30 animate-pulse",
-                                        d.director_state === "PACKAGING" && "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 animate-pulse",
-                                        d.director_state === "DISPATCHING" && "bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30 animate-pulse"
+                                        d.director_state === "IDLE" && "bg-muted text-muted-foreground border-border",
+                                        d.director_state === "SCOUTING" && "bg-primary/10 text-primary border-primary/20 animate-pulse",
+                                        d.director_state === "SCRIPTING" && "bg-primary/15 text-primary border-primary/30 animate-pulse",
+                                        d.director_state === "EVALUATING" && "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30 animate-pulse",
+                                        d.director_state === "PRODUCING" && "bg-primary/10 text-primary border-primary/20 animate-pulse",
+                                        d.director_state === "PACKAGING" && "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 animate-pulse",
+                                        d.director_state === "DISPATCHING" && "bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/30 animate-pulse"
                                     )}>
-                                        {d.director_state}
+                                        {d.director_state === "IDLE" ? "대기 중" :
+                                         d.director_state === "SCOUTING" ? "소재 발굴" :
+                                         d.director_state === "SCRIPTING" ? "대본 작성" :
+                                         d.director_state === "EVALUATING" ? "품질 검수" :
+                                         d.director_state === "PRODUCING" ? "영상 생성" :
+                                         d.director_state === "PACKAGING" ? "편집 조립" :
+                                         d.director_state === "DISPATCHING" ? "발행 중" : d.director_state}
                                     </Badge>
                                 </div>
 
                                 <div className="p-2 rounded-xl bg-muted/30 border border-border/50 text-[10px] space-y-1">
                                     <div className="flex items-center justify-between text-muted-foreground">
-                                        <span>오늘 발행 / 목표:</span>
-                                        <span className="font-bold text-foreground font-mono">{d.published_today_count} / {d.daily_target_count} 편</span>
+                                        <span>오늘 완료 / 목표:</span>
+                                        <span className="font-bold text-foreground font-mono">{d.published_today_count} / {d.daily_target_count}편</span>
                                     </div>
                                     <div className="flex items-center justify-between text-muted-foreground">
-                                        <span>디렉터 생존 펄스:</span>
-                                        <span className="font-mono text-emerald-500 font-bold">{d.director_heartbeat}</span>
+                                        <span>가동 상태:</span>
+                                        <span className="font-mono text-emerald-600 dark:text-emerald-400 font-bold">{d.director_heartbeat}</span>
                                     </div>
                                 </div>
 
@@ -691,17 +889,17 @@ export const StudioWarRoom: React.FC = () => {
                                         size="sm"
                                         disabled={triggeringChannelId === d.id || isWorking}
                                         onClick={() => triggerDirectorCycleMutation.mutate({ channelId: d.id, modality: 'keyword_only' })}
-                                        className="flex-1 text-[11px] font-bold h-7 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-2xs gap-1"
+                                        className="flex-1 text-[11px] font-bold h-7 bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl shadow-2xs gap-1"
                                     >
                                         {triggeringChannelId === d.id ? (
                                             <>
                                                 <Loader2 className="w-3 h-3 animate-spin" />
-                                                가동 중...
+                                                제작 중...
                                             </>
                                         ) : (
                                             <>
                                                 <PlayCircle className="w-3.5 h-3.5" />
-                                                자율 생산 1회
+                                                영상 제작
                                             </>
                                         )}
                                     </Button>
@@ -711,9 +909,9 @@ export const StudioWarRoom: React.FC = () => {
                                         variant="outline"
                                         onClick={() => navigate('/agent-roster')}
                                         className="h-7 px-2 text-[10px] font-bold border-border/80 text-muted-foreground hover:text-foreground rounded-xl"
-                                        title="채널 콤보 모델 및 떡상 DNA 핫스왑 피보팅"
+                                        title="채널 설정"
                                     >
-                                        피보팅
+                                        설정
                                     </Button>
                                 </div>
                             </div>
@@ -722,12 +920,12 @@ export const StudioWarRoom: React.FC = () => {
                 </div>
             </div>
 
-            {/* 2. 8-Worker Live Desk Matrix (Virtual Production Floor) */}
+            {/* 2. 전문 AI 제작팀 매트릭스 */}
             <div className="space-y-3">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                         <Users className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                        <h2 className="text-sm font-black text-foreground">8인의 전문 AI 워커 실시간 근무 현황</h2>
+                        <h2 className="text-sm font-black text-foreground">전문 AI 제작팀</h2>
                     </div>
                     <Button 
                         variant="ghost" 
@@ -736,7 +934,7 @@ export const StudioWarRoom: React.FC = () => {
                         className="text-xs font-bold text-blue-600 dark:text-blue-400 h-7 hover:bg-blue-500/10 rounded-xl"
                     >
                         <Sparkles className="w-3.5 h-3.5 mr-1" />
-                        루피 지휘 콘솔 열기
+                        AI 콘솔 열기
                     </Button>
                 </div>
 
@@ -808,20 +1006,20 @@ export const StudioWarRoom: React.FC = () => {
                     <div className="flex items-center gap-2">
                         <Zap className="w-4 h-4 text-amber-500" />
                         <h2 className="text-sm font-black text-foreground">
-                            6대 표준 영상 제작 파이프라인 출격 센터 [CH #{selectedChannelId}]
+                            표준 제작 파이프라인
                         </h2>
                     </div>
-                    <span className="text-xs text-muted-foreground font-medium">원클릭 무인 조립 지원</span>
+                    <span className="text-xs text-muted-foreground font-medium">원클릭 자동 조립</span>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
                     {[
-                        { id: 'full_generative_ai', name: '5. AI 완전 창작 생성형 (추천)', tag: '야담/판타지/지식', badge: '무인 완결', estTime: '2분 10초', desc: 'Google Flow AI 비주얼 렌더 + 9-Wave 바이럴 대본 + ElevenLabs/Typecast 전문 음성 + CapCut No-ZIP 조립' },
-                        { id: 'one_take_hook', name: '1. 원테이크 퀵후킹형', tag: '숏폼 초고속', badge: '고속 양산', estTime: '35초', desc: '해외 바이럴 영상 수집 + 9:16 상하단 블러 캔버스 + 3초 킬러 후킹 0.8초 쨉쨉이 자막 일괄 제작' },
-                        { id: 'music_beat_sync', name: '2. 음악 비트싱크형', tag: '감성/패션/여행', badge: '비트 싱크', estTime: '45초', desc: 'FFmpeg -35dB 무음 초정밀 절삭 + 트렌드 BGM 비트 매핑 + 0.8초 고속 쨉쨉이 화면 전환' },
-                        { id: 'script_commentary', name: '3. 대본 해설/리캡형', tag: '경제/시사/인문', badge: '스토리텔링', estTime: '1분 15초', desc: 'Whisper 음성 추출 ➔ AI 팩트 각색 ➔ 전문 AI 성우 보이스 ➔ 02_쨉쨉이.srt 자막 싱크 조립' },
-                        { id: 'movie_drama_highlight', name: '4. 영화/드라마 컷팅형', tag: '리뷰/하이라이트', badge: '명장면 추출', estTime: '1분 40초', desc: 'SceneCutter 씬 분할로 30~60초 명장면 자동 감지 + 결말포함 리뷰 대본 결합' },
-                        { id: 'hybrid_longform', name: '6. 하이브리드 멀티소스 롱폼', tag: '5~15분 롱폼', badge: '장편 제작', estTime: '4분 30초', desc: '수집 컷팅 영상과 Flow AI 클립, 스톡 비디오를 다중 트랙으로 교차 조립' }
+                        { id: 'full_generative_ai', name: '1. AI 완전 창작형', tag: '야담/판타지/지식', badge: '올인원 제작', estTime: '2분 10초', desc: 'Google Flow AI 비주얼 렌더 + 9-Wave 바이럴 대본 + ElevenLabs/Typecast 전문 음성 + CapCut No-ZIP 조립' },
+                        { id: 'one_take_hook', name: '2. 원테이크 퀵후킹형', tag: '숏폼 초고속', badge: '고속 양산', estTime: '35초', desc: '해외 바이럴 영상 수집 + 9:16 상하단 블러 캔버스 + 3초 킬러 후킹 0.8초 쨉쨉이 자막 일괄 제작' },
+                        { id: 'music_beat_sync', name: '3. 음악 비트싱크형', tag: '감성/패션/여행', badge: '비트 싱크', estTime: '45초', desc: 'FFmpeg -35dB 무음 초정밀 절삭 + 트렌드 BGM 비트 매핑 + 0.8초 고속 쨉쨉이 화면 전환' },
+                        { id: 'script_commentary', name: '4. 대본 해설/리캡형', tag: '경제/시사/인문', badge: '스토리텔링', estTime: '1분 15초', desc: 'Whisper 음성 추출 ➔ AI 팩트 각색 ➔ 전문 AI 성우 보이스 ➔ 02_쨉쨉이.srt 자막 싱크 조립' },
+                        { id: 'movie_drama_highlight', name: '5. 영화/드라마 컷팅형', tag: '리뷰/하이라이트', badge: '명장면 추출', estTime: '1분 40초', desc: 'SceneCutter 씬 분할로 30~60초 명장면 자동 감지 + 결말포함 리뷰 대본 결합' },
+                        { id: 'hybrid_longform', name: '6. 하이브리드 롱폼', tag: '5~15분 롱폼', badge: '장편 제작', estTime: '4분 30초', desc: '수집 컷팅 영상과 Flow AI 클립, 스톡 비디오를 다중 트랙으로 교차 조립' }
                     ].map(pipe => (
                         <div 
                             key={pipe.id}
@@ -849,10 +1047,10 @@ export const StudioWarRoom: React.FC = () => {
                                     setLaunchModalPreset(pipe);
                                     setLaunchTopic('');
                                 }}
-                                className="w-full text-xs font-bold h-8 bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-2xs gap-1.5"
+                                className="w-full text-xs font-bold h-8 bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl shadow-2xs gap-1.5"
                             >
                                 <Play className="w-3.5 h-3.5 fill-current" />
-                                [CH #{selectedChannelId}] 파이프라인 출격
+                                영상 제작 시작
                             </Button>
                         </div>
                     ))}
@@ -866,11 +1064,11 @@ export const StudioWarRoom: React.FC = () => {
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                             <Terminal className="w-4 h-4 text-blue-600" />
-                            <h3 className="text-xs font-black text-foreground">워룸 실시간 프로덕션 이벤트 티커</h3>
+                            <h3 className="text-xs font-black text-foreground">실시간 제작 로그</h3>
                         </div>
                         <span className="text-[10px] font-mono text-emerald-500 font-bold flex items-center gap-1">
                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
-                            LIVE STREAMING
+                            실시간 연동
                         </span>
                     </div>
 
@@ -892,7 +1090,7 @@ export const StudioWarRoom: React.FC = () => {
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                             <Package className="w-4 h-4 text-indigo-600" />
-                            <h3 className="text-xs font-black text-foreground">최근 완성 아티팩트</h3>
+                            <h3 className="text-xs font-black text-foreground">최근 제작 영상</h3>
                         </div>
                         <span className="text-[10px] text-muted-foreground font-bold">CapCut 연동</span>
                     </div>
