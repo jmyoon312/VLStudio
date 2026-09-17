@@ -721,6 +721,45 @@ export default function ViralIntelligenceCenter() {
         toast.success(`🎉 ${successCount}건의 기사 본문 및 이미지 스크랩이 완료되었습니다!`);
     };
 
+    // 🎬 Stitch Series Pack into 3-Clip Countdown Omnibus Short-Form
+    const [isStitchingSeries, setIsStitchingSeries] = useState<boolean>(false);
+    const handleStitchSeriesPack = async (pack: any, targetFormFactor: string = 'classic') => {
+        if (!pack || !pack.articles || pack.articles.length < 2) {
+            toast.error('옴니버스 제작을 위해 최소 2개 이상의 클립/소재가 필요합니다.');
+            return;
+        }
+        setIsStitchingSeries(true);
+        try {
+            const articleIds = pack.articles.slice(0, 3).map((a: any) => a.id);
+            const res = await api.post('/viral/series-packs/stitch', {
+                series_key: pack.series_key,
+                article_ids: articleIds,
+                target_form_factor: targetFormFactor,
+                target_channel_id: selectedChannelFilter !== 'all' ? selectedChannelFilter : undefined,
+                custom_title: pack.suggested_omnibus_title
+            });
+
+            if (res.data?.success) {
+                toast.success(res.data.message || '옴니버스 쇼츠 프로젝트가 성공적으로 패키징되었습니다!');
+                setSeriesModalOpen(false);
+                try {
+                    sessionStorage.setItem('vl_stitched_project', JSON.stringify(res.data));
+                } catch (_) {}
+
+                if (res.data.redirect_url) {
+                    navigate(res.data.redirect_url, { state: { stitchedProject: res.data } });
+                }
+            } else {
+                toast.error('옴니버스 패키징에 실패했습니다.');
+            }
+        } catch (err: any) {
+            console.error('[StitchSeries] Error:', err);
+            toast.error(err.response?.data?.detail || '옴니버스 쇼츠 제작 중 오류가 발생했습니다.');
+        } finally {
+            setIsStitchingSeries(false);
+        }
+    };
+
     // Free Media Search Handler
     const handleMediaSearch = async () => {
         if (!mediaQuery.trim()) return;
@@ -3395,14 +3434,17 @@ export default function ViralIntelligenceCenter() {
                                             </Button>
                                             <Button
                                                 size="sm"
-                                                onClick={() => {
-                                                    setSeriesModalOpen(false);
-                                                    handleSendToBatchStudio(pack.articles || []);
-                                                }}
-                                                className="h-7 text-xs px-3 font-bold bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer flex items-center gap-1"
+                                                disabled={isStitchingSeries}
+                                                onClick={() => handleStitchSeriesPack(pack, 'classic')}
+                                                className="h-7 text-xs px-3 font-bold bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer flex items-center gap-1.5 shadow-xs transition-all"
+                                                title="TOP 3 카운트다운 훅과 3연타 클립을 50초 옴니버스 쇼츠 프로젝트로 즉시 패키징합니다"
                                             >
-                                                <Zap className="w-3.5 h-3.5" />
-                                                <span>3연타 일괄 생성</span>
+                                                {isStitchingSeries ? (
+                                                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                                                ) : (
+                                                    <Zap className="w-3.5 h-3.5" />
+                                                )}
+                                                <span>3연타 옴니버스 원클릭 제작</span>
                                             </Button>
                                         </div>
                                     </div>

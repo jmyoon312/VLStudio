@@ -887,7 +887,7 @@ class DiscoveryScraper:
 
             # ── 1. Site-Specific Body Selectors ──
             body_el = None
-            if community_code == "dcinside_best":
+            if community_code in ["dcinside_best", "dc_singal"]:
                 body_el = soup.select_one(".writing_view_box .write_div, .write_div")
             elif community_code == "gasengi":
                 body_el = soup.select_one("#bo_v_con, .view-content")
@@ -896,7 +896,29 @@ class DiscoveryScraper:
             elif community_code == "theverge":
                 body_el = soup.select_one(".duet--article--article-body-component, article, main")
             elif community_code == "bbc_world":
-                body_el = soup.select_one("article, main")
+                body_el = soup.select_one("main, article, .story-body")
+            elif community_code == "ap_news":
+                body_el = soup.select_one(".RichTextStoryBody, article, main")
+            elif community_code == "techcrunch":
+                body_el = soup.select_one(".entry-content, article")
+            elif community_code == "memebase":
+                body_el = soup.select_one(".post-content, article, .entry-content")
+            elif community_code == "lemmy":
+                body_el = soup.select_one(".post-body, .md, article")
+            elif community_code == "stackoverflow":
+                body_el = soup.select_one("#mainbar, .s-prose")
+            elif community_code == "devto":
+                body_el = soup.select_one("#article-body, .crayons-article__body, .article-body")
+            elif community_code == "lobsters":
+                body_el = soup.select_one(".story_text, .comment_text")
+            elif community_code == "openai":
+                body_el = soup.select_one(".cooked, #main-outlet, .topic-body")
+            elif community_code == "reddit_api":
+                body_el = soup.select_one(".post-content, .entry-content, article")
+            elif community_code == "hackernews":
+                body_el = soup.select_one("article, main, .post-content, .entry-content, #content")
+            elif community_code in ["natepann", "natepann_talk"]:
+                body_el = soup.select_one("#contentArea, .contentArea, .pann_content")
             elif community_code == "buzzfeed":
                 body_el = soup.select_one(".subbuzz-wrapper, .buzz-body, article, .post-content")
             elif community_code == "boredpanda":
@@ -923,7 +945,7 @@ class DiscoveryScraper:
                 body_el = soup.select_one(".rd_body .xe_content, .xe_content, article .xe_content")
             elif community_code == "etoland":
                 body_el = soup.select_one("article .view-content, .content-wrapper .view-content, .view-content, .content-wrapper, .article_body")
-            elif community_code == "bobae_best":
+            elif community_code in ["bobae_best", "bobae_accident"]:
                 body_el = soup.select_one(".bodyCont, .contentDetail")
             elif community_code == "dogdrip":
                 body_el = soup.select_one(".rhymix_content, .document-body > .content, .document-body .xe_content, .xe_content")
@@ -1161,13 +1183,13 @@ class DiscoveryScraper:
                 cmt_container = soup.select_one(".reply_list")
                 if cmt_container:
                     cmt_elements = cmt_container.select(".re_txt, span.re_txt")
-            elif community_code == "dcinside_best":
+            elif community_code in ["dcinside_best", "dc_singal"]:
                 cmt_container = soup.select_one(".comment_box, .cmt_list, .reply_box")
                 if cmt_container:
                     cmt_elements = cmt_container.select(".cmt_txt, .txt")
             elif community_code == "clien":
                 cmt_elements = soup.select(".comment_row .comment_view, .comment_row .comment_content, .comment_content, .comment_view")
-            elif community_code == "natepann":
+            elif community_code in ["natepann", "natepann_talk"]:
                 cmt_container = soup.select_one(".comment_wrap, #commentList, .cmt_list")
                 if cmt_container:
                     cmt_elements = cmt_container.select(".comm_txt, .txt")
@@ -1219,7 +1241,7 @@ class DiscoveryScraper:
                 cmt_container = soup.select_one(".view_comment_list, .comment_list")
                 if cmt_container:
                     cmt_elements = cmt_container.select(".comment_memo")
-            elif community_code == "bobae_best":
+            elif community_code in ["bobae_best", "bobae_accident"]:
                 # Bobae Dream PC: fetch comments via AJAX clocation if present
                 m_cloc = re.search(r'var\s+clocation\s*=\s*["\']([^"\']+)["\']', raw_html)
                 if m_cloc:
@@ -2725,7 +2747,10 @@ class DiscoveryScraper:
 
                 # 12. Bobae Dream Best & Accident (블박)
                 elif community_code in ["bobae_best", "bobae_accident"]:
-                    for a in soup.select("td.plink a, a.bsubject, .plink"):
+                    for a in soup.select("table tbody tr a.bsubject, table tbody tr td.plink a, a.bsubject, td.plink a"):
+                        # Remove comment counts or badges inside link
+                        for bad in a.select(".cmt, .reple, span.count"):
+                            bad.decompose()
                         t = self.clean_title(a.get_text(" ", strip=True))
                         h = a.get("href", "")
                         if not h or "view" not in h:

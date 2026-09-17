@@ -473,6 +473,24 @@ def get_topic_clusters(db: Session = Depends(database.get_db)):
     }
 
 
+SERIES_METADATA: Dict[str, Dict[str, str]] = {
+    "series_tennis_highlights": {"title": "테니스 미친 랠리 & 하이라이트", "topic": "스포츠", "icon": "🎾", "suggested_omnibus_title": "[테니스] 보고도 안 믿기는 역대급 랠리 TOP 3"},
+    "series_football_highlights": {"title": "축구 원더골 & 슈퍼세이브", "topic": "스포츠", "icon": "⚽", "suggested_omnibus_title": "[축구] 관중석 뒤집어놓은 미친 원더골 모음"},
+    "series_축구_highlights": {"title": "축구 원더골 & 슈퍼세이브", "topic": "스포츠", "icon": "⚽", "suggested_omnibus_title": "[축구] 관중석 뒤집어놓은 미친 원더골 모음"},
+    "series_baseball_highlights": {"title": "야구 호수비 & 끝내기 홈런", "topic": "스포츠", "icon": "⚾", "suggested_omnibus_title": "[야구] 탄성 터져나온 역대급 호수비 모음"},
+    "series_야구_highlights": {"title": "야구 호수비 & 끝내기 홈런", "topic": "스포츠", "icon": "⚾", "suggested_omnibus_title": "[야구] 탄성 터져나온 역대급 호수비 모음"},
+    "series_dashcam_accident": {"title": "블랙박스 급발진 & 황당 사고", "topic": "자동차/교통", "icon": "🚗", "suggested_omnibus_title": "[블박] 한문철 변호사도 경악한 레전드 사고 3선"},
+    "series_justice_served": {"title": "진상·악플러 참교육 사이다", "topic": "참교육/사이다", "icon": "🥊", "suggested_omnibus_title": "[참교육] 갑질 진상 참교육당하고 무릎꿇은 사이다 실화"},
+    "series_unsolved_mystery": {"title": "미스터리 실종 & 심리 미제사건", "topic": "미스터리/심리", "icon": "🕵️", "suggested_omnibus_title": "[미스터리] 아직도 안 풀린 소름 돋는 미제사건 모음"},
+    "series_master_craftsman": {"title": "산업현장 달인 & 신의 손 기술", "topic": "산업현장/달인", "icon": "🛠️", "suggested_omnibus_title": "[달인] 0.1초 만에 척척 해내는 산업현장 신의 손들"},
+    "series_satisfying_craft": {"title": "산업현장 달인 & 특수 공구 기술", "topic": "산업현장/달인", "icon": "🛠️", "suggested_omnibus_title": "[달인] 0.1초 만에 척척 해내는 산업현장 신의 손들"},
+    "series_space_wonders": {"title": "우주 블랙홀 & 지구의 경이", "topic": "과학/우주/경이", "icon": "🚀", "suggested_omnibus_title": "[우주경이] 보면 볼수록 경이로운 우주와 심해의 신비"},
+    "series_nature_wonders": {"title": "대자연의 경이 & 야생의 세계", "topic": "과학/우주/경이", "icon": "🌿", "suggested_omnibus_title": "[자연경이] 상상을 초월하는 대자연의 경이로운 순간들"},
+    "series_history_war": {"title": "역사를 바꾼 전설의 전투 비화", "topic": "역사/전쟁/비화", "icon": "⚔️", "suggested_omnibus_title": "[역사비화] 교과서에 안 나오는 세계사 반전 실화 3선"},
+    "series_history_untold": {"title": "역사를 바꾼 전설의 비화 & 야담", "topic": "역사/전쟁/비화", "icon": "⚔️", "suggested_omnibus_title": "[역사비화] 교과서에 안 나오는 세계사 반전 실화 3선"},
+}
+
+
 @router.get("/series-packs")
 def get_series_packs(
     min_count: int = Query(2, ge=2, le=20),
@@ -492,23 +510,6 @@ def get_series_packs(
         .limit(limit)
         .all()
     )
-
-    SERIES_METADATA = {
-        "series_tennis_highlights": {"title": "테니스 미친 랠리 & 하이라이트", "topic": "스포츠", "icon": "🎾", "suggested_omnibus_title": "[테니스] 보고도 안 믿기는 역대급 랠리 TOP 3"},
-        "series_football_highlights": {"title": "축구 원더골 & 슈퍼세이브", "topic": "스포츠", "icon": "⚽", "suggested_omnibus_title": "[축구] 관중석 뒤집어놓은 미친 원더골 모음"},
-        "series_축구_highlights": {"title": "축구 원더골 & 슈퍼세이브", "topic": "스포츠", "icon": "⚽", "suggested_omnibus_title": "[축구] 관중석 뒤집어놓은 미친 원더골 모음"},
-        "series_baseball_highlights": {"title": "야구 호수비 & 끝내기 홈런", "topic": "스포츠", "icon": "⚾", "suggested_omnibus_title": "[야구] 탄성 터져나온 역대급 호수비 모음"},
-        "series_야구_highlights": {"title": "야구 호수비 & 끝내기 홈런", "topic": "스포츠", "icon": "⚾", "suggested_omnibus_title": "[야구] 탄성 터져나온 역대급 호수비 모음"},
-        "series_dashcam_accident": {"title": "블랙박스 급발진 & 황당 사고", "topic": "자동차/교통", "icon": "🚗", "suggested_omnibus_title": "[블박] 한문철 변호사도 경악한 레전드 사고 3선"},
-        "series_justice_served": {"title": "진상·악플러 참교육 사이다", "topic": "참교육/사이다", "icon": "🥊", "suggested_omnibus_title": "[참교육] 갑질 진상 참교육당하고 무릎꿇은 사이다 실화"},
-        "series_unsolved_mystery": {"title": "미스터리 실종 & 심리 미제사건", "topic": "미스터리/심리", "icon": "🕵️", "suggested_omnibus_title": "[미스터리] 아직도 안 풀린 소름 돋는 미제사건 모음"},
-        "series_master_craftsman": {"title": "산업현장 달인 & 신의 손 기술", "topic": "산업현장/달인", "icon": "🛠️", "suggested_omnibus_title": "[달인] 0.1초 만에 척척 해내는 산업현장 신의 손들"},
-        "series_satisfying_craft": {"title": "산업현장 달인 & 특수 공구 기술", "topic": "산업현장/달인", "icon": "🛠️", "suggested_omnibus_title": "[달인] 0.1초 만에 척척 해내는 산업현장 신의 손들"},
-        "series_space_wonders": {"title": "우주 블랙홀 & 지구의 경이", "topic": "과학/우주/경이", "icon": "🚀", "suggested_omnibus_title": "[우주경이] 보면 볼수록 경이로운 우주와 심해의 신비"},
-        "series_nature_wonders": {"title": "대자연의 경이 & 야생의 세계", "topic": "과학/우주/경이", "icon": "🌿", "suggested_omnibus_title": "[자연경이] 상상을 초월하는 대자연의 경이로운 순간들"},
-        "series_history_war": {"title": "역사를 바꾼 전설의 전투 비화", "topic": "역사/전쟁/비화", "icon": "⚔️", "suggested_omnibus_title": "[역사비화] 교과서에 안 나오는 세계사 반전 실화 3선"},
-        "series_history_untold": {"title": "역사를 바꾼 전설의 비화 & 야담", "topic": "역사/전쟁/비화", "icon": "⚔️", "suggested_omnibus_title": "[역사비화] 교과서에 안 나오는 세계사 반전 실화 3선"},
-    }
 
     packs = []
     for row in series_keys:
@@ -549,6 +550,169 @@ def get_series_packs(
     return {
         "series_packs": packs,
         "total_packs": len(packs)
+    }
+
+
+class StitchSeriesRequest(BaseModel):
+    series_key: str
+    article_ids: List[int]
+    target_form_factor: Optional[str] = "classic"  # "classic" | "gunlimbo" | "ssul" | "instastory"
+    target_channel_id: Optional[str] = None
+    custom_title: Optional[str] = None
+
+
+@router.post("/series-packs/stitch")
+def stitch_series_pack(
+    req: StitchSeriesRequest,
+    db: Session = Depends(database.get_db)
+):
+    """
+    Sequences 2 to 4 viral clips from a Series Pack into a high-retention Omnibus Short-Form project.
+    Generates unified TOP 3 countdown hook, synchronized timecoded scenes, and hands off to Sovereign Studio.
+    """
+    if not req.article_ids or len(req.article_ids) < 2:
+        raise HTTPException(400, "최소 2개 이상의 클립/소재를 선택해야 옴니버스 제작이 가능합니다.")
+
+    articles = (
+        db.query(models.ViralArticle)
+        .filter(models.ViralArticle.id.in_(req.article_ids))
+        .all()
+    )
+    if not articles:
+        raise HTTPException(404, "선택한 소재를 찾을 수 없습니다.")
+
+    # Maintain user selection order
+    id_map = {a.id: a for a in articles}
+    ordered_articles = [id_map[aid] for aid in req.article_ids if aid in id_map]
+    if len(ordered_articles) < 2:
+        ordered_articles = articles
+
+    meta = SERIES_METADATA.get(req.series_key, {
+        "title": req.series_key.replace("series_", "").replace("_", " ").title(),
+        "topic": ordered_articles[0].topic_category or "일반",
+        "icon": "🎬",
+        "suggested_omnibus_title": f"[{ordered_articles[0].topic_category}] 레전드 순간 TOP {len(ordered_articles)}"
+    })
+
+    topic_name = meta.get("topic") or ordered_articles[0].topic_category or "화제의"
+    omnibus_title = req.custom_title or meta.get("suggested_omnibus_title") or f"[{topic_name}] 레전드 순간 TOP {len(ordered_articles)}"
+
+    # Construct 3-Scene Countdown Structure (TOP 3 -> TOP 2 -> TOP 1)
+    scenes = []
+    current_time = 0.0
+    full_script_lines = []
+
+    # 1. Opening Hook (0 ~ 3.5s)
+    intro_dur = 3.5
+    intro_hook = f"절대 눈 뗄 수 없는 {topic_name} 레전드 순간 TOP {len(ordered_articles)}! 바로 시작합니다."
+    first_img = (ordered_articles[0].images or [None])[0] if ordered_articles[0].images else None
+    scenes.append({
+        "scene_index": 0,
+        "badge": "INTRO HOOK",
+        "badge_color": "#FF0055",
+        "headline": f"{meta.get('icon', '🔥')} {topic_name} TOP {len(ordered_articles)}",
+        "start_sec": current_time,
+        "end_sec": round(current_time + intro_dur, 2),
+        "duration_sec": intro_dur,
+        "narration": intro_hook,
+        "media_url": first_img,
+        "article_id": ordered_articles[0].id,
+        "article_title": ordered_articles[0].title
+    })
+    full_script_lines.append(f"[00:00 - INTRO] {intro_hook}")
+    current_time += intro_dur
+
+    # 2. Sequential Clips in Countdown Order (e.g. 3위 -> 2위 -> 1위)
+    num_clips = len(ordered_articles)
+    for idx, art in enumerate(ordered_articles):
+        rank = num_clips - idx
+        rank_badge = f"TOP {rank}" if rank > 0 else "BONUS"
+        clip_dur = 15.0 if idx == 0 else (16.0 if idx == 1 else 17.5)  # Escalating tension
+        
+        clean_t = re.sub(r'\[.*?\]', '', art.title).strip()
+        body_snippet = (art.analysis_summary or art.content_text or "").replace('\n', ' ').strip()
+        if len(body_snippet) > 80:
+            body_snippet = body_snippet[:77] + "..."
+
+        if rank == 1:
+            transition = f"대망의 1위! {clean_t}. {body_snippet}"
+        elif rank == 2:
+            transition = f"이어서 2위! {clean_t}. {body_snippet}"
+        else:
+            transition = f"{rank}위! {clean_t}. {body_snippet}"
+
+        media_url = art.images[0] if (art.images and len(art.images) > 0) else None
+
+        scenes.append({
+            "scene_index": idx + 1,
+            "badge": rank_badge,
+            "badge_color": "#FFDD00" if rank == 1 else ("#00E5FF" if rank == 2 else "#A855F7"),
+            "headline": clean_t[:30],
+            "start_sec": round(current_time, 2),
+            "end_sec": round(current_time + clip_dur, 2),
+            "duration_sec": clip_dur,
+            "narration": transition,
+            "media_url": media_url,
+            "article_id": art.id,
+            "article_title": art.title
+        })
+        m_start = int(current_time) // 60
+        s_start = int(current_time) % 60
+        full_script_lines.append(f"[{m_start:02d}:{s_start:02d} - {rank_badge}] {transition}")
+        current_time += clip_dur
+
+    # 3. Call-To-Action Outro (3.5s)
+    outro_dur = 3.5
+    outro_text = "여러분의 원픽은 몇 위였나요? 댓글로 투표해주세요! 구독과 좋아요는 큰 힘이 됩니다."
+    scenes.append({
+        "scene_index": len(scenes),
+        "badge": "VOTE NOW",
+        "badge_color": "#10B981",
+        "headline": "댓글로 원픽을 남겨주세요!",
+        "start_sec": round(current_time, 2),
+        "end_sec": round(current_time + outro_dur, 2),
+        "duration_sec": outro_dur,
+        "narration": outro_text,
+        "media_url": None,
+        "article_id": None,
+        "article_title": "Outro & Engagement"
+    })
+    m_start = int(current_time) // 60
+    s_start = int(current_time) % 60
+    full_script_lines.append(f"[{m_start:02d}:{s_start:02d} - OUTRO] {outro_text}")
+    current_time += outro_dur
+
+    # Update articles status & form factor
+    target_ff = req.target_form_factor or "classic"
+    for art in ordered_articles:
+        art.status = "approved"
+        cur_ffs = art.target_form_factors or []
+        if target_ff not in cur_ffs:
+            cur_ffs.append(target_ff)
+        art.target_form_factors = cur_ffs
+        if req.target_channel_id:
+            art.claimed_by_channel_id = str(req.target_channel_id)
+            art.claimed_at = datetime.now()
+
+    db.commit()
+
+    stitch_id = f"stitch_{int(datetime.now().timestamp())}_{req.series_key}"
+    redirect_url = f"/shorts-editor/{target_ff}?article_id={ordered_articles[0].id}&stitch_series={req.series_key}"
+
+    return {
+        "success": True,
+        "stitch_id": stitch_id,
+        "series_key": req.series_key,
+        "title": omnibus_title,
+        "target_form_factor": target_ff,
+        "channel_id": req.target_channel_id,
+        "total_duration_sec": round(current_time, 2),
+        "scene_count": len(scenes),
+        "scenes": scenes,
+        "full_script": "\n\n".join(full_script_lines),
+        "article_ids": [a.id for a in ordered_articles],
+        "redirect_url": redirect_url,
+        "message": f"'{omnibus_title}' 옴니버스 쇼츠 프로젝트(총 {len(scenes)}개 씬, {round(current_time, 1)}초)가 성공적으로 패키징되었습니다."
     }
 
 
