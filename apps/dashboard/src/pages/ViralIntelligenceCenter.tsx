@@ -1427,9 +1427,15 @@ export default function ViralIntelligenceCenter() {
                 {selectedSeriesKey !== 'all' && (
                     <div className="flex items-center justify-between p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-xs animate-in fade-in">
                         <div className="flex items-center gap-2">
-                            <Clapperboard className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                            <Clapperboard className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
                             <span className="font-bold text-foreground">
-                                시리즈 옴니버스 필터 적용 중: <span className="text-emerald-600 dark:text-emerald-400 font-black">{selectedSeriesKey}</span>
+                                시리즈 옴니버스 필터 적용 중:{' '}
+                                <span className="text-emerald-600 dark:text-emerald-400 font-black">
+                                    {(() => {
+                                        const curPack = (seriesPacksData?.series_packs || []).find((p: any) => p.series_key === selectedSeriesKey);
+                                        return curPack ? `${curPack.icon} ${curPack.title}` : selectedSeriesKey;
+                                    })()}
+                                </span>
                             </span>
                         </div>
                         <button
@@ -3695,7 +3701,7 @@ export default function ViralIntelligenceCenter() {
             {/* 🎬 시리즈 옴니버스 팩 모달 */}
             {seriesModalOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
-                    <div className="relative w-full max-w-4xl max-h-[85vh] flex flex-col rounded-2xl bg-card border border-border shadow-2xl overflow-hidden">
+                    <div className="relative w-full max-w-5xl max-h-[85vh] flex flex-col rounded-2xl bg-card border border-border shadow-2xl overflow-hidden">
                         {/* Modal Header */}
                         <div className="flex items-center justify-between p-4 border-b border-border bg-muted/30">
                             <div className="flex items-center gap-2.5">
@@ -3724,97 +3730,125 @@ export default function ViralIntelligenceCenter() {
 
                         {/* Modal Body: Series Packs Grid */}
                         <div className="flex-1 overflow-y-auto p-4 space-y-3">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
                                 {(seriesPacksData?.series_packs || []).map((pack: any) => (
                                     <div
                                         key={pack.series_key}
-                                        className="p-3.5 rounded-xl bg-background border border-border/80 hover:border-primary/50 transition-all shadow-xs space-y-2.5"
+                                        className="p-3.5 rounded-xl bg-background border border-border/80 hover:border-primary/50 transition-all shadow-xs space-y-2.5 flex flex-col justify-between"
                                     >
-                                        <div className="flex items-start justify-between gap-2">
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-xl">{pack.icon}</span>
-                                                <div>
-                                                    <h4 className="text-sm font-bold text-foreground">
-                                                        {pack.title}
-                                                    </h4>
-                                                    <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground mt-0.5">
-                                                        <Badge variant="outline" className="text-[9.5px] px-1 py-0">
-                                                            {pack.topic}
-                                                        </Badge>
-                                                        <span>소재 {pack.count}개</span>
-                                                        <span>•</span>
-                                                        <span className="font-mono text-emerald-600 dark:text-emerald-400 font-bold">
-                                                            🎬 영상 {pack.video_count}개
-                                                        </span>
+                                        <div className="space-y-2.5">
+                                            {/* Card Header */}
+                                            <div className="flex items-start justify-between gap-2">
+                                                <div className="flex items-center gap-2 min-w-0">
+                                                    <span className="text-xl shrink-0">{pack.icon}</span>
+                                                    <div className="min-w-0">
+                                                        <h4 className="text-sm font-bold text-foreground truncate">
+                                                            {pack.title}
+                                                        </h4>
+                                                        <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground mt-0.5">
+                                                            <Badge variant="outline" className="text-[9.5px] px-1 py-0 shrink-0">
+                                                                {pack.topic}
+                                                            </Badge>
+                                                            <span>소재 {pack.count}개</span>
+                                                            <span>•</span>
+                                                            <span className="font-mono text-emerald-600 dark:text-emerald-400 font-bold shrink-0">
+                                                                🎬 영상 {pack.video_count}개
+                                                            </span>
+                                                        </div>
                                                     </div>
                                                 </div>
+                                                <Badge className="bg-primary/10 text-primary border border-primary/20 text-[10px] font-mono shrink-0">
+                                                    평균 {pack.avg_viral_score}점
+                                                </Badge>
                                             </div>
-                                            <Badge className="bg-primary/10 text-primary border border-primary/20 text-[10px] font-mono shrink-0">
-                                                평균 {pack.avg_viral_score}점
-                                            </Badge>
-                                        </div>
 
-                                        {/* Suggested Title */}
-                                        <div className="p-2 rounded-lg bg-muted/40 border border-border/60 text-xs">
-                                            <span className="text-muted-foreground font-semibold">추천 옴니버스 제목:</span>
-                                            <p className="font-bold text-foreground mt-0.5 line-clamp-1">
-                                                {pack.suggested_omnibus_title}
-                                            </p>
-                                        </div>
+                                            {/* Suggested Title */}
+                                            <div className="p-2 rounded-lg bg-muted/40 border border-border/60 text-xs">
+                                                <span className="text-muted-foreground font-semibold">추천 옴니버스 제목:</span>
+                                                <p className="font-bold text-foreground mt-0.5 line-clamp-1">
+                                                    {pack.suggested_omnibus_title}
+                                                </p>
+                                            </div>
 
-                                        {/* Articles Preview */}
-                                        <div className="space-y-1">
-                                            {(pack.articles || []).slice(0, 3).map((art: any, aIdx: number) => (
-                                                <div key={art.id} className="flex items-center gap-1.5 text-[11.5px] text-muted-foreground line-clamp-1">
-                                                    <span className="font-mono text-primary font-bold">#{aIdx + 1}</span>
-                                                    <span className="truncate text-foreground/90">{art.title}</span>
-                                                </div>
-                                            ))}
+                                            {/* Articles Preview */}
+                                            <div className="space-y-1">
+                                                {(pack.articles || []).slice(0, 3).map((art: any, aIdx: number) => (
+                                                    <div key={art.id} className="flex items-center gap-1.5 text-[11.5px] text-muted-foreground min-w-0">
+                                                        <span className="font-mono text-primary font-bold shrink-0">#{aIdx + 1}</span>
+                                                        {art.url ? (
+                                                            <a
+                                                                href={art.url}
+                                                                target="_blank"
+                                                                rel="noreferrer"
+                                                                className="truncate text-foreground/90 hover:text-primary hover:underline transition-colors flex-1"
+                                                                title={art.title}
+                                                            >
+                                                                {art.title}
+                                                            </a>
+                                                        ) : (
+                                                            <span className="truncate text-foreground/90 flex-1" title={art.title}>
+                                                                {art.title}
+                                                            </span>
+                                                        )}
+                                                        {art.viral_score && (
+                                                            <span className="text-[10px] font-mono text-muted-foreground/70 shrink-0">
+                                                                {Math.round(art.viral_score)}점
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                ))}
+                                            </div>
                                         </div>
 
                                         {/* Actions */}
-                                        <div className="flex items-center justify-end gap-2 pt-1 border-t border-border/40">
+                                        <div className="flex flex-wrap items-center justify-between gap-2 pt-2.5 border-t border-border/40">
                                             <Button
                                                 size="sm"
-                                                variant="outline"
+                                                variant="ghost"
                                                 onClick={() => {
                                                     setSelectedSeriesKey(pack.series_key);
                                                     setPage(1);
                                                     setSeriesModalOpen(false);
                                                 }}
-                                                className="h-7 text-xs px-2.5 cursor-pointer"
+                                                className="h-7 text-xs px-2 text-muted-foreground hover:text-foreground hover:bg-muted/80 cursor-pointer flex items-center gap-1 shrink-0"
+                                                title="이 시리즈에 속한 전체 소재 목록으로 필터링합니다"
                                             >
-                                                소재 모아보기 ({pack.count})
+                                                <span>소재 모아보기</span>
+                                                <Badge variant="secondary" className="text-[10px] px-1 py-0 h-4 font-mono font-normal">
+                                                    {pack.count}
+                                                </Badge>
                                             </Button>
-                                            <Button
-                                                size="sm"
-                                                variant="outline"
-                                                disabled={isExportingCapcut}
-                                                onClick={() => handleExportSeriesToCapcut(pack)}
-                                                className="h-7 text-xs px-2.5 font-semibold border-cyan-500/40 hover:bg-cyan-500/10 text-foreground cursor-pointer flex items-center gap-1.5 shadow-2xs transition-all"
-                                                title="CapCut PC 원클릭 드래프트(draft_content.json 및 root_meta_info 등록) 생성"
-                                            >
-                                                {isExportingCapcut ? (
-                                                    <RefreshCw className="w-3.5 h-3.5 animate-spin text-cyan-500" />
-                                                ) : (
-                                                    <Film className="w-3.5 h-3.5 text-cyan-500" />
-                                                )}
-                                                <span>CapCut PC 내보내기</span>
-                                            </Button>
-                                            <Button
-                                                size="sm"
-                                                disabled={isStitchingSeries}
-                                                onClick={() => handleStitchSeriesPack(pack, 'classic')}
-                                                className="h-7 text-xs px-3 font-bold bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer flex items-center gap-1.5 shadow-xs transition-all"
-                                                title="TOP 3 카운트다운 훅과 3연타 클립을 50초 옴니버스 쇼츠 프로젝트로 즉시 패키징합니다"
-                                            >
-                                                {isStitchingSeries ? (
-                                                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                                                ) : (
-                                                    <Zap className="w-3.5 h-3.5" />
-                                                )}
-                                                <span>3연타 옴니버스 원클릭 제작</span>
-                                            </Button>
+                                            <div className="flex items-center gap-1.5 shrink-0">
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    disabled={isExportingCapcut}
+                                                    onClick={() => handleExportSeriesToCapcut(pack)}
+                                                    className="h-7 text-xs px-2 font-semibold border-cyan-500/40 hover:bg-cyan-500/10 text-foreground cursor-pointer flex items-center gap-1 shadow-2xs transition-all"
+                                                    title="CapCut PC 원클릭 드래프트(draft_content.json 및 root_meta_info 등록) 생성"
+                                                >
+                                                    {isExportingCapcut ? (
+                                                        <RefreshCw className="w-3 h-3 animate-spin text-cyan-500" />
+                                                    ) : (
+                                                        <Film className="w-3 h-3 text-cyan-500" />
+                                                    )}
+                                                    <span>CapCut PC</span>
+                                                </Button>
+                                                <Button
+                                                    size="sm"
+                                                    disabled={isStitchingSeries}
+                                                    onClick={() => handleStitchSeriesPack(pack, 'classic')}
+                                                    className="h-7 text-xs px-2.5 font-bold bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer flex items-center gap-1 shadow-xs transition-all"
+                                                    title="TOP 3 카운트다운 훅과 3연타 클립을 50초 옴니버스 쇼츠 프로젝트로 즉시 패키징합니다"
+                                                >
+                                                    {isStitchingSeries ? (
+                                                        <RefreshCw className="w-3 h-3 animate-spin" />
+                                                    ) : (
+                                                        <Zap className="w-3 h-3" />
+                                                    )}
+                                                    <span>3연타 옴니버스 제작</span>
+                                                </Button>
+                                            </div>
                                         </div>
                                     </div>
                                 ))}

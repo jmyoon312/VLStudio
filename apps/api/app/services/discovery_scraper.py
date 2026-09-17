@@ -599,7 +599,16 @@ class DiscoveryScraper:
         5. series_key: Normalized series clustering key for series pack handoff
         """
         corpus = f"{title} {body}".lower()
+        t_lower = (title or "").lower()
         imgs = images or []
+        
+        # Notice / announcement / advertisement check
+        is_notice = any(x in t_lower for x in [
+            "공지", "이용 안내", "이용안내", "규정 안내", "규정안내", "관리규정", "운영방해",
+            "배심원", "날씨 & 띠별", "날씨 + 운세", "신문을 통해", "헤드라인 뉴스",
+            "체험단", "ad -", "ad ", "[광고]", "출석체크", "이벤트 당첨", "점검 안내",
+            "이용 가이드", "서포터즈"
+        ])
         
         # A. Media Type Detection
         has_video = any(
@@ -826,6 +835,8 @@ class DiscoveryScraper:
 
         # Deduplicate entity tags
         unique_tags = list(dict.fromkeys(entity_tags))[:5]
+        if is_notice:
+            series_key = None
         return topic, media_type, unique_tags, cross_topics, series_key
 
     # ─────────────────────────────────────────────────────────────────────────────

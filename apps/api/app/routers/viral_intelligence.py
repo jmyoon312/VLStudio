@@ -10,7 +10,7 @@ import httpx
 from pydantic import BaseModel
 from fastapi import APIRouter, Depends, Query, HTTPException, BackgroundTasks, Response
 from sqlalchemy.orm import Session
-from sqlalchemy import desc, or_, func, String
+from sqlalchemy import desc, or_, and_, func, String
 
 from .. import models, database
 from ..services.discovery_scraper import discovery_scraper, COMMUNITY_SOURCES, NAVER_NEWS_SECTIONS as NAVER_SECTIONS, collector_telemetry
@@ -501,9 +501,33 @@ def get_series_packs(
     Groups articles by series_key (e.g. series_tennis_highlights, series_dashcam_accident)
     having at least min_count clips/articles, ready for 3-clip omnibus short-form packaging.
     """
+    # Exclude notices, rules, ads, and weather stickies from series packs
+    notice_pattern_filter = and_(
+        ~models.ViralArticle.title.like("%공지%"),
+        ~models.ViralArticle.title.like("%이용 안내%"),
+        ~models.ViralArticle.title.like("%이용안내%"),
+        ~models.ViralArticle.title.like("%규정 안내%"),
+        ~models.ViralArticle.title.like("%규정안내%"),
+        ~models.ViralArticle.title.like("%관리규정%"),
+        ~models.ViralArticle.title.like("%운영방해%"),
+        ~models.ViralArticle.title.like("%배심원%"),
+        ~models.ViralArticle.title.like("%날씨 & 띠별%"),
+        ~models.ViralArticle.title.like("%날씨 + 운세%"),
+        ~models.ViralArticle.title.like("%신문을 통해%"),
+        ~models.ViralArticle.title.like("%헤드라인 뉴스%"),
+        ~models.ViralArticle.title.like("%체험단%"),
+        ~models.ViralArticle.title.like("%AD -%"),
+        ~models.ViralArticle.title.like("%AD %"),
+        ~models.ViralArticle.title.like("%[광고]%"),
+        ~models.ViralArticle.title.like("%출석체크%"),
+        ~models.ViralArticle.title.like("%이벤트 당첨%"),
+        ~models.ViralArticle.title.like("%점검 안내%")
+    )
+
     series_keys = (
         db.query(models.ViralArticle.series_key, func.count(models.ViralArticle.id).label("cnt"))
         .filter(models.ViralArticle.series_key.isnot(None))
+        .filter(notice_pattern_filter)
         .group_by(models.ViralArticle.series_key)
         .having(func.count(models.ViralArticle.id) >= min_count)
         .order_by(desc("cnt"))
@@ -518,6 +542,7 @@ def get_series_packs(
         articles = (
             db.query(models.ViralArticle)
             .filter(models.ViralArticle.series_key == s_key)
+            .filter(notice_pattern_filter)
             .order_by(desc(models.ViralArticle.viral_score))
             .limit(6)
             .all()
