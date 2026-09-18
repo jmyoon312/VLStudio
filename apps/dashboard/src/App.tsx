@@ -42,6 +42,7 @@ const Incubator = lazy(() => import('./pages/Incubator'));
 const GuideCenter = lazy(() => import('./pages/GuideCenter'));
 const ResearchBrief = lazy(() => import('./pages/ResearchBrief'));
 const TrendRadarPage = lazy(() => import('./pages/TrendRadarPage'));
+const InstantStudioPage = lazy(() => import('./pages/InstantStudioPage'));
 const StudioWarRoom = lazy(() => import('./pages/StudioWarRoom'));
 const PipelineBuilderPage = lazy(() => import('./pages/PipelineBuilderPage'));
 const BrainVaultPage = lazy(() => import('./pages/BrainVaultPage'));
@@ -233,7 +234,8 @@ function MainAppContent() {
                             </ModeProvider>
                         </RouteErrorBoundary>
                     } />
-                    <Route path="/agent-studio" element={<Navigate to="/war-room" replace />} />
+                    <Route path="/agent-studio" element={<Navigate to="/instant-studio" replace />} />
+                    <Route path="/instant-studio" element={<RouteErrorBoundary><InstantStudioPage /></RouteErrorBoundary>} />
                     <Route path="/war-room" element={<RouteErrorBoundary><StudioWarRoom /></RouteErrorBoundary>} />
                     <Route path="/pipeline-builder" element={<RouteErrorBoundary><PipelineBuilderPage /></RouteErrorBoundary>} />
                     <Route path="/brain-vault" element={<RouteErrorBoundary><BrainVaultPage /></RouteErrorBoundary>} />

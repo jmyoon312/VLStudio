@@ -68,6 +68,7 @@ export const getMenuGroups = (captainId: string | null): MenuGroup[] => [
         mode: "AI_ORCHESTRATION",
         defaultExpanded: true,
         items: [
+            { name: '인스턴트 제작', path: '/instant-studio', icon: Zap, highlight: true },
             { name: '스튜디오 관제', path: '/war-room', icon: Cpu, highlight: true },
             { name: '제작 파이프라인', path: '/pipeline-builder', icon: GitBranch, highlight: true },
             { name: 'AI 제작팀', path: '/agent-roster', icon: Users, highlight: true },

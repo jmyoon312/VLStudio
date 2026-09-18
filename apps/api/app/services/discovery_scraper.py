@@ -17,7 +17,9 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 import feedparser
 import httpx
-from bs4 import BeautifulSoup
+import warnings
+from bs4 import BeautifulSoup, XMLParsedAsHTMLWarning
+warnings.filterwarnings("ignore", category=XMLParsedAsHTMLWarning)
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
 
