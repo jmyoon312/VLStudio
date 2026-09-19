@@ -495,14 +495,17 @@ def launch_channel_isolated(
     if getattr(channel, 'status', 'ACTIVE') == 'QUARANTINED':
         raise HTTPException(403, f"Channel is quarantined: {getattr(channel, 'quarantine_reason', 'unknown')}")
     
-    # 3. Captain 프로필 찾기
+    # 3. Captain 프로필 찾기 (MANAGER -> OWNER -> 채널 소유 폴백)
     access = db.query(ChannelAccess).filter(
         ChannelAccess.channel_id == channel_id,
         ChannelAccess.role == ChannelRole.MANAGER
     ).first()
     
     if not access:
-        raise HTTPException(404, "No manager found for this channel")
+        access = db.query(ChannelAccess).filter(
+            ChannelAccess.channel_id == channel_id,
+            ChannelAccess.role == ChannelRole.OWNER
+        ).first()
     
     # 4. 브라우저 실행
     try:
@@ -1096,17 +1099,19 @@ def bulk_warmup_status(db: Session = Depends(get_db)):
         ).count()
         
         failed_channels = []
-        if failed > 0:
-            failed_rows = base_query.filter(YouTubeChannel.warmup_status == "FAILED").all()
-            for ch in failed_rows:
-                failed_channels.append({
-                    "channel_id": ch.channel_id,
-                    "title": ch.title or ch.channel_id,
-                    "warmup_stage": ch.warmup_stage or 1,
-                    "warmup_last_error": getattr(ch, 'warmup_last_error', None) or "원인 미상 오류",
-                    "warmup_last_run": ch.warmup_last_run.isoformat() if ch.warmup_last_run else None,
-                    "owner_profile_id": ch.owner_profile_id
-                })
+        # 전체 등록 채널 중 FAILED 상태인 채널을 안전하게 조회 (조인 누락 방지)
+        all_failed_rows = db.query(YouTubeChannel).filter(YouTubeChannel.warmup_status == "FAILED").all()
+        for ch in all_failed_rows:
+            failed_channels.append({
+                "channel_id": ch.channel_id,
+                "title": ch.title or ch.channel_id,
+                "warmup_stage": ch.warmup_stage or 1,
+                "warmup_last_error": getattr(ch, 'warmup_last_error', None) or "원인 미상 오류",
+                "warmup_last_run": ch.warmup_last_run.isoformat() if ch.warmup_last_run else None,
+                "owner_profile_id": ch.owner_profile_id
+            })
+        if len(failed_channels) > failed:
+            failed = len(failed_channels)
 
         return {
             "total": total,
@@ -1122,6 +1127,37 @@ def bulk_warmup_status(db: Session = Depends(get_db)):
         logger.error(f"Bulk status error: {e}")
         return {"total": 0, "running": 0, "completed": 0, "failed": 0, "paused": 0, "pending": 0, "in_progress": 0, "failed_channels": []}
 
+
+@router.post("/channels/{channel_id}/clear-lock")
+def clear_channel_profile_lock(channel_id: str, db: Session = Depends(get_db)):
+    """크롬 브라우저 비정상 종료 시 남는 SingletonLock 파일 강제 제거"""
+    try:
+        import os, glob
+        profile_path = None
+        channel = db.query(YouTubeChannel).filter(YouTubeChannel.channel_id == channel_id).first()
+        if channel and getattr(channel, 'dedicated_profile_path', None):
+            profile_path = channel.dedicated_profile_path
+        
+        if not profile_path:
+            app_data = os.getenv('LOCALAPPDATA', os.path.expanduser('~'))
+            candidate = os.path.join(app_data, 'ViraLoop Studio', 'Profiles', channel_id)
+            if os.path.exists(candidate):
+                profile_path = candidate
+        
+        removed = []
+        if profile_path and os.path.exists(profile_path):
+            for pattern in ['*Singleton*', '*lock*', '*LOCK*']:
+                for f in glob.glob(os.path.join(profile_path, pattern)):
+                    try:
+                        if os.path.isfile(f):
+                            os.remove(f)
+                            removed.append(os.path.basename(f))
+                    except Exception:
+                        pass
+        return {"success": True, "channel_id": channel_id, "cleared_files": removed}
+    except Exception as e:
+        logger.error(f"Failed to clear profile lock: {e}")
+        return {"success": False, "channel_id": channel_id, "error": str(e)}
 
 
 @router.get("/channels/active")

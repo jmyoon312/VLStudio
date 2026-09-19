@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Shield, Eye, PlaySquare, Activity, Lock, Loader2, RefreshCw, ChevronRight, UserPlus, Pencil, Trash2, Flame, CheckCircle2, AlertTriangle, PauseCircle, Clock, Users, Sparkles, Settings, RotateCcw } from 'lucide-react';
+import { Shield, Eye, PlaySquare, Activity, Lock, Loader2, RefreshCw, ChevronRight, UserPlus, Pencil, Trash2, Flame, CheckCircle2, AlertTriangle, PauseCircle, Clock, Users, Sparkles, Settings, RotateCcw, Globe, Smartphone, Wrench } from 'lucide-react';
 
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
@@ -20,6 +20,7 @@ import TinCanWizard from './TinCanWizard';
 import IncubationGuide from './IncubationGuide';
 import WarmupLogViewer from './WarmupLogViewer';
 import { CultivationWizard } from './CultivationWizard';
+import { parseWarmupError } from '@/lib/warmupErrorParser';
 
 const API_BASE = typeof window !== 'undefined' && window.location.protocol === 'file:' ? 'http://127.0.0.1:8000/api' : '/api';
 
@@ -50,6 +51,82 @@ export const BulkWarmupPanel: React.FC<BulkWarmupPanelProps> = ({
             return res.data;
         },
         refetchInterval: 5000
+    });
+
+    // Dual-Fallback: Fetch failed channels directly from /youtube/channels when diagnosis modal opens
+    const { data: fallbackFailedChannels } = useQuery({
+        queryKey: ['failed-channels-diagnosis-fallback'],
+        queryFn: async () => {
+            const res = await axios.get(`${API_BASE}/youtube/channels`);
+            const list = Array.isArray(res.data) ? res.data : (res.data?.channels || []);
+            return list.filter((c: any) => c.warmup_status === 'FAILED' || c.status === 'FAILED');
+        },
+        enabled: errorDiagnosisOpen
+    });
+
+    // Dedicated Browser Launch Mutation
+    const launchBrowserMutation = useMutation({
+        mutationFn: async (channelId: string) => (await axios.post(`${API_BASE}/youtube/channels/${channelId}/launch`)).data,
+        onSuccess: () => {
+            toast({
+                title: "전용 브라우저 실행",
+                description: "채널 전용 브라우저 세션이 열렸습니다. 로그인 및 보안 인증 상태를 직접 확인하세요."
+            });
+        },
+        onError: (err: any) => {
+            toast({
+                title: "브라우저 실행 실패",
+                description: err.response?.data?.detail || err.message,
+                variant: "destructive"
+            });
+        }
+    });
+
+    // Mobile IP Rotate Mutation (Airplane mode toggle)
+    const rotateIpMutation = useMutation({
+        mutationFn: async () => (await axios.post(`${API_BASE}/network/rotate-ip`)).data,
+        onSuccess: () => {
+            toast({
+                title: "📱 모바일 IP 재할당 완료",
+                description: "테더링 비행기 모드 토글로 신규 모바일 IP가 정상 할당되었습니다."
+            });
+        },
+        onError: (err: any) => {
+            toast({
+                title: "IP 재할당 실패",
+                description: err.response?.data?.detail || err.message,
+                variant: "destructive"
+            });
+        }
+    });
+
+    // Rotate IP and then retry all failed channels
+    const rotateIpAndRetryBulkMutation = useMutation({
+        mutationFn: async () => {
+            try {
+                await axios.post(`${API_BASE}/network/rotate-ip`);
+            } catch (e) {
+                console.warn("IP rotation notice:", e);
+            }
+            return (await axios.post(`${API_BASE}/youtube/warmup/bulk/start`, null, { params: { filter: 'failed' } })).data;
+        },
+        onSuccess: (res) => {
+            toast({
+                title: "📱 IP 재할당 및 웜업 재시작",
+                description: `신규 IP 할당 후 ${res.started || 0}개 채널의 웜업이 재개되었습니다.`
+            });
+            queryClient.invalidateQueries({ queryKey: ['bulk-warmup-status'] });
+            queryClient.invalidateQueries({ queryKey: ['captain-channels'] });
+            queryClient.invalidateQueries({ queryKey: ['failed-channels-diagnosis-fallback'] });
+            setErrorDiagnosisOpen(false);
+        },
+        onError: (err: any) => {
+            toast({
+                title: "복구 실패",
+                description: err.response?.data?.detail || err.message,
+                variant: "destructive"
+            });
+        }
     });
 
     // Single channel retry mutation
@@ -323,101 +400,180 @@ export const BulkWarmupPanel: React.FC<BulkWarmupPanelProps> = ({
 
             {/* Error Channels Diagnosis Modal */}
             <Dialog open={errorDiagnosisOpen} onOpenChange={setErrorDiagnosisOpen}>
-                <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col p-0 overflow-hidden bg-card border-border shadow-2xl rounded-2xl">
-                    <DialogHeader className="p-4 pb-3 border-b border-border bg-rose-500/10">
-                        <DialogTitle className="text-base font-bold flex items-center gap-2 text-rose-600 dark:text-rose-400">
-                            <AlertTriangle className="w-5 h-5 shrink-0" />
-                            <span>⚠️ 웜업 실패 채널 긴급 진단 및 조치 ({status?.failed || 0}개)</span>
-                        </DialogTitle>
-                        <DialogDescription className="text-xs text-muted-foreground mt-0.5">
-                            웜업 루틴 중 브라우저 세션이나 프록시 네트워크 통신 오류가 발생한 채널 목록과 상세 원인입니다.
-                        </DialogDescription>
-                    </DialogHeader>
+                <DialogContent className="max-w-3xl max-h-[85vh] flex flex-col p-0 overflow-hidden bg-card border-border shadow-2xl rounded-2xl">
+                    {(() => {
+                        const activeFailedChannels = (status?.failed_channels && status.failed_channels.length > 0)
+                            ? status.failed_channels
+                            : (fallbackFailedChannels || []);
+                        const totalFailedCount = Math.max(status?.failed || 0, activeFailedChannels.length);
 
-                    <div className="flex-1 p-4 overflow-y-auto space-y-3">
-                        {status?.failed_channels && status.failed_channels.length > 0 ? (
-                            status.failed_channels.map((ch: any) => (
-                                <div key={ch.channel_id} className="p-3.5 rounded-xl border border-rose-500/30 bg-rose-500/5 dark:bg-rose-950/20 space-y-2">
-                                    <div className="flex items-center justify-between gap-2 flex-wrap">
-                                        <div className="flex items-center gap-2 min-w-0">
-                                            <Badge variant="outline" className="bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/30 font-bold text-[10px]">
-                                                Day {ch.warmup_stage} 실패
-                                            </Badge>
-                                            <span className="text-sm font-extrabold text-foreground truncate">{ch.title}</span>
-                                            <span className="text-[10px] text-muted-foreground font-mono">({ch.channel_id})</span>
+                        return (
+                            <>
+                                <DialogHeader className="p-4 pb-3 border-b border-border bg-rose-500/10">
+                                    <DialogTitle className="text-base font-bold flex items-center justify-between gap-2 text-rose-600 dark:text-rose-400">
+                                        <div className="flex items-center gap-2">
+                                            <AlertTriangle className="w-5 h-5 shrink-0" />
+                                            <span>⚠️ 웜업 실패 채널 긴급 진단 및 조치 ({totalFailedCount}개)</span>
                                         </div>
-                                        <div className="flex items-center gap-1.5 shrink-0">
-                                            <Button
-                                                size="sm"
-                                                variant="outline"
-                                                onClick={() => {
-                                                    if (onOpenLogs) {
-                                                        onOpenLogs(ch.channel_id);
-                                                    } else {
-                                                        setSelectedChannelForLogs(ch.channel_id);
-                                                        setLogViewerOpen(true);
-                                                    }
-                                                }}
-                                                className="h-7 text-xs border-border bg-background hover:bg-muted font-semibold rounded-lg"
-                                            >
-                                                <Clock className="w-3 h-3 mr-1" /> 로그 보기
-                                            </Button>
-                                            <Button
-                                                size="sm"
-                                                disabled={retryMutation.isPending}
-                                                onClick={() => retryMutation.mutate(ch.channel_id)}
-                                                className="h-7 text-xs bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-lg shadow-2xs"
-                                            >
-                                                {retryMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <RotateCcw className="w-3 h-3 mr-1" />}
-                                                재시도
-                                            </Button>
-                                        </div>
-                                    </div>
+                                    </DialogTitle>
+                                    <DialogDescription className="text-xs text-muted-foreground mt-0.5">
+                                        웜업 루틴 중 인증 세션 만료 또는 프록시 네트워크 통신 오류가 발생한 채널의 원인을 진단하고 즉시 조치합니다.
+                                    </DialogDescription>
+                                </DialogHeader>
 
-                                    <div className="bg-card/90 rounded-lg p-2.5 border border-border text-xs space-y-1">
-                                        <div className="text-[11px] font-bold text-muted-foreground flex items-center gap-1">
-                                            <span>🔍 상세 실패 원인:</span>
+                                <div className="flex-1 p-4 overflow-y-auto space-y-3.5">
+                                    {activeFailedChannels && activeFailedChannels.length > 0 ? (
+                                        activeFailedChannels.map((ch: any) => {
+                                            const diag = parseWarmupError(ch.warmup_last_error);
+                                            return (
+                                                <div key={ch.channel_id} className="p-4 rounded-xl border border-rose-500/30 bg-rose-500/5 dark:bg-rose-950/20 space-y-3 shadow-2xs">
+                                                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                                                        <div className="flex items-center gap-2 min-w-0">
+                                                            <Badge variant="outline" className={`${diag.badgeClass} font-bold text-[11px] px-2 py-0.5`}>
+                                                                {diag.badge}
+                                                            </Badge>
+                                                            <Badge variant="outline" className="bg-muted text-muted-foreground border-border text-[10px]">
+                                                                Day {ch.warmup_stage || 1}
+                                                            </Badge>
+                                                            <span className="text-sm font-extrabold text-foreground truncate">{ch.title || ch.channel_id}</span>
+                                                            <span className="text-[10px] text-muted-foreground font-mono">({ch.channel_id})</span>
+                                                        </div>
+
+                                                        {/* 채널별 즉각 조치 툴바 */}
+                                                        <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
+                                                            <Button
+                                                                size="sm"
+                                                                variant="outline"
+                                                                disabled={launchBrowserMutation.isPending}
+                                                                onClick={() => launchBrowserMutation.mutate(ch.channel_id)}
+                                                                className="h-7 text-xs border-border bg-background hover:bg-muted font-semibold rounded-lg"
+                                                                title="전용 브라우저를 열어 구글 로그인 및 세션 상태를 직접 확인합니다"
+                                                            >
+                                                                {launchBrowserMutation.isPending ? (
+                                                                    <Loader2 className="w-3 h-3 animate-spin mr-1" />
+                                                                ) : (
+                                                                    <Globe className="w-3 h-3 mr-1 text-blue-500" />
+                                                                )}
+                                                                브라우저 열기
+                                                            </Button>
+
+                                                            <Button
+                                                                size="sm"
+                                                                variant="outline"
+                                                                disabled={rotateIpMutation.isPending}
+                                                                onClick={() => rotateIpMutation.mutate()}
+                                                                className="h-7 text-xs border-border bg-background hover:bg-muted font-semibold rounded-lg"
+                                                                title="모바일 테더링 비행기 모드를 토글하여 새 IP를 할당받습니다"
+                                                            >
+                                                                {rotateIpMutation.isPending ? (
+                                                                    <Loader2 className="w-3 h-3 animate-spin mr-1" />
+                                                                ) : (
+                                                                    <Smartphone className="w-3 h-3 mr-1 text-emerald-500" />
+                                                                )}
+                                                                IP 재할당
+                                                            </Button>
+
+                                                            <Button
+                                                                size="sm"
+                                                                variant="outline"
+                                                                onClick={() => {
+                                                                    if (onOpenLogs) {
+                                                                        onOpenLogs(ch.channel_id);
+                                                                    } else {
+                                                                        setSelectedChannelForLogs(ch.channel_id);
+                                                                        setLogViewerOpen(true);
+                                                                    }
+                                                                }}
+                                                                className="h-7 text-xs border-border bg-background hover:bg-muted font-semibold rounded-lg"
+                                                            >
+                                                                <Clock className="w-3 h-3 mr-1" /> 로그 보기
+                                                            </Button>
+
+                                                            <Button
+                                                                size="sm"
+                                                                disabled={retryMutation.isPending}
+                                                                onClick={() => retryMutation.mutate(ch.channel_id)}
+                                                                className="h-7 text-xs bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-lg shadow-2xs"
+                                                            >
+                                                                {retryMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <RotateCcw className="w-3 h-3 mr-1" />}
+                                                                재시도
+                                                            </Button>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* 지능형 한글 원인 진단 및 조치 가이드 박스 */}
+                                                    <div className="bg-card/90 rounded-xl p-3 border border-border text-xs space-y-2">
+                                                        <div className="flex items-center gap-1.5 font-bold text-foreground">
+                                                            <span>💡</span>
+                                                            <span>{diag.title}</span>
+                                                        </div>
+                                                        <p className="text-[11px] text-muted-foreground leading-relaxed">
+                                                            {diag.description}
+                                                        </p>
+                                                        <div className="text-[11px] bg-muted/60 rounded-lg p-2 text-foreground font-medium flex items-start gap-1.5 border border-border/50">
+                                                            <Wrench className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" />
+                                                            <span><strong className="text-primary">권장 조치:</strong> {diag.solution}</span>
+                                                        </div>
+                                                        <div className="text-[10px] font-mono text-muted-foreground bg-background/60 p-2 rounded-md border border-border/40 break-all">
+                                                            🔍 시스템 원본 로그: {ch.warmup_last_error || "알 수 없는 오류"}
+                                                            {ch.warmup_last_run && ` (발생 시각: ${new Date(ch.warmup_last_run).toLocaleString('ko-KR')})`}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })
+                                    ) : (
+                                        <div className="text-center py-10 text-muted-foreground text-xs">
+                                            현재 실패 상태인 채널이 없습니다.
                                         </div>
-                                        <p className="text-[11px] font-mono text-rose-700 dark:text-rose-300 break-all leading-relaxed">
-                                            {ch.warmup_last_error || "알 수 없는 오류"}
-                                        </p>
-                                        {ch.warmup_last_run && (
-                                            <p className="text-[10px] text-muted-foreground">
-                                                발생 시각: {new Date(ch.warmup_last_run).toLocaleString('ko-KR')}
-                                            </p>
-                                        )}
-                                    </div>
+                                    )}
                                 </div>
-                            ))
-                        ) : (
-                            <div className="text-center py-10 text-muted-foreground text-xs">
-                                현재 실패 상태인 채널이 없습니다.
-                            </div>
-                        )}
-                    </div>
 
-                    <DialogFooter className="p-3 border-t border-border bg-muted/20 flex flex-row items-center justify-between">
-                        <Button
-                            size="sm"
-                            variant="outline"
-                            disabled={startMutation.isPending || !status?.failed}
-                            onClick={() => {
-                                startMutation.mutate("failed");
-                                setErrorDiagnosisOpen(false);
-                            }}
-                            className="h-8 text-xs font-bold text-rose-600 hover:bg-rose-500/10 border-rose-500/30 rounded-xl"
-                        >
-                            <Flame className="w-3.5 h-3.5 mr-1" /> 전체 실패 채널 일괄 재시도 ({status?.failed || 0}개)
-                        </Button>
-                        <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => setErrorDiagnosisOpen(false)}
-                            className="h-8 text-xs rounded-xl"
-                        >
-                            닫기
-                        </Button>
-                    </DialogFooter>
+                                <DialogFooter className="p-3 border-t border-border bg-muted/20 flex flex-col sm:flex-row items-center justify-between gap-2">
+                                    <div className="flex items-center gap-2 w-full sm:w-auto">
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            disabled={rotateIpAndRetryBulkMutation.isPending || totalFailedCount === 0}
+                                            onClick={() => rotateIpAndRetryBulkMutation.mutate()}
+                                            className="h-8 text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 border-emerald-500/30 rounded-xl flex-1 sm:flex-none"
+                                            title="모바일 비행기 모드를 껐다 켜서 IP를 새로 할당받은 뒤 실패 채널 웜업을 재시작합니다"
+                                        >
+                                            {rotateIpAndRetryBulkMutation.isPending ? (
+                                                <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
+                                            ) : (
+                                                <Smartphone className="w-3.5 h-3.5 mr-1.5 text-emerald-500" />
+                                            )}
+                                            📱 IP 재할당 후 일괄 재시도 ({totalFailedCount}개)
+                                        </Button>
+                                    </div>
+
+                                    <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            disabled={startMutation.isPending || totalFailedCount === 0}
+                                            onClick={() => {
+                                                startMutation.mutate("failed");
+                                                setErrorDiagnosisOpen(false);
+                                            }}
+                                            className="h-8 text-xs font-bold text-rose-600 hover:bg-rose-500/10 border-rose-500/30 rounded-xl flex-1 sm:flex-none"
+                                        >
+                                            <Flame className="w-3.5 h-3.5 mr-1" /> 전체 일괄 재시도 ({totalFailedCount}개)
+                                        </Button>
+                                        <Button
+                                            size="sm"
+                                            variant="ghost"
+                                            onClick={() => setErrorDiagnosisOpen(false)}
+                                            className="h-8 text-xs text-muted-foreground hover:text-foreground rounded-xl"
+                                        >
+                                            닫기
+                                        </Button>
+                                    </div>
+                                </DialogFooter>
+                            </>
+                        );
+                    })()}
                 </DialogContent>
             </Dialog>
 
