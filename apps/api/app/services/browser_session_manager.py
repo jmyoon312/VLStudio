@@ -309,10 +309,12 @@ class BrowserSessionManager:
                 elif success is True:
                     channel.warmup_status = "COMPLETED"
                     channel.warmup_last_error = None
+                    channel.warmup_stage = max(channel.warmup_stage or 0, stage)
                 else:
                     channel.warmup_status = "FAILED"
                     channel.warmup_last_error = self._last_warmup_error.get(channel_id, "웜업 실행 중 브라우저 오류가 발생했습니다.")
-                channel.warmup_stage = stage
+                    if not channel.warmup_stage or channel.warmup_stage == 0:
+                        channel.warmup_stage = stage
                 
                 # 웜업 로그 기록
                 try:

@@ -131,10 +131,15 @@ export const BulkWarmupPanel: React.FC<BulkWarmupPanelProps> = ({
 
     // Single channel retry mutation
     const retryMutation = useMutation({
-        mutationFn: async (channelId: string) => {
+        mutationFn: async (param: { channelId: string; stage?: number } | string) => {
+            const chId = typeof param === 'string' ? param : param.channelId;
+            const targetStage = typeof param === 'object' ? param.stage : undefined;
             const isVisible = typeof window !== 'undefined' ? localStorage.getItem('seed_warmup_visible') === 'true' : false;
-            return (await axios.post(`${API_BASE}/youtube/channels/${channelId}/warmup`, null, {
-                params: { visible: isVisible }
+            return (await axios.post(`${API_BASE}/youtube/channels/${chId}/warmup`, null, {
+                params: { 
+                    visible: isVisible,
+                    ...(targetStage !== undefined ? { stage: targetStage } : {})
+                }
             })).data;
         },
         onSuccess: (res) => {
@@ -146,6 +151,7 @@ export const BulkWarmupPanel: React.FC<BulkWarmupPanelProps> = ({
             queryClient.invalidateQueries({ queryKey: ['bulk-warmup-status'] });
             queryClient.invalidateQueries({ queryKey: ['captain-channels'] });
             queryClient.invalidateQueries({ queryKey: ['youtube-channels'] });
+            queryClient.invalidateQueries({ queryKey: ['failed-channels-diagnosis-fallback'] });
         },
         onError: (err: any) => {
             toast({ title: "재시도 오류", description: err.response?.data?.detail || err.message, variant: "destructive" });
@@ -492,7 +498,7 @@ export const BulkWarmupPanel: React.FC<BulkWarmupPanelProps> = ({
                                                             <Button
                                                                 size="sm"
                                                                 disabled={retryMutation.isPending}
-                                                                onClick={() => retryMutation.mutate(ch.channel_id)}
+                                                                onClick={() => retryMutation.mutate({ channelId: ch.channel_id, stage: ch.warmup_stage || 3 })}
                                                                 className="h-7 text-xs bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-lg shadow-2xs"
                                                             >
                                                                 {retryMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <RotateCcw className="w-3 h-3 mr-1" />}

@@ -1,6 +1,6 @@
 """YouTube Channel Management API Endpoints."""
 
-from fastapi import APIRouter, Depends, HTTPException, Body
+from fastapi import APIRouter, Depends, HTTPException, Body, Query
 from sqlalchemy.orm import Session
 from typing import List, Optional
 import uuid
@@ -611,17 +611,17 @@ async def trigger_sentinel_audit(
 @router.post("/channels/{channel_id}/warmup")
 def launch_channel_warmup(
     channel_id: str,
-    stage: int = 1,
+    stage: Optional[int] = Query(None, description="Stage 1-7. If omitted, uses channel's current stage or target stage"),
     visible: bool = False,
     db: Session = Depends(get_db)
 ):
     """
     Trigger warmup routine for a specific channel.
-    Stage: 1-7 (Day 1 to Day 7)
+    Stage: 1-7 (Day 1 to Day 7). If None, automatically infers appropriate stage.
     visible: if True, runs in headed mode to show UI to user.
     """
     try:
-        logger.info(f"🚦 [Warmup] Received request for channel_id={channel_id}, stage={stage}, visible={visible}")
+        logger.info(f"🚦 [Warmup] Received request for channel_id={channel_id}, requested_stage={stage}, visible={visible}")
         
         # Find channel by channel_id (YouTube ID)
         channel = db.query(YouTubeChannel).filter(
@@ -634,14 +634,30 @@ def launch_channel_warmup(
         
         logger.info(f"[OK] [Warmup] Found channel: {channel.title} (DB ID: {channel.channel_id})")
         
+        # Determine target stage intelligently to avoid stage reset / downgrade
+        if stage is None or stage <= 0:
+            current_stage = getattr(channel, 'warmup_stage', 0) or 0
+            if current_stage >= 3:
+                target_stage = current_stage  # Mature channel runs maintenance routine (Stage 3+)
+            elif getattr(channel, 'warmup_status', None) == "FAILED" and current_stage > 0:
+                target_stage = current_stage  # Retry previous failed stage
+            elif current_stage > 0 and getattr(channel, 'warmup_status', None) == "COMPLETED":
+                target_stage = min(current_stage + 1, 3)
+            else:
+                target_stage = 1
+        else:
+            target_stage = stage
+        
+        logger.info(f"🎯 [Warmup] Inferred target_stage={target_stage} (current={getattr(channel, 'warmup_stage', 0)}, status={getattr(channel, 'warmup_status', None)})")
+        
         # Update status to RUNNING before starting
         channel.warmup_status = "RUNNING"
         db.commit()
         logger.info(f"[SCRIPT] [Warmup] Status set to RUNNING for {channel_id}")
         
         # Execute warmup synchronously (no background task)
-        logger.info(f"[VIDEO] [Warmup] Starting warmup routine for {channel_id}, stage={stage}")
-        result = session_manager.run_warmup_routine(channel_id, stage, visible)
+        logger.info(f"[VIDEO] [Warmup] Starting warmup routine for {channel_id}, stage={target_stage}")
+        result = session_manager.run_warmup_routine(channel_id, target_stage, visible)
         
         if result:
             logger.info(f"[OK] [Warmup] Warmup completed successfully for {channel_id}")
@@ -649,7 +665,7 @@ def launch_channel_warmup(
                 "success": True,
                 "message": "Warmup routine completed successfully",
                 "channel_id": channel_id,
-                "stage": stage
+                "stage": target_stage
             }
         else:
             logger.error(f"[FAIL] [Warmup] Warmup failed for {channel_id}")
@@ -662,7 +678,7 @@ def launch_channel_warmup(
                 "success": False,
                 "message": err_msg,
                 "channel_id": channel_id,
-                "stage": stage
+                "stage": target_stage
             }
             
     except HTTPException:
@@ -1093,12 +1109,13 @@ def bulk_warmup_status(db: Session = Depends(get_db)):
             YouTubeChannel.warmup_status == "PAUSED"
         ).count()
         pending = base_query.filter(
-            YouTubeChannel.warmup_stage < 3,
+            (YouTubeChannel.warmup_stage == 0) | (YouTubeChannel.warmup_stage == None),
             ~YouTubeChannel.warmup_status.in_(["RUNNING", "QUEUED", "FAILED", "PAUSED"])
         ).count()
         in_progress = base_query.filter(
             YouTubeChannel.warmup_stage > 0,
-            YouTubeChannel.warmup_stage < 3
+            YouTubeChannel.warmup_stage < 3,
+            ~YouTubeChannel.warmup_status.in_(["RUNNING", "QUEUED", "FAILED", "PAUSED"])
         ).count()
         
         failed_channels = []
