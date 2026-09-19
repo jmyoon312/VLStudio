@@ -2,6 +2,7 @@ process.env.ELECTRON_DISABLE_SECURITY_WARNINGS = 'true';
 import electronPkg from 'electron';
 const { app, BrowserWindow, WebContentsView, ipcMain, shell, protocol, net, powerSaveBlocker, safeStorage } = electronPkg;
 import http from 'node:http'
+import nodeNet from 'node:net'
 import fs from 'node:fs/promises'
 import fsSync from 'node:fs'
 import path from 'node:path'
@@ -2646,10 +2647,71 @@ function killProcessOnPort(port) {
   }
 }
 
+// === DeepSeek Harness Web Agent Daemon ===
+let dshProcess = null
+
+function checkPortOpen(port, host = '127.0.0.1') {
+  return new Promise((resolve) => {
+    const socket = new nodeNet.Socket()
+    socket.setTimeout(1200)
+    socket.on('connect', () => {
+      socket.destroy()
+      resolve(true)
+    })
+    socket.on('timeout', () => {
+      socket.destroy()
+      resolve(false)
+    })
+    socket.on('error', () => {
+      resolve(false)
+    })
+    socket.connect(port, host)
+  })
+}
+
+async function startDeepSeekHarnessDaemon() {
+  if (appIsQuitting) return
+  try {
+    const isOpen = await checkPortOpen(3080)
+    if (isOpen) {
+      console.log('[Orchestration] ✅ DeepSeek Harness is already active on port 3080. Retaining instance.')
+      return
+    }
+
+    console.log('[Orchestration] 🤖 Launching DeepSeek Harness AI Director on port 3080...')
+    const rootDir = path.resolve(__dirname, '..')
+    const startBat = path.join(rootDir, 'harness', 'start-dsh.bat')
+
+    if (fsSync.existsSync(startBat)) {
+      dshProcess = spawn('cmd.exe', ['/c', startBat], {
+        cwd: rootDir,
+        detached: true,
+        stdio: 'ignore',
+        windowsHide: true,
+        env: {
+          ...process.env,
+          YOUTUBE2_API_KEY: 'sk-95b157f52819c50b-62f661-a5667588'
+        }
+      })
+      dshProcess.unref()
+      console.log(`[Orchestration] 🚀 DeepSeek Harness daemon spawned (PID: ${dshProcess.pid})`)
+    } else {
+      console.warn('[Orchestration] start-dsh.bat not found at:', startBat)
+    }
+  } catch (err) {
+    console.warn('[Orchestration] Failed to spawn DeepSeek Harness:', err.message)
+  }
+}
+
 function startViraLoopInfrastructure() {
-  console.log('[Orchestration] 🚀 Starting all background infrastructures (FastAPI, OmniRoute & Dashboard Web Server)...')
+  console.log('[Orchestration] 🚀 Starting all background infrastructures (FastAPI, OmniRoute, DSH & Dashboard Web Server)...')
   _doStartBackend()
   startBackendHealthMonitor()
+  try {
+    startDeepSeekHarnessDaemon()
+  } catch (err) {
+    console.warn('[Orchestration] Failed to initialize DeepSeek Harness daemon:', err.message)
+  }
   try {
     startOmniRouteDaemon().catch(err => {
       console.warn('[Orchestration] OmniRoute auto-start skipped or failed:', err.message)
@@ -2894,6 +2956,18 @@ function cleanupChildProcesses() {
       }
     } catch {}
     infraProcess = null;
+  }
+
+  if (dshProcess && dshProcess.pid) {
+    console.log(`[Orchestration] Terminating DeepSeek Harness daemon (PID: ${dshProcess.pid})...`);
+    try {
+      if (process.platform === 'win32') {
+        execSyncRaw(`taskkill /F /T /PID ${dshProcess.pid} 2>NUL`)
+      } else {
+        dshProcess.kill('SIGKILL');
+      }
+    } catch {}
+    dshProcess = null;
   }
 
   // 2순위: 윈도우 포트 8000 잔여 프로세스 완벽 소멸 (좀비 프로세스 원천 소멸)

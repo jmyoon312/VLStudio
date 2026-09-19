@@ -35,11 +35,81 @@ class BrowserSessionManager:
     _active_channel_id: Optional[str] = None
     _active_profile_id: Optional[str] = None
     _session_lock = threading.Lock()
+    _abort_event = threading.Event()
+    _job_progress: dict = {}  # id -> { status, progress, current_step, total_steps, message }
+    _last_warmup_error: dict = {}  # channel_id -> last_error_message
 
     def __new__(cls):
         if cls._instance is None:
             cls._instance = super().__new__(cls)
         return cls._instance
+
+    def request_abort(self):
+        """실행 중인 모든 웜업/시드예열 브라우저 태스크에 중단 신호를 보냅니다."""
+        logger.warning("🛑 [SessionManager] Global abort requested!")
+        self._abort_event.set()
+        self.close_session()
+
+    def reset_abort(self):
+        """중단 신호를 리셋합니다."""
+        self._abort_event.clear()
+
+    def is_aborted(self) -> bool:
+        return self._abort_event.is_set()
+
+    def set_job_progress(self, job_id: str, status: str, message: str = "", current_step: int = 0, total_steps: int = 0):
+        with self._session_lock:
+            self._job_progress[job_id] = {
+                "status": status,
+                "message": message,
+                "current_step": current_step,
+                "total_steps": total_steps,
+                "updated_at": time.time()
+            }
+
+    def get_job_progress(self, job_id: str) -> dict:
+        with self._session_lock:
+            return self._job_progress.get(job_id, {"status": "IDLE", "message": "", "current_step": 0, "total_steps": 0})
+
+    def _safe_navigate_to_video(self, page, card_or_link_locator) -> bool:
+        """
+        YouTube의 인라인 프리뷰 동영상(<video> overlay) 인터셉트를 원천 방어하며
+        해당 비디오 카드의 재생 페이지로 안전하게 진입합니다.
+        """
+        try:
+            # 1. 링크(a#video-title, a#thumbnail, a[href*="/watch"]) 태그 탐색
+            link = card_or_link_locator.locator('a#video-title, a#video-title-link, a#thumbnail, a[href*="/watch"]').first
+            href = None
+            try:
+                if link.count() > 0:
+                    href = link.get_attribute("href")
+            except Exception:
+                pass
+            
+            # 카드가 이미 링크 태그인 경우
+            if not href:
+                try:
+                    href = card_or_link_locator.get_attribute("href")
+                except Exception:
+                    pass
+
+            if href and ("/watch" in href or "/shorts" in href):
+                full_url = f"https://www.youtube.com{href}" if href.startswith("/") else href
+                logger.info(f"🔗 [SafeNav] Direct URL navigation to video: {full_url}")
+                page.goto(full_url, wait_until="domcontentloaded")
+                return True
+
+            # 2. 링크 추출 실패 시 강제 클릭 (force=True로 <video> 오버레이 무시)
+            card_or_link_locator.scroll_into_view_if_needed()
+            time.sleep(random.uniform(0.8, 1.5))
+            if link.count() > 0:
+                link.click(force=True, timeout=8000)
+            else:
+                card_or_link_locator.click(force=True, timeout=8000)
+            return True
+        except Exception as e:
+            logger.warning(f"[SafeNav] Safe navigation failed: {e}")
+            return False
 
     def _create_browser(self, profile_id: str, engine_mode: str = "standard", headless: bool = True) -> any:
         """
@@ -231,21 +301,28 @@ class BrowserSessionManager:
             if channel:
                 if success == "AUTH_DROPPED":
                     channel.warmup_status = "FAILED"
+                    channel.warmup_last_error = "인증 세션 만료 (로그인 필요)"
                     try:
                         channel.status = "AUTH_DROPPED"
                     except Exception:
                         pass
+                elif success is True:
+                    channel.warmup_status = "COMPLETED"
+                    channel.warmup_last_error = None
                 else:
-                    channel.warmup_status = "COMPLETED" if success else "FAILED"
+                    channel.warmup_status = "FAILED"
+                    channel.warmup_last_error = self._last_warmup_error.get(channel_id, "웜업 실행 중 브라우저 오류가 발생했습니다.")
                 channel.warmup_stage = stage
                 
                 # 웜업 로그 기록
                 try:
                     import json
                     log_status = "success" if success is True else "failed"
-                    error_msg = "AUTH_DROPPED" if success == "AUTH_DROPPED" else None
-                    if not success and success != "AUTH_DROPPED":
-                        error_msg = "Automated warmup encountered an error or was interrupted."
+                    error_msg = None
+                    if success == "AUTH_DROPPED":
+                        error_msg = "인증 세션 만료 (로그인 필요)"
+                    elif success is not True:
+                        error_msg = channel.warmup_last_error or "웜업 실행 중 알 수 없는 오류 발생"
                     
                     warmup_log = WarmupLog(
                         channel_id=channel_id,
@@ -264,17 +341,20 @@ class BrowserSessionManager:
                 
             return success == True
         except Exception as e:
-            logger.error(f"[FAIL] [Warmup] run_warmup_routine error: {e}", exc_info=True)
+            err_msg = str(e)
+            logger.error(f"[FAIL] [Warmup] run_warmup_routine error: {err_msg}", exc_info=True)
+            self._last_warmup_error[channel_id] = err_msg
             # 실패 상태 기록
             try:
                 channel = db.query(YouTubeChannel).filter(YouTubeChannel.channel_id == channel_id).first()
                 if channel:
                     channel.warmup_status = "FAILED"
+                    channel.warmup_last_error = err_msg
                     db.commit()
             except Exception:
                 pass
             # 실제 에러 메시지를 상위에 전달
-            raise RuntimeError(str(e)) from e
+            raise RuntimeError(err_msg) from e
         finally:
             self.close_session()
             db.close()
@@ -289,6 +369,238 @@ class BrowserSessionManager:
                 except Exception as e:
                     logger.warning(f"[WARN] [Warmup] Post-warmup IP rotation failed: {e}")
 
+    def run_profile_seed_warmup(self, profile_id: str, keywords: list = None, video_count: int = 3, visible: bool = False) -> dict:
+        """
+        [Phase 1] Pure Google Account Seed Warmup (Pre-Brand Channel Creation)
+        - Executes CloakBrowser stealth session on profile directly WITHOUT requiring YouTubeChannel
+        - Searches realistic topics, watches videos with human entropy, builds watch history and cookies
+        - Prepares Google Account trust score before brand channel is ever created
+        """
+        import app.models
+        from app.models import Profile
+        from app.database import SessionLocal
+        db = SessionLocal()
+        success = False
+        watched = 0
+        try:
+            profile = db.query(Profile).filter(Profile.id == profile_id).first()
+            if not profile:
+                logger.error(f"[SeedWarmup] Profile not found: {profile_id}")
+                return {"success": False, "error": f"Profile not found: {profile_id}"}
+
+            logger.info(f"🌱 [SeedWarmup] Starting Account Seed Warmup for {profile.email or profile_id}")
+            profile.incubation_status = "WARMING"
+            db.commit()
+
+            # Launch browser directly using stealth_ops.create_page
+            from app.services.stealth_ops_v2 import stealth_ops
+            page = stealth_ops.create_page(profile_id=profile_id, headless=not visible)
+            if not page:
+                raise Exception("Failed to launch stealth browser for seed warmup")
+            with self._session_lock:
+                self._sessions[profile_id] = page
+
+            # 1. Check Login / Home Feed
+            page.goto("https://www.youtube.com", wait_until="domcontentloaded")
+            time.sleep(random.uniform(4, 6))
+
+            # Dismiss Google / YouTube cookie or consent dialogs if present
+            try:
+                for btn_text in ["모두 수락", "동의", "I agree", "Accept all", "나중에", "Not now"]:
+                    consent_btn = page.locator(f'button:has-text("{btn_text}"), a:has-text("{btn_text}")').first
+                    if consent_btn.is_visible():
+                        consent_btn.click()
+                        time.sleep(1)
+                        break
+            except Exception:
+                pass
+
+            # Verify login / session
+            sign_in_btn = page.locator('a[href*="ServiceLogin"], a[href*="accounts.google.com/signin"]').first
+            if sign_in_btn.is_visible():
+                logger.warning(f"[SeedWarmup] Not logged in for {profile.email} — attempting login...")
+                if profile.email and profile.password:
+                    page.goto("https://accounts.google.com/signin/v2/identifier?service=youtube")
+                    time.sleep(2)
+                    email_field = page.locator('input[type="email"]')
+                    if email_field.is_visible():
+                        email_field.fill("")
+                        email_field.type(profile.email, delay=random.randint(60, 120))
+                        page.keyboard.press('Enter')
+                        time.sleep(random.uniform(3, 5))
+                    pwd_field = page.locator('input[type="password"]')
+                    if pwd_field.is_visible():
+                        pwd_field.fill("")
+                        pwd_field.type(profile.password, delay=random.randint(60, 120))
+                        page.keyboard.press('Enter')
+                        time.sleep(random.uniform(5, 8))
+                    page.goto("https://www.youtube.com")
+                    time.sleep(4)
+
+            # 2. Select Search Queries
+            default_seed_queries = [
+                "2026 세상의 흥미로운 지식",
+                "역사 속 숨겨진 미스터리 사건",
+                "돈 버는 사람들의 경제 습관",
+                "우주 다큐멘터리 몰아보기",
+                "세계적인 명화와 예술 이야기",
+                "알아두면 유용한 일상 꿀팁",
+                "오늘의 핫한 트렌드 뉴스"
+            ]
+            queries_to_run = list(keywords) if keywords and len(keywords) > 0 else default_seed_queries
+            random.shuffle(queries_to_run)
+
+            watched_videos = []
+
+            self.reset_abort()
+            self.set_job_progress(profile_id, "WARMING", f"시드 예열 준비 완료 (목표 {video_count}편)", 0, video_count)
+
+            # 3. Seed Watch Iterations
+            for i in range(min(video_count, len(queries_to_run))):
+                if self.is_aborted():
+                    logger.warning(f"[SeedWarmup] Abort requested during seed warmup for {profile_id}")
+                    break
+
+                current_query = queries_to_run[i]
+                logger.info(f"🔍 [SeedWarmup] [{i+1}/{video_count}] Searching & Watching: {current_query}")
+                self.set_job_progress(profile_id, "WARMING", f"[{i+1}/{video_count}] '{current_query}' 검색 중...", i, video_count)
+
+                # Gentle human scroll before search
+                for _ in range(random.randint(1, 2)):
+                    page.mouse.wheel(0, int(random.gauss(300, 100)))
+                    time.sleep(random.uniform(1.0, 2.0))
+
+                # 1) Direct search URL navigation ensures 100% reliable landing on search page
+                import urllib.parse
+                search_url = f"https://www.youtube.com/results?search_query={urllib.parse.quote(current_query)}"
+                page.goto(search_url, wait_until="domcontentloaded")
+                time.sleep(random.uniform(3.0, 5.0))
+
+                # Dismiss consent popups again if needed
+                try:
+                    for btn_text in ["모두 수락", "동의", "I agree", "Accept all"]:
+                        c_btn = page.locator(f'button:has-text("{btn_text}"), a:has-text("{btn_text}")').first
+                        if c_btn.is_visible():
+                            c_btn.click()
+                            time.sleep(1)
+                            break
+                except Exception:
+                    pass
+
+                # Find clickable video card or title link
+                target_link = None
+                try:
+                    page.wait_for_selector('ytd-video-renderer a#video-title, ytd-video-renderer a#thumbnail, a#video-title', timeout=10000)
+                except Exception:
+                    logger.warning(f"[SeedWarmup] Search results delayed for query '{current_query}'")
+
+                # Scan candidate video links
+                candidates = page.locator('ytd-video-renderer a#video-title, ytd-video-renderer a#thumbnail, a#video-title').all()
+                for c in candidates[:6]:
+                    try:
+                        if c.is_visible():
+                            target_link = c
+                            break
+                    except Exception:
+                        continue
+
+                # Fallback: if search results page yielded nothing, pick from home feed
+                if not target_link:
+                    logger.warning(f"[SeedWarmup] Falling back to YouTube home feed for video {i+1}...")
+                    page.goto("https://www.youtube.com", wait_until="domcontentloaded")
+                    time.sleep(random.uniform(2.5, 4.0))
+                    try:
+                        page.wait_for_selector('ytd-rich-item-renderer a#video-title-link, ytd-rich-item-renderer a#video-title, a#video-title', timeout=8000)
+                        home_cands = page.locator('ytd-rich-item-renderer a#video-title-link, ytd-rich-item-renderer a#video-title, a#video-title').all()
+                        for hc in home_cands[:6]:
+                            if hc.is_visible():
+                                target_link = hc
+                                break
+                    except Exception as home_err:
+                        logger.warning(f"[SeedWarmup] Home feed fallback error: {home_err}")
+
+                if target_link:
+                    try:
+                        video_title = ""
+                        try:
+                            video_title = target_link.get_attribute("title") or target_link.inner_text() or ""
+                        except Exception:
+                            pass
+                        if not video_title.strip():
+                            video_title = current_query
+
+                        self.set_job_progress(profile_id, "WARMING", f"[{i+1}/{video_count}] '{video_title[:30]}' 시청 진입 중...", i, video_count)
+
+                        # [Fix] YouTube 인라인 프리뷰 동영상(<video> overlay) 인터셉트 방어 탐색
+                        nav_ok = self._safe_navigate_to_video(page, target_link)
+                        if not nav_ok:
+                            logger.warning(f"[SeedWarmup] Direct click failed for video {i+1}, trying fallback search click")
+
+                        logger.info(f"▶️ [SeedWarmup] Watching video {i+1}: '{video_title}'...")
+
+                        # Wait for player or video tag
+                        try:
+                            page.wait_for_selector('.html5-video-player, video', timeout=10000)
+                        except Exception:
+                            pass
+
+                        watch_seconds = random.randint(45, 65)
+                        self.set_job_progress(profile_id, "WARMING", f"[{i+1}/{video_count}] '{video_title[:25]}' 시청 중 ({watch_seconds}초)", i + 1, video_count)
+                        self._active_watch(page, duration=watch_seconds, allow_like=False, allow_comment=False)
+                        watched += 1
+                        watched_videos.append(video_title)
+                        logger.info(f"✅ [SeedWarmup] Finished video {i+1}: '{video_title}' ({watch_seconds}s)")
+                    except Exception as watch_err:
+                        logger.warning(f"[SeedWarmup] Video watch error: {watch_err}")
+                else:
+                    logger.warning(f"[SeedWarmup] No visible search results or home cards found for query '{current_query}'")
+
+                # Short break between videos
+                time.sleep(random.uniform(2.0, 4.0))
+
+            success = watched > 0
+            if success:
+                profile.incubation_status = "WARMED"
+                profile.seed_history_count = (profile.seed_history_count or 0) + watched
+                profile.last_warmed_at = datetime.now()
+                db.commit()
+                self.set_job_progress(profile_id, "COMPLETED", f"시드 예열 완료 ({watched}편 시청)", watched, video_count)
+                logger.info(f"🎉 [SeedWarmup] Successfully warmed profile {profile_id} (Watched {watched} videos: {watched_videos})")
+                return {
+                    "success": True,
+                    "profile_id": profile_id,
+                    "watched_count": watched,
+                    "watched_videos": watched_videos,
+                    "incubation_status": profile.incubation_status
+                }
+            else:
+                profile.incubation_status = "NEWBORN"
+                db.commit()
+                self.set_job_progress(profile_id, "FAILED", "동영상 시청에 실패했습니다", 0, video_count)
+                return {
+                    "success": False,
+                    "error": "유튜브 동영상 카드를 감지하지 못했습니다. 스텔스 브라우저가 화면에 떴을 때 네트워크 또는 로그인 상태를 확인해 주세요.",
+                    "profile_id": profile_id,
+                    "watched_count": 0,
+                    "watched_videos": [],
+                    "incubation_status": profile.incubation_status
+                }
+        except Exception as e:
+            logger.error(f"[SeedWarmup] Execution failed: {e}", exc_info=True)
+            return {"success": False, "error": str(e)}
+        finally:
+            try:
+                self.close_session(profile_id)
+            except Exception:
+                pass
+            db.close()
+            # Post-warmup soft IP rotation
+            if success:
+                try:
+                    from app.services.adb_service import adb_service
+                    adb_service.rotate_ip(method='soft')
+                except Exception:
+                    pass
 
     def close_session(self, profile_id: str = None):
         if profile_id:
@@ -392,6 +704,9 @@ class BrowserSessionManager:
         end_time = time.time() + duration
         
         while time.time() < end_time:
+            if self.is_aborted():
+                logger.info("⏹️ [ActiveWatch] Abort flag detected, stopping watch simulation.")
+                break
             remaining = end_time - time.time()
             if remaining <= 0: break
             
@@ -479,9 +794,7 @@ class BrowserSessionManager:
             video_card = page.locator('ytd-rich-item-renderer').nth(random.randint(0, 3))
             try:
                 video_card.wait_for(state='visible', timeout=8000)
-                video_card.scroll_into_view_if_needed()
-                time.sleep(random.uniform(1, 3))
-                video_card.click()
+                self._safe_navigate_to_video(page, video_card)
                 logger.info("📺 Selected video from Home Feed.")
                 
                 # 시청 (45 ~ 120초), 상호작용 절대 금지
@@ -507,14 +820,14 @@ class BrowserSessionManager:
                 else:
                     import urllib.parse
                     encoded_query = urllib.parse.quote(query)
-                    page.goto(f"https://www.youtube.com/results?search_query={encoded_query}")
+                    page.goto(f"https://www.youtube.com/results?search_query={encoded_query}", wait_until="domcontentloaded", timeout=30000)
                     time.sleep(random.uniform(3, 5))
                     
                 # 검색 결과에서 영상 클릭
                 search_card = page.locator('ytd-video-renderer').first
                 try:
                     search_card.wait_for(state='visible', timeout=8000)
-                    search_card.click()
+                    self._safe_navigate_to_video(page, search_card)
                     logger.info("📺 Selected video from Fallback Search.")
                     self._active_watch(page, random.randint(45, 120), allow_like=False, allow_comment=False)
                 except Exception as search_err:
@@ -522,7 +835,9 @@ class BrowserSessionManager:
                 
             return True
         except Exception as e:
-            logger.error(f"[FAIL] Stage 1 Failed: {e}")
+            err_msg = f"Stage 1 오류: {e}"
+            logger.error(f"[FAIL] {err_msg}")
+            self._last_warmup_error[channel_id] = err_msg
             if str(e) == "AUTH_DROPPED": return "AUTH_DROPPED"
             return False
 
@@ -537,7 +852,7 @@ class BrowserSessionManager:
             query = random.choice(queries)
             
             # 직접 타이핑하듯 검색
-            page.goto("https://www.youtube.com/")
+            page.goto("https://www.youtube.com/", wait_until="domcontentloaded", timeout=30000)
             time.sleep(random.uniform(2, 4))
             search_input = page.locator('input#search')
             if search_input.is_visible():
@@ -547,16 +862,14 @@ class BrowserSessionManager:
                 page.keyboard.press('Enter')
                 time.sleep(random.uniform(4, 7))
             else:
-                page.goto(f"https://www.youtube.com/results?search_query={query}")
+                page.goto(f"https://www.youtube.com/results?search_query={query}", wait_until="domcontentloaded", timeout=30000)
                 time.sleep(random.uniform(3, 5))
                 
             # 검색 결과에서 2~4번째 영상 클릭 (최상단 회피)
             video_card = page.locator('ytd-video-renderer').nth(random.randint(1, 3))
             try:
                 video_card.wait_for(state='visible', timeout=10000)
-                video_card.scroll_into_view_if_needed()
-                time.sleep(random.uniform(1, 3))
-                video_card.click()
+                self._safe_navigate_to_video(page, video_card)
                 logger.info(f"📺 Selected niche video for '{query}'.")
                 
                 # 시청 (90 ~ 180초), 좋아요 50% 허용
@@ -566,7 +879,7 @@ class BrowserSessionManager:
             
             # 숏츠 시청 로직
             logger.info("📱 Exploring Shorts...")
-            page.goto("https://www.youtube.com/shorts/")
+            page.goto("https://www.youtube.com/shorts/", wait_until="domcontentloaded", timeout=30000)
             time.sleep(random.uniform(3, 6))
             for _ in range(random.randint(3, 6)): # 3~6개 숏츠
                 # 숏츠 체류 시간 (3초 ~ 30초)
@@ -577,7 +890,9 @@ class BrowserSessionManager:
                 
             return True
         except Exception as e:
-            logger.error(f"[FAIL] Stage 2 Failed: {e}")
+            err_msg = f"Stage 2 오류: {e}"
+            logger.error(f"[FAIL] {err_msg}")
+            self._last_warmup_error[channel_id] = err_msg
             if str(e) == "AUTH_DROPPED": return "AUTH_DROPPED"
             return False
 
@@ -588,18 +903,19 @@ class BrowserSessionManager:
             # Stage 2의 검색 로직을 일부 차용하여 영상 진입
             res = self._warmup_day_2_interest(page, db, channel_id, stage, dna, intel)
             if res == "AUTH_DROPPED": return res
+            if not res:
+                logger.warning(f"[Stage 3] Stage 2 선행 탐색 실패로 웜업 안전 중단: {channel_id}")
+                return False
                 
             # 추가적으로 한 번 더 영상을 클릭하여 깊은 상호작용 시도
             queries = intel.generate_dna_search_queries(dna) if dna else ["인기 급상승", "추천 영상"]
-            page.goto(f"https://www.youtube.com/results?search_query={random.choice(queries)}")
+            page.goto(f"https://www.youtube.com/results?search_query={random.choice(queries)}", wait_until="domcontentloaded", timeout=30000)
             time.sleep(random.uniform(3, 5))
                 
             video_card = page.locator('ytd-video-renderer').nth(random.randint(0, 2))
             try:
                 video_card.wait_for(state='visible', timeout=10000)
-                video_card.scroll_into_view_if_needed()
-                time.sleep(random.uniform(1, 3))
-                video_card.click()
+                self._safe_navigate_to_video(page, video_card)
                 time.sleep(random.uniform(3, 5))
             except Exception:
                 pass
@@ -626,7 +942,9 @@ class BrowserSessionManager:
                         
             return True
         except Exception as e:
-            logger.error(f"[FAIL] Stage 3 Failed: {e}")
+            err_msg = f"Stage 3 오류: {e}"
+            logger.error(f"[FAIL] {err_msg}")
+            self._last_warmup_error[channel_id] = err_msg
             if str(e) == "AUTH_DROPPED": return "AUTH_DROPPED"
             return False
 

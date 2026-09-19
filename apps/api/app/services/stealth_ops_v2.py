@@ -39,49 +39,60 @@ class PatchrightStealth:
         
         # Resolve Profile proxy from DB
         proxy_config = None
+        created_own_db = False
         if not db:
-            from app import database
-            db_session = next(database.get_db())
+            from app.database import SessionLocal
+            db_session = SessionLocal()
+            created_own_db = True
         else:
             db_session = db
-            
-        profile = db_session.query(Profile).filter(Profile.id == profile_id).first()
-        
-        # Use folder_path from DB if available, otherwise fallback
-        if profile and profile.folder_path:
-            profile_dir = profile.folder_path
-        else:
+
+        profile_dir = None
+        try:
+            profile = db_session.query(Profile).filter(Profile.id == profile_id).first()
+            if profile and profile.folder_path:
+                profile_dir = profile.folder_path
+            else:
+                profile_dir = get_profile_path(profile_id)
+
+            if profile:
+                if profile.proxy_mode == "ISP_PROXY" and profile.proxy_host:
+                    port = profile.proxy_port or 1080
+                    if profile.proxy_username and profile.proxy_password:
+                        proxy_config = {
+                            "server": f"socks5://{profile.proxy_host}:{port}",
+                            "username": profile.proxy_username,
+                            "password": profile.proxy_password
+                        }
+                    else:
+                        proxy_config = {"server": f"socks5://{profile.proxy_host}:{port}"}
+                    logger.info(f"🔒 [Stealth Shield] Binding ISP Proxy: {profile.proxy_host}:{port}")
+                elif profile.proxy_mode == "DIRECT_LTE":
+                    # EveryProxy default 1080 (SOCKS5)
+                    proxy_config = {"server": "socks5://127.0.0.1:1080"}
+                    logger.info("🔒 [Stealth Shield] Binding LTE Mobile Proxy: socks5://127.0.0.1:1080")
+        finally:
+            if created_own_db:
+                try:
+                    db_session.close()
+                except Exception:
+                    pass
+
+        if not profile_dir:
             profile_dir = get_profile_path(profile_id)
-            
-        if profile:
-            if profile.proxy_mode == "ISP_PROXY" and profile.proxy_host:
-                port = profile.proxy_port or 1080
-                if profile.proxy_username and profile.proxy_password:
-                    proxy_config = {
-                        "server": f"socks5://{profile.proxy_host}:{port}",
-                        "username": profile.proxy_username,
-                        "password": profile.proxy_password
-                    }
-                else:
-                    proxy_config = {"server": f"socks5://{profile.proxy_host}:{port}"}
-                logger.info(f"🔒 [Stealth Shield] Binding ISP Proxy: {profile.proxy_host}:{port}")
-            elif profile.proxy_mode == "DIRECT_LTE":
-                # EveryProxy default 1080 (SOCKS5)
-                proxy_config = {"server": "socks5://127.0.0.1:1080"}
-                logger.info("🔒 [Stealth Shield] Binding LTE Mobile Proxy: socks5://127.0.0.1:1080")
                 
         if not proxy_config and proxy_port:
             proxy_config = {"server": f"http://127.0.0.1:{proxy_port}"}
             
         browser_args = [
+            "--test-type",
             "--disable-quic",
             "--disable-ipv6",
             "--disable-background-networking",
             "--force-webrtc-ip-handling-policy=disable_non_proxied_udp",
             "--disable-webrtc-multiple-routes",
             "--use-fake-ui-for-media-stream",
-            "--enable-features=DnsOverHttps",
-            "--dns-over-https-templates=https://chrome.cloudflare-dns.com/dns-query",
+            "--hide-crash-restore-bubble",
         ]
         
         logger.info(f"Launching Patchright context for profile {profile_id} (Headless: {headless}, Proxy: {proxy_config})")
@@ -300,9 +311,10 @@ class PatchrightStealth:
                 args = [
                     "--disable-blink-features=AutomationControlled",
                     "--force-webrtc-ip-handling-policy=disable_non_proxied_udp",
-                    "--no-sandbox",
-                    "--disable-setuid-sandbox"
                 ]
+                import platform
+                if platform.system() == "Linux":
+                    args.extend(["--no-sandbox", "--disable-setuid-sandbox"])
 
                 logger.info(f"🕵️ Launching persistent stealth context for channel scouting: {profile.folder_path}")
                 context = p.chromium.launch_persistent_context(
@@ -317,7 +329,7 @@ class PatchrightStealth:
                 page.set_default_timeout(10000)
                 
                 from app.services.automation.channel_creator import ChannelCreator
-                creator = ChannelCreator(self, None)
+                creator = ChannelCreator(self)
                 res = creator.detect_active_channel(page)
                 try:
                     context.close()

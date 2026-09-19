@@ -1,0 +1,58 @@
+{
+  "channel_id": 6,
+  "channel_name": "숏비타민c",
+  "version": "1.0.0",
+  "persona": {
+    "tone_style": "investigative_entertainment",
+    "speech_speed_wpm": 160,
+    "forbidden_words": [
+      "비속어",
+      "과격표현",
+      "미확인 루머",
+      "성희롱"
+    ],
+    "clean_shield": true,
+    "required_ending_hook": "다음 비하인드가 궁금하다면 구독과 좋아요!"
+  },
+  "script_branch": {
+    "mode": "video_present",
+    "pacing_jab_interval_sec": 8.5,
+    "climax_second": 35,
+    "active_typography_mix": [
+      "HOOK_ANCHOR",
+      "NARRATION",
+      "PACING_JAB",
+      "FACT_BULLET"
+    ]
+  },
+  "audio": {
+    "engine": "ElevenLabs / Typecast",
+    "voice_id": "ko-KR-Standard-A",
+    "speed_rate": "+25%",
+    "pitch_adjust": "+10Hz",
+    "bgm_ducking_db": -20.0,
+    "sfx_pack_name": "kpop_chuckle_pop"
+  },
+  "visual": {
+    "canvas_type": "LETTERBOX_SOLID",
+    "video_fit_mode": "sandwich",
+    "aspect_ratio": "9:16",
+    "top_bar_height_pct": 18.3,
+    "top_bar_bg": "#000000",
+    "header_lines": [
+      { "line": 1, "color": "#FFFFFF", "text_example": "여돌들 중 누가" },
+      { "line": 2, "color": "#F5F420", "text_example": "진짜 대식가일까?" }
+    ],
+    "subtitle_y_pct": 68.5,
+    "jab_hook": {
+      "enabled": true,
+      "color": "#F5F420",
+      "tilt_deg": -4
+    }
+  },
+  "gatekeeper": {
+    "min_pass_score": 85.0,
+    "channel_dna_strict_check": true,
+    "auto_retry_limit": 3
+  }
+}

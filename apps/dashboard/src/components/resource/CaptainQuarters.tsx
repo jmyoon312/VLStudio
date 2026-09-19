@@ -3,11 +3,12 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Shield, Eye, PlaySquare, Activity, Lock, Loader2, RefreshCw, ChevronRight, UserPlus, Pencil, Trash2, Flame, CheckCircle2, AlertTriangle, PauseCircle, Clock, Users } from 'lucide-react';
+import { Shield, Eye, PlaySquare, Activity, Lock, Loader2, RefreshCw, ChevronRight, UserPlus, Pencil, Trash2, Flame, CheckCircle2, AlertTriangle, PauseCircle, Clock, Users, Sparkles, Settings, RotateCcw } from 'lucide-react';
 
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/components/ui/use-toast';
+import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
@@ -22,11 +23,24 @@ import { CultivationWizard } from './CultivationWizard';
 
 const API_BASE = typeof window !== 'undefined' && window.location.protocol === 'file:' ? 'http://127.0.0.1:8000/api' : '/api';
 
+interface BulkWarmupPanelProps {
+    selectedChannelIds?: string[];
+    onClearSelection?: () => void;
+    onOpenLogs?: (channelId: string) => void;
+}
+
 // --- Bulk Warmup Control Panel ---
-export const BulkWarmupPanel = () => {
+export const BulkWarmupPanel: React.FC<BulkWarmupPanelProps> = ({
+    selectedChannelIds = [],
+    onClearSelection,
+    onOpenLogs
+}) => {
     const { toast } = useToast();
     const queryClient = useQueryClient();
     const [guideOpen, setGuideOpen] = React.useState(false);
+    const [errorDiagnosisOpen, setErrorDiagnosisOpen] = React.useState(false);
+    const [selectedChannelForLogs, setSelectedChannelForLogs] = React.useState<string>('');
+    const [logViewerOpen, setLogViewerOpen] = React.useState(false);
 
     // Fetch bulk status every 5 seconds
     const { data: status, isLoading } = useQuery({
@@ -38,16 +52,48 @@ export const BulkWarmupPanel = () => {
         refetchInterval: 5000
     });
 
-    // Bulk start mutation
+    // Single channel retry mutation
+    const retryMutation = useMutation({
+        mutationFn: async (channelId: string) => {
+            const isVisible = typeof window !== 'undefined' ? localStorage.getItem('seed_warmup_visible') === 'true' : false;
+            return (await axios.post(`${API_BASE}/youtube/channels/${channelId}/warmup`, null, {
+                params: { visible: isVisible }
+            })).data;
+        },
+        onSuccess: (res) => {
+            if (res.success) {
+                toast({ title: "웜업 재시도 완료", description: "웜업이 성공적으로 완료되었습니다." });
+            } else {
+                toast({ title: "웜업 재시도 실패", description: res.message || "오류가 발생했습니다.", variant: "destructive" });
+            }
+            queryClient.invalidateQueries({ queryKey: ['bulk-warmup-status'] });
+            queryClient.invalidateQueries({ queryKey: ['captain-channels'] });
+            queryClient.invalidateQueries({ queryKey: ['youtube-channels'] });
+        },
+        onError: (err: any) => {
+            toast({ title: "재시도 오류", description: err.response?.data?.detail || err.message, variant: "destructive" });
+        }
+    });
+
+    // Bulk start mutation (supports both filter string and payload object with channel_ids)
     const startMutation = useMutation({
-        mutationFn: async (filter: string) =>
-            await axios.post(`${API_BASE}/youtube/warmup/bulk/start`, null, { params: { filter } }),
-        onSuccess: (res, filter) => {
+        mutationFn: async (params: { filter?: string; channel_ids?: string[] } | string) => {
+            if (typeof params === 'string') {
+                return (await axios.post(`${API_BASE}/youtube/warmup/bulk/start`, null, { params: { filter: params } })).data;
+            } else {
+                return (await axios.post(`${API_BASE}/youtube/warmup/bulk/start`, { channel_ids: params.channel_ids }, { params: { filter: params.filter || 'all' } })).data;
+            }
+        },
+        onSuccess: (res, vars) => {
+            const filterLabel = typeof vars === 'string' ? vars : (vars.channel_ids ? `선택 ${vars.channel_ids.length}개` : vars.filter);
             toast({
                 title: "일괄 웜업 시작",
-                description: `${res.data.started}개 채널의 웜업이 시작되었습니다 (필터: ${filter})`,
+                description: `${res.started}개 채널의 웜업이 시작되었습니다 (${filterLabel})`,
             });
             queryClient.invalidateQueries({ queryKey: ['bulk-warmup-status'] });
+            queryClient.invalidateQueries({ queryKey: ['captain-channels'] });
+            queryClient.invalidateQueries({ queryKey: ['youtube-channels'] });
+            if (onClearSelection) onClearSelection();
         },
         onError: (err: any) => {
             toast({
@@ -158,7 +204,7 @@ export const BulkWarmupPanel = () => {
 
                         <div className="bg-card rounded-xl p-3 sm:p-3.5 border border-border shadow-2xs flex items-center justify-between transition-colors hover:border-emerald-400/50">
                             <div>
-                                <p className="text-[10px] sm:text-[11px] font-medium text-muted-foreground">완료됨</p>
+                                <p className="text-[10px] sm:text-[11px] font-medium text-muted-foreground">육성 완료 (Stage 3)</p>
                                 <h3 className="text-lg sm:text-xl font-extrabold tracking-tight text-emerald-600 dark:text-emerald-400 mt-0.5">{status?.completed || 0}</h3>
                             </div>
                             <div className="p-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400">
@@ -166,9 +212,20 @@ export const BulkWarmupPanel = () => {
                             </div>
                         </div>
 
-                        <div className="bg-card rounded-xl p-3 sm:p-3.5 border border-border shadow-2xs flex items-center justify-between transition-colors hover:border-rose-400/50">
+                        <div 
+                            onClick={() => {
+                                if ((status?.failed || 0) > 0) {
+                                    setErrorDiagnosisOpen(true);
+                                }
+                            }}
+                            className={`bg-card rounded-xl p-3 sm:p-3.5 border shadow-2xs flex items-center justify-between transition-all ${(status?.failed || 0) > 0 ? 'border-rose-500/50 bg-rose-500/5 hover:border-rose-500 cursor-pointer hover:shadow-sm' : 'border-border hover:border-rose-400/50'}`}
+                            title={(status?.failed || 0) > 0 ? "클릭하여 오류 채널 목록 및 실패 원인을 확인합니다." : "오류 채널 없음"}
+                        >
                             <div>
-                                <p className="text-[10px] sm:text-[11px] font-medium text-muted-foreground">오류 발생</p>
+                                <p className="text-[10px] sm:text-[11px] font-medium text-muted-foreground flex items-center gap-1">
+                                    <span>오류 발생</span>
+                                    {(status?.failed || 0) > 0 && <span className="text-[9px] text-rose-500 font-bold underline">(원인 확인)</span>}
+                                </p>
                                 <h3 className="text-lg sm:text-xl font-extrabold tracking-tight text-rose-600 dark:text-rose-400 mt-0.5">{status?.failed || 0}</h3>
                             </div>
                             <div className="p-2 rounded-lg bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400">
@@ -188,7 +245,7 @@ export const BulkWarmupPanel = () => {
 
                         <div className="bg-card rounded-xl p-3 sm:p-3.5 border border-border shadow-2xs flex items-center justify-between transition-colors hover:border-slate-400/50">
                             <div>
-                                <p className="text-[10px] sm:text-[11px] font-medium text-muted-foreground">대기 중</p>
+                                <p className="text-[10px] sm:text-[11px] font-medium text-muted-foreground">육성 대기 (신규)</p>
                                 <h3 className="text-lg sm:text-xl font-extrabold tracking-tight text-slate-600 dark:text-slate-400 mt-0.5">{status?.pending || 0}</h3>
                             </div>
                             <div className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
@@ -201,6 +258,15 @@ export const BulkWarmupPanel = () => {
                     {/* Bulk Action Buttons */}
                     <div className="flex flex-col sm:flex-row gap-2.5 pt-3 border-t border-border">
                         <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2 flex-1">
+                            {selectedChannelIds && selectedChannelIds.length > 0 && (
+                                <Button
+                                    onClick={() => startMutation.mutate({ channel_ids: selectedChannelIds })}
+                                    disabled={startMutation.isPending}
+                                    className="bg-amber-600 hover:bg-amber-700 text-white shadow-2xs h-8 text-xs font-bold animate-in fade-in col-span-2 sm:col-span-1"
+                                >
+                                    <Sparkles className="w-3.5 h-3.5 mr-1.5" /> 🎯 선택 채널 시작 ({selectedChannelIds.length}개)
+                                </Button>
+                            )}
                             <Button
                                 onClick={() => startMutation.mutate("all")}
                                 disabled={startMutation.isPending}
@@ -255,6 +321,112 @@ export const BulkWarmupPanel = () => {
                 </CardContent>
             </Card>
 
+            {/* Error Channels Diagnosis Modal */}
+            <Dialog open={errorDiagnosisOpen} onOpenChange={setErrorDiagnosisOpen}>
+                <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col p-0 overflow-hidden bg-card border-border shadow-2xl rounded-2xl">
+                    <DialogHeader className="p-4 pb-3 border-b border-border bg-rose-500/10">
+                        <DialogTitle className="text-base font-bold flex items-center gap-2 text-rose-600 dark:text-rose-400">
+                            <AlertTriangle className="w-5 h-5 shrink-0" />
+                            <span>⚠️ 웜업 실패 채널 긴급 진단 및 조치 ({status?.failed || 0}개)</span>
+                        </DialogTitle>
+                        <DialogDescription className="text-xs text-muted-foreground mt-0.5">
+                            웜업 루틴 중 브라우저 세션이나 프록시 네트워크 통신 오류가 발생한 채널 목록과 상세 원인입니다.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="flex-1 p-4 overflow-y-auto space-y-3">
+                        {status?.failed_channels && status.failed_channels.length > 0 ? (
+                            status.failed_channels.map((ch: any) => (
+                                <div key={ch.channel_id} className="p-3.5 rounded-xl border border-rose-500/30 bg-rose-500/5 dark:bg-rose-950/20 space-y-2">
+                                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                                        <div className="flex items-center gap-2 min-w-0">
+                                            <Badge variant="outline" className="bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/30 font-bold text-[10px]">
+                                                Day {ch.warmup_stage} 실패
+                                            </Badge>
+                                            <span className="text-sm font-extrabold text-foreground truncate">{ch.title}</span>
+                                            <span className="text-[10px] text-muted-foreground font-mono">({ch.channel_id})</span>
+                                        </div>
+                                        <div className="flex items-center gap-1.5 shrink-0">
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                onClick={() => {
+                                                    if (onOpenLogs) {
+                                                        onOpenLogs(ch.channel_id);
+                                                    } else {
+                                                        setSelectedChannelForLogs(ch.channel_id);
+                                                        setLogViewerOpen(true);
+                                                    }
+                                                }}
+                                                className="h-7 text-xs border-border bg-background hover:bg-muted font-semibold rounded-lg"
+                                            >
+                                                <Clock className="w-3 h-3 mr-1" /> 로그 보기
+                                            </Button>
+                                            <Button
+                                                size="sm"
+                                                disabled={retryMutation.isPending}
+                                                onClick={() => retryMutation.mutate(ch.channel_id)}
+                                                className="h-7 text-xs bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-lg shadow-2xs"
+                                            >
+                                                {retryMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <RotateCcw className="w-3 h-3 mr-1" />}
+                                                재시도
+                                            </Button>
+                                        </div>
+                                    </div>
+
+                                    <div className="bg-card/90 rounded-lg p-2.5 border border-border text-xs space-y-1">
+                                        <div className="text-[11px] font-bold text-muted-foreground flex items-center gap-1">
+                                            <span>🔍 상세 실패 원인:</span>
+                                        </div>
+                                        <p className="text-[11px] font-mono text-rose-700 dark:text-rose-300 break-all leading-relaxed">
+                                            {ch.warmup_last_error || "알 수 없는 오류"}
+                                        </p>
+                                        {ch.warmup_last_run && (
+                                            <p className="text-[10px] text-muted-foreground">
+                                                발생 시각: {new Date(ch.warmup_last_run).toLocaleString('ko-KR')}
+                                            </p>
+                                        )}
+                                    </div>
+                                </div>
+                            ))
+                        ) : (
+                            <div className="text-center py-10 text-muted-foreground text-xs">
+                                현재 실패 상태인 채널이 없습니다.
+                            </div>
+                        )}
+                    </div>
+
+                    <DialogFooter className="p-3 border-t border-border bg-muted/20 flex flex-row items-center justify-between">
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={startMutation.isPending || !status?.failed}
+                            onClick={() => {
+                                startMutation.mutate("failed");
+                                setErrorDiagnosisOpen(false);
+                            }}
+                            className="h-8 text-xs font-bold text-rose-600 hover:bg-rose-500/10 border-rose-500/30 rounded-xl"
+                        >
+                            <Flame className="w-3.5 h-3.5 mr-1" /> 전체 실패 채널 일괄 재시도 ({status?.failed || 0}개)
+                        </Button>
+                        <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setErrorDiagnosisOpen(false)}
+                            className="h-8 text-xs rounded-xl"
+                        >
+                            닫기
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <WarmupLogViewer
+                open={logViewerOpen}
+                onOpenChange={setLogViewerOpen}
+                channelId={selectedChannelForLogs}
+            />
+
             <IncubationGuide open={guideOpen} onOpenChange={setGuideOpen} />
         </>
     );
@@ -273,6 +445,17 @@ const CaptainQuarters = ({ onOpenLogs }: { onOpenLogs?: (channelId: string) => v
     const [deleteId, setDeleteId] = useState<string | null>(null);
     const [logViewerOpen, setLogViewerOpen] = useState(false);
     const [selectedChannelForLogs, setSelectedChannelForLogs] = useState<string>('');
+    const [selectedChannelIds, setSelectedChannelIds] = useState<string[]>([]);
+
+    const handleToggleSelectChannel = (channelId: string) => {
+        setSelectedChannelIds(prev =>
+            prev.includes(channelId) ? prev.filter(id => id !== channelId) : [...prev, channelId]
+        );
+    };
+
+    const handleClearChannelSelection = () => {
+        setSelectedChannelIds([]);
+    };
 
     // Fetch Real Profiles (CAPTAIN type)
     const { data: profiles, isLoading, refetch } = useQuery({
@@ -347,7 +530,10 @@ const CaptainQuarters = ({ onOpenLogs }: { onOpenLogs?: (channelId: string) => v
     return (
         <div className="space-y-4 animate-in fade-in duration-500">
             {/* Bulk Warmup Control Panel */}
-            <BulkWarmupPanel />
+            <BulkWarmupPanel
+                selectedChannelIds={selectedChannelIds}
+                onClearSelection={handleClearChannelSelection}
+            />
 
             <div className="flex justify-between items-center mb-4">
                 <div className="flex items-center gap-2 text-muted-foreground">
@@ -470,7 +656,13 @@ const CaptainQuarters = ({ onOpenLogs }: { onOpenLogs?: (channelId: string) => v
                                 {/* Let's make it visible if ACTIVE */}
                                 {p.status?.toLowerCase() === 'active' && !isQuarantined && (
                                     <div className="px-6 pb-6 border-t pt-4 bg-muted/20">
-                                        <CaptainChannelList profileId={p.id} parentScan={loadingMap[p.id]} onOpenLogs={onOpenLogs} />
+                                        <CaptainChannelList
+                                            profileId={p.id}
+                                            parentScan={loadingMap[p.id]}
+                                            onOpenLogs={onOpenLogs}
+                                            selectedChannelIds={selectedChannelIds}
+                                            onToggleSelectChannel={handleToggleSelectChannel}
+                                        />
                                     </div>
                                 )}
                             </Card>
@@ -495,8 +687,8 @@ const CaptainQuarters = ({ onOpenLogs }: { onOpenLogs?: (channelId: string) => v
             />
 
             {/* Edit Dialog */}
-            <Dialog open={!!editProfile} onOpenChange={(o) => !o && setEditProfile(null)}>
-                <DialogContent>
+            <Dialog open={!!editProfile} onOpenChange={(open) => !open && setEditProfile(null)}>
+                <DialogContent className="sm:max-w-[500px]">
                     <DialogHeader>
                         <DialogTitle>관리자 프로필 수정</DialogTitle>
                         <DialogDescription>계정 정보를 수정하거나 상태를 변경합니다.</DialogDescription>
@@ -550,16 +742,34 @@ const CaptainQuarters = ({ onOpenLogs }: { onOpenLogs?: (channelId: string) => v
                                 <div className="space-y-2">
                                     <Label>상태 (Status)</Label>
                                     <Select
-                                        value={editProfile.status || 'DRAFT'}
-                                        onValueChange={(val) => setEditProfile({ ...editProfile, status: val })}
+                                        value={editProfile.status}
+                                        onValueChange={val => setEditProfile({ ...editProfile, status: val })}
                                     >
-                                        <SelectTrigger><SelectValue /></SelectTrigger>
+                                        <SelectTrigger>
+                                            <SelectValue />
+                                        </SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value="DRAFT">DRAFT (작성 중)</SelectItem>
-                                            <SelectItem value="ACTIVE">ACTIVE (정상)</SelectItem>
-                                            <SelectItem value="COOLING">COOLING (휴식)</SelectItem>
-                                            <SelectItem value="SUSPENDED">SUSPENDED (정지)</SelectItem>
-                                            <SelectItem value="QUARANTINED">QUARANTINED (격리)</SelectItem>
+                                            <SelectItem value="active">Active (정상)</SelectItem>
+                                            <SelectItem value="draft">Draft (임시저장)</SelectItem>
+                                            <SelectItem value="pending">Pending (인증대기)</SelectItem>
+                                            <SelectItem value="QUARANTINED">Quarantined (격리)</SelectItem>
+                                            <SelectItem value="error">Error (오류)</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label>프록시 모드</Label>
+                                    <Select
+                                        value={editProfile.proxy_mode || 'DIRECT'}
+                                        onValueChange={val => setEditProfile({ ...editProfile, proxy_mode: val })}
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="DIRECT">DIRECT (직접 연결)</SelectItem>
+                                            <SelectItem value="ADB_LTE">ADB LTE (테더링)</SelectItem>
+                                            <SelectItem value="CUSTOM_PROXY">CUSTOM (수동 프록시)</SelectItem>
                                         </SelectContent>
                                     </Select>
                                 </div>
@@ -568,24 +778,25 @@ const CaptainQuarters = ({ onOpenLogs }: { onOpenLogs?: (channelId: string) => v
                     )}
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setEditProfile(null)}>취소</Button>
-                        <Button onClick={handleEditSave}>변경 사항 저장</Button>
+                        <Button onClick={handleEditSave} disabled={updateMutation.isPending}>저장</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
 
-            {/* Delete Alert */}
-            <AlertDialog open={!!deleteId} onOpenChange={(o) => !o && setDeleteId(null)}>
+            {/* Delete Confirmation */}
+            <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
-                        <AlertDialogTitle>정말 삭제하시겠습니까?</AlertDialogTitle>
+                        <AlertDialogTitle>계정 영구 삭제</AlertDialogTitle>
                         <AlertDialogDescription>
-                            이 작업은 되돌릴 수 없습니다. 관리자 계정과 연결된 모든 데이터가 영구적으로 삭제됩니다.<br />
-                            (실제 구글 계정이나 채널은 삭제되지 않습니다)
+                            정말로 이 계정을 삭제하시겠습니까? 로컬 프로필 폴더와 인증 정보가 영구적으로 삭제되며 복구할 수 없습니다.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogCancel>취소</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleDeleteConfirm} className="bg-red-600 hover:bg-red-700">삭제 확인</AlertDialogAction>
+                        <AlertDialogAction onClick={handleDeleteConfirm} className="bg-red-600 hover:bg-red-700 text-white">
+                            삭제
+                        </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
@@ -594,7 +805,19 @@ const CaptainQuarters = ({ onOpenLogs }: { onOpenLogs?: (channelId: string) => v
 };
 
 // --- Sub Component: Channel List ---
-const CaptainChannelList = ({ profileId, parentScan, onOpenLogs }: { profileId: string, parentScan?: boolean, onOpenLogs?: (channelId: string) => void }) => {
+const CaptainChannelList = ({
+    profileId,
+    parentScan,
+    onOpenLogs,
+    selectedChannelIds = [],
+    onToggleSelectChannel
+}: {
+    profileId: string;
+    parentScan?: boolean;
+    onOpenLogs?: (channelId: string) => void;
+    selectedChannelIds?: string[];
+    onToggleSelectChannel?: (channelId: string) => void;
+}) => {
     const { toast } = useToast();
     const queryClient = useQueryClient();
     const [scanning, setScanning] = useState(false);
@@ -704,13 +927,15 @@ const CaptainChannelList = ({ profileId, parentScan, onOpenLogs }: { profileId: 
                     {displayChannels.map((ch: any) => {
                         const isActive = activeChannelId === ch.channel_id;
                         const isQuarantined = ch.status === 'QUARANTINED';
+                        const isSelected = selectedChannelIds?.includes(ch.channel_id);
 
                         return (
                             <Card
                                 key={ch.channel_id}
                                 className={`
                                     transition-all
-                                    ${isActive ? 'ring-2 ring-primary bg-primary/5' : ''}
+                                    ${isSelected ? 'ring-2 ring-primary/60 bg-primary/5 dark:bg-primary/10 border-primary/40' : ''}
+                                    ${isActive && !isSelected ? 'ring-2 ring-primary bg-primary/5' : ''}
                                     ${isQuarantined ? 'border-red-500 bg-red-500/5' : 'hover:border-primary/50'}
                                 `}
                             >
@@ -718,6 +943,15 @@ const CaptainChannelList = ({ profileId, parentScan, onOpenLogs }: { profileId: 
                                     <div className="flex items-center justify-between">
                                         {/* Channel Info */}
                                         <div className="flex items-center gap-3 flex-1">
+                                            {/* Selection Checkbox */}
+                                            {onToggleSelectChannel && !isQuarantined && (
+                                                <Checkbox
+                                                    checked={isSelected}
+                                                    onCheckedChange={() => onToggleSelectChannel(ch.channel_id)}
+                                                    aria-label={`Select channel ${ch.channel_name}`}
+                                                    className="shrink-0 self-center"
+                                                />
+                                            )}
                                             {/* Thumbnail */}
                                             {ch.thumbnail_url ? (
                                                 <img
@@ -800,7 +1034,12 @@ const CaptainChannelList = ({ profileId, parentScan, onOpenLogs }: { profileId: 
                                             
                                             {/* [NEW] Warmup Button */}
                                             {!isQuarantined && (
-                                                <WarmupButton channel={ch} profileId={profileId} onOpenLogs={onOpenLogs} />
+                                                <WarmupButton 
+                                                    channel={ch} 
+                                                    profileId={profileId} 
+                                                    onOpenLogs={onOpenLogs} 
+                                                    onOpenWizard={(channel) => { setSelectedChannelForWizard(channel); setWizardOpen(true); }}
+                                                />
                                             )}
 
                                             <Button
@@ -857,6 +1096,8 @@ export const WarmupButton = ({
     profileId, 
     onOpenLogs, 
     onNeedSync, 
+    onOpenWizard,
+    showBrowserWindow,
     compact = false,
     layout = 'inline'
 }: { 
@@ -864,20 +1105,25 @@ export const WarmupButton = ({
     profileId: string, 
     onOpenLogs?: (channelId: string) => void, 
     onNeedSync?: () => void, 
+    onOpenWizard?: (channel: any) => void,
+    showBrowserWindow?: boolean,
     compact?: boolean,
     layout?: 'inline' | 'stacked'
 }) => {
     const { toast } = useToast();
     const queryClient = useQueryClient();
-    const [isVisibleMode, setIsVisibleMode] = useState(false);
 
     const warmupMutation = useMutation({
         mutationFn: async (selectedStage: number) => {
             if (!channel || !channel.channel_id) throw new Error("Channel not found");
+            const isVisible = showBrowserWindow !== undefined
+                ? showBrowserWindow
+                : (typeof window !== 'undefined' ? localStorage.getItem('seed_warmup_visible') === 'true' : true);
+
             return await axios.post(`${API_BASE}/youtube/channels/${channel.channel_id}/warmup`, null, {
                 params: {
                     stage: selectedStage,
-                    visible: isVisibleMode
+                    visible: isVisible
                 }
             });
         },
@@ -905,7 +1151,7 @@ export const WarmupButton = ({
             
             toast({
                 title: "웜업 루틴 시작",
-                description: `Day ${selectedStage} 웜업이 시작되었습니다. 창이 열릴 때까지 잠시 기다려주세요.`,
+                description: `Day ${selectedStage} 웜업이 시작되었습니다. 잠시 기다려주세요.`,
             });
             
             return { previousData };
@@ -948,7 +1194,6 @@ export const WarmupButton = ({
             await axios.post(`${API_BASE}/youtube/channels/${channel.channel_id}/warmup/reset`);
         },
         onSuccess: () => {
-            // [즉시 UI 반영] 캐시에서 해당 채널의 warmup 상태를 직접 수정
             queryClient.setQueryData(['captain-channels', profileId], (oldData: any) => {
                 if (!oldData) return oldData;
                 
@@ -965,7 +1210,6 @@ export const WarmupButton = ({
                 }
                 return oldData;
             });
-            // 백그라운드 재검증 (서버 최신 데이터로 동기화)
             queryClient.invalidateQueries({ queryKey: ['captain-channels', profileId] });
             toast({
                 title: "웜업 상태 초기화",
@@ -995,9 +1239,9 @@ export const WarmupButton = ({
         );
     }
 
-    const isRunning = channel.warmup_status === 'RUNNING';
     const warmupStatus = channel.warmup_status || "IDLE";
     const warmupStage = channel.warmup_stage || 0;
+    const isMature = warmupStage >= 3;
 
     const startWarmup = (stage: number) => {
         warmupMutation.mutate(stage);
@@ -1006,32 +1250,131 @@ export const WarmupButton = ({
     const renderBadge = () => {
         if (warmupStatus === "RUNNING") {
             return (
-                <Badge variant="outline" className="bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20 animate-pulse whitespace-nowrap text-[11px] px-2 py-0.5">
+                <Badge variant="outline" className="bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20 animate-pulse whitespace-nowrap text-[11px] px-2 py-0.5 font-bold">
                     <Flame className="w-3 h-3 mr-1 fill-current" />
                     진화중 (Stage {warmupStage})
                 </Badge>
             );
         }
+        if (warmupStatus === "FAILED") {
+            return (
+                <Badge 
+                    variant="outline" 
+                    className="bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30 cursor-pointer hover:bg-rose-500/20 whitespace-nowrap text-[11px] px-2 py-0.5 font-bold flex items-center gap-1 shadow-2xs transition-all"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        if (onOpenLogs && channel?.channel_id) {
+                            onOpenLogs(channel.channel_id);
+                        }
+                    }}
+                    title={channel.warmup_last_error ? `오류 원인: ${channel.warmup_last_error} (클릭하여 로그 확인)` : "웜업 실패 (클릭하여 로그 확인)"}
+                >
+                    <AlertTriangle className="w-3 h-3 text-rose-500 shrink-0" />
+                    <span>⚠️ 웜업 실패 (원인 확인)</span>
+                </Badge>
+            );
+        }
         if (warmupStage > 0 && warmupStage < 3) {
             return (
-                <Badge variant="outline" className="bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20 whitespace-nowrap text-[11px] px-2 py-0.5">
+                <Badge variant="outline" className="bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20 whitespace-nowrap text-[11px] px-2 py-0.5 font-bold">
                     🔄 Stage {warmupStage} 완료
                 </Badge>
             );
         }
-        if (warmupStage >= 3) {
+        if (isMature) {
             return (
-                <Badge variant="outline" className="bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20 whitespace-nowrap text-[11px] px-2 py-0.5">
-                    ✅ 활성 계정 (Stage 3)
+                <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 whitespace-nowrap text-[11px] px-2 py-0.5 font-bold">
+                    ✅ 활성 채널 (Stage 3)
                 </Badge>
             );
         }
         return (
-            <Badge variant="outline" className="bg-muted text-muted-foreground border-border whitespace-nowrap text-[11px] px-2 py-0.5">
+            <Badge variant="outline" className="bg-muted text-muted-foreground border-border whitespace-nowrap text-[11px] px-2 py-0.5 font-medium">
                 ⏳ 웜업 대기중
             </Badge>
         );
     };
+
+    const renderDropdownContent = () => (
+        <DropdownMenuContent align="end" className="w-72 p-1.5">
+            {channel.warmup_last_error && (
+                <div className="p-2 mb-1.5 rounded-xl bg-rose-500/10 border border-rose-500/25 text-rose-600 dark:text-rose-400 text-xs">
+                    <div className="font-bold flex items-center gap-1.5 mb-1 text-[11px]">
+                        <AlertTriangle className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                        <span>최근 웜업 오류 원인</span>
+                    </div>
+                    <p className="text-[10px] break-all leading-relaxed font-mono text-foreground/90 bg-background/60 p-1.5 rounded-lg border border-border/50 max-h-24 overflow-y-auto">
+                        {channel.warmup_last_error}
+                    </p>
+                </div>
+            )}
+            {isMature ? (
+                <DropdownMenuItem
+                    onClick={() => startWarmup(3)}
+                    disabled={warmupStatus === "RUNNING"}
+                    className="font-bold text-orange-600 dark:text-orange-400 focus:text-orange-700 dark:focus:text-orange-300 flex items-start gap-2.5 cursor-pointer p-2 rounded-lg hover:bg-orange-500/10"
+                >
+                    <Flame className="w-4 h-4 fill-current text-orange-500 shrink-0 mt-0.5" />
+                    <div className="flex flex-col text-left">
+                        <span className="text-xs font-extrabold">🔥 상시 유지 웜업 실행 (권장)</span>
+                        <span className="text-[10.5px] font-normal text-muted-foreground leading-tight mt-0.5">3분간 니치 영상 완청 및 알고리즘 세션 활성화</span>
+                    </div>
+                </DropdownMenuItem>
+            ) : (
+                <DropdownMenuItem
+                    onClick={() => startWarmup(warmupStage + 1)}
+                    disabled={warmupStatus === "RUNNING"}
+                    className="font-bold text-indigo-600 dark:text-indigo-400 focus:text-indigo-700 dark:focus:text-indigo-300 flex items-start gap-2.5 cursor-pointer p-2 rounded-lg hover:bg-indigo-500/10"
+                >
+                    <Sparkles className="w-4 h-4 text-indigo-500 shrink-0 mt-0.5" />
+                    <div className="flex flex-col text-left">
+                        <span className="text-xs font-extrabold">▶️ Stage {warmupStage + 1} 육성 시작</span>
+                        <span className="text-[10.5px] font-normal text-muted-foreground leading-tight mt-0.5">7일 알고리즘 신뢰도 단계별 자동 빌드업</span>
+                    </div>
+                </DropdownMenuItem>
+            )}
+
+            <DropdownMenuSeparator className="my-1" />
+
+            <div className="px-2 py-1 text-[10px] font-bold text-muted-foreground">
+                단계별 수동 실행
+            </div>
+            <DropdownMenuItem onClick={() => startWarmup(1)} disabled={warmupStatus === "RUNNING"} className="cursor-pointer text-xs py-1.5">
+                🔍 Day 1~2: 순수 관찰자 (Stage 1)
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => startWarmup(2)} disabled={warmupStatus === "RUNNING"} className="cursor-pointer text-xs py-1.5">
+                🎯 Day 3~5: 관심사 좁히기 (Stage 2)
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => startWarmup(3)} disabled={warmupStatus === "RUNNING"} className="cursor-pointer text-xs py-1.5">
+                🤝 Day 6~7: 커뮤니티 상호작용 (Stage 3)
+            </DropdownMenuItem>
+
+            <DropdownMenuSeparator className="my-1" />
+
+            {onOpenWizard && (
+                <DropdownMenuItem onClick={() => onOpenWizard(channel)} className="cursor-pointer text-xs py-1.5">
+                    <Settings className="w-3.5 h-3.5 mr-1.5 text-muted-foreground" />
+                    <span>⚙️ 웜업 전략 설정 마법사</span>
+                </DropdownMenuItem>
+            )}
+
+            {onOpenLogs && (
+                <DropdownMenuItem onClick={() => onOpenLogs(channel.channel_id)} className="cursor-pointer text-xs py-1.5">
+                    <Clock className="w-3.5 h-3.5 mr-1.5 text-muted-foreground" />
+                    <span>📊 웜업 실행 로그 보기</span>
+                </DropdownMenuItem>
+            )}
+
+            <DropdownMenuItem
+                onClick={() => resetMutation.mutate()}
+                disabled={warmupStatus === "RUNNING"}
+                className="text-destructive font-semibold cursor-pointer text-xs py-1.5"
+            >
+                <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
+                <span>🔄 웜업 상태 초기화</span>
+            </DropdownMenuItem>
+        </DropdownMenuContent>
+    );
 
     if (layout === 'stacked') {
         return (
@@ -1041,18 +1384,6 @@ export const WarmupButton = ({
                         <span className="text-[11px] font-medium text-muted-foreground shrink-0">육성:</span>
                         {renderBadge()}
                     </div>
-
-                    <div className="flex items-center space-x-1.5 shrink-0">
-                        <Switch
-                            id={`visible-mode-${channel.id || profileId}`}
-                            checked={isVisibleMode}
-                            onCheckedChange={setIsVisibleMode}
-                            disabled={warmupMutation.isPending || warmupStatus === "RUNNING"}
-                        />
-                        <Label htmlFor={`visible-mode-${channel.id || profileId}`} className="text-[11px] text-muted-foreground whitespace-nowrap cursor-pointer">
-                            UI 표시
-                        </Label>
-                    </div>
                 </div>
 
                 <div className="w-full">
@@ -1061,38 +1392,14 @@ export const WarmupButton = ({
                             <Button
                                 size="sm"
                                 variant="outline"
-                                className="w-full h-8 border-orange-500/30 text-orange-600 dark:text-orange-400 hover:bg-orange-500/10 font-bold text-xs flex items-center justify-center gap-1.5 rounded-lg"
+                                className="w-full h-8 border-orange-500/30 text-orange-600 dark:text-orange-400 hover:bg-orange-500/10 font-bold text-xs flex items-center justify-center gap-1.5 rounded-lg shadow-2xs"
                                 disabled={warmupMutation.isPending || warmupStatus === "RUNNING"}
                             >
-                                <Flame className="w-3.5 h-3.5" />
-                                {warmupStatus === "RUNNING" ? "웜업 진행 중..." : "🔥 웜업 시작"}
+                                <Flame className="w-3.5 h-3.5 fill-current text-orange-500" />
+                                <span>{warmupStatus === "RUNNING" ? "웜업 진행 중..." : isMature ? "🔥 상시 유지 웜업" : "🌱 웜업 육성 시작"}</span>
                             </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-56">
-                            <DropdownMenuItem
-                                onClick={() => startWarmup(warmupStage < 3 ? warmupStage + 1 : 3)}
-                                disabled={warmupStage >= 3 || warmupStatus === "RUNNING"}
-                            >
-                                ▶️ 진화 시작 (Stage {warmupStage < 3 ? warmupStage + 1 : 3})
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem onClick={() => startWarmup(1)}>
-                                🔍 Day 1~2: 순수 관찰자 (Stage 1)
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => startWarmup(2)}>
-                                🎯 Day 3~5: 관심사 좁히기 (Stage 2)
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => startWarmup(3)}>
-                                🚀 Day 6~7: 채널 개설 준비 (Stage 3)
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                                onClick={() => resetMutation.mutate()}
-                                className="text-destructive font-semibold"
-                            >
-                                🔄 웜업 상태 초기화
-                            </DropdownMenuItem>
-                        </DropdownMenuContent>
+                        {renderDropdownContent()}
                     </DropdownMenu>
                 </div>
             </div>
@@ -1104,62 +1411,20 @@ export const WarmupButton = ({
             {/* Enhanced Status Badge */}
             {renderBadge()}
 
-            <div className="flex items-center space-x-2 ml-1 mr-1">
-                <Switch
-                    id={`visible-mode-${channel.id || profileId}`}
-                    checked={isVisibleMode}
-                    onCheckedChange={setIsVisibleMode}
-                    disabled={warmupMutation.isPending || warmupStatus === "RUNNING"}
-                />
-                <Label htmlFor={`visible-mode-${channel.id || profileId}`} className="text-xs text-muted-foreground whitespace-nowrap cursor-pointer">
-                    UI 표시
-                </Label>
-            </div>
-
             {/* Dropdown Menu */}
             <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                     <Button
                         size="sm"
                         variant="outline"
-                        className="h-8 border-orange-500/20 text-orange-600 dark:text-orange-400 hover:bg-orange-500/10"
+                        className="h-8 border-orange-500/30 text-orange-600 dark:text-orange-400 hover:bg-orange-500/10 font-bold text-xs flex items-center gap-1.5 shadow-2xs shrink-0"
                         disabled={warmupMutation.isPending || warmupStatus === "RUNNING"}
                     >
-                        <Flame className="w-4 h-4 mr-2" />
-                        {warmupStatus === "RUNNING" ? "웜업 중..." : "웜업 시작"}
+                        <Flame className="w-3.5 h-3.5 fill-current text-orange-500" />
+                        <span>{warmupStatus === "RUNNING" ? "웜업 중..." : isMature ? "🔥 상시 웜업" : "🌱 웜업 육성"}</span>
                     </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                    <DropdownMenuItem
-                        onClick={() => startWarmup(warmupStage < 3 ? warmupStage + 1 : 3)}
-                        disabled={warmupStage >= 3 || warmupStatus === "RUNNING"}
-                    >
-                        ▶️ 진화 시작 (Stage {warmupStage < 3 ? warmupStage + 1 : 3})
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={() => startWarmup(1)}>
-                        🔍 Day 1~2: 순수 관찰자 (Stage 1)
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => startWarmup(2)}>
-                        🎯 Day 3~5: 관심사 좁히기 (Stage 2)
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => startWarmup(3)}>
-                        🤝 Day 6~7: 커뮤니티 일원화 (Stage 3)
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                        onClick={() => onOpenLogs && onOpenLogs(channel.channel_id)}
-                    >
-                        📊 로그 보기
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                        onClick={() => resetMutation.mutate()}
-                        disabled={warmupStage === 0}
-                        className="text-red-600"
-                    >
-                        🔄 초기화
-                    </DropdownMenuItem>
-                </DropdownMenuContent>
+                {renderDropdownContent()}
             </DropdownMenu>
         </div>
     );

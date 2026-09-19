@@ -1097,70 +1097,84 @@ async def autonomous_clone_and_produce(
     logger.info(f"[Autopilot] Starting full pipeline for: ref={req.reference_url}, source={req.source_url}")
     steps_log = []
 
-    # ─── 1단계: 채널 포렌식 발골 & DNA 추출 ────────────────────────────────
+    # ─── 1단계: 채널 포렌식 발골 & DNA 추출 (동적 DB 조회) ──────────────────
     ref_url = req.reference_url.strip()
-    is_noejeongu = "noejeongu" in ref_url or "fG6-vJs_xeM" in ref_url or "뇌전구" in ref_url
-    ref_title = "뇌전구 (Noejeongu)" if is_noejeongu else "벤치마크 레퍼런스 채널"
 
-    visual_dna = {
-        "canvas_type": "LETTERBOX_SOLID",
-        "video_fit_mode": "sandwich",
-        "video_aspect_ratio": "1:1",
-        "video_focus_y_pct": 45.0,
-        "has_top_title": True,
-        "header_lines": [
-            {"line": 1, "color": "#FFFFFF", "font_style": "ExtraBold", "size_pt": 44},
-            {"line": 2, "color": "#FFE500", "font_style": "Black", "size_pt": 56}
-        ],
-        "hook_bar": {
-            "enabled": True,
-            "bg_color": "#FFFFFF",
-            "text_color": "#000000",
-            "y_pct": 29.5
-        },
-        "subtitle": {
-            "y_percent": 72.0,
-            "color": "#FFE500",
-            "stroke_color": "#000000",
-            "stroke_width_px": 5
-        }
-    }
-
+    # DB에서 해당 채널 URL과 매칭되는 benchmark_channels 레코드 동적 조회
+    channel_row = None
     try:
-        db.execute(text("""
-            INSERT OR REPLACE INTO benchmark_channels (
-                id, channel_url, channel_title, subscriber_count, category_name,
-                visual_dna, script_dna, audio_dna, custom_layout_preset, created_at, updated_at
-            ) VALUES (
-                2, :url, :title, 512000, 'IT/테크/풍자 썰',
-                :v_dna, :s_dna, :a_dna, :layout, datetime('now'), datetime('now')
-            )
-        """), {
-            "url": ref_url,
-            "title": ref_title,
-            "v_dna": json.dumps(visual_dna, ensure_ascii=False),
-            "s_dna": json.dumps({"wpm": 430, "speech_style": "뇌전구 팩트 폭로체"}, ensure_ascii=False),
-            "a_dna": json.dumps({"recommended_tts": "ko-KR-InJoonNeural (1.25x)"}, ensure_ascii=False),
-            "layout": json.dumps(visual_dna, ensure_ascii=False)
-        })
-        db.commit()
+        rows = db.execute(text("""
+            SELECT channel_title, category_name, visual_dna, script_dna, audio_dna
+            FROM benchmark_channels
+            WHERE channel_url LIKE :url_pattern
+            ORDER BY updated_at DESC LIMIT 1
+        """), {"url_pattern": f"%{ref_url.split('@')[-1].split('/')[0]}%"}).fetchone()
+        if rows:
+            channel_row = rows
     except Exception as e:
-        logger.warning(f"[Autopilot] DB benchmark save warning: {e}")
+        logger.warning(f"[Autopilot] benchmark_channels lookup warning: {e}")
+
+    if channel_row:
+        ref_title = channel_row[0] or "벤치마크 채널"
+        category_name = channel_row[1] or "바이럴 쇼츠"
+        try:
+            visual_dna = json.loads(channel_row[2]) if channel_row[2] else {}
+        except Exception:
+            visual_dna = {}
+        try:
+            script_dna_db = json.loads(channel_row[3]) if channel_row[3] else {}
+        except Exception:
+            script_dna_db = {}
+        try:
+            audio_dna_db = json.loads(channel_row[4]) if channel_row[4] else {}
+        except Exception:
+            audio_dna_db = {}
+        logger.info(f"[Autopilot] Step1 — DB에서 채널 DNA 조회 성공: '{ref_title}' ({category_name})")
+    else:
+        # DB 미등록 채널 — 범용 안전 fallback DNA (채널 고정 없음)
+        ref_title = ref_url.rstrip("/").split("/")[-1].replace("@", "") or "레퍼런스 채널"
+        category_name = "바이럴 쇼츠"
+        visual_dna = {
+            "canvas_type": "FULL_BLEED_OVERLAY",
+            "top_bar_height_pct": 20.0,
+            "header_lines": [
+                {"line": 1, "color": "#FFFFFF", "font_style": "ExtraBold", "size_pt": 44},
+                {"line": 2, "color": "#70E4EF", "font_style": "Black", "size_pt": 56}
+            ],
+            "subtitle": {
+                "y_percent": 68.0,
+                "color": "#FFFFFF",
+                "stroke_color": "#000000",
+                "stroke_width_px": 5
+            }
+        }
+        script_dna_db = {"wpm": 380, "speech_style": "바이럴 유머 해설체"}
+        audio_dna_db = {"recommended_tts": "ko-KR-InJoonNeural (1.15x)"}
+        logger.info(f"[Autopilot] Step1 — DB 미등록 채널, 범용 fallback DNA 사용: '{ref_title}'")
+
+    # 채널 DNA의 핵심 색상 추출 (렌더링 props에 전달)
+    header_lines = visual_dna.get("header_lines", [])
+    dna_title1_color = next((h.get("color", "#FFFFFF") for h in header_lines if h.get("line") == 1), "#FFFFFF")
+    dna_title2_color = next((h.get("color", "#70E4EF") for h in header_lines if h.get("line") == 2), "#70E4EF")
+    dna_subtitle_y = visual_dna.get("subtitle", {}).get("y_percent", 68.0)
+    dna_subtitle_color = visual_dna.get("subtitle", {}).get("color", "#FFFFFF")
+    dna_speech_style = script_dna_db.get("speech_style", "바이럴 유머 해설체")
+    dna_genre = category_name
 
     steps_log.append({
         "step": 1,
         "name": "채널 포렌식 발골 & DNA 추출",
         "status": "COMPLETED",
-        "detail": f"'{ref_title}' 템플릿(2단 헤드라인/흰색 띠바/WPM 430) 발골 및 DB 저장 완료"
+        "detail": f"'{ref_title}' DNA 동적 조회 완료 — 장르: {dna_genre}, 타이틀2색: {dna_title2_color}, 자막Y: {dna_subtitle_y}%"
     })
 
     # ─── 2단계: 신규 스핀오프 채널 페르소나 및 방향성 수립 ─────────────────
-    spinoff_channel_name = f"{ref_title} 스핀오프" if not is_noejeongu else "초압축 팩트 폭격소"
+    spinoff_channel_name = f"{ref_title} 스핀오프"
     steps_log.append({
         "step": 2,
         "name": "신규 채널 페르소나 및 방향성 수립",
         "status": "COMPLETED",
-        "detail": f"타겟 채널 [{spinoff_channel_name}] (톤: 0초 극단 충격 훅, 샌드위치 1:1) 확정"
+        "detail": f"타겟 채널 [{spinoff_channel_name}] (장르: {dna_genre}, 말투: {dna_speech_style}) 확정"
     })
 
     # ─── 3단계: 외부 인터넷 실시간 화제 소재 사냥 ──────────────────────────
@@ -1239,52 +1253,56 @@ async def autonomous_clone_and_produce(
         s_schema = SettingsSchema.model_validate(settings)
         llm = LLMClient(s_schema)
 
-        system_instruction = """당신은 구독자 50만 쇼츠 채널 '뇌전구'의 수석 크리에이티브 디렉터이자 Critic-85 수석 심사위원입니다.
+        system_instruction = f"""당신은 유튜브 쇼츠 채널 '{ref_title}' 전문 크리에이티브 디렉터이자 Critic-85 심사위원입니다.
+채널 장르: {dna_genre}
+채널 말투/톤: {dna_speech_style}
+상단 2단 헤드라인 색상: Line 1({dna_title1_color}), Line 2({dna_title2_color})
+
 원문 기사/썰을 분석하여 유튜브 쇼츠 4개 씬으로 초압축 구성하세요.
-상단 2단 헤드라인은 Line 1(흰색) 전제조건/상황, Line 2(형광 옐로우 #FFE500) 극단 충격 핵심 명사로 분리하세요.
-중앙 띠바(hookBarText)는 순백색 띠에 얹힐 굵은 핵심 한 줄 문장입니다.
+상단 2단 헤드라인은 Line 1(전제조건/상황), Line 2(극단 충격 핵심 명사)로 분리하세요.
+채널의 말투와 장르 특성을 100% 유지하세요.
 
 반드시 오직 아래 순수 JSON 형식으로만 응답하세요:
-{
-  "topHeadlineLine1": "남들 다 퇴사할 때",
-  "topHeadlineLine2": "나만 승진한 썰ㅋㅋ",
-  "hookBarText": "핵심 띠바 후킹 문장 (20자 내외)",
+{{
+  "topHeadlineLine1": "상황/전제 짧은 문구",
+  "topHeadlineLine2": "핵심 결론/충격 명사구",
+  "hookBarText": "핵심 후킹 문장 (20자 내외)",
   "critic_score": 89,
   "scenes": [
-    {
+    {{
       "sceneNumber": 1,
       "title": "첫 3초 충격 후킹",
       "subtitle": "자막 1 (15자 내외)",
-      "narration": "첫 3초 내레이션 (속도감 있는 파격 단정, 뇌전구 말투)",
+      "narration": "첫 3초 내레이션 ({dna_speech_style} 기반)",
       "duration": 3.5,
       "visualPrompt": "Cinematic dramatic realistic photo"
-    },
-    {
+    }},
+    {{
       "sceneNumber": 2,
-      "title": "실사 팩트 전개",
+      "title": "상황 전개",
       "subtitle": "자막 2",
-      "narration": "구체적인 사건 발단 및 수치/가격/상황 팩트 폭로",
+      "narration": "구체적인 사건 발단 및 팩트 전개",
       "duration": 5.5,
       "visualPrompt": "Close-up evidence photo, hyper-detailed"
-    },
-    {
+    }},
+    {{
       "sceneNumber": 3,
-      "title": "반전 및 풍자",
+      "title": "반전 및 반응",
       "subtitle": "자막 3",
-      "narration": "예상치 못한 반전과 네티즌들의 폭발적인 풍자 반응",
+      "narration": "예상치 못한 반전과 주변 반응",
       "duration": 5.0,
-      "visualPrompt": "Shocked expression, satirical modern meme aesthetic"
-    },
-    {
+      "visualPrompt": "Shocked expression, satirical meme aesthetic"
+    }},
+    {{
       "sceneNumber": 4,
-      "title": "결말 및 댓글 질문",
+      "title": "결말 및 공감 유도",
       "subtitle": "자막 4",
-      "narration": "마무리 요약 및 여러분이라면 어떻게 하시겠습니까? 댓글로 알려주세요",
+      "narration": "마무리 요약 및 댓글 유도",
       "duration": 4.5,
       "visualPrompt": "Cinematic outro questioning shot"
-    }
+    }}
   ]
-}"""
+}}"""
 
         user_prompt = f"""[분석할 원문 소재]
 제목: {scraped_title}
@@ -1383,7 +1401,23 @@ async def autonomous_clone_and_produce(
             emotion="normal"
         )
         if isinstance(tts_result, dict):
-            generated_audio_url = tts_result.get("web_url") or tts_result.get("url") or ""
+            # Remotion 렌더러는 file:// URI 미지원 (http/https만 가능)
+            # FastAPI /api/stream GET 엔드포인트는 Windows 절대경로를 path 쿼리 파라미터로 직접 수신
+            # → http://127.0.0.1:8000/api/stream?path={url-encoded-abs-path} 형식 사용
+            import urllib.parse
+            local_abs = tts_result.get("file_path", "")
+            if local_abs and os.path.exists(local_abs):
+                encoded_path = urllib.parse.quote(local_abs, safe="")
+                generated_audio_url = f"http://127.0.0.1:8000/api/stream?path={encoded_path}"
+                logger.info(f"[Autopilot] TTS HTTP URL: {generated_audio_url}")
+            else:
+                # fallback: web_url을 절대 HTTP URL로 변환
+                web_url = tts_result.get("web_url") or tts_result.get("url") or ""
+                if web_url.startswith("/"):
+                    generated_audio_url = f"http://127.0.0.1:8000{web_url}"
+                else:
+                    generated_audio_url = web_url
+                logger.warning(f"[Autopilot] TTS local file not found, using web_url: {generated_audio_url}")
     except Exception as e:
         logger.warning(f"[Autopilot] TTS generation fallback: {e}")
 
@@ -1391,52 +1425,105 @@ async def autonomous_clone_and_produce(
     topH2 = structured_result.get("topHeadlineLine2", scraped_title[:25])
     hookText = structured_result.get("hookBarText", scraped_title[:35])
 
+    # 채널 DNA 색상 기반 remotion_props 구성 (클래식 템플릿 완제품 레퍼런스 100% 반영)
     remotion_props = {
-        "topBar": {
-            "height": 260,
-            "backgroundColor": "#000000",
-            "lines": [
-                {"text": topH1, "color": "#FFFFFF", "fontSize": 44, "fontWeight": "800"},
-                {"text": topH2, "color": "#FFE500", "fontSize": 56, "fontWeight": "900"}
-            ]
-        },
-        "hookBar": {
-            "enabled": True,
-            "text": hookText,
-            "bgColor": "#FFFFFF",
-            "textColor": "#000000",
-            "fontSize": 32
-        },
-        "bottomBar": {"height": 120, "backgroundColor": "#000000"},
-        "mainVideo": {"src": "", "scaleMode": "fit", "volume": 0},
-        "audio": {"src": generated_audio_url, "volume": 1} if generated_audio_url else None,
+        "hasTopHeader": True,
+        "topHeaderHeightPct": 18.0,
+        "topHeaderBg": "#000000",
+        "hasTitleBadge": True,
+        "titleBadgeText": "속보",
+        "titleBadgeBg": "#EF4444",
+        "titleBadgeColor": "#FFFFFF",
+        "titleLine1": topH1,
+        "titleLine2": topH2,
+        "titleLine1Color": dna_title1_color or "#FFFFFF",
+        "titleLine2Color": dna_title2_color or "#FFE500",
+        "hasBottomCredit": True,
+        "bottomCreditText": "출처: 공식 유튜브 영상",
+        "bottomCreditHeightPct": 8.0,
+        "subtitleYPercent": dna_subtitle_y or 74.0,
         "subtitles": [
             {
                 "text": s.get("subtitle", ""),
-                "startFrame": int(s.get("startTime", 0) * 30),
-                "durationFrames": int(s.get("duration", 4.0) * 30),
-                "position": {"top": "72%", "bottom": "auto", "left": "50%"},
-                "style": {
-                    "color": "#FFE500",
-                    "fontSize": 50,
-                    "fontWeight": "900",
-                    "fontFamily": "Pretendard, 'Noto Sans KR', sans-serif",
-                    "WebkitTextStroke": "5px #000000",
-                    "textShadow": "0 4px 12px rgba(0,0,0,0.95)",
-                    "backgroundColor": "transparent",
-                    "width": "92%",
-                    "lineHeight": 1.25
-                },
-                "animationType": "popIn"
+                "startMs": int(s.get("startTime", 0) * 1000),
+                "endMs": int((s.get("startTime", 0) + s.get("duration", 4.0)) * 1000),
             } for s in structured_result.get("scenes", [])
-        ]
+        ],
+        "jabOverlay": {
+            "text": f"*{hookText[:16]}*" if hookText else "*출격작전 반전 순간!*",
+            "startMs": 2500,
+            "endMs": 7000,
+            "placement": "top-third",
+            "tiltDeg": -3,
+        },
+        "stylePreset": "shorts",
+        "videoSource": "",
+        "audioSource": generated_audio_url,
+        "canvasType": "LETTERBOX_SOLID",
     }
+
+    # ─── Step5: Remotion render_cli.js 실물 렌더링 직결 ─────────────────────
+    import subprocess, datetime, uuid, os
+    from app.config import settings as app_settings
+    job_id = f"job_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:6]}"
+    # 단일 진실 공급원: %LOCALAPPDATA%\ViraLoop Studio\media\05_Exports
+    output_dir = os.path.join(app_settings.MEDIA_ROOT, "05_Exports")
+    os.makedirs(output_dir, exist_ok=True)
+    props_file_path = os.path.join(output_dir, f"{job_id}_props.json")
+    output_mp4_path = os.path.join(output_dir, f"{job_id}_short.mp4")
+
+    # 레거시 apps/api/05_Exports 폴더에도 동시 심볼릭/미러링 폴더 유지
+    legacy_output_dir = os.path.join(os.getcwd(), "05_Exports")
+    os.makedirs(legacy_output_dir, exist_ok=True)
+
+    rendered_mp4_path = ""
+    render_detail = ""
+    try:
+        with open(props_file_path, "w", encoding="utf-8") as pf:
+            pf.write(json.dumps(remotion_props, ensure_ascii=False, indent=2))
+
+        total_duration_sec = sum(float(s.get("duration", 4.0)) for s in structured_result.get("scenes", []))
+        duration_frames = max(int(total_duration_sec * 30), 30)
+
+        remotion_engine_dir = os.path.join(os.getcwd(), "apps", "remotion-engine")
+        render_cmd = [
+            "node", "render_cli.js",
+            "--composition", "ViraShortComposition",
+            "--props", props_file_path,
+            "--output", output_mp4_path,
+            "--duration", str(duration_frames),
+            "--fps", "30",
+            "--width", "1080",
+            "--height", "1920"
+        ]
+        logger.info(f"[Autopilot] Step5 render_cli.js 렌더링 시작: {output_mp4_path}")
+        render_res = subprocess.run(
+            render_cmd,
+            cwd=remotion_engine_dir,
+            capture_output=True,
+            text=True,
+            timeout=300
+        )
+        if render_res.returncode == 0 and os.path.exists(output_mp4_path):
+            file_size = os.path.getsize(output_mp4_path)
+            rendered_mp4_path = output_mp4_path
+            render_detail = f"렌더링 성공 — {output_mp4_path} ({file_size // 1024} KB)"
+            logger.info(f"[Autopilot] Step5 렌더링 완료: {render_detail}")
+        else:
+            render_detail = f"렌더링 실패 (returncode={render_res.returncode}) — stdout: {render_res.stdout[-300:]} stderr: {render_res.stderr[-300:]}"
+            logger.warning(f"[Autopilot] Step5 {render_detail}")
+    except subprocess.TimeoutExpired:
+        render_detail = "렌더링 타임아웃 (300초 초과)"
+        logger.warning(f"[Autopilot] Step5 {render_detail}")
+    except Exception as e:
+        render_detail = f"렌더링 예외: {e}"
+        logger.warning(f"[Autopilot] Step5 {render_detail}")
 
     steps_log.append({
         "step": 5,
-        "name": "Supertonic 고품질 음성 & 미디어 조립",
-        "status": "COMPLETED",
-        "detail": f"[{req.voice_engine}] 고음질 합성 완료 및 뇌전구 샌드위치 Remotion 조립 완료"
+        "name": "Supertonic 고품질 음성 & Remotion 실물 렌더링",
+        "status": "COMPLETED" if rendered_mp4_path else "PARTIAL",
+        "detail": f"TTS 완료. {render_detail}"
     })
 
     # ─── 6단계: 채널 발행 대기열 즉시 등록 ──────────────────────────────────
@@ -1476,8 +1563,8 @@ async def autonomous_clone_and_produce(
         "steps": steps_log,
         "benchmark": {
             "title": ref_title,
-            "category": "IT/테크/풍자 썰",
-            "wpm": 430,
+            "category": dna_genre,
+            "speech_style": dna_speech_style,
             "visual_dna": visual_dna
         },
         "headline": {
@@ -1488,6 +1575,7 @@ async def autonomous_clone_and_produce(
         "scenes": structured_result.get("scenes", []),
         "audio_url": generated_audio_url,
         "remotion_props": remotion_props,
+        "rendered_mp4": rendered_mp4_path,
         "work_queue_id": queue_id
     }
 

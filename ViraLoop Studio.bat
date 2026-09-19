@@ -14,6 +14,9 @@ set "PATH=%ROOT_DIR%runtime\adb;%ROOT_DIR%runtime\ffmpeg;%ROOT_DIR%runtime\ytdlp
 echo [*] Starting Python Backend on 0.0.0.0:8000...
 start "ViraLoop FastAPI Backend" /min cmd /c "cd /d "%ROOT_DIR%apps\api" && "%ROOT_DIR%venv\Scripts\python.exe" -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
 
+echo [*] Starting DeepSeek Harness AI Director on 127.0.0.1:3080...
+start "DeepSeek Harness AI Director" /min cmd /c "call "%ROOT_DIR%harness\start-dsh.bat""
+
 timeout /t 2 /nobreak >nul
 
 echo [*] Launching ViraLoop Studio (Electron + Vite Dev at port 5183)...

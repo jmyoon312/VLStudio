@@ -48,6 +48,7 @@ const TinCanWizard: React.FC<TinCanWizardProps> = ({ isOpen, onClose, onComplete
     const [password, setPassword] = useState(""); // Optional, for record keeping
     const [recoveryEmail, setRecoveryEmail] = useState("");
     const [engineType, setEngineType] = useState("cloakbrowser");
+    const [accountIncubationType, setAccountIncubationType] = useState<'NEWBORN' | 'MATURE'>('NEWBORN');
     const [lteStatus, setLteStatus] = useState<{ connected: boolean, ip: string }>({ connected: false, ip: "확인 전" });
 
     // Automation State (Manual Verify Mode)
@@ -128,6 +129,7 @@ const TinCanWizard: React.FC<TinCanWizardProps> = ({ isOpen, onClose, onComplete
                     email,
                     password,
                     recovery_email: recoveryEmail,
+                    incubation_status: accountIncubationType,
                     status: 'draft'
                 });
             } else {
@@ -136,6 +138,7 @@ const TinCanWizard: React.FC<TinCanWizardProps> = ({ isOpen, onClose, onComplete
                     email,
                     password,
                     recovery_email: recoveryEmail,
+                    incubation_status: accountIncubationType,
                     engine_type: engineType
                 });
                 setDraftId(res.data.id);
@@ -338,8 +341,19 @@ const TinCanWizard: React.FC<TinCanWizardProps> = ({ isOpen, onClose, onComplete
         try {
             if (draftId) {
                 await axios.put(`${API_BASE}/resources/profiles/${draftId}`, {
-                    status: 'ACTIVE'
+                    status: 'ACTIVE',
+                    incubation_status: accountIncubationType
                 });
+
+                // If mature account with existing channel, auto-trigger channel sync
+                if (accountIncubationType === 'MATURE') {
+                    toast({ title: "🔄 기존 채널 동기화", description: "3단계 인증 채널의 ID 및 프로필 정보를 자동으로 수집합니다..." });
+                    try {
+                        await axios.post(`${API_BASE}/resources/profiles/${draftId}/sync-channel`);
+                    } catch (syncErr) {
+                        console.warn("Auto sync channel warning on finish:", syncErr);
+                    }
+                }
             }
             toast({ title: "🎉 계정 연동 완료", description: "스텔스 계정이 정상적으로 시스템에 완벽 등록되었습니다." });
         } catch (error) {
@@ -538,6 +552,37 @@ const TinCanWizard: React.FC<TinCanWizardProps> = ({ isOpen, onClose, onComplete
                                     </div>
                                 </div>
                                 <div className="grid gap-4">
+                                    <div className="space-y-1.5">
+                                        <Label className="font-bold text-foreground text-xs">계정 등록 유형</Label>
+                                        <div className="grid grid-cols-2 gap-2.5">
+                                            <button
+                                                type="button"
+                                                onClick={() => setAccountIncubationType('NEWBORN')}
+                                                className={`p-3 rounded-xl border text-left transition-all ${accountIncubationType === 'NEWBORN' ? 'bg-primary/10 border-primary text-primary font-bold shadow-xs' : 'bg-card border-border text-muted-foreground hover:border-border/80'}`}
+                                            >
+                                                <div className="flex items-center gap-1.5 text-xs font-bold mb-1 text-foreground">
+                                                    🌱 신규 생성 계정 (인큐베이팅)
+                                                </div>
+                                                <div className="text-[11px] text-muted-foreground leading-relaxed">
+                                                    채널 미개설 ➔ 1단계 시드 예열 및 브랜드 채널 자동 개설 진행
+                                                </div>
+                                            </button>
+
+                                            <button
+                                                type="button"
+                                                onClick={() => setAccountIncubationType('MATURE')}
+                                                className={`p-3 rounded-xl border text-left transition-all ${accountIncubationType === 'MATURE' ? 'bg-indigo-500/10 border-indigo-500 text-indigo-600 dark:text-indigo-400 font-bold shadow-xs' : 'bg-card border-border text-muted-foreground hover:border-border/80'}`}
+                                            >
+                                                <div className="flex items-center gap-1.5 text-xs font-bold mb-1 text-foreground">
+                                                    ⚡ 기존 완성 채널 (3단계 인증)
+                                                </div>
+                                                <div className="text-[11px] text-muted-foreground leading-relaxed">
+                                                    이미 채널 및 인증 완료 ➔ 즉시 채널 정보 수집 & 업로드 직행
+                                                </div>
+                                            </button>
+                                        </div>
+                                    </div>
+
                                     <div className="space-y-2">
                                         <Label>브랜드 폴더 이름 (선택)</Label>
                                         <Input placeholder="예: 틱톡 영화, 게임 채널 등" value={name} onChange={e => setName(e.target.value)} autoFocus />
@@ -789,12 +834,13 @@ const TinCanWizard: React.FC<TinCanWizardProps> = ({ isOpen, onClose, onComplete
                                                 onChange={handleFileUpload}
                                             />
                                             <Button
+                                                type="button"
                                                 onClick={() => fileInputRef.current?.click()}
-                                                className="h-16 px-8 text-lg bg-white hover:bg-slate-50 gap-3 shadow-xl transition-transform hover:scale-105"
+                                                className="h-16 px-8 text-base sm:text-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold gap-3 shadow-lg hover:shadow-xl transition-all hover:scale-[1.02] rounded-xl"
                                                 disabled={isLoading}
                                             >
-                                                {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : <Upload className="w-6 h-6" />}
-                                                client_secret.json 업로드
+                                                {isLoading ? <Loader2 className="w-6 h-6 animate-spin text-white" /> : <Upload className="w-6 h-6 text-white" />}
+                                                <span>client_secret.json 업로드</span>
                                             </Button>
                                         </div>
 

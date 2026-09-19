@@ -5,6 +5,8 @@ import json
 import logging
 import subprocess
 import platform
+import socket
+import re
 from typing import Dict, Any, List, Optional
 from fastapi import APIRouter, HTTPException, Request, Depends, Body
 from sqlalchemy.orm import Session
@@ -27,7 +29,109 @@ router = APIRouter(tags=["system"])
 class PathRequest(BaseModel):
     path: str
 
+@router.get("/omniroute/status")
+def get_omniroute_status():
+    """
+    Checks if OmniRoute is installed and running on port 20128.
+    Directly tests socket connectivity and CLI version, avoiding browser CORS limitations.
+    """
+    is_running = False
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.settimeout(0.6)
+            is_running = (s.connect_ex(("127.0.0.1", 20128)) == 0)
+    except Exception:
+        is_running = False
 
+    version = "3.8.50"
+    is_installed = False
+    try:
+        res = subprocess.run(
+            ["omniroute", "--version"],
+            capture_output=True, text=True, timeout=3, shell=True,
+            creationflags=0x08000000 if platform.system() == "Windows" else 0
+        )
+        if res.returncode == 0 and res.stdout:
+            is_installed = True
+            m = re.search(r"(\d+\.\d+\.\d+)", res.stdout)
+            if m:
+                version = m.group(1)
+    except Exception:
+        pass
+
+    if is_running:
+        is_installed = True
+
+    return {
+        "running": is_running,
+        "installed": is_installed,
+        "version": version,
+        "port": 20128,
+        "endpointUrl": "http://localhost:20128/v1",
+        "dashboardUrl": "http://localhost:20128/dashboard"
+    }
+
+@router.get("/dsh/status")
+@router.get("/dsh-info")
+def get_dsh_info():
+    """Returns active DeepSeek Harness URL with authentication launch token and live health."""
+    root_dir = get_project_root()
+    url_file = os.path.join(root_dir, "harness", "dsh_active_url.txt")
+    active_url = "http://127.0.0.1:3080"
+    token = ""
+    if os.path.exists(url_file):
+        try:
+            with open(url_file, "r", encoding="utf-8") as f:
+                content = f.read().strip()
+                if content.startswith("http"):
+                    active_url = content
+                    if "token=" in content:
+                        token = content.split("token=")[-1].split("&")[0]
+        except Exception:
+            pass
+
+    is_online = False
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.settimeout(0.8)
+            is_online = (s.connect_ex(("127.0.0.1", 3080)) == 0)
+    except Exception:
+        is_online = False
+
+    return {
+        "status": "online" if is_online else "offline",
+        "running": is_online,
+        "url": active_url,
+        "token": token,
+        "port": 3080,
+        "version": "0.1.5-rc.2"
+    }
+
+@router.post("/dsh/update")
+def update_dsh_engine():
+    """Checks and updates DeepSeek Harness to the latest version via npm."""
+    try:
+        res = subprocess.run(
+            ["npm", "install", "-g", "@deepseek-ai/dsh@latest"],
+            capture_output=True, text=True, timeout=120, shell=True,
+            creationflags=0x08000000 if platform.system() == "Windows" else 0
+        )
+        return {
+            "success": res.returncode == 0,
+            "message": "DeepSeek Harness 최신 버전 점검 및 업데이트가 완료되었습니다." if res.returncode == 0 else f"업데이트 실패: {res.stderr or res.stdout}",
+            "logs": res.stdout or res.stderr
+        }
+    except Exception as e:
+        return {"success": False, "message": str(e)}
+
+@router.post("/dsh/restart")
+def restart_dsh_daemon():
+    """Restarts DeepSeek Harness daemon."""
+    from app.services.dsh_daemon import start_dsh_daemon
+    if platform.system() == "Windows":
+        subprocess.run("taskkill /F /IM node.exe /FI \"WINDOWTITLE eq *dsh*\" 2>NUL", shell=True)
+    start_dsh_daemon()
+    return {"success": True, "message": "DeepSeek Harness 데몬 재시작을 요청했습니다."}
 
 @router.post("/pick-folder")
 def pick_folder():
@@ -711,6 +815,18 @@ def get_unified_engines_status():
             except Exception as err:
                 package_health.append({"name": pkg, "status": "error", "message": str(err)})
 
+        # 7. DeepSeek Harness 자율 에이전트 런타임 상태
+        dsh_ver = "0.1.5-rc.2"
+        dsh_running = False
+        try:
+            import socket
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.settimeout(0.2)
+                if s.connect_ex(("127.0.0.1", 3080)) == 0:
+                    dsh_running = True
+        except Exception:
+            pass
+
         return {
             "ytdlp": {
                 "version": ytdlp_ver,
@@ -719,6 +835,13 @@ def get_unified_engines_status():
             "cloakbrowser": {
                 "version": cloak_ver,
                 "installed": "Unknown" not in cloak_ver and "not installed" not in cloak_ver
+            },
+            "deepseek_harness": {
+                "version": dsh_ver,
+                "installed": True,
+                "running": dsh_running,
+                "port": 3080,
+                "url": "http://127.0.0.1:3080"
             },
             "ffmpeg": {
                 "installed": ffmpeg_installed,
@@ -798,6 +921,21 @@ async def update_all_engines():
         }
     except Exception as e:
         results["cloakbrowser"] = {"success": False, "message": str(e)}
+
+    # 3. Update DeepSeek Harness
+    try:
+        res_dsh = subprocess.run(
+            ["npm", "install", "-g", "@deepseek-ai/dsh@latest"],
+            capture_output=True, text=True, timeout=120, shell=True,
+            creationflags=0x08000000 if platform.system() == "Windows" else 0
+        )
+        results["deepseek_harness"] = {
+            "success": res_dsh.returncode == 0,
+            "message": "DeepSeek Harness 최신 버전 점검 및 업데이트 완료" if res_dsh.returncode == 0 else "DeepSeek Harness 업데이트 실패",
+            "logs": res_dsh.stdout or res_dsh.stderr
+        }
+    except Exception as e:
+        results["deepseek_harness"] = {"success": False, "message": str(e)}
 
     all_success = all(r.get("success", False) for r in results.values())
     return {

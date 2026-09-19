@@ -243,8 +243,37 @@ def migrate_source_external_id():
             db.commit()
             print("[Migration] Added review_status column to videos")
 
+        # 5. brand_channels cultivation & warmup columns
+        try:
+            bc_cols = [c["name"] for c in inspector.get_columns("brand_channels")]
+            bc_additions = [
+                ("warmup_last_error", "TEXT"),
+                ("warmup_started_at", "DATETIME"),
+                ("warmup_completed_at", "DATETIME"),
+                ("warmup_total_duration", "INTEGER DEFAULT 0"),
+                ("warmup_error_count", "INTEGER DEFAULT 0"),
+                ("status", "VARCHAR(20) DEFAULT 'ACTIVE'"),
+                ("auth_status", "VARCHAR(20) DEFAULT 'PENDING'"),
+                ("quarantine_reason", "TEXT"),
+                ("quarantine_until", "DATETIME"),
+                ("dedicated_profile_path", "VARCHAR(500)"),
+                ("last_used_ip", "VARCHAR(50)"),
+                ("last_accessed_at", "DATETIME"),
+                ("cultivation_strategy", "VARCHAR(50)"),
+                ("cultivation_day", "INTEGER DEFAULT 0"),
+                ("cultivation_active", "BOOLEAN DEFAULT 0"),
+                ("warmup_config", "TEXT"),
+            ]
+            for col_name, col_def in bc_additions:
+                if col_name not in bc_cols:
+                    conn.execute(text(f"ALTER TABLE brand_channels ADD COLUMN {col_name} {col_def}"))
+                    print(f"[Migration] Added {col_name} column to brand_channels")
+            db.commit()
+        except Exception as bc_err:
+            print(f"[Migration] brand_channels migration skipped: {bc_err}")
+
         db.close()
         return True
     except Exception as e:
-        print(f"[Migration] source_external_id column migration skipped: {e}")
+        print(f"[Migration] migration skipped: {e}")
         return False

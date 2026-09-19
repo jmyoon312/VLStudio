@@ -46,6 +46,7 @@ def main():
     proxy_port = sys.argv[3] if len(sys.argv) >= 4 else None
 
     browser_args = [
+        "--test-type",
         "--disable-quic",
         "--disable-ipv6",
         "--disable-background-networking",
@@ -58,6 +59,9 @@ def main():
     proxy = None
     proxy_ext_dir = None
     if proxy_port and proxy_port not in ('0', 'None', ''):
+        # Normalize socks5h:// to socks5:// for Chromium/Playwright compatibility
+        if proxy_port.startswith('socks5h://'):
+            proxy_port = proxy_port.replace('socks5h://', 'socks5://')
         # Support full proxy URL strings or port numbers
         if proxy_port.startswith('http://') or proxy_port.startswith('https://') or proxy_port.startswith('socks5://') or proxy_port.startswith('socks4://'):
             from urllib.parse import urlparse

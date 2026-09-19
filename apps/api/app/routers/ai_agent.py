@@ -125,7 +125,13 @@ def process_command(req: CommandRequest, db: Session = Depends(database.get_db))
             "1. navigate: 화면 이동. params: {\"path\": \"/channels, /insights, /work-queue, /settings, /flow2capcut 중 하나\"}.\n"
             "2. start_production_pipeline: 영상 자동 제작 미션 시작. params: {\"topic\": \"주제\", \"genre\": \"yadam/dark-history/viral-ranking/bespoke\", \"target_duration_sec\": 60}.\n"
             "3. scout_viral_materials: 떡상 소재 탐색. params: {\"topic\": \"주제\", \"genre\": \"장르\"}.\n"
-            "4. assemble_capcut: CapCut 프로젝트 직접 조립 및 열기. params: {\"project_name\": \"프로젝트명\"}.\n"
+            "4. assemble_capcut: 제작된 영상의 원천 소스(음성 트랙, 자막 트랙, 상단 타이틀, 비디오)를 CapCut 타임라인 멀티트랙 드래프트 프로젝트로 조립 및 내보내기. "
+            "params: {\"project_name\": \"프로젝트명\", \"open_after\": true}. "
+            "사용자가 '캡컷 내보내기', '캡컷으로 열어줘', '캡컷 프로젝트 조립', '캡컷으로 보내', '원천 소스 내보내기', '캡컷 테스트' 등을 말하면 반드시 이 액션을 사용하세요.\n"
+            "5. autonomous_produce_video: 채널 DNA 기반 완전 자율 영상 제작 (대본+TTS+렌더링 원스톱). "
+            "params: {\"reference_url\": \"복제 기준 채널 URL (예: https://www.youtube.com/@숏비타민c/shorts)\", "
+            "\"source_keyword\": \"소재 키워드 또는 URL\", \"auto_enqueue\": true}. "
+            "사용자가 '영상 만들어', '채널 복제', '쇼츠 제작', 'DNA 기반 만들어' 등을 말하면 이 액션을 사용하세요.\n"
             f"현재 사용자가 보고 있는 페이지: {current_path}."
         )
         
@@ -210,7 +216,84 @@ def process_command(req: CommandRequest, db: Session = Depends(database.get_db))
             cleaned = response_text.replace("```json", "").replace("```", "").strip()
             try:
                 data = json.loads(cleaned)
-                return AgentResponse(actions=data.get("actions", []), message=data.get("message", cleaned))
+                actions = data.get("actions", [])
+                message = data.get("message", cleaned)
+
+                # ─── 액션 핸들러 처리 ─────────────────────────────────────
+                for action in actions:
+                    act_type = action.get("type")
+                    if act_type == "autonomous_produce_video":
+                        params = action.get("params", {})
+                        ref_url = params.get("reference_url", "")
+                        source_kw = params.get("source_keyword", "")
+                        auto_enqueue = params.get("auto_enqueue", True)
+                        if ref_url:
+                            try:
+                                import httpx as _httpx
+                                pipeline_resp = _httpx.post(
+                                    "http://127.0.0.1:8000/api/discovery/autonomous-clone-and-produce",
+                                    json={
+                                        "reference_url": ref_url,
+                                        "source_keyword": source_kw,
+                                        "auto_enqueue": auto_enqueue,
+                                        "channel_id": req.context.get("channelId", 1)
+                                    },
+                                    timeout=360.0
+                                )
+                                if pipeline_resp.status_code == 200:
+                                    pipe_data = pipeline_resp.json()
+                                    rendered = pipe_data.get("rendered_mp4", "")
+                                    status_msg = f"완제품 렌더링 완료: {rendered}" if rendered else "대본/TTS 완료 (렌더링 비동기 진행)"
+                                    message = f"✅ 자율 영상 제작 파이프라인 완료!\n채널: {ref_url}\n{status_msg}"
+                                else:
+                                    message = f"⚠️ 파이프라인 호출 오류: HTTP {pipeline_resp.status_code}"
+                            except Exception as pipe_err:
+                                logger.warning(f"[Loopie] autonomous_produce_video 호출 예외: {pipe_err}")
+                                message = f"⚠️ 파이프라인 연결 실패: {pipe_err}"
+                        break
+
+                    elif act_type == "assemble_capcut":
+                        params = action.get("params", {})
+                        proj_name = params.get("project_name")
+                        open_after = params.get("open_after", True)
+                        try:
+                            import httpx as _httpx
+                            capcut_resp = _httpx.post(
+                                "http://127.0.0.1:8000/api/capcut/export-draft",
+                                json={
+                                    "project_name": proj_name,
+                                    "open_after": open_after
+                                },
+                                timeout=60.0
+                            )
+                            if capcut_resp.status_code == 200:
+                                res_data = capcut_resp.json()
+                                f_num = res_data.get("folder_number", "0000")
+                                p_name = res_data.get("project_name", "CapCut Project")
+                                t_sum = res_data.get("track_summary", {})
+                                sub_cnt = t_sum.get("subtitles_count", 0)
+                                has_audio = "O" if t_sum.get("has_audio_track") else "X"
+                                has_video = "O" if t_sum.get("has_video_track") else "X"
+                                has_title = "O" if t_sum.get("has_top_title") else "X"
+
+                                message = (
+                                    f"🎬 [CapCut NLE 원천 소스 멀티트랙 조립 완료!]\n\n"
+                                    f"• 프로젝트 폴더: [{f_num}] {p_name}\n"
+                                    f"• 원천 소스 분리 트랙 구성:\n"
+                                    f"  - 🎵 나레이션 음성 트랙: {has_audio} (원천 TTS mp3 파일 바인딩)\n"
+                                    f"  - 💬 자막 트랙: {sub_cnt}개 문장 세그먼트 (타임코드 싱크 분리 배치)\n"
+                                    f"  - 🏷️ 상단 후킹 바: {has_title} (텍스트 레이어)\n"
+                                    f"  - 🎥 배경 비디오 트랙: {has_video}\n\n"
+                                    f"• CapCut PC 실행: {'타임라인에 프로젝트가 성공적으로 로드되었습니다!' if res_data.get('opened') else '드래프트 폴더에 안전하게 저장되었습니다.'}"
+                                )
+                            else:
+                                message = f"⚠️ CapCut 드래프트 조립 오류: HTTP {capcut_resp.status_code} ({capcut_resp.text[:100]})"
+                        except Exception as c_err:
+                            logger.warning(f"[Loopie] assemble_capcut 호출 예외: {c_err}")
+                            message = f"⚠️ CapCut 드래프트 연결 실패: {c_err}"
+                        break
+
+                return AgentResponse(actions=actions, message=message)
             except json.JSONDecodeError:
                 # Plain chat response - just return as message
                 return AgentResponse(actions=[], message=cleaned)

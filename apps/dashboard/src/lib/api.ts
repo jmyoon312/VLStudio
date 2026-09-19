@@ -17,7 +17,7 @@ const getSwarmBaseURL = () => {
 export const API_BASE_URL = getBaseURL();
 export const SWARM_BASE_URL = getSwarmBaseURL();
 
-const api = axios.create({
+export const api = axios.create({
     baseURL: API_BASE_URL,
     timeout: 30000, // 30s for normal API calls
 });

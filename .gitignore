@@ -145,4 +145,9 @@ apps/05_Exports/
 runtime/
 cleaned_transcript.txt
 scratch_sub.en.vtt
+.cache/
+yt_page.html
+scratch_channel.json
+harness/dsh_active_url.txt
+harness/last_produced_video.json
 

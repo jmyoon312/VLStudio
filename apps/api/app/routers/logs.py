@@ -18,10 +18,10 @@ LOG_FILE = os.path.join(API_DIR, "scan_debug.log")
 SERVER_LOG_FILE = os.path.join(API_DIR, "api_server.log")
 
 @router.get("/scheduler")
-async def get_scheduler_logs(lines: int = 100):
+async def get_scheduler_logs(lines: int = 100, order: str = "asc"):
     """
     Reads the last N lines of the scheduler log file.
-    Returns them in reverse order (newest first).
+    order: 'asc' (chronological, terminal order) or 'desc' (newest first).
     """
     if not os.path.exists(LOG_FILE):
         # Create empty file if not exists to avoid empty list issues
@@ -36,9 +36,9 @@ async def get_scheduler_logs(lines: int = 100):
             all_lines = f.readlines()
             # Tail default 100
             last_lines = all_lines[-lines:]
-            # Reverse for display
-            last_lines.reverse()
-            return {"logs": [line.strip() for line in last_lines]}
+            if order == "desc":
+                last_lines.reverse()
+            return {"logs": [line.strip() for line in last_lines if line.strip()]}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to read logs: {str(e)}")
 
@@ -56,10 +56,10 @@ async def clear_scheduler_logs():
         raise HTTPException(status_code=500, detail=f"Failed to clear logs: {str(e)}")
 
 @router.get("/server")
-async def get_server_logs(lines: int = 100):
+async def get_server_logs(lines: int = 100, order: str = "asc"):
     """
     Reads the last N lines of the backend server log file.
-    Returns them in reverse order (newest first).
+    order: 'asc' (chronological, terminal order) or 'desc' (newest first).
     """
     if not os.path.exists(SERVER_LOG_FILE):
         try:
@@ -73,7 +73,8 @@ async def get_server_logs(lines: int = 100):
         with open(SERVER_LOG_FILE, "r", encoding="utf-8") as f:
             all_lines = f.readlines()
             last_lines = all_lines[-lines:]
-            last_lines.reverse()
+            if order == "desc":
+                last_lines.reverse()
             return {"logs": [line.strip() for line in last_lines if line.strip()]}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to read server logs: {str(e)}")

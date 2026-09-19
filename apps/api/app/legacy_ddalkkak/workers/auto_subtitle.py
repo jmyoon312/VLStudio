@@ -1354,7 +1354,12 @@ async def run_auto_subtitle(job_id: int, video_path: Path,
                      ([[menu-prompt-separation]] 룰). 학습 inject도 생략 (호출자가 직접 관리).
     target_lang: 타겟 언어 (ko, en, ja, zh-tw, es 등)
     """
-    SUBTITLES_DIR = Path(__file__).parent.parent / "data" / "subtitles"
+    local_app = os.environ.get("LOCALAPPDATA") or os.environ.get("APPDATA")
+    if local_app:
+        media_root = Path(local_app) / "ViraLoop Studio" / "media"
+    else:
+        media_root = Path.home() / ".viraloop_studio" / "media"
+    SUBTITLES_DIR = media_root / "02_Operations" / "subtitles"
     out_dir = SUBTITLES_DIR / f"job_{job_id}"
     out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -1766,16 +1771,17 @@ async def run_auto_subtitle(job_id: int, video_path: Path,
         except Exception as e:
             print(f"  ⚠️ BGM 믹스 실패 (자막 잡 OK): {e}", flush=True)
 
-        # 영속 데이터 디렉토리와 상호 동기화
+        # 공식 영속 미디어 디렉토리 동기화 확인
         try:
             local_app = os.environ.get("LOCALAPPDATA") or os.environ.get("APPDATA")
             if local_app:
-                persistent_job_dir = Path(local_app) / "ViraLoop Studio" / "data" / "subtitles" / f"job_{job_id}"
-                persistent_job_dir.mkdir(parents=True, exist_ok=True)
-                import shutil
-                for item in out_dir.glob("*"):
-                    if item.is_file():
-                        shutil.copy2(item, persistent_job_dir / item.name)
+                persistent_job_dir = Path(local_app) / "ViraLoop Studio" / "media" / "02_Operations" / "subtitles" / f"job_{job_id}"
+                if persistent_job_dir.resolve() != out_dir.resolve():
+                    persistent_job_dir.mkdir(parents=True, exist_ok=True)
+                    import shutil
+                    for item in out_dir.glob("*"):
+                        if item.is_file():
+                            shutil.copy2(item, persistent_job_dir / item.name)
         except Exception as sync_err:
             print(f"  ⚠️ 디렉토리 동기화 실패: {sync_err}", flush=True)
     except Exception as e:

@@ -45,7 +45,10 @@ const SocialAccountsManager: React.FC<SocialAccountsManagerProps> = ({ profileId
     // YouTube Sync Modal State
     const [isSyncOpen, setIsSyncOpen] = useState(false);
     const [syncChannelId, setSyncChannelId] = useState("");
-    const [youtubeChannels, setYoutubeChannels] = useState<{channel_id: string, channel_name: string}[]>([]);
+    const [youtubeChannels, setYoutubeChannels] = useState<{channel_id: string, channel_name: string, account_email?: string, owner_profile_id?: string}[]>([]);
+
+    // Douyin Guide Modal State
+    const [isDouyinGuideOpen, setIsDouyinGuideOpen] = useState(false);
 
     // NotebookLM Modal State
     const [isNotebookLMOpen, setIsNotebookLMOpen] = useState(false);
@@ -73,9 +76,12 @@ const SocialAccountsManager: React.FC<SocialAccountsManagerProps> = ({ profileId
     }, []);
 
     useEffect(() => {
-        if (isSyncOpen && youtubeChannels.length === 0) {
-            axios.get('/api/youtube/all')
-                .then(res => setYoutubeChannels(res.data))
+        if (isSyncOpen) {
+            axios.get('/api/youtube/all?registered_only=true')
+                .then(res => {
+                    const valid = (res.data || []).filter((ch: any) => ch.owner_profile_id || ch.account_email);
+                    setYoutubeChannels(valid);
+                })
                 .catch(err => console.error("Failed to load YouTube channels:", err));
         }
     }, [isSyncOpen]);
@@ -231,22 +237,22 @@ const SocialAccountsManager: React.FC<SocialAccountsManagerProps> = ({ profileId
                             </DialogTrigger>
                             <DialogContent className="bg-card border-border text-foreground">
                                 <DialogHeader>
-                                    <DialogTitle>새 빈 브라우저 프로필 생성</DialogTitle>
-                                    <DialogDescription>
-                                        예: "게임 채널용", "일상 브랜드용" 등 용도에 맞는 이름을 입력하세요.
+                                    <DialogTitle className="text-foreground font-bold">새 빈 브라우저 프로필 생성</DialogTitle>
+                                    <DialogDescription className="text-xs text-muted-foreground">
+                                        더우인, 틱톡, 인스타그램, 웨이보 등 독립된 소셜 플랫폼 전용이거나, 등록된 구글 계정과 분리된 새 브라우저 환경을 구축할 때 생성하세요.
                                     </DialogDescription>
                                 </DialogHeader>
                                 <div className="py-4">
                                     <Input
-                                        placeholder="프로필 이름 입력..."
+                                        placeholder="예: 더우인 수집용 1호, 인스타 부계정용..."
                                         value={newProfileName}
                                         onChange={(e) => setNewProfileName(e.target.value)}
-                                        className="bg-muted/50 border-border"
+                                        className="bg-muted/50 border-border text-foreground"
                                     />
                                 </div>
                                 <DialogFooter>
                                     <Button variant="outline" onClick={() => setIsAddOpen(false)}>취소</Button>
-                                    <Button onClick={handleCreateProfile}>생성</Button>
+                                    <Button onClick={handleCreateProfile} className="bg-primary text-primary-foreground font-bold hover:bg-primary/90">생성</Button>
                                 </DialogFooter>
                             </DialogContent>
                         </Dialog>
@@ -260,34 +266,45 @@ const SocialAccountsManager: React.FC<SocialAccountsManagerProps> = ({ profileId
                             </DialogTrigger>
                             <DialogContent className="bg-card border-border text-foreground">
                                 <DialogHeader>
-                                    <DialogTitle>유튜브 채널과 프로필 연동</DialogTitle>
-                                    <DialogDescription>
-                                        유튜브 채널과 동일한 브라우저 쿠키를 사용하도록 연동합니다.
+                                    <DialogTitle className="text-foreground font-bold">유튜브 채널과 프로필 연동</DialogTitle>
+                                    <DialogDescription className="text-xs text-muted-foreground">
+                                        등록된 구글 계정의 유튜브 브랜드 채널과 동일한 브라우저 쿠키를 사용하도록 연동합니다.
                                     </DialogDescription>
                                 </DialogHeader>
                                 <div className="py-4">
                                     <Select value={syncChannelId} onValueChange={setSyncChannelId}>
-                                        <SelectTrigger className="bg-muted/50 border-border">
+                                        <SelectTrigger className="bg-muted/50 border-border text-foreground">
                                             <SelectValue placeholder="연동할 유튜브 채널을 선택하세요" />
                                         </SelectTrigger>
-                                        <SelectContent>
-                                            {youtubeChannels.map((ch) => (
-                                                <SelectItem key={ch.channel_id} value={ch.channel_id}>
-                                                    {ch.channel_name}
-                                                </SelectItem>
-                                            ))}
+                                        <SelectContent className="bg-card border-border text-foreground">
+                                            {youtubeChannels.length === 0 ? (
+                                                <div className="p-3 text-center text-xs text-muted-foreground">
+                                                    연동 가능한 등록 구글 채널이 없습니다.<br />(틴캔 보관함에서 먼저 구글 계정 및 채널을 연동하세요)
+                                                </div>
+                                            ) : (
+                                                youtubeChannels.map((ch) => (
+                                                    <SelectItem key={ch.channel_id} value={ch.channel_id} className="cursor-pointer">
+                                                        <div className="flex items-center justify-between gap-3 w-full">
+                                                            <span className="font-semibold text-foreground">{ch.channel_name}</span>
+                                                            {ch.account_email && (
+                                                                <span className="text-[11px] text-muted-foreground font-mono">({ch.account_email})</span>
+                                                            )}
+                                                        </div>
+                                                    </SelectItem>
+                                                ))
+                                            )}
                                         </SelectContent>
                                     </Select>
                                 </div>
                                 <DialogFooter>
                                     <Button variant="outline" onClick={() => setIsSyncOpen(false)}>취소</Button>
-                                    <Button onClick={handleSyncYouTubeChannel} className="bg-rose-600 hover:bg-rose-700 text-white">연동하기</Button>
+                                    <Button onClick={handleSyncYouTubeChannel} disabled={!syncChannelId} className="bg-rose-600 hover:bg-rose-700 text-white font-bold">연동하기</Button>
                                 </DialogFooter>
                             </DialogContent>
                         </Dialog>
                     </div>
 
-                    <Dialog>
+                    <Dialog open={isDouyinGuideOpen} onOpenChange={setIsDouyinGuideOpen}>
                         <DialogTrigger asChild>
                             <Button variant="outline" size="sm" className="h-9 px-3 text-xs font-semibold text-muted-foreground hover:text-foreground border-border hover:bg-muted/60 shadow-2xs">
                                 <HelpCircle className="w-3.5 h-3.5 mr-1.5 text-primary shrink-0" />
@@ -298,36 +315,62 @@ const SocialAccountsManager: React.FC<SocialAccountsManagerProps> = ({ profileId
                             <DialogHeader>
                                 <DialogTitle className="flex items-center gap-2 text-base sm:text-lg font-bold text-foreground">
                                     <Smartphone className="w-5 h-5 text-primary" />
-                                    더우인 무료 가입 및 쿠키 연동 가이드
+                                    더우인(Douyin) 웨이보 연동 가입 및 쿠키 수집 가이드
                                 </DialogTitle>
                                 <DialogDescription className="text-xs sm:text-sm text-muted-foreground">
-                                    무료 가상 번호를 사용하면 계정이 정지되거나 블락당합니다. 본인의 실제 한국 스마트폰 번호(+82)로 1회 가입만 해두면 평생 무료로 안전하게 수집할 수 있습니다.
+                                    현재 더우인은 해외(+82 한국) 전화번호 직접 가입/인증이 차단되었습니다. 따라서 한국 번호 SMS 인증이 원활한 <b>웨이보(Weibo)</b>를 통해 소셜 로그인으로 우회 연동해야 합니다.
                                 </DialogDescription>
                             </DialogHeader>
                             <div className="py-3 space-y-4 text-xs sm:text-sm max-h-[60vh] overflow-y-auto pr-2">
                                 <div className="bg-muted/40 p-3.5 rounded-xl border border-border space-y-1.5">
-                                    <h3 className="font-bold text-foreground">1단계: 앱 설치 (모바일)</h3>
-                                    <p className="text-muted-foreground leading-relaxed">• <b>안드로이드:</b> 구글 플레이에 없으므로, 모바일 크롬으로 <a href="https://douyin.com" target="_blank" rel="noreferrer" className="text-primary underline">douyin.com</a> 에 접속하여 <b>APK</b> 파일을 다운로드합니다.</p>
-                                    <p className="text-muted-foreground leading-relaxed">• <b>iOS (아이폰):</b> App Store에서 <b>국가/지역을 '중국 본토'로 변경</b> 후 '抖音'을 다운로드하고 다시 한국으로 복귀합니다.</p>
+                                    <h3 className="font-bold text-foreground">1단계: 웨이보(Weibo, 微博) 가입 (한국 번호 지원)</h3>
+                                    <p className="text-muted-foreground leading-relaxed">
+                                        • 모바일 앱스토어/구글 플레이에서 <b>'Weibo'</b> (또는 Weibo International) 앱을 설치하거나 모바일 웹(<a href="https://weibo.com" target="_blank" rel="noreferrer" className="text-primary underline">weibo.com</a>)에 접속합니다.
+                                    </p>
+                                    <p className="text-muted-foreground leading-relaxed">
+                                        • 국가번호를 <b>+82 (한국)</b>으로 선택하고 본인 휴대폰 번호(맨 앞자리 0 제외, 예: 1012345678)로 SMS 인증을 받아 웨이보 계정을 생성합니다.
+                                    </p>
                                 </div>
                                 <div className="bg-muted/40 p-3.5 rounded-xl border border-border space-y-1.5">
-                                    <h3 className="font-bold text-foreground">2단계: 휴대폰 번호로 가입</h3>
-                                    <p className="text-muted-foreground">1. 더우인 앱 우측 하단의 <b>我 (나)</b> 탭을 누릅니다.</p>
-                                    <p className="text-muted-foreground">2. 국가번호를 <b>+86</b>에서 <b>+82 (한국)</b>으로 변경합니다.</p>
-                                    <p className="text-muted-foreground">3. 본인 휴대폰 번호로 SMS 인증을 받아 로그인을 완료합니다.</p>
+                                    <h3 className="font-bold text-foreground">2단계: 더우인(Douyin) 앱에서 웨이보로 연동 로그인</h3>
+                                    <p className="text-muted-foreground leading-relaxed">
+                                        • 모바일 더우인(抖音) 앱을 실행합니다. <br />
+                                        <span className="text-[11px] text-muted-foreground/80">※ 안드로이드: <a href="https://douyin.com" target="_blank" rel="noreferrer" className="text-primary underline">douyin.com</a> APK 다운로드 / iOS: App Store 국가를 '중국 본토'로 변경 후 '抖音' 설치</span>
+                                    </p>
+                                    <p className="text-muted-foreground leading-relaxed">
+                                        • 로그인 화면에서 <b>기타 로그인 방식(其他登录方式)</b> ➔ <b>웨이보(微博) 아이콘</b>을 터치합니다.
+                                    </p>
+                                    <p className="text-muted-foreground leading-relaxed">
+                                        • 웨이보 앱 연동 승인 창에서 <b>[동의 및 로그인(授权并登录)]</b>을 누르면 더우인 계정이 즉시 생성되어 자동 로그인됩니다.
+                                    </p>
                                 </div>
                                 <div className="bg-muted/40 p-3.5 rounded-xl border border-border space-y-1.5">
-                                    <h3 className="font-bold text-foreground">3단계: ViraLoop에 더우인 연동 (PC)</h3>
-                                    <p className="text-muted-foreground">1. <b>[+ 빈 프로필 생성]</b> 버튼으로 "더우인 전용" 프로필을 생성합니다.</p>
-                                    <p className="text-muted-foreground">2. 프로필의 <b>[브라우저 열기]</b>를 클릭하여 <b>douyin.com</b>에 접속합니다.</p>
-                                    <p className="text-muted-foreground">3. 모바일 앱 상단 QR 스캐너로 PC의 QR 코드를 스캔하여 승인하면 연동 완료!</p>
+                                    <h3 className="font-bold text-foreground">3단계: ViraLoop PC 프로필에 더우인 연동 (QR 로그인)</h3>
+                                    <p className="text-muted-foreground leading-relaxed">
+                                        1. 상단 <b>[+ 빈 프로필 생성]</b> 버튼을 눌러 "더우인 전용" 프로필을 생성합니다.
+                                    </p>
+                                    <p className="text-muted-foreground leading-relaxed">
+                                        2. 프로필의 <b>[브라우저 열기 (로그인)]</b>를 클릭하여 <b>douyin.com</b>에 접속합니다.
+                                    </p>
+                                    <p className="text-muted-foreground leading-relaxed">
+                                        3. 더우인 웹 화면 우측 상단의 <b>[로그인(登录)]</b> 클릭 후 노출되는 QR 코드를 확인합니다.
+                                    </p>
+                                    <p className="text-muted-foreground leading-relaxed">
+                                        4. 모바일 더우인 앱 상단 <b>QR 스캐너([ — ])</b>로 PC의 QR 코드를 스캔하고 모바일에서 <b>[로그인 확인(确认登录)]</b>을 승인합니다.
+                                    </p>
                                 </div>
-                                <div className="bg-primary/10 border border-primary/25 rounded-xl p-3 text-xs text-foreground/90">
-                                    <b>💡 팁:</b> 한번 연동해둔 프로필은 ViraLoop 봇이 쿠키를 자동 활용하여 로그인 상태로 대량 수집을 수행합니다.
+                                <div className="bg-primary/10 border border-primary/25 rounded-xl p-3 text-xs text-foreground/90 space-y-1">
+                                    <p className="font-bold text-primary">💡 핵심 팁 & 플랫폼 확장</p>
+                                    <p className="text-muted-foreground leading-relaxed">
+                                        • 한번 연동해둔 프로필은 브라우저를 닫아도 ViraLoop 봇이 쿠키를 자동 활용하여 로그인 상태로 고속 수집을 수행합니다.
+                                    </p>
+                                    <p className="text-muted-foreground leading-relaxed">
+                                        • 웨이보 계정 하나로 더우인뿐만 아니라 샤오홍슈(Xiaohongshu), 콰이쇼우(Kuaishou) 등 중국 주요 플랫폼에 모두 원클릭 로그인할 수 있습니다.
+                                    </p>
                                 </div>
                             </div>
                             <DialogFooter>
-                                <Button onClick={() => document.dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape'}))}>닫기</Button>
+                                <Button onClick={() => setIsDouyinGuideOpen(false)}>닫기</Button>
                             </DialogFooter>
                         </DialogContent>
                     </Dialog>

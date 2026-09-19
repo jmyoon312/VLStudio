@@ -6,11 +6,26 @@ import {
 } from "./compositions/ViraShortComposition";
 
 const defaultProps: ViraShortProps = {
-  titleHook: "0.8초 쨉쨉이 충격 반전!",
-  accentColor: "#FFE600",
+  hasTopHeader: true,
+  hasTitleBadge: true,
+  titleBadgeText: "속보",
+  titleBadgeBg: "#EF4444",
+  titleBadgeColor: "#FFFFFF",
+  titleLine1: "조코비치 몰래카메라 ㅋㅋ",
+  titleLine2: "상대 선수 멘붕 직전",
+  titleLine1Color: "#FFFFFF",
+  titleLine2Color: "#FFE500",
+  hasBottomCredit: true,
+  bottomCreditText: "출처: 공식 유튜브 영상",
+  jabOverlay: {
+    text: "*출격작전 반전 순간!*",
+    startMs: 2500,
+    endMs: 7000,
+    placement: "top-third",
+    tiltDeg: -3,
+  },
   subtitles: [
-    { text: "지금 보고 계신 이 장면...", startMs: 0, endMs: 2500 },
-    { text: "결말을 절대 예측할 수 없습니다!", startMs: 2500, endMs: 5000 },
+    { text: "바이럴루프 정밀 템플릿 실시간 프리뷰", startMs: 0, endMs: 5000 },
   ],
 };
 

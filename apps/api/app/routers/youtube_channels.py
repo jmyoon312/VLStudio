@@ -1,6 +1,6 @@
 """YouTube Channel Management API Endpoints."""
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.orm import Session
 from typing import List, Optional
 import uuid
@@ -45,8 +45,10 @@ def channel_to_dict(ch) -> dict:
         "stealth_trust_score": getattr(ch, 'stealth_trust_score', None) or getattr(ch, 'trust_score', 0) or 0,
         "is_network_isolated": getattr(ch, 'is_network_isolated', False) or False,
         "health_score": getattr(ch, 'stealth_trust_score', None) or getattr(ch, 'trust_score', 100) or 100,
-        "cultivation_strategy": getattr(ch, 'cultivation_strategy', None),
+        "cultivation_strategy": getattr(ch, 'cultivation_strategy', 'INITIAL') or 'INITIAL',
         "cultivation_active": getattr(ch, 'cultivation_active', False) or False,
+        "cultivation_day": getattr(ch, 'cultivation_day', 0) or 0,
+        "warmup_config": getattr(ch, 'warmup_config', None),
         "growth_phase": getattr(ch, 'growth_phase', 'NEW'),
         "owner_profile_id": getattr(ch, 'owner_profile_id', None),
         "account_email": getattr(ch, 'account_email', None),
@@ -54,9 +56,17 @@ def channel_to_dict(ch) -> dict:
     }
 
 @router.get("/all")
-def get_all_youtube_channels(db: Session = Depends(get_db)):
+def get_all_youtube_channels(
+    registered_only: bool = False,
+    db: Session = Depends(get_db)
+):
     """모든 유튜브 브랜드 채널 목록 조회 (channel_to_dict 변환)"""
-    channels = db.query(YouTubeChannel).all()
+    query = db.query(YouTubeChannel)
+    if registered_only:
+        query = query.filter(
+            YouTubeChannel.owner_profile_id.isnot(None)
+        )
+    channels = query.all()
     return [channel_to_dict(ch) for ch in channels]
 
 @router.get("/captain/{profile_id}/channels")
@@ -637,11 +647,16 @@ def launch_channel_warmup(
             }
         else:
             logger.error(f"[FAIL] [Warmup] Warmup failed for {channel_id}")
-            # Do not raise 500, let frontend handle success:false
+            try:
+                db.refresh(channel)
+                err_msg = getattr(channel, 'warmup_last_error', None) or "웜업 루틴 실행 중 오류가 발생했습니다."
+            except Exception:
+                err_msg = "웜업 루틴 실행 중 오류가 발생했습니다."
             return {
                 "success": False,
-                "message": "Warmup routine failed",
-                "channel_id": channel_id
+                "message": err_msg,
+                "channel_id": channel_id,
+                "stage": stage
             }
             
     except HTTPException:
@@ -853,127 +868,176 @@ async def get_recent_warmup_activity(
 
 # ==================== Bulk Warmup Control ====================
 
+def _run_bulk_channels_worker(channel_ids: list, is_auto_schedule: bool = False):
+    import threading
+    from app.database import SessionLocal
+    from app.services.browser_session_manager import session_manager
+    from app.models import YouTubeChannel
+    
+    if not session_manager:
+        logger.error("[BulkWorker] session_manager not initialized")
+        return
+
+    session_manager.reset_abort()
+    logger.info(f"🚀 [BulkWorker] Starting background processing for {len(channel_ids)} channels (AutoSchedule: {is_auto_schedule})")
+
+    for idx, ch_id in enumerate(channel_ids, 1):
+        if session_manager.is_aborted():
+            logger.warning(f"🛑 [BulkWorker] Abort detected! Halting background worker at channel {idx}/{len(channel_ids)}")
+            break
+
+        db = SessionLocal()
+        try:
+            channel = db.query(YouTubeChannel).filter(YouTubeChannel.channel_id == ch_id).first()
+            if not channel:
+                continue
+
+            target_stage = 1
+            if is_auto_schedule:
+                strategy = channel.cultivation_strategy or "INITIAL"
+                channel.cultivation_day = (channel.cultivation_day or 0) + 1
+                day = channel.cultivation_day
+                if strategy == "INITIAL":
+                    target_stage = 1 if day <= 2 else (2 if day <= 5 else 3)
+                elif strategy == "NICHE_PIVOT":
+                    target_stage = 2
+                elif strategy == "TRAFFIC_HIJACK":
+                    target_stage = 3
+                elif strategy == "DEATH_VALLEY":
+                    target_stage = 1 if day <= 4 else 2
+                channel.warmup_stage = max(0, target_stage - 1)
+            else:
+                target_stage = channel.warmup_stage + 1 if channel.warmup_stage > 0 else 1
+
+            channel.warmup_status = "RUNNING"
+            db.commit()
+            logger.info(f"▶️ [BulkWorker] [{idx}/{len(channel_ids)}] Channel {channel.title or ch_id} -> Stage {target_stage}")
+
+            # Run routine
+            res = session_manager.run_warmup_routine(ch_id, target_stage)
+            
+            # Re-fetch channel to avoid stale session
+            channel = db.query(YouTubeChannel).filter(YouTubeChannel.channel_id == ch_id).first()
+            if channel:
+                if res:
+                    channel.warmup_status = "COMPLETED"
+                    channel.warmup_stage = target_stage
+                    channel.warmup_completed_at = datetime.now()
+                else:
+                    channel.warmup_status = "FAILED"
+                channel.warmup_last_run = datetime.now()
+                db.commit()
+
+        except Exception as e:
+            logger.error(f"[BulkWorker] Error on channel {ch_id}: {e}", exc_info=True)
+            try:
+                ch = db.query(YouTubeChannel).filter(YouTubeChannel.channel_id == ch_id).first()
+                if ch:
+                    ch.warmup_status = "FAILED"
+                    ch.warmup_last_error = str(e)
+                    db.commit()
+            except Exception:
+                pass
+        finally:
+            db.close()
+
+        # Inter-channel safety pause
+        if idx < len(channel_ids) and not session_manager.is_aborted():
+            time.sleep(3)
+
+    logger.info("🏁 [BulkWorker] Background processing finished.")
+
+
 @router.post("/warmup/bulk/start")
 def bulk_start_warmup(
-    filter: str = "pending",  # pending, all, failed
+    filter: str = "pending",  # pending, all, failed, selected
+    payload: dict = Body(None),
     db: Session = Depends(get_db)
 ):
-    """여러 채널 순차 웜업 시작 (IP 로테이션 보장)"""
+    """여러 채널 순차 웜업 백그라운드 시작 (선택 채널 또는 필터 기반)"""
+    import threading
     try:
-        tincan_ids = db.query(Profile.id).filter(
-            Profile.profile_type == "TIN_CAN",
+        active_profile_ids = [r[0] for r in db.query(Profile.id).filter(
             Profile.status == "ACTIVE"
-        ).subquery()
+        ).all()]
         
         query = db.query(YouTubeChannel).filter(
-            YouTubeChannel.owner_profile_id.in_(tincan_ids)
+            (YouTubeChannel.owner_profile_id.in_(active_profile_ids)) | (YouTubeChannel.owner_profile_id == None)
         )
         
-        if filter == "pending":
+        selected_ids = payload.get("channel_ids") if payload else None
+        if selected_ids and len(selected_ids) > 0:
+            query = query.filter(YouTubeChannel.channel_id.in_(selected_ids))
+        elif filter == "pending":
             query = query.filter(YouTubeChannel.warmup_stage == 0)
         elif filter == "failed":
             query = query.filter(YouTubeChannel.warmup_status == "FAILED")
-        # "all" = no additional filter
         
         channels = query.all()
-        
         if not channels:
             return {
                 "success": True,
                 "started": 0,
                 "filter": filter,
-                "message": "No channels to start"
+                "message": "실행할 대상 채널이 없습니다."
             }
         
-        # 순차 실행: 각 채널을 하나씩 완료
-        success_count = 0
-        failed_count = 0
+        channel_ids = [ch.channel_id for ch in channels]
+        for ch in channels:
+            ch.warmup_status = "QUEUED"
+        db.commit()
         
-        for idx, channel in enumerate(channels, 1):
-            try:
-                next_stage = channel.warmup_stage + 1 if channel.warmup_stage > 0 else 1
-                
-                logger.info(f"[REFRESH] [Bulk Warmup] Processing channel {idx}/{len(channels)}: {channel.title} (Day {next_stage})")
-                
-                # Reset status
-                channel.warmup_status = "IDLE"
-                db.commit()
-                
-                # 순차 실행: 완료될 때까지 대기
-                # IP 변경 → 웜업 → 브라우저 닫기가 완료된 후 다음 채널로
-                result = session_manager.run_warmup_routine(
-                    channel.channel_id,
-                    next_stage
-                )
-                
-                if result:
-                    success_count += 1
-                    logger.info(f"[OK] [Bulk Warmup] Channel {idx}/{len(channels)} completed successfully")
-                else:
-                    failed_count += 1
-                    logger.warning(f"[WARN] [Bulk Warmup] Channel {idx}/{len(channels)} failed")
-                
-                # 다음 채널 전에 짧은 대기 (IP 안정화)
-                if idx < len(channels):
-                    import time
-                    time.sleep(2)
-                    
-            except Exception as e:
-                failed_count += 1
-                logger.error(f"[FAIL] [Bulk Warmup] Channel {idx}/{len(channels)} error: {e}")
-                continue
-        
-        logger.info(f"🏁 [Bulk Warmup] Completed: {success_count} success, {failed_count} failed")
+        if session_manager:
+            session_manager.reset_abort()
+
+        threading.Thread(target=_run_bulk_channels_worker, args=(channel_ids, False), daemon=True).start()
         
         return {
             "success": True,
             "started": len(channels),
-            "completed": success_count,
-            "failed": failed_count,
-            "filter": filter
+            "filter": filter,
+            "channel_ids": channel_ids,
+            "message": f"{len(channels)}개 채널의 웜업이 백그라운드 큐에서 순차 시작되었습니다."
         }
     except Exception as e:
         raise HTTPException(500, f"Bulk start failed: {str(e)}")
 
 
+
 @router.post("/warmup/bulk/pause")
-async def bulk_pause_warmup(db: Session = Depends(get_db)):
-    """실행 중인 모든 웜업 일시정지"""
+def bulk_pause_warmup(db: Session = Depends(get_db)):
+    """실행 중인 모든 웜업 즉시 일시정지 (실시간 킬스위치 연동)"""
     try:
-        tincan_ids = db.query(Profile.id).filter(
-            Profile.profile_type == "TIN_CAN",
-            Profile.status == "ACTIVE"
-        ).subquery()
+        if session_manager:
+            session_manager.request_abort()
         
         channels = db.query(YouTubeChannel).filter(
-            YouTubeChannel.owner_profile_id.in_(tincan_ids),
-            YouTubeChannel.warmup_status == "RUNNING"
+            YouTubeChannel.warmup_status.in_(["RUNNING", "QUEUED", "PENDING"])
         ).all()
         
         for channel in channels:
             channel.warmup_status = "PAUSED"
-        
         db.commit()
         
         return {
             "success": True,
-            "paused": len(channels)
+            "paused": len(channels),
+            "message": f"{len(channels)}개 채널의 웜업이 즉시 중단/일시정지되었습니다."
         }
     except Exception as e:
         raise HTTPException(500, f"Bulk pause failed: {str(e)}")
 
 
 @router.post("/warmup/bulk/reset")
-async def bulk_reset_warmup(db: Session = Depends(get_db)):
+def bulk_reset_warmup(db: Session = Depends(get_db)):
     """모든 채널 웜업 초기화"""
     try:
-        tincan_ids = db.query(Profile.id).filter(
-            Profile.profile_type == "TIN_CAN",
+        active_profile_ids = [r[0] for r in db.query(Profile.id).filter(
             Profile.status == "ACTIVE"
-        ).subquery()
+        ).all()]
         
         channels = db.query(YouTubeChannel).filter(
-            YouTubeChannel.owner_profile_id.in_(tincan_ids)
+            (YouTubeChannel.owner_profile_id.in_(active_profile_ids)) | (YouTubeChannel.owner_profile_id == None)
         ).all()
         
         for channel in channels:
@@ -997,25 +1061,24 @@ async def bulk_reset_warmup(db: Session = Depends(get_db)):
 
 
 @router.get("/warmup/bulk/status")
-async def bulk_warmup_status(db: Session = Depends(get_db)):
-    """전체 웜업 상태 요약"""
+def bulk_warmup_status(db: Session = Depends(get_db)):
+    """전체 웜업 상태 요약 (모든 등록 채널 포함)"""
     try:
-        tincan_ids = db.query(Profile.id).filter(
-            Profile.profile_type == "TIN_CAN",
+        active_profile_ids = [r[0] for r in db.query(Profile.id).filter(
             Profile.status == "ACTIVE"
-        ).subquery()
+        ).all()]
         
         base_query = db.query(YouTubeChannel).filter(
-            YouTubeChannel.owner_profile_id.in_(tincan_ids)
+            (YouTubeChannel.owner_profile_id.in_(active_profile_ids)) | (YouTubeChannel.owner_profile_id == None)
         )
         
         total = base_query.count()
         running = base_query.filter(
-            YouTubeChannel.warmup_status == "RUNNING"
+            YouTubeChannel.warmup_status.in_(["RUNNING", "QUEUED"])
         ).count()
         completed = base_query.filter(
             YouTubeChannel.warmup_stage >= 3,
-            YouTubeChannel.warmup_status == "COMPLETED"
+            YouTubeChannel.warmup_status != "FAILED"
         ).count()
         failed = base_query.filter(
             YouTubeChannel.warmup_status == "FAILED"
@@ -1024,13 +1087,27 @@ async def bulk_warmup_status(db: Session = Depends(get_db)):
             YouTubeChannel.warmup_status == "PAUSED"
         ).count()
         pending = base_query.filter(
-            YouTubeChannel.warmup_stage == 0
+            YouTubeChannel.warmup_stage < 3,
+            ~YouTubeChannel.warmup_status.in_(["RUNNING", "QUEUED", "FAILED", "PAUSED"])
         ).count()
         in_progress = base_query.filter(
             YouTubeChannel.warmup_stage > 0,
             YouTubeChannel.warmup_stage < 3
         ).count()
         
+        failed_channels = []
+        if failed > 0:
+            failed_rows = base_query.filter(YouTubeChannel.warmup_status == "FAILED").all()
+            for ch in failed_rows:
+                failed_channels.append({
+                    "channel_id": ch.channel_id,
+                    "title": ch.title or ch.channel_id,
+                    "warmup_stage": ch.warmup_stage or 1,
+                    "warmup_last_error": getattr(ch, 'warmup_last_error', None) or "원인 미상 오류",
+                    "warmup_last_run": ch.warmup_last_run.isoformat() if ch.warmup_last_run else None,
+                    "owner_profile_id": ch.owner_profile_id
+                })
+
         return {
             "total": total,
             "running": running,
@@ -1038,10 +1115,12 @@ async def bulk_warmup_status(db: Session = Depends(get_db)):
             "failed": failed,
             "paused": paused,
             "pending": pending,
-            "in_progress": in_progress
+            "in_progress": in_progress,
+            "failed_channels": failed_channels
         }
     except Exception as e:
-        raise HTTPException(500, f"Status check failed: {str(e)}")
+        logger.error(f"Bulk status error: {e}")
+        return {"total": 0, "running": 0, "completed": 0, "failed": 0, "paused": 0, "pending": 0, "in_progress": 0, "failed_channels": []}
 
 
 
@@ -1330,64 +1409,56 @@ async def update_cultivation_strategy(
     }
 
 @router.post("/warmup/bulk/auto-schedule")
-async def trigger_auto_scheduler(db: Session = Depends(get_db)):
-    """설정된 전략에 따라 모든 채널의 스케줄러를 실행 (일 단위 1회 호출 권장)"""
-    tincan_ids = db.query(Profile.id).filter(
-        Profile.profile_type == "TIN_CAN",
-        Profile.status == "ACTIVE"
-    ).subquery()
-    
-    active_channels = db.query(YouTubeChannel).filter(
-        YouTubeChannel.owner_profile_id.in_(tincan_ids),
-        YouTubeChannel.cultivation_active == True
-    ).all()
-    
-    triggered_count = 0
-    failed_count = 0
-    
-    for channel in active_channels:
-        strategy = channel.cultivation_strategy
-        if not strategy:
-            continue
-            
-        # 하루 증가
-        channel.cultivation_day += 1
-        day = channel.cultivation_day
+def trigger_auto_scheduler(db: Session = Depends(get_db)):
+    """설정된 전략에 따라 모든 채널의 스케줄러를 백그라운드에서 순차 실행"""
+    import threading
+    try:
+        active_profile_ids = [r[0] for r in db.query(Profile.id).filter(
+            Profile.status == "ACTIVE"
+        ).all()]
         
-        # 전략별 타겟 Stage 계산
-        target_stage = 1
-        if strategy == "INITIAL":
-            # Day 1~2: Stage 1 / Day 3~5: Stage 2 / Day 6~7: Stage 3
-            if day <= 2: target_stage = 1
-            elif day <= 5: target_stage = 2
-            else: target_stage = 3
-        elif strategy == "NICHE_PIVOT":
-            target_stage = 2 # 계속 Stage 2
-        elif strategy == "TRAFFIC_HIJACK":
-            target_stage = 3 # 계속 Stage 3
-        elif strategy == "DEATH_VALLEY":
-            # Day 1~4: Stage 1 / Day 5~7: Stage 2
-            if day <= 4: target_stage = 1
-            else: target_stage = 2
+        query = db.query(YouTubeChannel).filter(
+            (YouTubeChannel.owner_profile_id.in_(active_profile_ids)) | (YouTubeChannel.owner_profile_id == None)
+        )
+        
+        # 1. First look for channels where cultivation_active == True
+        active_channels = query.filter(YouTubeChannel.cultivation_active == True).all()
+        
+        # 2. If none have cultivation_active set, auto-enroll pending channels with INITIAL strategy
+        if not active_channels:
+            idle_channels = query.filter(YouTubeChannel.warmup_stage < 3).all()
+            if idle_channels:
+                for ch in idle_channels:
+                    ch.cultivation_active = True
+                    if not ch.cultivation_strategy:
+                        ch.cultivation_strategy = "INITIAL"
+                db.commit()
+                active_channels = idle_channels
+                logger.info(f"🌱 [Scheduler] Auto-enrolled {len(active_channels)} pending channels into INITIAL cultivation strategy")
+        
+        if not active_channels:
+            return {
+                "success": True,
+                "processed": 0,
+                "success": 0,
+                "failed": 0,
+                "message": "스케줄러를 실행할 채널이 없습니다. 채널의 육성 활성화 스위치를 켜주세요."
+            }
             
-        channel.warmup_stage = target_stage - 1 # run_warmup_routine will increment or use target
+        channel_ids = [ch.channel_id for ch in active_channels]
+        for ch in active_channels:
+            ch.warmup_status = "QUEUED"
         db.commit()
-        
-        try:
-            logger.info(f"📅 [Scheduler] Channel {channel.channel_name}: Strategy {strategy} (Day {day}) -> Stage {target_stage}")
-            # 백그라운드 태스크로 넘기는 것이 좋으나 우선 동기적 실행(Bulk처럼)
-            result = session_manager.run_warmup_routine(channel.channel_id, target_stage)
-            if result:
-                triggered_count += 1
-            else:
-                failed_count += 1
-        except Exception as e:
-            logger.error(f"Scheduler failed for {channel.channel_id}: {e}")
-            failed_count += 1
-            
-    return {
-        "success": True,
-        "processed": len(active_channels),
-        "success": triggered_count,
-        "failed": failed_count
-    }
+
+        threading.Thread(target=_run_bulk_channels_worker, args=(channel_ids, True), daemon=True).start()
+
+        return {
+            "success": True,
+            "processed": len(active_channels),
+            "success": len(active_channels),
+            "failed": 0,
+            "message": f"{len(active_channels)}개 채널의 오토 스케줄러 웜업이 백그라운드 큐에서 순차 시작되었습니다."
+        }
+    except Exception as e:
+        logger.error(f"[AutoScheduler] Error: {e}", exc_info=True)
+        raise HTTPException(500, f"Auto scheduler failed: {str(e)}")

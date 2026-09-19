@@ -597,7 +597,7 @@ def verify_direct_profile(profile_id: str, db: Session = Depends(get_db)):
             {
                 "step": "login_check",
                 "success": True,
-                "message": "?ㅽ뀛???몄뀡 ?뺤긽 寃利??꾨즺 (ACTIVE)"
+                "message": "스텔스 세션 정상 검증 완료 (ACTIVE)"
             }
         ]
     }
@@ -621,6 +621,14 @@ def sync_channel_info(profile_id: str, db: Session = Depends(get_db)):
     ch_id = None
     brand_name = None
 
+    # Ensure proxy is active if DIRECT_LTE mode
+    if profile.proxy_mode == "DIRECT_LTE":
+        try:
+            from app.services.adb_service import adb_service
+            adb_service.ensure_every_proxy_socks_active()
+        except Exception:
+            pass
+
     # Try stealth channel detection directly via Patchright
     try:
         from app.services.stealth_ops_v2 import stealth_ops
@@ -628,17 +636,22 @@ def sync_channel_info(profile_id: str, db: Session = Depends(get_db)):
         if res.get("success"):
             ch_id = res.get("channel_id")
             brand_name = res.get("brand_name")
-            logger.info(f"??Stealth direct scout succeeded: ID={ch_id}, Name={brand_name}")
+            logger.info(f"🎉 Stealth direct scout succeeded: ID={ch_id}, Name={brand_name}")
     except Exception as e:
         logger.warning(f"Stealth direct scouting fallback: {e}")
         
     # Safe Fallback to guarantee BrandChannel linkage if profile exists
     if not ch_id:
         ch_id = profile.channel_id or f"UC_{profile_id[:16]}"
-    if not brand_name or brand_name == "Detected Channel":
-        brand_name = f"釉뚮옖??{profile.email.split('@')[0] if profile.email else profile_id[:6]}"
+    if not brand_name or brand_name in ("Detected Channel", "Unknown Channel"):
+        default_base = profile.email.split('@')[0] if profile.email else profile_id[:6]
+        brand_name = f"브랜드_{default_base}"
+    else:
+        import re
+        brand_name = re.sub(r'^(?:[^\w가-힣\s\(\)]+|귣|뚮옖|釉뚮옖|\?+)+', '브랜드 ', brand_name).strip()
     
     profile.channel_id = ch_id
+    profile.incubation_status = "MATURE"
     
     # Update/Create BrandChannel
     if not brand_channel:
@@ -647,7 +660,7 @@ def sync_channel_info(profile_id: str, db: Session = Depends(get_db)):
             title=brand_name,
             owner_profile_id=profile_id,
             account_email=profile.email,
-            warmup_stage=0,
+            warmup_stage=3,
             warmup_status="IDLE"
         )
         db.add(brand_channel)
@@ -656,7 +669,7 @@ def sync_channel_info(profile_id: str, db: Session = Depends(get_db)):
         if brand_name: brand_channel.title = brand_name
         brand_channel.owner_profile_id = profile_id
         if profile.email: brand_channel.account_email = profile.email
-        
+
     db.commit()
     
     return {
@@ -664,8 +677,268 @@ def sync_channel_info(profile_id: str, db: Session = Depends(get_db)):
         "profile_id": profile_id,
         "channel_id": ch_id,
         "brand_name": brand_name,
+        "incubation_status": "MATURE",
         "msg": "Brand channel synced successfully."
     }
+
+@router.post("/profiles/{profile_id}/seed-warmup")
+def start_seed_warmup(
+    profile_id: str,
+    payload: dict = Body(None),
+    video_count: int = 3,
+    visible: bool = True,
+    db: Session = Depends(get_db)
+):
+    """
+    [Phase 1] Pure Google Account Seed Warmup (Non-blocking Background Task)
+    Watches videos with human entropy on clean Google Account to build watch history & trust score before channel creation.
+    """
+    from app.models import Profile
+    from app.services.browser_session_manager import BrowserSessionManager
+    import threading
+
+    profile = db.query(Profile).filter(Profile.id == profile_id).first()
+    if not profile:
+        raise HTTPException(status_code=404, detail=f"Profile not found: {profile_id}")
+
+    count = video_count
+    vis = visible
+    if payload:
+        count = payload.get("video_count", count)
+        vis = payload.get("visible", True)
+
+    # Immediately mark status as WARMING so UI reflects progress instantly
+    profile.incubation_status = "WARMING"
+    db.commit()
+
+    session_mgr = BrowserSessionManager()
+    session_mgr.set_job_progress(profile_id, "WARMING", f"시드 예열 백그라운드 태스크 준비 중 (목표: {count}편)...", 0, count)
+
+    def _background_worker():
+        try:
+            session_mgr.run_profile_seed_warmup(
+                profile_id=profile_id,
+                video_count=count,
+                visible=vis
+            )
+        except Exception as e:
+            logger.error(f"[SeedWarmupBg] Worker error: {e}", exc_info=True)
+
+    threading.Thread(target=_background_worker, daemon=True).start()
+
+    return {
+        "success": True,
+        "message": f"시드 예열이 백그라운드에서 안전하게 시작되었습니다. (목표 영상: {count}편)",
+        "profile_id": profile_id,
+        "status": "WARMING",
+        "video_count": count,
+        "visible": vis
+    }
+
+@router.get("/profiles/{profile_id}/seed-warmup-progress")
+def get_seed_warmup_progress(profile_id: str, db: Session = Depends(get_db)):
+    """시드 예열 진행 상태 실시간 조회"""
+    from app.models import Profile
+    from app.services.browser_session_manager import BrowserSessionManager
+    profile = db.query(Profile).filter(Profile.id == profile_id).first()
+    if not profile:
+        raise HTTPException(status_code=404, detail="Profile not found")
+    session_mgr = BrowserSessionManager()
+    progress = session_mgr.get_job_progress(profile_id)
+    return {
+        "profile_id": profile_id,
+        "incubation_status": profile.incubation_status,
+        "seed_history_count": profile.seed_history_count or 0,
+        "progress": progress
+    }
+
+@router.post("/profiles/bulk-seed-warmup")
+def bulk_seed_warmup(
+    payload: dict = Body(None),
+    db: Session = Depends(get_db)
+):
+    """
+    [Phase 1] Pure Google Account Selective / Bulk Seed Warmup (Non-blocking Background Task)
+    Sequential stealth warmup across specified profile_ids with inter-account safety delays & soft IP rotation.
+    """
+    from app.models import Profile
+    from app.services.browser_session_manager import BrowserSessionManager
+    import threading
+
+    profile_ids = payload.get("profile_ids", []) if payload else []
+    video_count = payload.get("video_count", 3) if payload else 3
+    visible = payload.get("visible", True) if payload else True
+
+    if not profile_ids:
+        # Auto-detect ACTIVE profiles that require seed warmup
+        profiles = db.query(Profile).filter(
+            Profile.status == "ACTIVE",
+            Profile.incubation_status.in_(["NEWBORN", None])
+        ).all()
+        profile_ids = [p.id for p in profiles]
+
+    if not profile_ids:
+        return {
+            "success": True,
+            "started": 0,
+            "message": "시드 예열 대상 계정이 없습니다."
+        }
+
+    # Mark all selected profiles as WARMING in DB
+    profiles_to_warm = db.query(Profile).filter(Profile.id.in_(profile_ids)).all()
+    for p in profiles_to_warm:
+        p.incubation_status = "WARMING"
+    db.commit()
+
+    session_mgr = BrowserSessionManager()
+    session_mgr.reset_abort()
+
+    def _bulk_seed_worker():
+        logger.info(f"🌱 [BulkSeed] Starting sequential seed warmup for {len(profile_ids)} profiles...")
+        for idx, p_id in enumerate(profile_ids):
+            if session_mgr.is_aborted():
+                logger.warning(f"🛑 [BulkSeed] Abort requested. Stopping at profile {idx}/{len(profile_ids)}.")
+                break
+
+            session_mgr.set_job_progress(
+                p_id, 
+                "WARMING", 
+                f"[선택 계정 {idx+1}/{len(profile_ids)}] 시드 예열 준비 중...", 
+                0, 
+                video_count
+            )
+
+            try:
+                session_mgr.run_profile_seed_warmup(
+                    profile_id=p_id,
+                    video_count=video_count,
+                    visible=visible
+                )
+            except Exception as e:
+                logger.error(f"[BulkSeed] Failed warming profile {p_id}: {e}", exc_info=True)
+
+            # Soft IP rotation between accounts if ADB is active
+            if idx < len(profile_ids) - 1 and not session_mgr.is_aborted():
+                try:
+                    from app.services.adb_device_service import adb_service
+                    adb_service.rotate_ip(method='soft')
+                except Exception:
+                    pass
+                time.sleep(3)
+
+        logger.info(f"🏁 [BulkSeed] Finished processing {len(profile_ids)} profiles.")
+
+    threading.Thread(target=_bulk_seed_worker, daemon=True).start()
+
+    return {
+        "success": True,
+        "started": len(profile_ids),
+        "profile_ids": profile_ids,
+        "message": f"{len(profile_ids)}개 계정의 시드 예열이 백그라운드에서 순차 시작되었습니다."
+    }
+
+
+@router.post("/profiles/{profile_id}/create-brand-channel")
+def create_brand_channel_for_profile(
+    profile_id: str,
+    payload: dict = Body(...),
+    db: Session = Depends(get_db)
+):
+    """
+    [Phase 2] Safe Brand Channel Creation with Human Navigation
+    Creates a new YouTube brand channel under the warmed Google account and syncs real channel ID.
+    """
+    from app.models import Profile, BrandChannel, YouTubeChannel
+    from app.services.stealth_ops_v2 import stealth_ops
+    from app.services.automation.channel_creator import ChannelCreator
+
+    profile = db.query(Profile).filter(Profile.id == profile_id).first()
+    if not profile:
+        raise HTTPException(404, "Profile not found")
+
+    brand_name = payload.get("brand_name", "").strip()
+    if not brand_name:
+        brand_name = f"브랜드 {profile.email.split('@')[0] if profile.email else profile_id[:6]}"
+
+    logger.info(f"✨ [BrandCreate] Starting automated brand channel creation: '{brand_name}' for profile {profile_id}")
+
+    try:
+        # Create stealth browser page for profile
+        page = stealth_ops.create_page(profile_id=profile_id, headless=False)
+        if not page:
+            raise Exception("Failed to launch stealth browser")
+
+        creator = ChannelCreator(stealth_ops)
+        res = creator.create_brand_channel(page, brand_name)
+
+        if not res.get("success"):
+            try:
+                stealth_ops.close_session(profile_id)
+            except Exception:
+                pass
+            return {"success": False, "error": res.get("error", "Channel creation failed")}
+
+        # Detect the newly created channel ID
+        scout_res = creator.detect_active_channel(page)
+        ch_id = scout_res.get("channel_id") or res.get("channel_id")
+        actual_name = scout_res.get("brand_name") or brand_name
+
+        try:
+            stealth_ops.close_session(profile_id)
+        except Exception:
+            pass
+
+        if not ch_id:
+            ch_id = f"UC_{profile_id[:16]}" # fallback if detection timed out
+
+        # Update profile and create BrandChannel & YouTubeChannel
+        profile.channel_id = ch_id
+        profile.incubation_status = "BRAND_CREATED"
+
+        brand_ch = db.query(BrandChannel).filter(
+            (BrandChannel.owner_profile_id == profile_id) | (BrandChannel.channel_id == ch_id)
+        ).first()
+
+        if not brand_ch:
+            brand_ch = BrandChannel(
+                channel_id=ch_id,
+                title=actual_name,
+                owner_profile_id=profile_id,
+                account_email=profile.email,
+                warmup_stage=0,
+                warmup_status="IDLE"
+            )
+            db.add(brand_ch)
+        else:
+            brand_ch.channel_id = ch_id
+            brand_ch.title = actual_name
+            brand_ch.owner_profile_id = profile_id
+            brand_ch.account_email = profile.email
+
+        db.commit()
+
+        # Post-creation soft IP rotation
+        try:
+            from app.services.adb_service import adb_service
+            adb_service.rotate_ip(method='soft')
+        except Exception:
+            pass
+
+        return {
+            "success": True,
+            "profile_id": profile_id,
+            "channel_id": ch_id,
+            "brand_name": actual_name,
+            "incubation_status": "BRAND_CREATED"
+        }
+
+    except Exception as e:
+        logger.error(f"[BrandCreate] Creation error: {e}", exc_info=True)
+        try:
+            stealth_ops.close_session(profile_id)
+        except Exception:
+            pass
+        return {"success": False, "error": str(e)}
 
 @router.post("/profiles/{id}/release")
 def release_profile(id: str, db: Session = Depends(get_db)):
@@ -678,7 +951,7 @@ def release_profile(id: str, db: Session = Depends(get_db)):
     profile.quarantine_reason = None
     db.commit()
     
-    logger.info(f"??Profile {id} manually released from quarantine.")
+    logger.info(f"🛡️ Profile {id} manually released from quarantine.")
     return {"status": "released", "msg": "Account restored to ACTIVE status"}
 
 @router.get("/profiles", response_model=List[schemas.Profile])
@@ -688,24 +961,64 @@ def list_profiles(type: str = None, db: Session = Depends(get_db)):
         query = query.filter(Profile.profile_type == type)
     
     profiles = query.all()
-    
+    dirty = False
+
+    # [Self-Healing: Reconcile Orphaned WARMING States]
+    from app.services.browser_session_manager import BrowserSessionManager
+    session_mgr = BrowserSessionManager()
+    for p in profiles:
+        if p.incubation_status == "WARMING":
+            prog = session_mgr.get_job_progress(p.id)
+            if not prog or prog.get("status") not in ("WARMING", "RUNNING"):
+                # No active background task running! Heal status
+                new_st = "WARMED" if (p.seed_history_count or 0) >= 3 else "NEWBORN"
+                logger.info(f"🩺 [Self-Healing] Reconciled zombie profile {p.email or p.id}: WARMING -> {new_st}")
+                p.incubation_status = new_st
+                dirty = True
+
     # [Auto-Release Check]
     if type == "TIN_CAN" or type is None:
-        dirty = False
         now = datetime.now()
         for p in profiles:
             if p.status == ProfileStatus.QUARANTINED and p.quarantine_start_date:
                 # 90 Days Expiry
                 if now - p.quarantine_start_date >= timedelta(days=90):
-                    print(f"?뵑 [Auto-Release] {p.id} served 90 days. Restoring...")
+                    logger.info(f"🔓 [Auto-Release] {p.id} served 90 days. Restoring...")
                     p.status = ProfileStatus.ACTIVE
                     p.quarantine_start_date = None
                     p.quarantine_reason = None
                     dirty = True
-        if dirty:
-            db.commit()
+
+    if dirty:
+        db.commit()
             
     return profiles
+
+
+@router.post("/profiles/{profile_id}/reset-status")
+def reset_profile_status(profile_id: str, db: Session = Depends(get_db)):
+    """고착된 프로필 상태 즉시 해제 및 초기화"""
+    from app.services.browser_session_manager import BrowserSessionManager
+    profile = db.query(Profile).filter(Profile.id == profile_id).first()
+    if not profile:
+        raise HTTPException(status_code=404, detail="Profile not found")
+    
+    session_mgr = BrowserSessionManager()
+    try:
+        session_mgr.close_session(profile_id)
+    except Exception:
+        pass
+    session_mgr.set_job_progress(profile_id, "IDLE", "상태 초기화됨", 0, 0)
+
+    profile.incubation_status = "WARMED" if (profile.seed_history_count or 0) >= 3 else "NEWBORN"
+    db.commit()
+
+    return {
+        "success": True,
+        "profile_id": profile_id,
+        "incubation_status": profile.incubation_status,
+        "message": f"프로필 상태가 '{profile.incubation_status}'(으)로 정상 초기화되었습니다."
+    }
 
 
 # --- Legacy & Network Endpoints (Maintained for Backward Compatibility) ---
@@ -735,17 +1048,28 @@ def verify_network_connection():
 
 @router.post("/network/rotate")
 def rotate_ip(method: str = Body("soft", embed=True)):
-    logger.info(f"?뙋 [API] IP Rotation Request Received: Method={method}")
+    logger.info(f"⚡ [API] IP Rotation Request Received: Method={method}")
     try:
         success = adb_service.rotate_ip(method=method)
         if success:
-            logger.info(f"??[API] IP Rotation Success (Method={method})")
-            return {"status": "rotated"}
+            new_ip = adb_service.get_current_ip(force=False)
+            logger.info(f"✅ [API] IP Rotation Success (Method={method}, IP={new_ip})")
+            return {"status": "rotated", "current_ip": new_ip}
         else:
-            logger.error(f"??[API] IP Rotation Failed (Method={method})")
+            logger.error(f"❌ [API] IP Rotation Failed (Method={method})")
             return {"status": "failed"}
     except Exception as e:
-        logger.error(f"?뵦 [API] IP Rotation Exception: {e}")
+        logger.error(f"❌ [API] IP Rotation Exception: {e}")
+        return {"status": "error", "detail": str(e)}
+
+@router.post("/network/every-proxy/activate")
+def activate_every_proxy(serial: Optional[str] = None):
+    """Every Proxy SOCKS 프록시 원격 자동 활성화 (화면 기상 + 앱 실행 + 스위치 탭)"""
+    try:
+        success = adb_service.ensure_every_proxy_socks_active(serial)
+        current_ip = adb_service.get_current_ip(serial, force=True)
+        return {"status": "success" if success else "failed", "listening": success, "current_ip": current_ip}
+    except Exception as e:
         return {"status": "error", "detail": str(e)}
 
 @router.post("/network/fix-permissions")

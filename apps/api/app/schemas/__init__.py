@@ -829,6 +829,11 @@ class ProfileBase(BaseModel):
     # [NEW] Engine config
     engine_type: Optional[str] = "cloakbrowser"
     
+    # [NEW] Incubation & Warmup Lifecycle
+    incubation_status: Optional[str] = "NEWBORN"
+    seed_history_count: Optional[int] = 0
+    last_warmed_at: Optional[datetime] = None
+    
     class Config:
         from_attributes = True
 

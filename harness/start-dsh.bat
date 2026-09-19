@@ -1,5 +1,6 @@
 @echo off
 title DeepSeek Harness Web Server - ViraLoop Studio
-echo [ViraLoop Studio] Launching DeepSeek Harness Web Cockpit on http://127.0.0.1:3080 ...
-npx @deepseek-ai/dsh web --port 3080 --patch ./harness/viraloop-tools.yml --no-open
+set YOUTUBE2_API_KEY=sk-95b157f52819c50b-62f661-a5667588
+set DEEPSEEK_API_KEY=sk-95b157f52819c50b-62f661-a5667588
+npx @deepseek-ai/dsh --profile web --patch ./harness/viraloop-tools.yml
 pause

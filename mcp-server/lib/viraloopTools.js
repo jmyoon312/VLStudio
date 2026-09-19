@@ -199,5 +199,35 @@ export const viraloopTools = {
             method: 'POST',
             body: { message, parse_mode }
         });
+    },
+
+    /**
+     * 18. 🎬 Autonomous Clone & Produce Short-Form Video (One-Take End-to-End Production)
+     */
+    async autonomousProduceVideo({ reference_url = 'https://www.youtube.com/@noejeongu', source_url, source_keyword, voice_engine = 'supertone-local', channel_id = 1, auto_enqueue = true } = {}) {
+        return await requestApi('/discovery/autonomous-clone-and-produce', {
+            method: 'POST',
+            body: {
+                reference_url,
+                source_url,
+                source_keyword,
+                voice_engine,
+                channel_id,
+                auto_enqueue
+            }
+        });
+    },
+
+    /**
+     * 19. 🔬 Analyze YouTube Channel DNA (Forensic Layout, WPM, Tone, Audio, Visual Style)
+     */
+    async analyzeChannelDna({ channel_url, sample_count = 12 } = {}) {
+        return await requestApi('/channel-dna/analyze', {
+            method: 'POST',
+            body: {
+                channel_url,
+                sample_count
+            }
+        });
     }
 };

@@ -1359,7 +1359,12 @@ async def run_auto_subtitle(job_id: int, video_path: Path,
                      쇼츠메이커 등 다른 메뉴가 자체 prompt로 자막 생성 시 사용
                      ([[menu-prompt-separation]] 룰). 학습 inject도 생략 (호출자가 직접 관리).
     """
-    SUBTITLES_DIR = Path(__file__).parent.parent / "data" / "subtitles"
+    local_app = os.environ.get("LOCALAPPDATA") or os.environ.get("APPDATA")
+    if local_app:
+        media_root = Path(local_app) / "ViraLoop Studio" / "media"
+    else:
+        media_root = Path.home() / ".viraloop_studio" / "media"
+    SUBTITLES_DIR = media_root / "02_Operations" / "subtitles"
     out_dir = SUBTITLES_DIR / f"job_{job_id}"
     out_dir.mkdir(parents=True, exist_ok=True)
 

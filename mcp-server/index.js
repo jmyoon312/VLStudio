@@ -300,6 +300,33 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
         required: ['title', 'project_dir'],
       },
     },
+    {
+      name: 'autonomous_produce_video',
+      description: '레퍼런스 유튜브 채널 DNA(WPM, 훅 밴드, 레이아웃)와 소스 소재(URL 또는 키워드)를 입력받아 6단계 자율 파이프라인(대본+오디오+Remotion+대기열)을 원스탑으로 완제품 제작합니다.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          reference_url: { type: 'string', description: '벤치마킹할 레퍼런스 유튜브 채널 또는 쇼츠 URL', default: 'https://www.youtube.com/@noejeongu' },
+          source_url: { type: 'string', description: '소재 기사/커뮤니티 글 URL' },
+          source_keyword: { type: 'string', description: '소재 검색 키워드 또는 주제' },
+          voice_engine: { type: 'string', description: '음성 합성 엔진 (supertone-local, edge)', default: 'supertone-local' },
+          channel_id: { type: 'number', description: '타겟 브랜드 채널 ID', default: 1 },
+          auto_enqueue: { type: 'boolean', description: '완성 후 자동 업로드 대기열 등록 여부', default: true },
+        },
+      },
+    },
+    {
+      name: 'analyze_youtube_channel_dna',
+      description: '유튜브 채널 또는 쇼츠 URL을 입력받아 ViraLoop 백엔드 고속 발골 엔진으로 채널 DNA(WPM, 훅 밴드, 레이아웃, 오디오/비주얼 스타일, 카테고리)를 정밀 분석합니다. curl이나 fetch를 쓰지 말고 유튜브 분석 시 이 도구를 최우선으로 반드시 사용하십시오.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          channel_url: { type: 'string', description: '분석할 유튜브 채널 또는 쇼츠 URL (예: https://www.youtube.com/@숏비타민c/shorts)' },
+          sample_count: { type: 'number', description: '분석할 쇼츠 표본 개수 (기본: 12)', default: 12 },
+        },
+        required: ['channel_url'],
+      },
+    },
 
     {
       name: 'get_schema',
@@ -1180,6 +1207,20 @@ ${JSON.stringify(result, null, 2)}` }],
         const result = await viraloopTools.enqueueWorkQueueJob(args);
         return {
           content: [{ type: 'text', text: `🚀 대기열 작업 등록 완료:\n${JSON.stringify(result, null, 2)}` }],
+        };
+      }
+
+      case 'autonomous_produce_video': {
+        const result = await viraloopTools.autonomousProduceVideo(args || {});
+        return {
+          content: [{ type: 'text', text: `🎉 [완제품 제작 완료] 6단계 자율 프로덕션 성공!\n${JSON.stringify(result, null, 2)}\n👉 프리뷰 주소: http://localhost:5183/#/instant-studio` }],
+        };
+      }
+
+      case 'analyze_youtube_channel_dna': {
+        const result = await viraloopTools.analyzeChannelDna(args || {});
+        return {
+          content: [{ type: 'text', text: `🔬 [채널 DNA 분석 완료]\n${JSON.stringify(result, null, 2)}` }],
         };
       }
 

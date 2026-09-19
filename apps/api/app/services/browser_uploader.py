@@ -63,14 +63,35 @@ class BrowserUploader:
             headless_mode = yt_config.get('headless_mode', False)
             logger.info(f"🛡️ IP Rotation Policy: {'ROTATE' if rotate_decision else 'STICKY'} (Force={force_ip_rotation}) | Headless={headless_mode}")
 
+            # [Pre-Upload Warmup] Human Behavior Buffer (15-30s natural home feed activity)
+            # Avoids "Upload-Only Ghost Bot" fingerprint by browsing YouTube home before navigating to Studio
+            skip_pre_warmup = yt_config.get('skip_pre_upload_warmup', False)
+            initial_url = "https://studio.youtube.com/" if skip_pre_warmup else "https://www.youtube.com/"
+
             page = self.session_manager._launch_orchestrator(
                 channel_id=channel_id, db=db,
                 rotate_ip=rotate_decision,
-                target_url="https://studio.youtube.com/",
+                target_url=initial_url,
                 headless=headless_mode
             )
             if not page:
                 raise Exception("Failed to launch secure browser session")
+
+            if not skip_pre_warmup:
+                logger.info("🎬 [Pre-Upload Warmup] Simulating natural user behavior on YouTube Home before upload...")
+                try:
+                    time.sleep(random.uniform(3.0, 5.0))
+                    # Natural scroll on home feed
+                    for _ in range(random.randint(1, 2)):
+                        page.mouse.wheel(0, int(random.gauss(300, 100)))
+                        time.sleep(random.uniform(1.5, 3.0))
+                    
+                    # Transition to Studio like a human clicking Studio or navigating
+                    logger.info("🎬 [Pre-Upload Warmup] Transitioning to YouTube Studio for upload...")
+                    page.goto("https://studio.youtube.com/", wait_until="domcontentloaded")
+                except Exception as w_e:
+                    logger.warning(f"Pre-upload buffer soft warning: {w_e}")
+                    page.goto("https://studio.youtube.com/")
 
             target_page = page
 

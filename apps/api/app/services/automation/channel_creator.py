@@ -22,10 +22,39 @@ class ChannelCreator:
         try:
             logger.info(f"[VIDEO] Starting channel creation: {brand_name}")
             
-            # 1. Direct navigation to Channel Switcher
-            switcher_url = 'https://www.youtube.com/channel_switcher'
-            page.goto(switcher_url)
-            self.stealth.human_delay(3, 5)
+            # 1. Human Navigation to Channel Switcher (with fallback)
+            try:
+                logger.info("🧭 [HumanNav] Entering YouTube Home...")
+                page.goto('https://www.youtube.com', wait_until="domcontentloaded")
+                self.stealth.human_delay(3, 5)
+
+                # Look for avatar button to navigate naturally
+                avatar_btn = page.locator('button#avatar-btn, ytd-topbar-menu-button-renderer img#img, #avatar-btn').first
+                if avatar_btn.is_visible():
+                    logger.info("👤 [HumanNav] Clicking avatar button...")
+                    self.stealth.safe_click(avatar_btn)
+                    self.stealth.human_delay(1.5, 3)
+
+                    # Look for switch account or settings
+                    switch_btn = page.locator('a[href*="channel_switcher"], ytd-compact-link-renderer:has-text("계정 전환"), ytd-compact-link-renderer:has-text("Switch account")').first
+                    if switch_btn.is_visible():
+                        logger.info("🔄 [HumanNav] Found switch account link, clicking...")
+                        self.stealth.safe_click(switch_btn)
+                        self.stealth.human_delay(2, 3)
+
+                        all_ch_btn = page.locator('a[href*="channel_switcher"], text=모든 채널 보기, text=View all channels').first
+                        if all_ch_btn.is_visible():
+                            self.stealth.safe_click(all_ch_btn)
+                            self.stealth.human_delay(2, 4)
+            except Exception as nav_e:
+                logger.warning(f"[HumanNav] Natural trajectory soft error (falling back to direct switcher): {nav_e}")
+
+            # Fallback direct navigation if not on channel switcher yet
+            if "channel_switcher" not in page.url:
+                switcher_url = 'https://www.youtube.com/channel_switcher'
+                logger.info(f"Navigating to switcher URL: {switcher_url}")
+                page.goto(switcher_url)
+                self.stealth.human_delay(3, 5)
 
             # [IDEMPOTENCY CHECK] Check if channel already exists (Robust Match)
             normalized_target = brand_name.replace(" ", "").lower()
@@ -305,6 +334,17 @@ class ChannelCreator:
                     pass
 
                 if detected_id:
+                    if not detected_name:
+                        try:
+                            page.goto(f'https://www.youtube.com/channel/{detected_id}', wait_until="domcontentloaded")
+                            self.stealth.human_delay(1, 2)
+                            p_title = page.title()
+                            if " - YouTube" in p_title:
+                                detected_name = p_title.split(" - YouTube")[0].strip()
+                            elif "- YouTube" in p_title:
+                                detected_name = p_title.split("- YouTube")[0].strip()
+                        except Exception:
+                            pass
                     final_name = detected_name or f"채널 ({detected_id[:8]})"
                     return {
                         "success": True, 

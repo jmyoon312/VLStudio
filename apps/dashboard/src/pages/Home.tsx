@@ -26,6 +26,7 @@ import {
     Send,
     ShieldCheck, 
     SlidersHorizontal,
+    Smartphone,
     Sparkles, 
     TrendingUp, 
     Tv, 
@@ -572,51 +573,63 @@ const Home = () => {
     };
 
     const handleRotateIp = async () => {
-
         setIsRotating(true);
-
         try {
-
-            await api.post('/resources/network/rotate', { method: 'soft' });
-
-            toast.success("LTE 프록시 IP 교체 명령 전달됨", {
-
-                description: "네트워크 재설정 중... (새 공인 IP 감지 시 자동 갱신)"
-
-            });
-
-            setTimeout(async () => {
-
-                setIsRotating(false);
-
-                await fetchNetworkStatus(true);
-
-            }, 1200);
-
+            const res = await api.post('/resources/network/rotate', { method: 'soft' });
+            if (res.data?.status === 'rotated') {
+                const newIp = res.data?.current_ip;
+                if (newIp && !newIp.startsWith('오프라인')) {
+                    setNetStatus(prev => prev ? { ...prev, mobile_public_ip: newIp, public_ip: newIp } : prev);
+                }
+                toast.success("LTE 프록시 IP 교체 완료", {
+                    description: newIp ? `새 공인 IP: ${newIp}` : "새 공인 IP가 성공적으로 할당되었습니다."
+                });
+            } else {
+                toast.error("IP 로테이션 실패", {
+                    description: res.data?.detail || "통신사 재접속 실패"
+                });
+            }
+            await fetchNetworkStatus(true);
         } catch (err: any) {
-
-            setIsRotating(false);
-
-            toast.error("IP 로테이션 실패", {
-
+            toast.error("IP 로테이션 요청 오류", {
                 description: err.response?.data?.detail || "네트워크 모듈 상태를 확인하세요."
-
             });
-
+        } finally {
+            setIsRotating(false);
         }
+    };
 
+    const handleActivateProxy = async () => {
+        setIsRotating(true);
+        try {
+            const res = await api.post('/resources/network/every-proxy/activate');
+            if (res.data?.status === 'success') {
+                toast.success("Every Proxy SOCKS 프록시 활성화 완료", {
+                    description: `공인 IP: ${res.data?.current_ip || '조회 중...'}`
+                });
+            } else {
+                toast.warning("프록시 활성화 응답 확인", {
+                    description: res.data?.detail || "폰 화면 및 Every Proxy 앱을 확인하세요."
+                });
+            }
+            await fetchNetworkStatus(true);
+        } catch (err: any) {
+            toast.error("프록시 자동 활성화 실패", {
+                description: err.response?.data?.detail || "USB 연결 및 ADB 권한을 확인하세요."
+            });
+        } finally {
+            setIsRotating(false);
+        }
     };
 
     const displayIp = (ip: string | null | undefined, fallback: string) => {
-
-        if (!ip || ip.trim() === '' || ip.startsWith('오프라인') || ip === 'Unknown' || ip === 'fail' || ip === 'Not Detected') {
-
-            return { text: isNetFetched ? fallback : '조회 중...', isPlaceholder: true };
-
+        if (ip && ip.startsWith('오프라인')) {
+            return { text: '오프라인', isPlaceholder: true };
         }
-
+        if (!ip || ip.trim() === '' || ip === 'Unknown' || ip === 'fail' || ip === 'Not Detected') {
+            return { text: isNetFetched ? fallback : '조회 중...', isPlaceholder: true };
+        }
         return { text: ip, isPlaceholder: false };
-
     };
 
     const fetchData = () => {
@@ -816,7 +829,10 @@ const Home = () => {
 
     };
 
-    const isLteConnected = !!(netStatus?.monitor?.lte && netStatus.monitor.lte.status === 'Connected');
+    const isLteConnected = Boolean(
+        (netStatus?.monitor?.lte && netStatus.monitor.lte.status === 'Connected') ||
+        (netStatus?.mobile_public_ip && !netStatus.mobile_public_ip.includes('오프라인') && netStatus.mobile_public_ip !== 'Unknown' && netStatus.mobile_public_ip.length > 6)
+    );
 
     // 채널 ID -> 채널 정보 매핑
 
@@ -2264,7 +2280,7 @@ const Home = () => {
 
                                 <p className="font-mono text-xs font-bold text-emerald-600 dark:text-emerald-400 truncate">
 
-                                    {displayIp(netStatus?.mobile_public_ip, isLteConnected ? '조회 중...' : '미연결').text}
+                                    {displayIp(netStatus?.mobile_public_ip, isRotating ? '갱신 중...' : (isLteConnected ? '조회 중...' : '미연결')).text}
 
                                 </p>
 
@@ -2282,6 +2298,25 @@ const Home = () => {
 
                             </div>
 
+                            <div 
+                                onClick={() => {
+                                    navigator.clipboard.writeText("172.16.1.2:11080");
+                                    toast.success("LDPlayer 고정 프록시 복사됨", { description: "172.16.1.2:11080 (NekoBox 서버/포트)" });
+                                }}
+                                className="p-2 bg-indigo-500/5 hover:bg-indigo-500/10 border border-indigo-500/20 rounded-xl space-y-0.5 cursor-pointer transition-colors group"
+                                title="클릭하여 LDPlayer NekoBox용 만국 공통 프록시 주소 복사"
+                            >
+                                <div className="flex items-center justify-between">
+                                    <p className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 flex items-center gap-1">
+                                        📱 LDPlayer 전용 프록시
+                                    </p>
+                                    <span className="text-[9px] text-muted-foreground group-hover:text-indigo-500 font-mono">복사 📋</span>
+                                </div>
+                                <p className="font-mono text-xs font-bold text-foreground truncate">
+                                    172.16.1.2:11080
+                                </p>
+                            </div>
+
                         </div>
 
                     </div>
@@ -2289,20 +2324,23 @@ const Home = () => {
                     <div className="space-y-1.5 mt-2.5">
 
                         <button 
-
                             onClick={handleRotateIp}
-
                             disabled={isRotating}
-
                             className="w-full py-1.5 bg-muted hover:bg-muted/80 text-foreground border border-border rounded-xl text-[11px] font-bold transition-all flex items-center justify-center gap-1.5 active:scale-95 disabled:opacity-50"
-
                         >
-
                             <RefreshCw className={cn("w-3.5 h-3.5 text-indigo-500", isRotating && "animate-spin")} />
-
                             LTE IP 강제 로테이션
-
                         </button>
+                        {!isLteConnected && (
+                            <button 
+                                onClick={handleActivateProxy}
+                                disabled={isRotating}
+                                className="w-full py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 rounded-xl text-[11px] font-bold transition-all flex items-center justify-center gap-1.5 active:scale-95 disabled:opacity-50"
+                            >
+                                <Smartphone className="w-3.5 h-3.5" />
+                                Every Proxy 원격 자동 켜기
+                            </button>
+                        )}
 
                         <Link 
 

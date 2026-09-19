@@ -43,6 +43,63 @@ def seed_noejeongu():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.post("/seed-short-vitaminc")
+def seed_short_vitaminc():
+    """숏비타민c(@숏비타민c) 채널 DNA 벤치마크 + 전용 레이아웃 템플릿 정식 DB 시딩"""
+    try:
+        res = ChannelDNAService.seed_short_vitaminc_dna()
+        return {"success": True, "data": res}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+class UpdateBenchmarkInfoRequest(BaseModel):
+    channel_title: Optional[str] = None
+    channel_url: Optional[str] = None
+    category_name: Optional[str] = None
+
+class UpdateFullDNARequest(BaseModel):
+    category_name: Optional[str] = None
+    visual_dna: Optional[dict] = None
+    script_dna: Optional[dict] = None
+    audio_dna: Optional[dict] = None
+    source_origin_dna: Optional[dict] = None
+    ai_growth_suggestions: Optional[list] = None
+
+@router.put("/benchmarks/{benchmark_id}/full-dna")
+def update_benchmark_full_dna_route(benchmark_id: int, req: UpdateFullDNARequest):
+    """벤치마크 4대 DNA 및 카테고리 실측 데이터 전체 갱신"""
+    try:
+        res = ChannelDNAService.update_benchmark_full_dna(
+            benchmark_id=benchmark_id,
+            category_name=req.category_name,
+            visual_dna=req.visual_dna,
+            script_dna=req.script_dna,
+            audio_dna=req.audio_dna,
+            source_origin_dna=req.source_origin_dna,
+            ai_growth_suggestions=req.ai_growth_suggestions
+        )
+        return res
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.patch("/benchmarks/{benchmark_id}/info")
+def update_benchmark_info(benchmark_id: int, req: UpdateBenchmarkInfoRequest):
+    """벤치마크 기본 정보(채널명, URL, 카테고리) 수정"""
+    try:
+        res = ChannelDNAService.update_benchmark_info(
+            benchmark_id,
+            channel_title=req.channel_title,
+            channel_url=req.channel_url,
+            category_name=req.category_name
+        )
+        return {"success": True, "data": res}
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.get("/benchmarks")
 def list_benchmarks():
     try:

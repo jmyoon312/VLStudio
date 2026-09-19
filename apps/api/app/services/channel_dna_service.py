@@ -27,8 +27,16 @@ class ChannelDNAService:
         """
         db = SessionLocal()
         try:
-            # 채널 식별자 추출
-            channel_name = channel_url.split("/")[-1].replace("@", "")
+            # 채널 식별자 추출 (URL 디코딩 및 @핸들/하위경로 정밀 파싱)
+            from urllib.parse import unquote
+            import re
+            decoded_url = unquote(channel_url)
+            handle_match = re.search(r'@([^/?#]+)', decoded_url)
+            if handle_match:
+                channel_name = handle_match.group(1).strip()
+            else:
+                parts = [p for p in decoded_url.rstrip('/').split('/') if p and p != 'shorts' and p != 'videos']
+                channel_name = parts[-1].replace("@", "").strip() if parts else ""
             if not channel_name or "youtube" in channel_name:
                 channel_name = "패션탐정냥 (FashionDetectiveNyan)"
 
@@ -485,6 +493,312 @@ class ChannelDNAService:
             logger.error(f"Failed to seed Noejeongu DNA: {e}")
             db.rollback()
             raise
+        finally:
+            db.close()
+
+    @staticmethod
+    def seed_short_vitaminc_dna() -> Dict[str, Any]:
+        """
+        숏비타민c(@숏비타민c) 채널의 실측 DNA 벤치마크 데이터를 DB에 정식 등록/갱신
+        """
+        db = SessionLocal()
+        try:
+            channel_url = "https://www.youtube.com/@숏비타민c/shorts"
+            existing = db.query(models.ChannelDNABenchmark).filter(
+                (models.ChannelDNABenchmark.channel_url == channel_url) |
+                (models.ChannelDNABenchmark.channel_url.like("%숏비타민c%")) |
+                (models.ChannelDNABenchmark.id == 3)
+            ).first()
+
+            visual_dna = {
+                "canvas_type": "LETTERBOX_SOLID",
+                "video_fit_mode": "sandwich",
+                "video_aspect_ratio": "1:1",
+                "video_zoom_scale": 100,
+                "video_focus_y_pct": 50.0,
+                "enable_ken_burns": False,
+                "has_top_bar_bg": True,
+                "top_bar_bg": "#000000",
+                "top_bar_height_pct": 22.8,
+                "top_bar_opacity": 1.0,
+                "has_top_title": True,
+                "top_title_y_pct": 5.2,
+                "header_lines": [
+                    { "line": 1, "role": "condition", "color": "#FFFFFF", "size_pt": 52, "size_px": 28, "font_style": "Bold", "font_family": "Pretendard", "text_example": "반반하자는 남자" },
+                    { "line": 2, "role": "hook_noun", "color": "#70E4EF", "size_pt": 58, "size_px": 32, "font_style": "ExtraBold", "font_family": "Pretendard", "text_example": "여자의 행동은?" }
+                ],
+                "title_bg_mode": "none",
+                "title_bg_color": "#000000",
+                "title_bg_opacity": 1.0,
+                "title_padding_x": 16,
+                "title_padding_y": 6,
+                "title_border_radius": 8,
+                "title_shadow": True,
+                "title_stroke": True,
+                "has_subtitle": True,
+                "subtitle": {
+                    "y_percent": 67.8,
+                    "color": "#FFFFFF",
+                    "keyword_highlight_color": "#FF3366",
+                    "stroke_color": "#000000",
+                    "stroke_width_px": 5,
+                    "size_pt": 48,
+                    "size_px": 24,
+                    "font_family": "Pretendard",
+                    "safe_zone": "OPTIMAL_68",
+                    "motion_preset": "word_pop",
+                    "has_pill_bg": False,
+                    "pill_bg_color": "rgba(0,0,0,0.6)"
+                },
+                "has_jab_hook": True,
+                "jab_hook": {
+                    "enabled": True,
+                    "text_example": "*남자는 당황했다는데..*",
+                    "avg_interval_sec": 4.5,
+                    "symbol_prefix": "⚡ *",
+                    "symbol_suffix": "* ⚡",
+                    "color": "#70E4EF",
+                    "placement": "center",
+                    "tilt_deg": -3,
+                    "y_percent": 41.4,
+                    "size_pt": 44,
+                    "size_px": 22,
+                    "font_family": "Pretendard",
+                    "bg_color": "#000000",
+                    "border_color": "#70E4EF"
+                },
+                "has_bottom_source": False,
+                "bottom_source": {
+                    "text": "출처: 숏비타민c",
+                    "color": "#94A3B8",
+                    "size_pt": 26,
+                    "size_px": 13,
+                    "font_family": "Pretendard",
+                    "bottom_pct": 2.2,
+                    "has_pill_bg": False
+                },
+                "has_bottom_bar_bg": True,
+                "bottom_bar_bg": "#000000",
+                "bottom_bar_height_pct": 6.0,
+                "bottom_bar_opacity": 1.0,
+                "editing_grammar": {
+                    "avg_cut_sec": 1.34,
+                    "total_cuts_avg": 14,
+                    "transition_type": "hard_cut",
+                    "zoom_motion": "ken-burns-110",
+                    "camera_pulse_on_jab": True
+                }
+            }
+
+            script_dna = {
+                "opening_hook_type": "도발적 질문/남녀 갈등 훅 (0~2초 내 즉시 시작, 인사말 전무)",
+                "story_architecture": [
+                    "0~2초: 도발적 남녀 갈등/일상 코믹 훅 ('반반하자는 남자, 여자의 행동은?')",
+                    "2~7초: 충격적인 진상/상황 전개 및 내레이션 급발진",
+                    "7~13초: 주인공의 사이다 대응 또는 엉뚱한 대처",
+                    "13~18초: 폭소 유발 반전 결말 및 댓글 유도"
+                ],
+                "dominant_endings": ["~했다는데? (60%)", "~라고 한다 (30%)", "~거였음 (10%)"],
+                "speech_style": "초고속 코믹 썰/유머 해설체 (반말/음슴체)",
+                "chars_per_sec": 7.2,
+                "title_formula": "[도발적 상황] + '{핵심단어}' + 충격 결말",
+                "hashtag_policy": "설명란에만 #유머 #쇼츠 #공감 #커플 총 5개 내외"
+            }
+
+            audio_dna = {
+                "speaker_gender": "male_or_female_comic",
+                "pitch_f0_hz": 185.0,
+                "chars_per_min": 432,
+                "breath_gap_ms": 20,
+                "target_lufs": -13.0,
+                "dynamic_range_lra": 2.5,
+                "has_original_quote_duet": False,
+                "bgm_style": "경쾌한 코믹 피치카토 / 펑키 슬랩 베이스",
+                "bgm_gain_db": -22.0
+            }
+
+            source_origin_dna = {
+                "primary_platforms": ["네이트판 레전드", "블라인드 썰", "에브리타임 핫게", "인스타그램/스레드 릴스"],
+                "discovered_channels": [
+                    { "name": "숏비타민c", "url": "https://www.youtube.com/@숏비타민c", "category": "일상 유머/반전 코미디", "priority": "CRITICAL" }
+                ],
+                "search_query_pool": [
+                    "소름 돋는 연인 반반 카톡 레전드",
+                    "결혼 전 파혼할 뻔한 사이다 썰",
+                    "소개팅 첫만남 더치페이 대참사"
+                ]
+            }
+
+            ai_growth_suggestions = [
+                {
+                    "id": "variation_A",
+                    "title": "⚡ [안 A: 시인성 & 도파민 극대화형]",
+                    "badge": "CTR 추천",
+                    "description": "상단 검정 바 대신 딥 네이비(#0A1128) 바에 네온 사이언(#00E5FF) 텍스트를 적용하여 시인성을 15% 개선하고, 쨉쨉이에 3도 틸트 펄스를 부여하여 0~2초 이탈률을 방어합니다.",
+                    "layout_override": {
+                        "header_bg": "#0A1128",
+                        "header_line2_color": "#00E5FF",
+                        "jab_color": "#00E5FF",
+                        "jab_tilt": -3
+                    }
+                },
+                {
+                    "id": "variation_B",
+                    "title": "🎬 [안 B: 프리미엄 다큐 & 신뢰형]",
+                    "badge": "브랜드 신뢰도",
+                    "description": "상하단 바를 미니멀한 반투명 다크 글래스모피즘으로 바꾸고, 하단에 공신력 있는 출처 뱃지를 명시하여 지적 호기심과 공유율을 극대화합니다.",
+                    "layout_override": {
+                        "header_bg": "rgba(10, 15, 25, 0.88)",
+                        "header_line2_color": "#F5F420",
+                        "subtitle_y": 70.0,
+                        "bottom_bar_bg": "rgba(0, 0, 0, 0.7)"
+                    }
+                },
+                {
+                    "id": "variation_C",
+                    "title": "🔥 [안 C: 풀스크린 직타 숏폼형]",
+                    "badge": "트렌디 젠지",
+                    "description": "상단 바 없이 영상 전체를 꽉 채우고(Full-Bleed), 영상 위에 직접 볼드한 2중 외곽선 헤더를 얹어 몰입도를 120% 끌어올립니다.",
+                    "layout_override": {
+                        "canvas_type": "FULL_BLEED_OVERLAY",
+                        "has_top_header": False,
+                        "subtitle_y": 65.0
+                    }
+                }
+            ]
+
+            if existing:
+                existing.channel_title = "숏비타민c"
+                existing.channel_url = channel_url
+                existing.subscriber_count = 850000
+                existing.category_name = "K-POP / 연예 정보"
+                existing.visual_dna = visual_dna
+                existing.script_dna = script_dna
+                existing.audio_dna = audio_dna
+                existing.source_origin_dna = source_origin_dna
+                existing.ai_growth_suggestions = ai_growth_suggestions
+                existing.custom_layout_preset = visual_dna
+                db.commit()
+                db.refresh(existing)
+                benchmark = existing
+            else:
+                benchmark = models.ChannelDNABenchmark(
+                    channel_url=channel_url,
+                    channel_title="숏비타민c",
+                    subscriber_count=850000,
+                    category_name="K-POP / 연예 정보",
+                    total_videos_analyzed=12,
+                    visual_dna=visual_dna,
+                    script_dna=script_dna,
+                    audio_dna=audio_dna,
+                    source_origin_dna=source_origin_dna,
+                    ai_growth_suggestions=ai_growth_suggestions,
+                    custom_layout_preset=visual_dna
+                )
+                db.add(benchmark)
+                db.commit()
+                db.refresh(benchmark)
+
+            # shorts_templates에도 공식 등록
+            template_id = "template_short_vitamin_c"
+            existing_tpl = db.query(models.ShortsTemplate).filter(models.ShortsTemplate.id == template_id).first()
+            if existing_tpl:
+                existing_tpl.name = "🍋 숏비타민c 샌드위치 레터박스형"
+                existing_tpl.badge = "숏비타민c 실측"
+                existing_tpl.description = "유튜브 @숏비타민c 실측 DNA: 상단 블랙 18.3% 2단 훅 타이틀(#FFFFFF + #F5F420) + 8.5초 잽 훅 + Y 68.5% word_pop 자막"
+                existing_tpl.layout = visual_dna
+                db.commit()
+            else:
+                tpl = models.ShortsTemplate(
+                    id=template_id,
+                    name="🍋 숏비타민c 샌드위치 레터박스형",
+                    badge="숏비타민c 실측",
+                    description="유튜브 @숏비타민c 실측 DNA: 상단 블랙 18.3% 2단 훅 타이틀(#FFFFFF + #F5F420) + 8.5초 잽 훅 + Y 68.5% word_pop 자막",
+                    archetype="classic",
+                    aspect_ratio="9:16",
+                    is_system=True,
+                    layout=visual_dna
+                )
+                db.add(tpl)
+                db.commit()
+
+            logger.info("✅ [ChannelDNAService] 숏비타민c DNA 벤치마크 및 템플릿 DB 정식 저장 완료")
+            return {
+                "id": benchmark.id,
+                "channel_title": benchmark.channel_title,
+                "channel_url": benchmark.channel_url,
+                "visual_dna": benchmark.visual_dna,
+                "audio_dna": benchmark.audio_dna,
+                "script_dna": benchmark.script_dna
+            }
+        except Exception as e:
+            logger.error(f"Failed to seed Short Vitamin C DNA: {e}")
+            db.rollback()
+            raise
+        finally:
+            db.close()
+
+    @staticmethod
+    def update_benchmark_info(benchmark_id: int, channel_title: Optional[str] = None, channel_url: Optional[str] = None, category_name: Optional[str] = None) -> Dict[str, Any]:
+        db = SessionLocal()
+        try:
+            b = db.query(models.ChannelDNABenchmark).filter(models.ChannelDNABenchmark.id == benchmark_id).first()
+            if not b:
+                raise ValueError(f"Benchmark {benchmark_id} not found")
+            if channel_title is not None:
+                b.channel_title = channel_title
+            if channel_url is not None:
+                b.channel_url = channel_url
+            if category_name is not None:
+                b.category_name = category_name
+            db.commit()
+            db.refresh(b)
+            return {
+                "id": b.id,
+                "channel_title": b.channel_title,
+                "channel_url": b.channel_url,
+                "category_name": b.category_name
+            }
+        finally:
+            db.close()
+
+    @staticmethod
+    def update_benchmark_full_dna(
+        benchmark_id: int,
+        category_name: Optional[str] = None,
+        visual_dna: Optional[dict] = None,
+        script_dna: Optional[dict] = None,
+        audio_dna: Optional[dict] = None,
+        source_origin_dna: Optional[dict] = None,
+        ai_growth_suggestions: Optional[list] = None
+    ) -> Dict[str, Any]:
+        db = SessionLocal()
+        try:
+            b = db.query(models.ChannelDNABenchmark).filter(models.ChannelDNABenchmark.id == benchmark_id).first()
+            if not b:
+                raise ValueError(f"Benchmark {benchmark_id} not found")
+            if category_name is not None:
+                b.category_name = category_name
+            if visual_dna is not None:
+                b.visual_dna = visual_dna
+                b.custom_layout_preset = visual_dna
+            if script_dna is not None:
+                b.script_dna = script_dna
+            if audio_dna is not None:
+                b.audio_dna = audio_dna
+            if source_origin_dna is not None:
+                b.source_origin_dna = source_origin_dna
+            if ai_growth_suggestions is not None:
+                b.ai_growth_suggestions = ai_growth_suggestions
+            b.updated_at = datetime.now()
+            db.commit()
+            db.refresh(b)
+            return {
+                "success": True,
+                "id": b.id,
+                "channel_title": b.channel_title,
+                "category_name": b.category_name
+            }
         finally:
             db.close()
 

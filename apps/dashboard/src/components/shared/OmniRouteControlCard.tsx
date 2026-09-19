@@ -13,6 +13,7 @@ import {
     Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle 
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { api } from '@/lib/api';
 
 interface OmniRouteStatus {
     running: boolean;
@@ -75,27 +76,23 @@ export const OmniRouteControlCard = () => {
         }
     };
 
-    // 1. Fetch live status from Electron main process
+    // 1. Fetch live status from Electron or FastAPI backend
     const fetchStatus = useCallback(async () => {
         setIsLoading(true);
         try {
             const electronAPI = (window as any).electronAPI;
             if (electronAPI?.omnirouteGetStatus) {
                 const res = await electronAPI.omnirouteGetStatus();
-                setStatus(res);
-            } else {
-                // Fallback: Web fetch check
-                try {
-                    const check = await fetch('http://localhost:20128/', { method: 'HEAD' });
-                    setStatus(prev => ({ 
-                        ...prev, 
-                        running: check.status < 500, 
-                        installed: true,
-                        version: prev.version || '3.8.50'
-                    }));
-                } catch {
-                    setStatus(prev => ({ ...prev, running: false }));
+                if (res && res.running) {
+                    setStatus(res);
+                    return;
                 }
+            }
+            
+            // Backend status check (CORS-free, ultra fast, desktop/browser universal)
+            const res = await api.get('/system/omniroute/status');
+            if (res.data) {
+                setStatus(res.data);
             }
         } catch (err: any) {
             console.warn('[OmniRoute] Status check error:', err.message);

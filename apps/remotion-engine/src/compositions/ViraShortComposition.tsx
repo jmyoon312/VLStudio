@@ -50,6 +50,10 @@ export interface ViraShortProps {
   hasTopHeader?: boolean;
   topHeaderHeightPct?: number; // default 16%
   topHeaderBg?: string; // e.g. "#000000" or "rgba(10,15,25,0.85)"
+  hasTitleBadge?: boolean;
+  titleBadgeText?: string;
+  titleBadgeBg?: string;
+  titleBadgeColor?: string;
   titleLine1?: string;
   titleLine2?: string;
   titleLine1Color?: string;
@@ -176,27 +180,31 @@ export const ViraShortComposition: React.FC<ViraShortProps> = ({
   // Visual Topology
   canvasType = "LETTERBOX_SOLID",
   hasTopHeader = true,
-  topHeaderHeightPct = 16,
+  topHeaderHeightPct = 18,
   topHeaderBg,
-  titleLine1 = "늦둥이 여동생을",
-  titleLine2 = "지키는 오빠들",
+  hasTitleBadge = true,
+  titleBadgeText = "속보",
+  titleBadgeBg = "#EF4444",
+  titleBadgeColor = "#FFFFFF",
+  titleLine1 = "조코비치 몰래카메라 ㅋㅋ",
+  titleLine2 = "상대 선수 멘붕 직전",
   titleLine1Color,
   titleLine2Color,
 
-  hasBottomCredit = false,
-  bottomCreditText,
+  hasBottomCredit = true,
+  bottomCreditText = "출처: 공식 유튜브 영상",
   bottomCreditBg = "#000000",
-  bottomCreditHeightPct = 6,
+  bottomCreditHeightPct = 8,
 
   subtitles = [],
-  subtitleYPercent = 68.5,
+  subtitleYPercent = 74,
   stylePreset = "shorts",
 
   jabOverlay = {
-    text: "*여동생을 향해 전력 질주*",
-    startMs: 8200,
-    endMs: 13000,
-    placement: "center-left",
+    text: "*출격작전 반전 순간!*",
+    startMs: 2500,
+    endMs: 7000,
+    placement: "top-third",
     tiltDeg: -3,
   },
 
@@ -328,16 +336,36 @@ export const ViraShortComposition: React.FC<ViraShortProps> = ({
             alignItems: "center",
             zIndex: 30,
             borderBottom: "1px solid rgba(255,255,255,0.08)",
+            padding: "0 24px",
           }}
         >
+          {hasTitleBadge && titleBadgeText && (
+            <div
+              style={{
+                backgroundColor: titleBadgeBg || "#EF4444",
+                color: titleBadgeColor || "#FFFFFF",
+                padding: "3px 14px",
+                borderRadius: 4,
+                fontFamily: "'Pretendard', 'Noto Sans KR', sans-serif",
+                fontSize: 22,
+                fontWeight: 900,
+                letterSpacing: "0.5px",
+                marginBottom: 8,
+                boxShadow: "0 2px 8px rgba(0,0,0,0.5)",
+              }}
+            >
+              {titleBadgeText}
+            </div>
+          )}
           <div
             style={{
               fontFamily: "'Pretendard', 'Noto Sans KR', sans-serif",
-              fontSize: 52,
+              fontSize: 50,
               fontWeight: 800,
-              color: titleLine1Color || theme.head1Color,
+              color: titleLine1Color || theme.head1Color || "#FFFFFF",
               letterSpacing: "-1px",
-              lineHeight: 1.15,
+              lineHeight: 1.18,
+              textAlign: "center",
               textShadow: "0 2px 8px rgba(0,0,0,0.9)",
             }}
           >
@@ -346,11 +374,13 @@ export const ViraShortComposition: React.FC<ViraShortProps> = ({
           <div
             style={{
               fontFamily: "'Pretendard', 'Noto Sans KR', sans-serif",
-              fontSize: 58,
+              fontSize: 56,
               fontWeight: 900,
-              color: titleLine2Color || theme.head2Color,
+              color: titleLine2Color || theme.head2Color || "#FFE500",
               letterSpacing: "-1px",
-              lineHeight: 1.15,
+              lineHeight: 1.18,
+              marginTop: 4,
+              textAlign: "center",
               textShadow: "0 2px 10px rgba(0,0,0,0.9)",
             }}
           >

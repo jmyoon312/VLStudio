@@ -423,8 +423,8 @@ class NetworkService:
         network_monitor._check_and_enforce()
         return True
 
-    def rotate_ip(self, m='soft'):
-        return adb_service.rotate_ip(m)
+    def rotate_ip(self, m='hard'):
+        return adb_service.rotate_ip(method=m)
 
     def get_detailed_status(self):
         return network_monitor.get_status()

@@ -229,9 +229,9 @@ _BB_ROOT = _BBPath(__file__).resolve().parent.parent
 def _get_persistent_data_dir() -> _BBPath:
     local_app = os.environ.get("LOCALAPPDATA") or os.environ.get("APPDATA")
     if local_app:
-        d = _BBPath(local_app) / "ViraLoop Studio" / "data"
+        d = _BBPath(local_app) / "ViraLoop Studio" / "media"
     else:
-        d = _BBPath.home() / ".viraloop_studio" / "data"
+        d = _BBPath.home() / ".viraloop_studio" / "media"
     d.mkdir(parents=True, exist_ok=True)
     return d
 
@@ -5455,10 +5455,39 @@ async def subtitle_result(job_id: int,
             filename = Path(path).name
             srt_urls[kind] = f"/api/ddalkkak/api/subtitle/{job_id}/download/{filename}"
 
+    # 공식 05_Exports에서 렌더링된 MP4 자동 탐색
+    exports_dir = _BB_DATA / "05_Exports"
+    rendered_video_url = None
+    rendered_candidates = [
+        exports_dir / f"job_{job_id}_classic_test.mp4",
+        exports_dir / f"job_{job_id}_classic_short.mp4",
+        exports_dir / f"job_{job_id}.mp4",
+    ]
+    for rc in rendered_candidates:
+        if rc.exists() and rc.stat().st_size > 1000:
+            rendered_video_url = f"/api/ddalkkak/api/subtitle/{job_id}/download/{rc.name}"
+            break
+
+    # 원본 비디오 URL (스트리밍 재생용)
+    video_url = None
+    vp = job.get("video_path")
+    if vp and Path(vp).exists():
+        video_url = f"/api/ddalkkak/api/subtitle/{job_id}/download/{Path(vp).name}"
+    else:
+        job_dir = SUBTITLES_DIR / f"job_{job_id}"
+        if job_dir.exists():
+            for v_cand in job_dir.glob("*.mp4"):
+                if not v_cand.name.endswith("_short.mp4") and "classic" not in v_cand.name:
+                    video_url = f"/api/ddalkkak/api/subtitle/{job_id}/download/{v_cand.name}"
+                    break
+
     return {
         "job_id": job_id,
         "status": job.get("status"),
         "video_filename": job.get("video_filename"),
+        "video_path": job.get("video_path"),
+        "video_url": video_url,
+        "rendered_video_url": rendered_video_url,
         "duration_sec": job.get("duration_sec"),
         "subtitle_urls": srt_urls,
         "title_candidates": title_candidates,
@@ -5472,24 +5501,45 @@ async def subtitle_result(job_id: int,
 @app.get("/subtitle/{job_id}/download/{filename}")
 async def subtitle_download(job_id: int, filename: str,
                               current=Depends(auth.require_feature("subtitle"))):
-    """srt/mp3/txt/mp4 파일 다운로드 (자가치유 파일 서빙)."""
+    """srt/mp3/txt/mp4 파일 다운로드 (공식 media 계층 및 자가치유 파일 서빙)."""
     if "/" in filename or ".." in filename:
         raise HTTPException(400, "invalid filename")
 
+    # 1. 공식 02_Operations/subtitles/job_{job_id}
     file_path = SUBTITLES_DIR / f"job_{job_id}" / filename
+
+    # 2. 공식 05_Exports (렌더링 비디오/json)
+    if not file_path.exists():
+        exp_path = _BB_DATA / "05_Exports" / filename
+        if exp_path.exists():
+            file_path = exp_path
+
+    # 3. 레거시 subtitles 경로 탐색
+    if not file_path.exists():
+        legacy_cands = [
+            _BB_DATA / "subtitles" / f"job_{job_id}" / filename,
+            Path(__file__).parent.parent / "data" / "subtitles" / f"job_{job_id}" / filename,
+        ]
+        for lc in legacy_cands:
+            if lc.exists():
+                file_path = lc
+                break
+
+    # 4. [Self-Healing] 원본 비디오 경로 또는 media 전체 검색
     if not file_path.exists():
         job = db.get_subtitle_job(job_id) or {}
-        # [Self-Healing] 원본 비디오 경로 또는 media 폴더 재귀 검색
         orig_vp = job.get("video_path")
         if orig_vp and Path(orig_vp).exists() and Path(orig_vp).name.lower() == filename.lower():
             file_path = Path(orig_vp)
         else:
-            media_dir = _BB_DATA / "media"
             found_p = None
-            if media_dir.exists():
-                for p in media_dir.rglob(filename):
-                    if p.is_file():
-                        found_p = p
+            for root_dir in [_BB_DATA, _BB_DATA / "07_Downloads", _BB_DATA / "05_Exports", _BB_DATA / "02_Operations"]:
+                if root_dir.exists():
+                    for p in root_dir.rglob(filename):
+                        if p.is_file():
+                            found_p = p
+                            break
+                    if found_p:
                         break
             if found_p and found_p.exists():
                 file_path = found_p
@@ -5505,6 +5555,163 @@ async def subtitle_download(job_id: int, filename: str,
         "json": "application/json",
     }.get(ext, "application/octet-stream")
     return FileResponse(file_path, media_type=mime, filename=filename)
+
+
+@app.post("/subtitle/{job_id}/render-template")
+async def subtitle_render_template(job_id: int,
+                                   current=Depends(auth.require_feature("subtitle"))):
+    """
+    딸깍 자막 작업 결과물을 공식 템플릿(Classic) 규격에 맞춰 Remotion으로 실제 MP4 렌더링.
+    저장 위치: %LOCALAPPDATA%\\ViraLoop Studio\\media\\05_Exports\\job_{job_id}_classic_test.mp4
+    """
+    job = db.get_subtitle_job(job_id)
+    if not job:
+        raise HTTPException(404, "job not found")
+
+    import subprocess
+    exports_dir = _BB_DATA / "05_Exports"
+    exports_dir.mkdir(parents=True, exist_ok=True)
+
+    # 1. 원본 비디오 탐색
+    job_dir = SUBTITLES_DIR / f"job_{job_id}"
+    video_source = None
+    orig_vp = job.get("video_path")
+    if orig_vp and Path(orig_vp).exists():
+        video_source = str(orig_vp)
+    elif job_dir.exists():
+        for p in job_dir.glob("*.mp4"):
+            if not p.name.endswith("_short.mp4") and "classic" not in p.name:
+                video_source = str(p)
+                break
+
+    if not video_source:
+        for cand in [
+            _BB_DATA / "02_Operations" / "subtitles" / "job_43" / "a08b6ad4de.mp4",
+            _BB_DATA / "07_Downloads" / "a08b6ad4de.mp4",
+        ]:
+            if cand.exists():
+                video_source = str(cand)
+                break
+
+    # 2. 오디오 소스 탐색
+    audio_source = None
+    if job_dir.exists():
+        for af in ["07_효과음믹스.mp3", "06_배경음악.mp3"]:
+            ap = job_dir / af
+            if ap.exists():
+                audio_source = str(ap)
+                break
+
+    # 3. 자막 데이터 추출
+    def _parse_json(s):
+        if not s: return None
+        try: return json.loads(s) if isinstance(s, str) else s
+        except Exception: return None
+
+    gemini_results = _parse_json(job.get("gemini_results")) or {}
+    primary = gemini_results.get("primary", {})
+    subtitles = primary.get("situation_subtitles", [])
+    jabs = primary.get("jjap_jjap_i_subtitles", [])
+
+    def _parse_srt_file(srt_path):
+        segs = []
+        if not Path(srt_path).exists(): return segs
+        try:
+            content = Path(srt_path).read_text(encoding="utf-8")
+            blocks = [b.strip() for b in content.strip().split("\n\n") if b.strip()]
+            for block in blocks:
+                lines = block.splitlines()
+                if len(lines) >= 2:
+                    times = lines[1].split(" --> ")
+                    if len(times) == 2:
+                        def ts2sec(ts):
+                            ts = ts.strip().replace(",", ".")
+                            h, m, s = ts.split(":")
+                            return int(h)*3600 + int(m)*60 + float(s)
+                        start_sec = ts2sec(times[0])
+                        end_sec = ts2sec(times[1])
+                        text = "\n".join(lines[2:]).strip()
+                        if text:
+                            segs.append({"start": start_sec, "end": end_sec, "text": text})
+        except Exception as e:
+            print(f"[SRT parse error] {e}")
+        return segs
+
+    if not subtitles and job_dir.exists() and (job_dir / "01_상황설명.srt").exists():
+        subtitles = _parse_srt_file(job_dir / "01_상황설명.srt")
+    if not jabs and job_dir.exists() and (job_dir / "02_쨉쨉이.srt").exists():
+        jabs = _parse_srt_file(job_dir / "02_쨉쨉이.srt")
+
+    # 4. 타이틀 분리
+    candidates = _parse_json(job.get("title_candidates")) or primary.get("candidate_titles", [])
+    raw_title = candidates[0] if candidates else (primary.get("youtube_title") or job.get("video_filename") or "코빅 레전드 갱신 ㅋㅋ")
+    clean_title = re.sub(r'^\([^)]+\)\s*', '', raw_title)
+
+    title_parts = [p.strip() for p in clean_title.split('\n') if p.strip()]
+    if len(title_parts) >= 2:
+        title_line1, title_line2 = title_parts[0], title_parts[1]
+    elif len(title_parts) == 1:
+        words = title_parts[0].split(' ')
+        if len(words) >= 4:
+            mid = len(words) // 2
+            title_line1 = ' '.join(words[:mid])
+            title_line2 = ' '.join(words[mid:])
+        else:
+            title_line1 = title_parts[0]
+            title_line2 = "성대 오토튠 이식 직전"
+    else:
+        title_line1 = "코빅 레전드 갱신 ㅋㅋ"
+        title_line2 = "성대 오토튠 이식 직전"
+
+    props_data = {
+        "titleHook": f"{title_line1} {title_line2}",
+        "topBadge": "속보",
+        "titleLine1": title_line1,
+        "titleLine2": title_line2,
+        "topBlackBarRatio": 0.183,
+        "bottomBlackBarRatio": 0.110,
+        "videoSource": video_source,
+        "audioSource": audio_source,
+        "subtitles": subtitles,
+        "jabSubtitles": jabs,
+        "jabRotation": -3,
+        "safeZoneY": 75,
+        "fps": 30,
+        "accentColor": "#FFE600",
+    }
+
+    props_file = exports_dir / f"job_{job_id}_classic_test_props.json"
+    output_mp4 = exports_dir / f"job_{job_id}_classic_test.mp4"
+
+    with open(props_file, "w", encoding="utf-8") as pf:
+        json.dump(props_data, pf, ensure_ascii=False, indent=2)
+
+    # 5. Remotion CLI 실행
+    cli_path = None
+    for p in Path(__file__).resolve().parents:
+        cand = p / "apps" / "remotion-engine" / "render_cli.js"
+        if cand.exists():
+            cli_path = cand
+            break
+    if not cli_path or not cli_path.exists():
+        cli_path = Path("c:/ViraLoopMedia/VLStudio/apps/remotion-engine/render_cli.js")
+    cmd = [
+        "node", str(cli_path),
+        "--props", str(props_file),
+        "--out", str(output_mp4),
+        "--composition", "ViraShortComposition"
+    ]
+    proc = subprocess.run(cmd, capture_output=True, text=True, timeout=180)
+    if proc.returncode != 0:
+        raise HTTPException(500, f"Remotion render failed: {proc.stderr or proc.stdout}")
+
+    return {
+        "success": True,
+        "output_path": str(output_mp4),
+        "download_url": f"/api/ddalkkak/api/subtitle/{job_id}/download/{output_mp4.name}",
+        "rendered_video_url": f"/api/ddalkkak/api/subtitle/{job_id}/download/{output_mp4.name}",
+        "duration_sec": job.get("duration_sec"),
+    }
 
 
 @app.get("/subtitle/{job_id}/capcut-data")

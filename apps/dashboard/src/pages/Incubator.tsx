@@ -65,21 +65,21 @@ const Incubator = () => {
     const handleRotate = async (method: 'soft' | 'hard') => {
         setIsRotating(true);
         try {
-            await api.post(`/resources/network/rotate`, { method });
-            toast({
-                title: "IP 교체 명령 전달됨",
-                description: "네트워크 재설정 중... (새 IP 감지 시 자동 갱신)"
-            });
-
-            // Wait for 1s then check logic once (Single check as requested)
-            setTimeout(() => {
-                setIsRotating(false);
-                loadNetworkStatus(); // Check once
-            }, 1000);
-
+            const res = await api.post(`/resources/network/rotate`, { method });
+            if (res.data?.status === 'rotated') {
+                const newIp = res.data?.current_ip;
+                toast({
+                    title: "IP 교체 완료",
+                    description: newIp ? `새 공인 IP: ${newIp}` : "새 공인 IP가 할당되었습니다."
+                });
+            } else {
+                toast({ variant: "destructive", title: "IP 교체 실패", description: res.data?.detail || "통신사 재접속 실패" });
+            }
+            await loadNetworkStatus();
         } catch {
-            setIsRotating(false);
             toast({ variant: "destructive", title: "오류", description: "IP 교체 요청 실패" });
+        } finally {
+            setIsRotating(false);
         }
     };
 
@@ -193,6 +193,27 @@ const Incubator = () => {
                                         </div>
                                     </div>
                                     <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                                        <Button 
+                                            variant="outline" 
+                                            size="sm" 
+                                            className="text-xs h-8 px-2.5 border-rose-500/30 text-rose-500 hover:bg-rose-500/10 font-bold"
+                                            onClick={async () => {
+                                                try {
+                                                    setIsNetworkLoading(true);
+                                                    await api.post('/resources/network/source/LTE');
+                                                    toast({ title: "LTE 강제 고정 완료", description: "스마트폰 Wi-Fi를 차단하고 순수 LTE 데이터망으로 고정했습니다." });
+                                                    await loadNetworkStatus(true);
+                                                } catch (e) {
+                                                    toast({ variant: "destructive", title: "오류", description: "LTE 고정 실패" });
+                                                } finally {
+                                                    setIsNetworkLoading(false);
+                                                }
+                                            }}
+                                            disabled={isNetworkLoading}
+                                        >
+                                            <Smartphone className="w-3.5 h-3.5 mr-1.5 text-rose-500" />
+                                            폰 Wi-Fi 끄고 LTE 고정
+                                        </Button>
                                         <Button 
                                             variant="secondary" 
                                             size="sm" 

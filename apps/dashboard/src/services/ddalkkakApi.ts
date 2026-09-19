@@ -114,6 +114,11 @@ export const ddalkkakApi = {
     return res.data;
   },
 
+  renderSubtitleTemplate: async (id: number) => {
+    const res = await apiLong.post(`/ddalkkak/api/subtitle/${id}/render-template`);
+    return res.data;
+  },
+
   // 3. TTS Dubbing Jobs API
   getTtsJobs: async (): Promise<TtsDubJob[]> => {
     const res = await api.get('/ddalkkak/api/tts-dub/list');

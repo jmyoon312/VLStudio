@@ -149,6 +149,15 @@ export const toCapCutCoord = (xPct: number = 50, yPct: number = 50) => ({
 });
 
 /**
+ * CSS 픽셀을 CapCut 데스크톱 표준 폰트 단위(4.0~10.0pt)로 변환
+ */
+export const toCapcutFontSize = (size?: number, defaultSize: number = 7.5): number => {
+  if (!size) return defaultSize;
+  if (size <= 12.0) return Number(Math.max(3.5, Math.min(12.0, size)).toFixed(1));
+  return Number(Math.max(3.5, Math.min(12.0, size * 0.25)).toFixed(1));
+};
+
+/**
  * 12종 필수 파일 및 전체 미디어/자막/트랙을 포함하는 CapCut 프로젝트 번들 컴파일러
  */
 export function buildFullCapCutProjectBundle(opts: CapCutProjectExportOptions) {
@@ -236,12 +245,13 @@ export function buildFullCapCutProjectBundle(opts: CapCutProjectExportOptions) {
       const titleMatId = generateId();
       const titleSegId = generateId();
       const titleCoord = toCapCutCoord(50, title.yPct || 12);
+      const titleSize = toCapcutFontSize(title.fontSize, 8.5);
 
       const line1Len = title.line1.length;
       const styles: any[] = [
         {
           fill: { content: { render_type: 'solid', solid: { color: hexToRgb01(title.line1Color) } } },
-          size: title.fontSize || 24.0,
+          size: titleSize,
           bold: true,
           useLetterColor: true,
           range: [0, line1Len],
@@ -251,7 +261,7 @@ export function buildFullCapCutProjectBundle(opts: CapCutProjectExportOptions) {
       if (title.mode === 'double' && title.line2) {
         styles.push({
           fill: { content: { render_type: 'solid', solid: { color: hexToRgb01(title.line2Color) } } },
-          size: title.fontSize || 24.0,
+          size: titleSize,
           bold: true,
           useLetterColor: true,
           range: [line1Len + 1, titleText.length],
@@ -267,7 +277,7 @@ export function buildFullCapCutProjectBundle(opts: CapCutProjectExportOptions) {
           styles,
         }),
         font_name: title.fontFamily || 'Pretendard',
-        font_size: title.fontSize || 24.0,
+        font_size: titleSize,
         alignment: 1, // center
         border_color: '#000000',
         border_width: 0.15,
@@ -309,6 +319,7 @@ export function buildFullCapCutProjectBundle(opts: CapCutProjectExportOptions) {
     const jabCoord = toCapCutCoord(jab.xPct || 50, jab.yPct || 28);
     const jabStartUs = toMicros((jab.startMs || 2500) / 1000);
     const jabDurationUs = toMicros(Math.max(1000, (jab.endMs - jab.startMs) || 3500) / 1000);
+    const jabSize = toCapcutFontSize(jab.fontSize, 6.5);
 
     materials.texts.push({
       id: jabMatId,
@@ -319,7 +330,7 @@ export function buildFullCapCutProjectBundle(opts: CapCutProjectExportOptions) {
         styles: [
           {
             fill: { content: { render_type: 'solid', solid: { color: hexToRgb01(jab.textColor) } } },
-            size: jab.fontSize || 20.0,
+            size: jabSize,
             bold: true,
             useLetterColor: true,
             range: [0, jab.text.length],
@@ -327,7 +338,7 @@ export function buildFullCapCutProjectBundle(opts: CapCutProjectExportOptions) {
         ],
       }),
       font_name: 'GmarketSans',
-      font_size: jab.fontSize || 20.0,
+      font_size: jabSize,
       alignment: 1,
       background_style: 1,
       background_color: jab.badgeColor || '#FFCC00',
@@ -368,13 +379,14 @@ export function buildFullCapCutProjectBundle(opts: CapCutProjectExportOptions) {
       const subCoord = toCapCutCoord(sub.xPct || 50, sub.yPct || 78);
       const subStartUs = toMicros((sub.startMs || 0) / 1000);
       const subDurUs = toMicros(Math.max(500, (sub.endMs - sub.startMs) || 2500) / 1000);
+      const subSize = toCapcutFontSize(sub.fontSize, 6.0);
 
       // Base style
       const baseColorRgb = hexToRgb01(sub.textColor || '#FFE500');
       const textStyles: any[] = [
         {
           fill: { content: { render_type: 'solid', solid: { color: baseColorRgb } } },
-          size: sub.fontSize || 18.0,
+          size: subSize,
           bold: true,
           useLetterColor: true,
           range: [0, cleanText.length],
@@ -396,7 +408,7 @@ export function buildFullCapCutProjectBundle(opts: CapCutProjectExportOptions) {
             const wordEnd = foundIdx + searchWord.length;
             textStyles.push({
               fill: { content: { render_type: 'solid', solid: { color: hexToRgb01(hl.color || '#00F0FF') } } },
-              size: (sub.fontSize || 18.0) * 1.08, // 강조 단어 미세 볼드 스케일
+              size: Number((subSize * 1.08).toFixed(1)), // 강조 단어 미세 볼드 스케일
               bold: true,
               useLetterColor: true,
               range: [foundIdx, wordEnd],
@@ -415,7 +427,7 @@ export function buildFullCapCutProjectBundle(opts: CapCutProjectExportOptions) {
           styles: textStyles,
         }),
         font_name: sub.fontFamily || 'Pretendard',
-        font_size: sub.fontSize || 18.0,
+        font_size: subSize,
         alignment: 1, // center
         border_color: sub.outlineColor || '#000000',
         border_width: (sub.outlineSize || 4) > 0 ? (sub.outlineSize! * 0.04) : 0,
@@ -451,6 +463,7 @@ export function buildFullCapCutProjectBundle(opts: CapCutProjectExportOptions) {
     const srcMatId = generateId();
     const srcSegId = generateId();
     const srcCoord = toCapCutCoord(src.xPct || 50, src.yPct || 92);
+    const srcSize = toCapcutFontSize(src.fontSize, 4.0);
 
     materials.texts.push({
       id: srcMatId,
@@ -461,7 +474,7 @@ export function buildFullCapCutProjectBundle(opts: CapCutProjectExportOptions) {
         styles: [
           {
             fill: { content: { render_type: 'solid', solid: { color: hexToRgb01(src.color || '#A3A3A3') } } },
-            size: src.fontSize || 10.0,
+            size: srcSize,
             bold: false,
             useLetterColor: true,
             range: [0, src.text.length],
@@ -469,7 +482,7 @@ export function buildFullCapCutProjectBundle(opts: CapCutProjectExportOptions) {
         ],
       }),
       font_name: 'Pretendard',
-      font_size: src.fontSize || 10.0,
+      font_size: srcSize,
       alignment: 1,
       border_color: '#000000',
       border_width: 0.08,

@@ -117,8 +117,8 @@ class ChannelNetworkGuard:
                     logger.warning(f"[NetworkGuard] LTE 소프트 교체 경고: {e}")
                 _LAST_ACTIVE_CHANNEL = channel_id
 
-            # 로컬 Every Proxy SOCKS5/HTTP 포트 매핑 (기본 1080)
-            lte_proxy_url = "socks5://127.0.0.1:1080"
+            # 로컬 Every Proxy SOCKS5 매핑 (socks5h:// 사용하여 DNS 누출 원천 방지)
+            lte_proxy_url = "socks5h://127.0.0.1:1080"
             return {
                 "mode": "DIRECT_LTE",
                 "proxies": {"http": lte_proxy_url, "https": lte_proxy_url},

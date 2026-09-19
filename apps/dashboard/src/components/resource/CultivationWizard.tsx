@@ -47,30 +47,72 @@ const STRATEGIES = [
     }
 ];
 
-interface CultivationWizardProps {
-    open: boolean;
-    onOpenChange: (open: boolean) => void;
-    channel: any;
+export interface CultivationWizardProps {
+    open?: boolean;
+    isOpen?: boolean;
+    onOpenChange?: (open: boolean) => void;
+    onClose?: () => void;
+    channel?: any;
+    channelId?: string;
+    profileId?: string;
+    currentStrategy?: string;
 }
 
-export const CultivationWizard = ({ open, onOpenChange, channel }: CultivationWizardProps) => {
+export const CultivationWizard = ({ 
+    open, 
+    isOpen, 
+    onOpenChange, 
+    onClose, 
+    channel,
+    channelId,
+    profileId,
+    currentStrategy 
+}: CultivationWizardProps) => {
     const { toast } = useToast();
     const queryClient = useQueryClient();
     
-    const [selectedStrategy, setSelectedStrategy] = useState<string>('');
+    const isModalOpen = open !== undefined ? open : (isOpen !== undefined ? isOpen : false);
+    const handleOpenChange = (newOpen: boolean) => {
+        if (onOpenChange) onOpenChange(newOpen);
+        if (!newOpen && onClose) onClose();
+    };
+
+    // Normalize target channel from props
+    const targetChannel = channel || (channelId ? {
+        channel_id: channelId,
+        owner_profile_id: profileId,
+        cultivation_strategy: currentStrategy,
+        title: channelId
+    } : null);
+
+    const [selectedStrategy, setSelectedStrategy] = useState<string>('INITIAL');
     const [isActive, setIsActive] = useState(false);
     const [targetNiche, setTargetNiche] = useState<string>('');
 
     useEffect(() => {
-        if (open && channel) {
-            setSelectedStrategy(channel.cultivation_strategy || 'INITIAL');
-            setIsActive(channel.cultivation_active || false);
+        if (isModalOpen && targetChannel) {
+            setSelectedStrategy(targetChannel.cultivation_strategy || targetChannel.strategy || 'INITIAL');
+            setIsActive(targetChannel.cultivation_active || targetChannel.active || false);
+
+            let initialNiche = targetChannel.target_niche || targetChannel.niche || '';
+            if (!initialNiche && targetChannel.warmup_config) {
+                try {
+                    const cfg = typeof targetChannel.warmup_config === 'string' 
+                        ? JSON.parse(targetChannel.warmup_config) 
+                        : targetChannel.warmup_config;
+                    initialNiche = cfg?.positioning?.micro_niche || cfg?.target_audience_avatar || '';
+                } catch (e) {}
+            }
+            setTargetNiche(initialNiche);
         }
-    }, [open, channel]);
+    }, [isModalOpen, targetChannel]);
+
+    const channelDisplayName = targetChannel?.title || targetChannel?.channel_name || targetChannel?.channel_id || '유튜브 채널';
 
     const mutation = useMutation({
         mutationFn: async () => {
-            const res = await axios.patch(`${API_BASE}/youtube/channels/${channel.channel_id}/cultivation`, {
+            if (!targetChannel?.channel_id) throw new Error("유효한 채널 ID를 찾을 수 없습니다.");
+            const res = await axios.patch(`${API_BASE}/youtube/channels/${targetChannel.channel_id}/cultivation`, {
                 strategy: selectedStrategy,
                 active: isActive,
                 target_niche: targetNiche
@@ -80,11 +122,12 @@ export const CultivationWizard = ({ open, onOpenChange, channel }: CultivationWi
         onSuccess: () => {
             toast({
                 title: "육성 전략 업데이트 완료",
-                description: "채널의 자동 육성 스케줄이 저장되었습니다."
+                description: `'${channelDisplayName}' 채널의 자동 육성 스케줄이 저장되었습니다.`
             });
             queryClient.invalidateQueries({ queryKey: ['captain-channels'] });
             queryClient.invalidateQueries({ queryKey: ['active-channel'] });
-            onOpenChange(false);
+            queryClient.invalidateQueries({ queryKey: ['profiles'] });
+            handleOpenChange(false);
         },
         onError: (err: any) => {
             toast({
@@ -95,18 +138,18 @@ export const CultivationWizard = ({ open, onOpenChange, channel }: CultivationWi
         }
     });
 
-    if (!channel) return null;
+    if (!targetChannel) return null;
 
     return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-2xl">
+        <Dialog open={isModalOpen} onOpenChange={handleOpenChange}>
+            <DialogContent className="max-w-2xl bg-card border-border text-foreground">
                 <DialogHeader>
-                    <DialogTitle className="flex items-center gap-2 text-xl">
+                    <DialogTitle className="flex items-center gap-2 text-xl font-bold text-foreground">
                         <CalendarClock className="w-6 h-6 text-primary" />
                         전략적 채널 육성 마법사
                     </DialogTitle>
-                    <DialogDescription>
-                        {channel.channel_name} 채널의 알고리즘 최적화 및 육성 전략을 설정합니다.
+                    <DialogDescription className="text-xs text-muted-foreground">
+                        <span className="font-bold text-foreground">{channelDisplayName}</span> 채널의 알고리즘 최적화 및 육성 전략을 설정합니다.
                     </DialogDescription>
                 </DialogHeader>
 
@@ -245,12 +288,13 @@ export const CultivationWizard = ({ open, onOpenChange, channel }: CultivationWi
                     </div>
                 </div>
 
-                <div className="flex justify-end gap-2 pt-4 border-t">
-                    <Button variant="outline" onClick={() => onOpenChange(false)}>취소</Button>
+                <div className="flex justify-end gap-2 pt-4 border-t border-border">
+                    <Button variant="outline" size="sm" onClick={() => handleOpenChange(false)}>취소</Button>
                     <Button 
                         onClick={() => mutation.mutate()} 
                         disabled={mutation.isPending}
-                        className="min-w-[120px]"
+                        size="sm"
+                        className="min-w-[120px] font-bold bg-primary text-primary-foreground hover:bg-primary/90"
                     >
                         {mutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : "설정 저장"}
                     </Button>

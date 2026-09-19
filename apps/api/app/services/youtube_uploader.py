@@ -128,7 +128,8 @@ class YouTubeUploader:
                     proxy_info_kwargs = {
                         'proxy_type': socks.PROXY_TYPE_SOCKS5,
                         'proxy_host': tin_can.proxy_host,
-                        'proxy_port': proxy_port
+                        'proxy_port': proxy_port,
+                        'proxy_rdns': True
                     }
                     if getattr(tin_can, 'proxy_username', None) and getattr(tin_can, 'proxy_password', None):
                         proxy_info_kwargs['proxy_user'] = tin_can.proxy_username

@@ -32,8 +32,12 @@ class RemotionRenderer:
         self.remotion_dir = self.root_dir / "apps" / "remotion-engine"
         self.cli_path = self.remotion_dir / "render_cli.js"
         
-        # Default export directory (05_Exports standard)
-        self.export_dir = self.root_dir / "05_Exports"
+        # Default export directory (%LOCALAPPDATA%/ViraLoop Studio/media/05_Exports)
+        local_app = os.environ.get("LOCALAPPDATA") or os.environ.get("APPDATA")
+        if local_app:
+            self.export_dir = Path(local_app) / "ViraLoop Studio" / "media" / "05_Exports"
+        else:
+            self.export_dir = Path.home() / ".viraloop_studio" / "media" / "05_Exports"
         self.export_dir.mkdir(parents=True, exist_ok=True)
 
     async def render_short(

@@ -56,6 +56,11 @@ class Profile(Base):
     created_at = Column(DateTime, default=datetime.now)
     last_used_at = Column(DateTime, nullable=True)
     
+    # [NEW] Incubation & Warmup Lifecycle
+    incubation_status = Column(String, default="NEWBORN") # NEWBORN, WARMING, WARMED, BRAND_CREATED, MATURE
+    seed_history_count = Column(Integer, default=0)
+    last_warmed_at = Column(DateTime, nullable=True)
+    
     proxy_info = Column(JSON, nullable=True) # LTE Binding Info
     
     # [NEW] Browser Farm Capabilities
@@ -110,6 +115,12 @@ class BrandChannel(Base):
     warmup_stage = Column(Integer, default=0) # 0: New, 1: Day1, 2: Day2, ...
     warmup_last_run = Column(DateTime, nullable=True)
     warmup_status = Column(String, default="IDLE") # IDLE, RUNNING, COMPLETED, FAILED
+    warmup_config = Column(JSON, nullable=True) # Custom settings & Channel DNA
+
+    # [Cultivation] Strategic Scheduler
+    cultivation_strategy = Column(String(50), default="INITIAL") # INITIAL, NICHE_PIVOT, TRAFFIC_HIJACK, DEATH_VALLEY
+    cultivation_day = Column(Integer, default=0)
+    cultivation_active = Column(Boolean, default=False)
     
     # [NEW] Channel Stats (Captain Dashboard)
     subscriber_count = Column(Integer, default=0)

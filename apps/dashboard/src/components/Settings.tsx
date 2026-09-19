@@ -36,6 +36,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 import AIModelSelector from '@/components/shared/AIModelSelector';
 import OmniRouteControlCard from '@/components/shared/OmniRouteControlCard';
+import DeepSeekHarnessControlCard from '@/components/shared/DeepSeekHarnessControlCard';
 import { SystemSettingsTab } from './SystemSettingsTab';
 
 // Helper Component for Key Lists
@@ -1017,7 +1018,7 @@ const UnifiedEnginesHub = ({ formData, setFormData }: { formData: any; setFormDa
                 </CardHeader>
 
                 <CardContent className="space-y-4 pt-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         {/* yt-dlp */}
                         <div className="p-4 bg-muted/30 rounded-2xl border border-border/80 flex flex-col justify-between gap-3">
                             <div className="space-y-1.5">
@@ -1062,6 +1063,43 @@ const UnifiedEnginesHub = ({ formData, setFormData }: { formData: any; setFormDa
                                 <span className="text-xs text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
                                     <CheckCircle2 className="w-3.5 h-3.5" /> 봇 탐지 원천 우회 가동 중
                                 </span>
+                            </div>
+                        </div>
+
+                        {/* DeepSeek Harness */}
+                        <div className="p-4 bg-muted/30 rounded-2xl border border-border/80 flex flex-col justify-between gap-3">
+                            <div className="space-y-1.5">
+                                <div className="flex items-center justify-between">
+                                    <span className="font-bold text-sm text-foreground flex items-center gap-1.5">
+                                        <Bot className="w-4 h-4 text-amber-500" /> DeepSeek Harness AI
+                                    </span>
+                                    {isLoading ? (
+                                        <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground" />
+                                    ) : (
+                                        <Badge variant="outline" className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30 font-mono text-xs font-bold">
+                                            v{enginesStatus?.deepseek_harness?.version || '0.1.5'}
+                                        </Badge>
+                                    )}
+                                </div>
+                                <p className="text-xs text-muted-foreground">자율 AI 코어 에이전트 & Web 터미널 런타임 (포트 3080)</p>
+                            </div>
+                            <div className="flex items-center justify-between pt-2 border-t border-border/50">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xs text-muted-foreground font-medium">자동 업데이트</span>
+                                    <Switch 
+                                        checked={formData.dsh_auto_update !== false} 
+                                        onCheckedChange={c => setFormData({ ...formData, dsh_auto_update: c })} 
+                                    />
+                                </div>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => window.open('http://127.0.0.1:3080', '_blank')}
+                                    className="h-6 text-[11px] px-2 text-primary hover:bg-primary/10 gap-1 font-bold cursor-pointer"
+                                >
+                                    <span>웹 열기</span>
+                                    <ExternalLink className="w-3 h-3" />
+                                </Button>
                             </div>
                         </div>
                     </div>
@@ -2845,6 +2883,9 @@ const Settings = () => {
 
                             {/* 🚀 OmniRoute Engine Control Center (Lifecycle & Updates) */}
                             <OmniRouteControlCard />
+
+                            {/* 🧠 DeepSeek Harness Autonomous Web & Automation Hub */}
+                            <DeepSeekHarnessControlCard />
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 

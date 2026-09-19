@@ -100,7 +100,9 @@ class NetworkMonitor:
         # [FIX] Use Absolute Path with env override for total portability
         PS_PATH = os.getenv("POWERSHELL_PATH", r"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe")
         try:
-            full_cmd = [PS_PATH, "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", cmd]
+            # [CRITICAL] 윈도우 한글 OS에서 어댑터 이름('이더넷 4' 등)이 CP949로 깨져 '̴ 4'가 되는 현상 방지
+            utf8_cmd = f"[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; [Console]::InputEncoding = [System.Text.Encoding]::UTF8; $OutputEncoding = [System.Text.Encoding]::UTF8; {cmd}"
+            full_cmd = [PS_PATH, "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", utf8_cmd]
             
             # [FIX] STARTUPINFO is Windows-only
             kwargs = {
@@ -116,7 +118,7 @@ class NetworkMonitor:
             
             result = subprocess.run(full_cmd, **kwargs)
             
-            # [FIX] Robust Decoding for Korean Windows (CP949/BOM)
+            # [FIX] Robust Decoding for Korean Windows (UTF-8 priority)
             stdout_txt = ""
             stderr_txt = ""
             try:
@@ -125,12 +127,12 @@ class NetworkMonitor:
                 try: stdout_txt = result.stdout.decode('cp949').strip()
                 except: stdout_txt = result.stdout.decode('mbcs', errors='ignore').strip()
                 
-                
             if result.returncode != 0:
                 try:
-                    stderr_txt = result.stderr.decode('cp949', errors='ignore').strip()
+                    stderr_txt = result.stderr.decode('utf-8').strip()
                 except:
-                    stderr_txt = result.stderr.decode('utf-8', errors='ignore').strip()
+                    try: stderr_txt = result.stderr.decode('cp949', errors='ignore').strip()
+                    except: stderr_txt = result.stderr.decode('mbcs', errors='ignore').strip()
                 
                 # Check for Access Denied specifically to return it without screaming ERROR
                 if "AccessDenied" in stderr_txt or "액세스가 거부" in stderr_txt:
@@ -252,6 +254,7 @@ class NetworkMonitor:
                     "172.20.10.",   # iPhone USB 테더링
                     "10.0.0.",      # 일부 안드로이드/제조사
                     "10.10.0.",     # 일부 통신사 전용 대역
+                    "10.",           # Android USB 테더링 동적 대역 (10.x.x.x)
                 ]
                 if lte_idx is None and generic_candidates:
                     for cand in generic_candidates:

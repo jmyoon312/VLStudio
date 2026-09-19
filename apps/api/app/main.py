@@ -214,6 +214,20 @@ async def lifespan(app: FastAPI):
     from app.services.channel_director import channel_director
     channel_director.start_director_daemon(interval_seconds=180)
 
+    # [NEW] Start DeepSeek Harness Web Daemon (Port 3080)
+    try:
+        from app.services.dsh_daemon import start_dsh_daemon
+        start_dsh_daemon()
+    except Exception as e:
+        logger.warning(f"[DSH] Failed to start DeepSeek Harness daemon: {e}")
+
+    # [NEW] Start LDPlayer Universal SOCKS5 Gateway Bridge (Port 11080)
+    try:
+        from app.services.ldplayer_gateway import ldplayer_gateway
+        ldplayer_gateway.start()
+    except Exception as e:
+        logger.warning(f"[LDPlayerGateway] Failed to start gateway: {e}")
+
     # [DEPRECATED] Autonomous search / swarm feature disabled due to low quality
     # from app.global_swarm_master import global_master
     # asyncio.create_task(global_master.start_monitoring_loop())
@@ -279,7 +293,24 @@ async def lifespan(app: FastAPI):
         else:
             from app import crud
             crud.get_settings(db)
-            print("[Self-Healing] Created initial default settings.")
+        # [Startup Self-Healing: Reconcile Zombie Warmup & Incubation States]
+        try:
+            from app.models import Profile, YouTubeChannel
+            zombie_profiles = db.query(Profile).filter(Profile.incubation_status == "WARMING").all()
+            for zp in zombie_profiles:
+                new_st = "WARMED" if (zp.seed_history_count or 0) >= 3 else "NEWBORN"
+                logger.info(f"🩺 [Startup Reconcile] Healed zombie profile {zp.email or zp.id}: WARMING -> {new_st}")
+                zp.incubation_status = new_st
+            
+            zombie_channels = db.query(YouTubeChannel).filter(YouTubeChannel.warmup_status.in_(["RUNNING", "QUEUED"])).all()
+            for zc in zombie_channels:
+                zc.warmup_status = "PAUSED"
+                logger.info(f"🩺 [Startup Reconcile] Healed zombie channel {zc.channel_name or zc.channel_id}: RUNNING -> PAUSED")
+                
+            db.commit()
+        except Exception as heal_err:
+            logger.warning(f"[Startup Reconcile] Failed to reconcile zombie states: {heal_err}")
+
         db.close()
     except Exception as e:
         print(f"[Startup Recovery/Healing Failed]: {e}")
@@ -289,6 +320,11 @@ async def lifespan(app: FastAPI):
     discovery_scraper.stop_background_daemon()
     channel_director.stop_director_daemon()
     scheduler.stop_scheduler()
+    try:
+        from app.services.ldplayer_gateway import ldplayer_gateway
+        ldplayer_gateway.stop()
+    except Exception:
+        pass
 
 app = FastAPI(
     title="Sovereign Hub API",
@@ -413,10 +449,15 @@ def resolve_asset_file(path: str) -> Optional[str]:
         if os.path.isfile(drive_candidate):
             return drive_candidate
 
+    workspace_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+
     candidates = [
         os.path.join(download_dir, clean_path),
         os.path.join(download_dir, "07_Downloads", clean_path),
         os.path.join(download_dir, "raw", clean_path),
+        os.path.join(workspace_root, clean_path),
+        os.path.join(workspace_root, "05_Exports", clean_path),
+        os.path.join(workspace_root, "05_Exports", os.path.basename(clean_path)),
     ]
 
     # If path contains /media/ or media/, strip it
