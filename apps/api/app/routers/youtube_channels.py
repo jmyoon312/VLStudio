@@ -41,6 +41,7 @@ def channel_to_dict(ch) -> dict:
         "warmup_status": getattr(ch, 'warmup_status', 'IDLE'),
         "warmup_stage": getattr(ch, 'warmup_stage', 0) or 0,
         "warmup_last_run": getattr(ch, 'warmup_last_run', None).isoformat() if getattr(ch, 'warmup_last_run', None) else None,
+        "warmup_last_error": getattr(ch, 'warmup_last_error', None),
         "engine_mode": getattr(ch, 'engine_mode', 'standard') or 'standard',
         "stealth_trust_score": getattr(ch, 'stealth_trust_score', None) or getattr(ch, 'trust_score', 0) or 0,
         "is_network_isolated": getattr(ch, 'is_network_isolated', False) or False,
@@ -56,6 +57,8 @@ def channel_to_dict(ch) -> dict:
     }
 
 @router.get("/all")
+@router.get("/channels")
+@router.get("")
 def get_all_youtube_channels(
     registered_only: bool = False,
     db: Session = Depends(get_db)

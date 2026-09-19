@@ -53,11 +53,11 @@ export const BulkWarmupPanel: React.FC<BulkWarmupPanelProps> = ({
         refetchInterval: 5000
     });
 
-    // Dual-Fallback: Fetch failed channels directly from /youtube/channels when diagnosis modal opens
+    // Dual-Fallback: Fetch failed channels directly from /youtube/all when diagnosis modal opens
     const { data: fallbackFailedChannels } = useQuery({
         queryKey: ['failed-channels-diagnosis-fallback'],
         queryFn: async () => {
-            const res = await axios.get(`${API_BASE}/youtube/channels`);
+            const res = await axios.get(`${API_BASE}/youtube/all`);
             const list = Array.isArray(res.data) ? res.data : (res.data?.channels || []);
             return list.filter((c: any) => c.warmup_status === 'FAILED' || c.status === 'FAILED');
         },
