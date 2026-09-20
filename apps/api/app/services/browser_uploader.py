@@ -230,11 +230,15 @@ class BrowserUploader:
             # --- Title ---
             logger.info("✍️ Writing Title...")
             title_input = page.locator('#title-textarea #textbox, div[aria-label*="제목"] #textbox, #textbox').first
-            title_input.wait_for(state='visible', timeout=15000)
-            title_input.click()
-            page.keyboard.press("Control+A")
-            page.keyboard.press("Backspace")
-            title_input.type(item.title, delay=random.randint(20, 45))
+            title_input.wait_for(state='visible', timeout=20000)
+            title_input.evaluate('''(el, val) => {
+                el.focus();
+                el.innerText = val;
+                el.dispatchEvent(new Event('input', { bubbles: true }));
+                el.dispatchEvent(new Event('change', { bubbles: true }));
+            }''', item.title)
+            logger.info(f"[OK] Title applied cleanly: {item.title}")
+            time.sleep(1.0)
 
             # --- Description ---
             logger.info("✍️ Writing Description...")
@@ -245,21 +249,28 @@ class BrowserUploader:
                     tags_str = " ".join(item.hashtags) if isinstance(item.hashtags, list) else str(item.hashtags)
                     description += f"\n\n{tags_str} "
 
-                desc_input.click()
-                page.keyboard.press("Control+A")
-                page.keyboard.press("Backspace")
-
-                first_part = description[:80]
-                rest_part = description[80:]
-                if first_part:
-                    desc_input.type(first_part, delay=random.randint(15, 35))
-                if rest_part:
-                    desc_input.type(rest_part, delay=0)
-
-                page.keyboard.press('Escape')
-                time.sleep(0.5)
+                desc_input.evaluate('''(el, val) => {
+                    el.focus();
+                    el.innerText = val;
+                    el.dispatchEvent(new Event('input', { bubbles: true }));
+                    el.dispatchEvent(new Event('change', { bubbles: true }));
+                }''', description)
+                logger.info(f"[OK] Description applied cleanly via JS injection ({len(description)} chars)")
+                time.sleep(1.0)
             else:
                 logger.warning("[WARN] Description input not found or not visible")
+
+            # --- Early Video URL Detection (from right-hand preview card) ---
+            try:
+                url_el = page.locator('a[href*="youtu.be"], a.ytcp-video-info').first
+                if url_el.count() > 0:
+                    found_url = url_el.get_attribute("href") or url_el.inner_text()
+                    if found_url and "youtu.be" in found_url:
+                        found_url = found_url.strip()
+                        logger.info(f"🔗 Detected Video URL early: {found_url}")
+                        item.uploaded_urls = {'youtube': found_url}
+            except Exception:
+                pass
 
             # --- Shorts Custom Thumbnail Upload (2026 YouTube Desktop Feature) ---
             logger.info("🖼️ Checking Shorts Thumbnail...")
@@ -309,7 +320,7 @@ class BrowserUploader:
 
             # Expand 'Show More' (자세히 보기)
             try:
-                show_more = page.locator('text="자세히 보기", text="Show more"').first
+                show_more = page.locator('button:has-text("자세히 보기"), button:has-text("Show more"), #toggle-button, [aria-label*="자세히"]').first
                 if show_more.is_visible(timeout=2000):
                     show_more.evaluate("node => { node.scrollIntoView({ block: 'center' }); node.click(); }")
                     time.sleep(1.0)
@@ -323,11 +334,12 @@ class BrowserUploader:
                     tag_input = page.locator('#tags-container #text-input, input[aria-label*="태그"], input[aria-label*="Tags"]').first
                     if tag_input.is_visible(timeout=3000):
                         tags_list = item.tags if isinstance(item.tags, list) else [t.strip() for t in str(item.tags).split(',') if t.strip()]
-                        tags_str = ",".join(tags_list)
-                        tag_input.fill("")
-                        tag_input.type(tags_str, delay=20)
-                        tag_input.press("Enter")
-                        logger.info(f"[OK] Tags applied: {tags_str[:50]}...")
+                        for t in tags_list:
+                            if t:
+                                tag_input.fill(t)
+                                tag_input.press("Enter")
+                                time.sleep(0.1)
+                        logger.info(f"[OK] Tags applied ({len(tags_list)} tags)")
                 except Exception as t_e:
                     logger.warning(f"Tags non-critical warning: {t_e}")
 
@@ -350,9 +362,10 @@ class BrowserUploader:
                 logger.info(f"➡️ Transitioning: {step_name}")
                 time.sleep(1.5)
                 btn = page.locator('#next-button, ytcp-button#next-button, button:has-text("다음"), button:has-text("Next")').first
-                btn.wait_for(state='attached', timeout=20000)
+                btn.wait_for(state='visible', timeout=25000)
+                time.sleep(0.5)
                 btn.evaluate("node => node.click()")
-                time.sleep(2)
+                time.sleep(2.0)
 
             # Step 1: Details -> Video Elements
             click_next_step("Details -> Video Elements")
@@ -370,7 +383,7 @@ class BrowserUploader:
             click_next_step("Checks -> Visibility")
 
             # [VISIBILITY LOGIC]
-            logger.info("👁️ Setting Visibility (Forced Private for Verification)...")
+            logger.info("👁️ Setting Visibility...")
             yt_config = item.platform_configs.get('youtube', {})
             original_privacy = yt_config.get('privacy', 'private').lower()
 
@@ -379,48 +392,61 @@ class BrowserUploader:
             from sqlalchemy.orm.attributes import flag_modified
             flag_modified(item, "platform_configs")
 
-            # Always click Private for initial upload (Safe Sovereign Shield policy)
+            # Select Private for safe upload
             try:
                 private_radio = page.locator('tp-yt-paper-radio-button[name="PRIVATE"], #privacy-radios-private').first
-                private_radio.evaluate("node => node.click()")
+                private_radio.evaluate("node => { node.scrollIntoView({ block: 'center' }); node.click(); }")
             except Exception:
                 try:
                     page.locator('tp-yt-paper-radio-button[name="PRIVATE"]').first.click(force=True, timeout=5000)
                 except Exception:
                     page.locator(':text("비공개"), :text("Private")').first.click(force=True, timeout=5000)
-            logger.info(f"🔒 Selected PRIVATE (Original was {original_privacy} - deferred to Verification Worker)")
+            logger.info(f"🔒 Selected PRIVATE (Original was {original_privacy})")
 
             # Final Click: Save / Publish
             logger.info("🚀 Clicking Done / Publish...")
-            done_btn = page.locator('#done-button, #save-button').first
-            done_btn.wait_for(state='visible', timeout=10000)
+            time.sleep(1.0)
+            done_btn = page.locator('#done-button, #save-button, ytcp-button#done-button, button:has-text("저장"), button:has-text("게시"), button:has-text("Save"), button:has-text("Publish")').first
+            done_btn.wait_for(state='visible', timeout=15000)
             done_btn.evaluate("node => node.click()")
+            time.sleep(3.0)
 
             # Wait for confirmation dialog (Video Link available)
             try:
                 share_dialog = page.locator('ytcp-video-share-dialog').first
-                share_dialog.wait_for(state='visible', timeout=20000)
+                if share_dialog.is_visible(timeout=15000):
+                    try:
+                        link_node = share_dialog.locator('a.style-scope.ytcp-video-share-dialog, a[href*="youtu.be"], #share-url').first
+                        if link_node.is_visible():
+                            uploaded_url = link_node.get_attribute("href") or link_node.inner_text()
+                            if uploaded_url and "youtu.be" in uploaded_url:
+                                uploaded_url = uploaded_url.strip()
+                                logger.info(f"🎉 Upload Success! URL: {uploaded_url}")
+                                item.uploaded_urls = {'youtube': uploaded_url}
+                    except Exception:
+                        pass
 
-                uploaded_url = None
-                try:
-                    link_node = page.locator('a.style-scope.ytcp-video-share-dialog').first
-                    if link_node.is_visible():
-                        uploaded_url = link_node.get_attribute("href")
-                        logger.info(f"🎉 Upload Success! URL: {uploaded_url}")
-                        item.uploaded_urls = {'youtube': uploaded_url}
-                except Exception:
-                    pass
+                    # Close share dialog cleanly
+                    try:
+                        close_btn = share_dialog.locator('#close-button, button[aria-label*="닫기"], button[aria-label*="Close"]').first
+                        if close_btn.is_visible():
+                            close_btn.evaluate("node => node.click()")
+                    except Exception:
+                        pass
             except Exception as e:
-                logger.warning(f"[WARN] Share dialog did not appear in time. Error: {e}")
+                logger.warning(f"[WARN] Share dialog check: {e}")
 
         except Exception as e:
             raise Exception(f"Publishing phase failed: {e}")
 
         # [Status Update - Sovereign Publisher v4]
-        # Always route to VERIFYING for the 10-minute aging and copyright check
-        item.status = "VERIFYING"
         item.upload_completed_at = __import__('datetime').datetime.now()
-        logger.info("[WAIT] Upload Task Complete. Routing to VERIFYING queue for aging/copyright checks.")
+        if original_privacy == 'private':
+            item.status = "COMPLETED"
+            logger.info("[OK] Video uploaded directly as PRIVATE. Status -> COMPLETED.")
+        else:
+            item.status = "VERIFYING"
+            logger.info("[WAIT] Upload Task Complete. Routing to VERIFYING queue for aging/copyright checks.")
 
     def verify_and_publish_video(self, db: Session, item_id: int):
         """

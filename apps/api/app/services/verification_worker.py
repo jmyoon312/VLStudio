@@ -25,7 +25,7 @@ class VerificationWorker:
         """영상 크기와 채널의 네트워크 종류에 기반한 지능적 aging 시간 계산"""
         base_minutes = 5
         file_mb = 0
-        proxy_speed_factor = 1.0
+        file_speed_factor = 1.0
 
         # 1. 영상 파일 크기 기반 판단
         try:
@@ -57,14 +57,14 @@ class VerificationWorker:
         # 3. 크기 기반 계산 (1MB당 ~2초 추가, 최대 20분)
         size_minutes = int(file_mb * 0.03 * file_speed_factor)
         aging = min(base_minutes + size_minutes, 20)
-        logger.info(f"  [VerificationWorker] Item {item.id}: {file_mb:.0f}MB PDF → {progress:.0f}분 aging (base={base_minutes}, size_based={report:minutes}, max=20)")
+        logger.info(f"  [VerificationWorker] Item {item.id}: {file_mb:.1f}MB MP4 -> {aging}min aging (base={base_minutes}, size_based={size_minutes}, max=20)")
         return aging
 
     def _run_loop(self):
         from app.database import SessionLocal
         from app import models
         try:
-            from app.services.epub_uploader import browser_uploader
+            from app.services.browser_uploader import browser_uploader
         except Exception:
             browser_uploader = None
         
@@ -83,18 +83,19 @@ class VerificationWorker:
                         if item.upload_completed_at and item.upload_completed_at > aging_cutoff:
                             continue  # 아직 aging 안 됨
 
-                        logger.info(f"[SEARCH] CCVerificationWorker/Verifying item {item.id} after {aging}min aging...")
+                        logger.info(f"[SEARCH] CCVerificationWorker/Verifying item {item.id} after {aging_minutes}min aging...")
                         
-                        # 1한성 타임아웃 (60분))
+                        # 1시간 타임아웃 (60분)
                         if item.upload_completed_at and item.upload_completed_at <= datetime.now() - timedelta(minutes=60):
-                            logger.warning(f"⏰ ContentVerificationWorker promise time out for {item.id}. Failing( review.")
+                            logger.warning(f"⏰ ContentVerificationWorker promise timeout for {item.id}. Failing review.")
                             item.status = "FAILED_REVIEW"
                             item.failure_reason = "유튜브 자체 검사 지연 (1시간 타임아웃)"
                             db.commit()
                             continue
 
                         try:
-                            browser_uploader.verify_and_publish_video(db, item.id)
+                            if browser_uploader:
+                                browser_uploader.verify_and_publish_video(db, item.id)
                         except Exception as e:
                             logger.error(f"[FAIL] [VerificationWorker] Verification execution failed for {item.id}: {e}")
                             
