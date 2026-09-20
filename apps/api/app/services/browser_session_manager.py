@@ -336,7 +336,7 @@ class BrowserSessionManager:
 
             time.sleep(2)
             try:
-                page.wait_for_selector('#create-icon, text="만들기", text="Create"', timeout=15000)
+                page.wait_for_selector('#create-icon, button:has-text("만들기"), button:has-text("Create"), [aria-label*="만들기"], [aria-label*="Create"], #upload-button', timeout=15000)
             except Exception:
                 logger.warning("Dashboard elements not found after goto, continuing...")
 

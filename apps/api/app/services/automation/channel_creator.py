@@ -42,7 +42,7 @@ class ChannelCreator:
                         self.stealth.safe_click(switch_btn)
                         self.stealth.human_delay(2, 3)
 
-                        all_ch_btn = page.locator('a[href*="channel_switcher"], text=모든 채널 보기, text=View all channels').first
+                        all_ch_btn = page.locator('a[href*="channel_switcher"], :text("모든 채널 보기"), :text("View all channels"), ytd-compact-link-renderer:has-text("모든 채널 보기")').first
                         if all_ch_btn.is_visible():
                             self.stealth.safe_click(all_ch_btn)
                             self.stealth.human_delay(2, 4)

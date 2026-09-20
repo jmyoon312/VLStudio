@@ -173,9 +173,15 @@ class BrowserUploader:
         logger.info(f"[WAIT] Waiting for Studio Dashboard ({wait_time:.1f}s human pause)...")
         time.sleep(wait_time)
 
-        # 0. Wait for Dashboard or Create Button
+        # 0. Wait for Dashboard or Create / Upload Button
         try:
-            create_btn = page.locator('#create-icon, text="만들기", text="Create"').first
+            create_btn_sel = (
+                '#create-icon, button:has-text("만들기"), button:has-text("Create"), '
+                '[aria-label*="만들기"], [aria-label*="Create"], '
+                'ytcp-button:has-text("만들기"), ytcp-button:has-text("Create"), '
+                '#upload-button, button:has-text("동영상 업로드"), button:has-text("Upload videos")'
+            )
+            create_btn = page.locator(create_btn_sel).first
             create_btn.wait_for(state='visible', timeout=45000)
             logger.info("[OK] Studio Dashboard Loaded (Secure Session)")
         except Exception as e:
@@ -185,13 +191,26 @@ class BrowserUploader:
 
         # 1. Click Create -> Upload
         try:
-            logger.info("🖱️ Click: Create Button")
-            create_btn.click(force=True)
-            time.sleep(1)
+            file_input = page.locator('input[type="file"]').first
+            upload_dialog = page.locator('ytcp-uploads-dialog').first
 
-            upload_menu = page.locator('#text-item-0, text="동영상 업로드", text="Upload videos"').first
-            upload_menu.wait_for(state='visible', timeout=10000)
-            upload_menu.click(force=True)
+            if not (upload_dialog.is_visible() or file_input.is_visible()):
+                logger.info("🖱️ Click: Create / Upload Button")
+                create_btn.click(force=True)
+                time.sleep(1)
+
+                if not (upload_dialog.is_visible() or file_input.is_visible()):
+                    upload_menu_sel = (
+                        '#text-item-0, tp-yt-paper-item:has-text("동영상 업로드"), tp-yt-paper-item:has-text("Upload videos"), '
+                        'ytcp-text-menu tp-yt-paper-item, [aria-label*="업로드"], [aria-label*="Upload"]'
+                    )
+                    upload_menu = page.locator(upload_menu_sel).first
+                    try:
+                        upload_menu.wait_for(state='visible', timeout=10000)
+                        logger.info("🖱️ Click: Upload Menu Item")
+                        upload_menu.click(force=True)
+                    except Exception:
+                        logger.warning("Upload menu item not visible, checking if upload dialog opened directly")
 
             # 2. Upload File
             logger.info(f"📂 Uploading: {item.video_file_path}")

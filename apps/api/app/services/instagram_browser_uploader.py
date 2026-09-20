@@ -80,7 +80,7 @@ class InstagramBrowserUploader:
             share_btn.click()
             
             # Wait for "Your post has been shared." message
-            success_msg = page.locator('text="Your reel has been shared.", text="릴스가 공유되었습니다."').first
+            success_msg = page.locator(':text("Your reel has been shared."), :text("릴스가 공유되었습니다.")').first
             success_msg.wait_for(state="visible", timeout=120000)
             
             logger.info("[OK] Instagram Upload Complete")
