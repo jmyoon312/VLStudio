@@ -175,14 +175,8 @@ class BrowserUploader:
 
         # 0. Wait for Dashboard or Create / Upload Button
         try:
-            create_btn_sel = (
-                '#create-icon, button:has-text("만들기"), button:has-text("Create"), '
-                '[aria-label*="만들기"], [aria-label*="Create"], '
-                'ytcp-button:has-text("만들기"), ytcp-button:has-text("Create"), '
-                '#upload-button, button:has-text("동영상 업로드"), button:has-text("Upload videos")'
-            )
-            create_btn = page.locator(create_btn_sel).first
-            create_btn.wait_for(state='visible', timeout=45000)
+            studio_indicator = page.locator('#upload-icon, #upload-button, #create-icon, button:has-text("만들기"), button:has-text("Create")').first
+            studio_indicator.wait_for(state='visible', timeout=45000)
             logger.info("[OK] Studio Dashboard Loaded (Secure Session)")
         except Exception as e:
             if "signin" in page.url or "accounts.google" in page.url:
@@ -195,22 +189,21 @@ class BrowserUploader:
             upload_dialog = page.locator('ytcp-uploads-dialog').first
 
             if not (upload_dialog.is_visible() or file_input.is_visible()):
-                logger.info("🖱️ Click: Create / Upload Button")
-                create_btn.click(force=True)
-                time.sleep(1)
+                # Try direct upload icon / button first (fast path)
+                direct_btn = page.locator('#upload-icon, #upload-button, [aria-label*="동영상 업로드"], [aria-label*="Upload videos"]').first
+                if direct_btn.count() > 0 and direct_btn.is_visible():
+                    logger.info("🖱️ Click: Direct Upload Button/Icon")
+                    direct_btn.evaluate("el => el.click()")
+                else:
+                    logger.info("🖱️ Click: Create Button")
+                    create_btn = page.locator('#create-icon, button:has-text("만들기"), button:has-text("Create"), [aria-label*="만들기"], [aria-label*="Create"]').first
+                    create_btn.evaluate("el => el.click()")
+                    time.sleep(1)
 
-                if not (upload_dialog.is_visible() or file_input.is_visible()):
-                    upload_menu_sel = (
-                        '#text-item-0, tp-yt-paper-item:has-text("동영상 업로드"), tp-yt-paper-item:has-text("Upload videos"), '
-                        'ytcp-text-menu tp-yt-paper-item, [aria-label*="업로드"], [aria-label*="Upload"]'
-                    )
-                    upload_menu = page.locator(upload_menu_sel).first
-                    try:
-                        upload_menu.wait_for(state='visible', timeout=10000)
+                    upload_menu = page.locator('#text-item-0, tp-yt-paper-item:has-text("동영상 업로드"), tp-yt-paper-item:has-text("Upload videos"), [aria-label*="업로드"]').first
+                    if upload_menu.is_visible(timeout=5000):
                         logger.info("🖱️ Click: Upload Menu Item")
-                        upload_menu.click(force=True)
-                    except Exception:
-                        logger.warning("Upload menu item not visible, checking if upload dialog opened directly")
+                        upload_menu.evaluate("el => el.click()")
 
             # 2. Upload File
             logger.info(f"📂 Uploading: {item.video_file_path}")
@@ -233,47 +226,36 @@ class BrowserUploader:
             # --- Title ---
             logger.info("✍️ Writing Title...")
             title_input = page.locator('#title-textarea #textbox, div[aria-label*="제목"] #textbox, #textbox').first
-            title_input.wait_for(state='attached', timeout=15000)
-            if title_input.count() > 0:
-                title_input.fill("", force=True)
-                time.sleep(0.3)
-                title_input.type(item.title, delay=random.randint(25, 60))
-            else:
-                raise Exception("Title input not found")
+            title_input.wait_for(state='visible', timeout=15000)
+            title_input.click()
+            page.keyboard.press("Control+A")
+            page.keyboard.press("Backspace")
+            title_input.type(item.title, delay=random.randint(20, 45))
 
             # --- Description ---
             logger.info("✍️ Writing Description...")
             desc_input = page.locator('#description-textarea #textbox, div[aria-label*="설명"] #textbox, div[aria-label*="description"] #textbox').first
-            try:
-                desc_input.wait_for(state='attached', timeout=5000)
-            except Exception:
-                pass
-
-            if desc_input.count() > 0:
+            if desc_input.count() > 0 and desc_input.is_visible():
                 description = item.description or ""
                 if item.hashtags:
                     tags_str = " ".join(item.hashtags) if isinstance(item.hashtags, list) else str(item.hashtags)
                     description += f"\n\n{tags_str} "
 
-                desc_input.fill("", force=True)
-                time.sleep(0.3)
+                desc_input.click()
+                page.keyboard.press("Control+A")
+                page.keyboard.press("Backspace")
 
                 first_part = description[:80]
                 rest_part = description[80:]
                 if first_part:
-                    desc_input.type(first_part, delay=random.randint(20, 50))
+                    desc_input.type(first_part, delay=random.randint(15, 35))
                 if rest_part:
                     desc_input.type(rest_part, delay=0)
 
-                # Close any hashtag autocomplete popup
-                try:
-                    page.locator('text="세부정보", text="Details"').first.click(force=True)
-                except Exception:
-                    pass
                 page.keyboard.press('Escape')
                 time.sleep(0.5)
             else:
-                logger.warning("[WARN] Description input not found")
+                logger.warning("[WARN] Description input not found or not visible")
 
             # --- Shorts Custom Thumbnail Upload (2026 YouTube Desktop Feature) ---
             logger.info("🖼️ Checking Shorts Thumbnail...")
@@ -287,7 +269,7 @@ class BrowserUploader:
                         logger.info("[OK] Custom Shorts Thumbnail attached via file input")
                         time.sleep(1)
                     else:
-                        upload_thumb_btn = page.locator('text="파일 업로드", text="Upload file"').first
+                        upload_thumb_btn = page.locator(':text("파일 업로드"), :text("Upload file"), #upload-button, button:has-text("파일 업로드")').first
                         if upload_thumb_btn.is_visible(timeout=2000):
                             with page.expect_file_chooser(timeout=4000) as fc_info:
                                 upload_thumb_btn.click()
@@ -300,20 +282,9 @@ class BrowserUploader:
 
             # --- Audience (Not Made for Kids) ---
             logger.info("👶 Setting Audience (Not Made for Kids)...")
-            # Step A: Scroll the dialog container down so Audience section enters the view
-            try:
-                page.locator('#dialog-scrollable-container').evaluate("el => { el.scrollTop += 650; }")
-                time.sleep(0.5)
-            except Exception as sc_e:
-                logger.warning(f"Dialog scroll warning: {sc_e}")
-
-            # Step B: Click Not Made For Kids radio button using Polymer custom element
             try:
                 not_kids_selector = 'tp-yt-paper-radio-button[name="VIDEO_MADE_FOR_KIDS_NOT_MFK"], [name="VIDEO_MADE_FOR_KIDS_NOT_MFK"]'
                 not_kids_btn = page.locator(not_kids_selector).first
-                if not not_kids_btn.is_visible(timeout=3000):
-                    not_kids_btn = page.locator('text="아니요, 아동용이 아닙니다", text="No, it\'s not made for kids", text="아동용이 아닙니다"').first
-
                 if not_kids_btn.count() > 0:
                     not_kids_btn.evaluate("node => { node.scrollIntoView({ block: 'center', inline: 'center' }); node.click(); }")
                     logger.info("[OK] Selected: Not Made for Kids (JS DOM Click)")
@@ -398,7 +369,7 @@ class BrowserUploader:
 
             # Step 3: Checks -> Visibility
             try:
-                if page.locator('text="검사가 완료되었습니다", text="Checks complete"').first.is_visible(timeout=3000):
+                if page.locator(':text("검사가 완료되었습니다"), :text("Checks complete")').first.is_visible(timeout=3000):
                     logger.info("[OK] Checks complete. No copyright or policy issues.")
             except Exception:
                 pass
@@ -417,17 +388,18 @@ class BrowserUploader:
 
             # Always click Private for initial upload (Safe Sovereign Shield policy)
             try:
-                page.locator('tp-yt-paper-radio-button[name="PRIVATE"]').first.click(force=True, timeout=10000)
+                private_radio = page.locator('tp-yt-paper-radio-button[name="PRIVATE"], #privacy-radios-private').first
+                private_radio.evaluate("node => node.click()")
             except Exception:
                 try:
-                    page.locator('#privacy-radios-private').first.click(force=True, timeout=5000)
+                    page.locator('tp-yt-paper-radio-button[name="PRIVATE"]').first.click(force=True, timeout=5000)
                 except Exception:
-                    page.locator('text="비공개", text="Private"').first.click(force=True, timeout=5000)
+                    page.locator(':text("비공개"), :text("Private")').first.click(force=True, timeout=5000)
             logger.info(f"🔒 Selected PRIVATE (Original was {original_privacy} - deferred to Verification Worker)")
 
             # Final Click: Save / Publish
             logger.info("🚀 Clicking Done / Publish...")
-            done_btn = page.locator('#done-button').first
+            done_btn = page.locator('#done-button, #save-button').first
             done_btn.wait_for(state='visible', timeout=10000)
             done_btn.evaluate("node => node.click()")
 
