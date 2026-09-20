@@ -2,6 +2,8 @@ import logging
 import time
 import os
 import random
+import subprocess
+from typing import Optional
 from sqlalchemy.orm import Session
 
 # [Core Infrastructure]
@@ -11,22 +13,65 @@ from app.services.adb_service import adb_service
 
 logger = logging.getLogger(__name__)
 
+
+def extract_shorts_thumbnail(video_path: str, thumbnail_path: Optional[str] = None) -> Optional[str]:
+    """
+    유튜브 쇼츠용 맞춤 썸네일을 반환하거나, 없을 경우 비디오의 0.8초(가장 강력한 후킹 씬) 프레임을
+    FFmpeg를 통해 고화질 JPEG로 자동 추출합니다.
+    """
+    if thumbnail_path and os.path.exists(thumbnail_path):
+        return thumbnail_path
+
+    if not video_path or not os.path.exists(video_path):
+        return None
+
+    try:
+        from app.config import discover_ffmpeg
+        ffmpeg_bin = discover_ffmpeg()
+
+        base, _ = os.path.splitext(video_path)
+        out_thumb = f"{base}_thumb.jpg"
+
+        if os.path.exists(out_thumb) and os.path.getsize(out_thumb) > 1024:
+            return out_thumb
+
+        cmd = [
+            ffmpeg_bin, "-y",
+            "-ss", "00:00:00.800",
+            "-i", video_path,
+            "-vframes", "1",
+            "-q:v", "2",
+            out_thumb
+        ]
+        res = subprocess.run(cmd, capture_output=True, timeout=15)
+        if os.path.exists(out_thumb) and os.path.getsize(out_thumb) > 1024:
+            logger.info(f"📸 [Thumb] Auto-extracted Shorts hook thumbnail: {out_thumb}")
+            return out_thumb
+        else:
+            logger.warning(f"[Thumb] FFmpeg thumbnail extract failed: {res.stderr.decode('utf-8', errors='ignore')[:200]}")
+    except Exception as e:
+        logger.warning(f"[Thumb] Failed to extract shorts thumbnail: {e}")
+    return None
+
+
 class BrowserUploader:
     """
     Advanced Browser Automation for YouTube Uploads (Patchright Version).
     Leverages BrowserSessionManager for 'Secure Connection' and 'IP Rotation'.
     """
-    
+
     def __init__(self):
         self.session_manager = BrowserSessionManager()
+        self.default_headless_mode = True
 
     def upload_video(self, db: Session, item_id: int, force_ip_rotation: bool = False):
         """
         Orchestrates the Upload Flow:
         1. Secure Browser Launch (via SessionManager)
-        2. Navigate to Studio
-        3. Upload & Metadata Fill
-        4. Publish
+        2. Direct Navigate to Studio (Zero home feed delay)
+        3. Upload & Metadata Fill (Custom Thumbnails, Audience, 2026 Policy)
+        4. Publish to Private for verification
+        5. Guaranteed browser cleanup via finally block
         """
         item = db.query(models.WorkQueueItem).filter(models.WorkQueueItem.id == item_id).first()
         if not item:
@@ -34,10 +79,10 @@ class BrowserUploader:
             return
 
         logger.info(f"[FALLBACK] Starting Browser Automation for: {item.title}")
-        
+
         # Resolve Channel ID
         yt_config = item.platform_configs.get('youtube', {})
-        channel_id = yt_config.get('channel_id')
+        channel_id = yt_config.get('channel_id') or item.channel_id
         if not channel_id:
             msg = "Channel ID missing in configs"
             logger.error(msg)
@@ -58,14 +103,18 @@ class BrowserUploader:
 
         # 1. Launch Secure Browser (IP Rotation handled inside)
         try:
-            # [Smart Rotation] Use flag passed from worker
             rotate_decision = force_ip_rotation
-            headless_mode = yt_config.get('headless_mode', False)
+            # Headless Mode Resolution (Respects global toggle & item override)
+            item_headless = yt_config.get('headless_mode')
+            if item_headless is not None:
+                headless_mode = bool(item_headless)
+            else:
+                headless_mode = getattr(self, 'default_headless_mode', True)
             logger.info(f"🛡️ IP Rotation Policy: {'ROTATE' if rotate_decision else 'STICKY'} (Force={force_ip_rotation}) | Headless={headless_mode}")
 
-            # [Pre-Upload Warmup] Human Behavior Buffer (15-30s natural home feed activity)
-            # Avoids "Upload-Only Ghost Bot" fingerprint by browsing YouTube home before navigating to Studio
-            skip_pre_warmup = yt_config.get('skip_pre_upload_warmup', False)
+            # [Direct Studio Launch]
+            # Default to True so uploads navigate straight to YouTube Studio without wasting time on home feed
+            skip_pre_warmup = yt_config.get('skip_pre_upload_warmup', True)
             initial_url = "https://studio.youtube.com/" if skip_pre_warmup else "https://www.youtube.com/"
 
             page = self.session_manager._launch_orchestrator(
@@ -80,13 +129,11 @@ class BrowserUploader:
             if not skip_pre_warmup:
                 logger.info("🎬 [Pre-Upload Warmup] Simulating natural user behavior on YouTube Home before upload...")
                 try:
-                    time.sleep(random.uniform(3.0, 5.0))
-                    # Natural scroll on home feed
+                    time.sleep(random.uniform(2.0, 3.5))
                     for _ in range(random.randint(1, 2)):
                         page.mouse.wheel(0, int(random.gauss(300, 100)))
-                        time.sleep(random.uniform(1.5, 3.0))
+                        time.sleep(random.uniform(1.0, 2.0))
                     
-                    # Transition to Studio like a human clicking Studio or navigating
                     logger.info("🎬 [Pre-Upload Warmup] Transitioning to YouTube Studio for upload...")
                     page.goto("https://studio.youtube.com/", wait_until="domcontentloaded")
                 except Exception as w_e:
@@ -95,37 +142,38 @@ class BrowserUploader:
 
             target_page = page
 
-            # Browser is now open at Studio dashboard (or target URL)
+            # Browser is now open at Studio dashboard
             self._execute_upload_flow(target_page, item, db)
-            
+
             logger.info(f"[OK] Upload Task Complete. Final status: {item.status}")
             db.commit()
-            
+
         except Exception as e:
             logger.error(f"[FAIL] Browser Automation Failed: {e}")
             item.status = "FAILED"
             item.failure_reason = f"Browser Error: {str(e)}"
             db.commit()
+        finally:
+            # 🧹 [Guaranteed Browser Teardown]
+            # Always close the browser session cleanly on completion or failure
+            logger.info(f"🧹 [Browser Cleanup] Closing browser session for channel: {channel_id}")
+            try:
+                self.session_manager.close_session(channel_id)
+            except Exception as close_e:
+                logger.warning(f"Browser close cleanup soft warning: {close_e}")
 
     def _execute_upload_flow(self, page, item: models.WorkQueueItem, db: Session):
         """
-        Robust Upload Flow (Fast Path + Localized Selectors)
+        Robust Upload Flow (Fast Path + Localized Selectors + Shorts Thumbnail + 2026 Options)
         """
-        # [Adjusted Timing] Safe Zone (3-5s) to bypass Identity Verification
-        wait_time = random.uniform(3.0, 5.0)
+        wait_time = random.uniform(2.0, 3.5)
         logger.info(f"[WAIT] Waiting for Studio Dashboard ({wait_time:.1f}s human pause)...")
-        time.sleep(wait_time) 
-        
-        # [Simplified Launch] Direct wait for Dashboard or Create Button
+        time.sleep(wait_time)
+
+        # 0. Wait for Dashboard or Create Button
         try:
-            # Wait for either the Create button OR the dashboard URL
-            create_btn = page.locator('#create-icon').first
-            if not create_btn.is_visible():
-                create_btn = page.locator('text="만들기"').first
-            if not create_btn.is_visible():
-                create_btn = page.locator('text="Create"').first
-                
-            create_btn.wait_for(state='visible', timeout=60000)
+            create_btn = page.locator('#create-icon, text="만들기", text="Create"').first
+            create_btn.wait_for(state='visible', timeout=45000)
             logger.info("[OK] Studio Dashboard Loaded (Secure Session)")
         except Exception as e:
             if "signin" in page.url or "accounts.google" in page.url:
@@ -137,201 +185,209 @@ class BrowserUploader:
             logger.info("🖱️ Click: Create Button")
             create_btn.click(force=True)
             time.sleep(1)
-            
-            upload_menu = page.locator('#text-item-0').first
-            if not upload_menu.is_visible():
-                upload_menu = page.locator('text="동영상 업로드"').first
-            if not upload_menu.is_visible():
-                upload_menu = page.locator('text="Upload videos"').first
-                
-            if upload_menu.is_visible():
-                upload_menu.click(force=True)
-            else:
-                raise Exception("Could not find 'Upload videos' menu item")
-                
+
+            upload_menu = page.locator('#text-item-0, text="동영상 업로드", text="Upload videos"').first
+            upload_menu.wait_for(state='visible', timeout=10000)
+            upload_menu.click(force=True)
+
             # 2. Upload File
             logger.info(f"📂 Uploading: {item.video_file_path}")
-            # Wait for any potential overlay
-            time.sleep(2)
-            
+            time.sleep(1.5)
+
             file_input = page.locator('input[type="file"]').first
-            file_input.wait_for(state="attached", timeout=10000)
+            file_input.wait_for(state="attached", timeout=15000)
             file_input.set_input_files(item.video_file_path)
-            
+
         except Exception as e:
             raise Exception(f"File upload interaction failed: {e}")
-        
-        # 3. Meticulous Metadata Entry (Fast Path)
+
+        # 3. Meticulous Metadata Entry
         try:
+            logger.info("✍️ Waiting for Upload Dialog...")
+            upload_dialog = page.locator('ytcp-uploads-dialog').first
+            upload_dialog.wait_for(state='attached', timeout=60000)
+            time.sleep(1.5)
+
             # --- Title ---
             logger.info("✍️ Writing Title...")
-            page.locator('ytcp-uploads-dialog').first.wait_for(state='attached', timeout=60000)
-            time.sleep(1)
-            
-            title_input = page.locator('#textbox').first
-            try:
-                title_input.wait_for(state='attached', timeout=10000)
-            except:
-                title_input = page.locator('#title-textarea #textbox').first
-                try:
-                    title_input.wait_for(state='attached', timeout=5000)
-                except:
-                    title_input = page.locator('div[aria-label*="제목"] #textbox').first
-                    title_input.wait_for(state='attached', timeout=5000)
-            
+            title_input = page.locator('#title-textarea #textbox, div[aria-label*="제목"] #textbox, #textbox').first
+            title_input.wait_for(state='attached', timeout=15000)
             if title_input.count() > 0:
                 title_input.fill("", force=True)
-                time.sleep(0.5)
-                # Type title slowly to simulate human
-                title_input.type(item.title, delay=random.randint(50, 100))
+                time.sleep(0.3)
+                title_input.type(item.title, delay=random.randint(25, 60))
             else:
                 raise Exception("Title input not found")
 
             # --- Description ---
             logger.info("✍️ Writing Description...")
-            desc_input = page.locator('#description-textarea #textbox').first
+            desc_input = page.locator('#description-textarea #textbox, div[aria-label*="설명"] #textbox, div[aria-label*="description"] #textbox').first
             try:
-                desc_input.wait_for(state='attached', timeout=10000)
-            except:
-                desc_input = page.locator('div[aria-label*="설명"] textbox, div[aria-label*="description"] textbox').first
                 desc_input.wait_for(state='attached', timeout=5000)
-            
+            except Exception:
+                pass
+
             if desc_input.count() > 0:
                 description = item.description or ""
                 if item.hashtags:
-                     tags_str = " ".join(item.hashtags) if isinstance(item.hashtags, list) else str(item.hashtags)
-                     description += f"\n\n{tags_str} " # [FIX] 끝에 공백을 추가하여 해시태그 자동완성 창이 스스로 닫히도록 유도
-                
+                    tags_str = " ".join(item.hashtags) if isinstance(item.hashtags, list) else str(item.hashtags)
+                    description += f"\n\n{tags_str} "
+
                 desc_input.fill("", force=True)
-                time.sleep(0.5)
-                
-                # Human typing simulation for the first ~100 characters
-                first_part = description[:100]
-                rest_part = description[100:]
-                
+                time.sleep(0.3)
+
+                first_part = description[:80]
+                rest_part = description[80:]
                 if first_part:
-                    desc_input.type(first_part, delay=random.randint(30, 80))
+                    desc_input.type(first_part, delay=random.randint(20, 50))
                 if rest_part:
-                    time.sleep(random.uniform(0.5, 1.5))
-                    desc_input.type(rest_part, delay=0) # Fast paste for the rest
-                    
-                # 입력 후 포커스를 잃게 만들어 자동완성 드롭다운을 확실하게 닫음 (바탕이나 제목 클릭)
+                    desc_input.type(rest_part, delay=0)
+
+                # Close any hashtag autocomplete popup
                 try:
-                    page.locator('text="세부정보"').first.click(force=True)
-                except:
+                    page.locator('text="세부정보", text="Details"').first.click(force=True)
+                except Exception:
                     pass
                 page.keyboard.press('Escape')
                 time.sleep(0.5)
             else:
                 logger.warning("[WARN] Description input not found")
 
-            # --- Audience (Not Made for Kids) ---
-            logger.info("👶 Setting Audience...")
-            not_kids_btn = page.locator('text="아니요, 아동용이 아닙니다"').first
-            if not not_kids_btn.is_visible():
-                not_kids_btn = page.locator('text="No, it\'s not made for kids"').first
-                
-            if not_kids_btn.is_visible():
-                not_kids_btn.scroll_into_view_if_needed() # 스크롤을 내려서 팝업 잔상을 피함
-                time.sleep(0.5)
-                # Playwright의 click()이 <none>이나 드롭다운에 의해 계속 막히는 현상을 원천 차단하기 위해 JS DOM Click 사용
-                not_kids_btn.evaluate("node => node.click()") 
-            else:
-                logger.warning("[WARN] 'Not Made for Kids' button not found. Maybe already set?")
+            # --- Shorts Custom Thumbnail Upload (2026 YouTube Desktop Feature) ---
+            logger.info("🖼️ Checking Shorts Thumbnail...")
+            try:
+                thumb_file = extract_shorts_thumbnail(item.video_file_path, item.thumbnail_path)
+                if thumb_file and os.path.exists(thumb_file):
+                    logger.info(f"📸 Attaching Shorts thumbnail: {thumb_file}")
+                    thumb_input = page.locator('ytcp-thumbnails-compact input[type="file"], #file-loader, input[type="file"][accept*="image"]').first
+                    if thumb_input.count() > 0:
+                        thumb_input.set_input_files(thumb_file)
+                        logger.info("[OK] Custom Shorts Thumbnail attached via file input")
+                        time.sleep(1)
+                    else:
+                        upload_thumb_btn = page.locator('text="파일 업로드", text="Upload file"').first
+                        if upload_thumb_btn.is_visible(timeout=2000):
+                            with page.expect_file_chooser(timeout=4000) as fc_info:
+                                upload_thumb_btn.click()
+                            file_chooser = fc_info.value
+                            file_chooser.set_files(thumb_file)
+                            logger.info("[OK] Custom Shorts Thumbnail attached via file chooser")
+                            time.sleep(1)
+            except Exception as th_e:
+                logger.warning(f"Shorts thumbnail attach warning (non-fatal): {th_e}")
 
-            # --- Tags (Show More) ---
+            # --- Audience (Not Made for Kids) ---
+            logger.info("👶 Setting Audience (Not Made for Kids)...")
+            # Step A: Scroll the dialog container down so Audience section enters the view
+            try:
+                page.locator('#dialog-scrollable-container').evaluate("el => { el.scrollTop += 650; }")
+                time.sleep(0.5)
+            except Exception as sc_e:
+                logger.warning(f"Dialog scroll warning: {sc_e}")
+
+            # Step B: Click Not Made For Kids radio button using Polymer custom element
+            try:
+                not_kids_selector = 'tp-yt-paper-radio-button[name="VIDEO_MADE_FOR_KIDS_NOT_MFK"], [name="VIDEO_MADE_FOR_KIDS_NOT_MFK"]'
+                not_kids_btn = page.locator(not_kids_selector).first
+                if not not_kids_btn.is_visible(timeout=3000):
+                    not_kids_btn = page.locator('text="아니요, 아동용이 아닙니다", text="No, it\'s not made for kids", text="아동용이 아닙니다"').first
+
+                if not_kids_btn.count() > 0:
+                    not_kids_btn.evaluate("node => { node.scrollIntoView({ block: 'center', inline: 'center' }); node.click(); }")
+                    logger.info("[OK] Selected: Not Made for Kids (JS DOM Click)")
+                    time.sleep(0.5)
+                else:
+                    logger.warning("[WARN] 'Not Made for Kids' radio not found. Checking if preset.")
+            except Exception as aud_e:
+                logger.warning(f"Audience selection warning: {aud_e}")
+
+            # --- 2026 Altered Content / Show More Options ---
+            try:
+                altered_no = page.locator('tp-yt-paper-radio-button[name="ALTERED_CONTENT_NO"], [name="ALTERED_CONTENT_NO"]').first
+                if altered_no.is_visible(timeout=1500):
+                    altered_no.evaluate("node => node.click()")
+                    logger.info("[OK] Altered Content: Selected 'No'")
+            except Exception:
+                pass
+
+            # Expand 'Show More' (자세히 보기)
+            try:
+                show_more = page.locator('text="자세히 보기", text="Show more"').first
+                if show_more.is_visible(timeout=2000):
+                    show_more.evaluate("node => { node.scrollIntoView({ block: 'center' }); node.click(); }")
+                    time.sleep(1.0)
+            except Exception:
+                pass
+
+            # --- Tags ---
             if item.tags:
                 try:
                     logger.info("🏷️ Processing Tags...")
-                    # 따옴표를 제거하여 부분 일치(substring match)를 사용함으로써 텍스트 주변의 공백/줄바꿈 무시
-                    show_more = page.locator('text=자세히 보기').first
-                    if not show_more.is_visible():
-                        show_more = page.locator('text=Show more').first
-                    
-                    if show_more.is_visible():
-                        show_more.scroll_into_view_if_needed()
-                        show_more.evaluate("node => node.click()") # JS DOM Click
-                        time.sleep(1.5)
-                    
-                    tag_input = page.locator('#tags-container #text-input').first
-                    tag_input.wait_for(state='attached', timeout=10000)
-                    tag_input.scroll_into_view_if_needed()
-                    if tag_input.is_visible():
-                        tags_list = item.tags if isinstance(item.tags, list) else []
+                    tag_input = page.locator('#tags-container #text-input, input[aria-label*="태그"], input[aria-label*="Tags"]').first
+                    if tag_input.is_visible(timeout=3000):
+                        tags_list = item.tags if isinstance(item.tags, list) else [t.strip() for t in str(item.tags).split(',') if t.strip()]
                         tags_str = ",".join(tags_list)
-                        tag_input.type(tags_str, delay=50)
+                        tag_input.fill("")
+                        tag_input.type(tags_str, delay=20)
                         tag_input.press("Enter")
-                    else:
-                        logger.warning("[WARN] Tag input field not revealed.")
-                except Exception as e:
-                    logger.warning(f"Feature: Tags failed (Non-critical): {e}")
+                        logger.info(f"[OK] Tags applied: {tags_str[:50]}...")
+                except Exception as t_e:
+                    logger.warning(f"Tags non-critical warning: {t_e}")
+
+            # --- Shorts Remixing Option (Allow all remixing for max viral reach) ---
+            try:
+                remix_radio = page.locator('tp-yt-paper-radio-button[name="SHORT_REMIX_OPTION_ALLOW_ALL"], [name="SHORT_REMIX_OPTION_ALLOW_ALL"]').first
+                if remix_radio.is_visible(timeout=1500):
+                    remix_radio.evaluate("node => node.click()")
+            except Exception:
+                pass
 
         except Exception as e:
             logger.error(f"[FAIL] Metadata Entry Error: {e}")
             raise Exception(f"Metadata phase failed: {e}")
 
-        # [2026 Update] Handle potential A/B Testing / Collaborator popups before next
+        # Check for any disruptive popup
         try:
-            logger.info("🛡️ Checking for 2026 UI Feature Popups (A/B testing, Collaborators)...")
             close_popup = page.locator('button[aria-label="Close"], button[aria-label="닫기"]').filter(has_text="Close").first
             if close_popup.is_visible(timeout=2000):
                 close_popup.click()
-                logger.info("[OK] Closed a disruptive popup.")
         except Exception:
             pass
 
         # 4. Progression & Publish
-        logger.info("➡️ Finishing Upload Flow...")
+        logger.info("➡️ Progression & Publish Flow...")
         try:
+            def click_next_step(step_name: str):
+                logger.info(f"➡️ Transitioning: {step_name}")
+                btn = page.locator('#next-button').first
+                btn.wait_for(state='attached', timeout=30000)
+                try:
+                    page.wait_for_selector('#next-button:not([disabled])', timeout=30000)
+                except Exception:
+                    logger.warning(f"[WARN] Next button remained disabled for {step_name}, attempting click")
+                btn.evaluate("node => node.click()")
+                time.sleep(2)
+
             # Step 1: Details -> Video Elements
-            if next_btn.is_visible():
-                if not next_btn.is_enabled():
-                    logger.info("Next button disabled, waiting for processing to complete...")
-                    page.wait_for_selector('#next-button:not([disabled])', timeout=30000)
-                next_btn.click()
-                logger.info("[OK] Details -> Video Elements")
-            time.sleep(2)
-            
+            click_next_step("Details -> Video Elements")
+
             # Step 2: Video Elements -> Checks
-            next_btn = page.locator('#next-button').first
-            if next_btn.is_visible():
-                if not next_btn.is_enabled():
-                    time.sleep(2)
-                    page.wait_for_selector('#next-button:not([disabled])', timeout=30000)
-                next_btn.click()
-                logger.info("[OK] Video Elements -> Checks")
-            time.sleep(2)
-            
+            click_next_step("Video Elements -> Checks")
+
             # Step 3: Checks -> Visibility
             try:
-                checks_done = False
-                if page.locator('text="검사가 완료되었습니다"').first.is_visible() or \
-                   page.locator('text="Checks complete"').first.is_visible():
-                    checks_done = True
-                
-                if checks_done:
-                    logger.info("[OK] Checks Complete. No issues found.")
-                else:
-                    logger.warning("[WARN] Checks still processing or text not found. Proceeding anyway.")
-            except:
+                if page.locator('text="검사가 완료되었습니다", text="Checks complete"').first.is_visible(timeout=3000):
+                    logger.info("[OK] Checks complete. No copyright or policy issues.")
+            except Exception:
                 pass
-            
-            next_btn = page.locator('#next-button').first
-            if next_btn.is_visible():
-                if not next_btn.is_enabled():
-                    time.sleep(2)
-                    page.wait_for_selector('#next-button:not([disabled])', timeout=30000)
-                next_btn.click()
-                logger.info("[OK] Checks -> Visibility")
-            time.sleep(2)
-            
+
+            click_next_step("Checks -> Visibility")
+
             # [VISIBILITY LOGIC]
             logger.info("👁️ Setting Visibility (Forced Private for Verification)...")
-            
             yt_config = item.platform_configs.get('youtube', {})
             original_privacy = yt_config.get('privacy', 'private').lower()
-            
-            # [NEW] Backup original target privacy for the Verification Worker
+
             yt_config['final_privacy'] = original_privacy
             item.platform_configs['youtube'] = yt_config
             from sqlalchemy.orm.attributes import flag_modified
@@ -340,22 +396,24 @@ class BrowserUploader:
             # Always click Private for initial upload (Safe Sovereign Shield policy)
             try:
                 page.locator('tp-yt-paper-radio-button[name="PRIVATE"]').first.click(force=True, timeout=10000)
-            except:
+            except Exception:
                 try:
                     page.locator('#privacy-radios-private').first.click(force=True, timeout=5000)
-                except:
-                    page.locator('text="비공개"').first.click(force=True, timeout=5000)
+                except Exception:
+                    page.locator('text="비공개", text="Private"').first.click(force=True, timeout=5000)
             logger.info(f"🔒 Selected PRIVATE (Original was {original_privacy} - deferred to Verification Worker)")
-            
-            # Final Click
-            logger.info("[FALLBACK] Clicking Save/Publish...")
-            page.locator('#done-button').first.click(timeout=5000)
-            
+
+            # Final Click: Save / Publish
+            logger.info("🚀 Clicking Done / Publish...")
+            done_btn = page.locator('#done-button').first
+            done_btn.wait_for(state='visible', timeout=10000)
+            done_btn.evaluate("node => node.click()")
+
             # Wait for confirmation dialog (Video Link available)
             try:
-                page.locator('ytcp-video-share-dialog').first.wait_for(state='visible', timeout=15000)
-                
-                # Grab URL
+                share_dialog = page.locator('ytcp-video-share-dialog').first
+                share_dialog.wait_for(state='visible', timeout=20000)
+
                 uploaded_url = None
                 try:
                     link_node = page.locator('a.style-scope.ytcp-video-share-dialog').first
@@ -363,10 +421,10 @@ class BrowserUploader:
                         uploaded_url = link_node.get_attribute("href")
                         logger.info(f"🎉 Upload Success! URL: {uploaded_url}")
                         item.uploaded_urls = {'youtube': uploaded_url}
-                except:
-                    logger.info("URL logic extraction skipped.")
+                except Exception:
+                    pass
             except Exception as e:
-                logger.warning(f"[WARN] Share dialog did not appear (Timeout). Assuming upload succeeded. Error: {e}")
+                logger.warning(f"[WARN] Share dialog did not appear in time. Error: {e}")
 
         except Exception as e:
             raise Exception(f"Publishing phase failed: {e}")
@@ -374,7 +432,7 @@ class BrowserUploader:
         # [Status Update - Sovereign Publisher v4]
         # Always route to VERIFYING for the 10-minute aging and copyright check
         item.status = "VERIFYING"
-        item.upload_completed_at = __import__('datetime').datetime.now() # [NEW] Record private upload time
+        item.upload_completed_at = __import__('datetime').datetime.now()
         logger.info("[WAIT] Upload Task Complete. Routing to VERIFYING queue for aging/copyright checks.")
 
     def verify_and_publish_video(self, db: Session, item_id: int):

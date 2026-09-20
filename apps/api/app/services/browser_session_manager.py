@@ -50,6 +50,40 @@ class BrowserSessionManager:
         self._abort_event.set()
         self.close_session()
 
+    def close_session(self, profile_or_channel_id: Optional[str] = None):
+        """
+        특정 프로필/채널 또는 모든 활성 브라우저 세션을 안전하게 종료하고 리소스를 해제합니다.
+        """
+        with self._session_lock:
+            if not profile_or_channel_id:
+                keys = list(self._sessions.keys())
+                for k in keys:
+                    self._close_single_session_locked(k)
+                return
+
+            matched = False
+            for k in list(self._sessions.keys()):
+                if k == profile_or_channel_id or str(profile_or_channel_id) in str(k):
+                    self._close_single_session_locked(k)
+                    matched = True
+            
+            if not matched and len(self._sessions) == 1:
+                k = list(self._sessions.keys())[0]
+                self._close_single_session_locked(k)
+
+    def _close_single_session_locked(self, key: str):
+        page = self._sessions.pop(key, None)
+        if page:
+            try:
+                ctx = getattr(page, 'context', None)
+                if ctx:
+                    ctx.close()
+                else:
+                    page.close()
+                logger.info(f"🛑 [SessionManager] Browser session closed for {key}")
+            except Exception as e:
+                logger.warning(f"[SessionManager] Soft warning while closing session for {key}: {e}")
+
     def reset_abort(self):
         """중단 신호를 리셋합니다."""
         self._abort_event.clear()

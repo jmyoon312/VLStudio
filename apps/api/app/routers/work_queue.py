@@ -468,26 +468,31 @@ def create_queue_item(
         if not os.path.exists(item_data.video_file_path):
             raise HTTPException(404, f"Video file not found: {item_data.video_file_path}")
             
-        # [NEW] 파일 안전 복사 로직
-        settings = db.query(models.Settings).first()
-        safe_dir = os.path.join(settings.root_download_path if settings and settings.root_download_path else os.getcwd(), "work_queue_uploads")
-        os.makedirs(safe_dir, exist_ok=True)
+        norm_path = os.path.normpath(item_data.video_file_path).replace("\\", "/")
+        local_app = os.environ.get("LOCALAPPDATA", "")
+        official_exports_dir = os.path.normpath(os.path.join(local_app, "ViraLoop Studio", "media", "05_Exports")).replace("\\", "/")
         
-        # 고유한 파일명 생성
-        import shutil
-        import uuid
-        ext = os.path.splitext(item_data.video_file_path)[1]
-        safe_filename = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}{ext}"
-        safe_file_path = os.path.join(safe_dir, safe_filename)
-        
-        try:
-            shutil.copy2(item_data.video_file_path, safe_file_path)
-            logger.info(f"📁 Video safely copied to: {safe_file_path}")
-            # [HEVC Fix] 코덱 검사 및 자동 H.264 변환
-            safe_file_path = check_and_convert_video_to_h264(safe_file_path)
-        except Exception as e:
-            logger.error(f"Failed to copy video file: {e}")
+        # 공식 05_Exports 디렉토리에 이미 존재하는 렌더링 영상은 중복 복사 없이 원본 유지
+        if "05_exports" in norm_path.lower() or (official_exports_dir and official_exports_dir.lower() in norm_path.lower()):
+            logger.info(f"📁 [Official Storage] Using verified official export video: {item_data.video_file_path}")
             safe_file_path = item_data.video_file_path
+        else:
+            # 외부 로컬 파일인 경우 공식 업로드 영구 저장소로 안전 복사
+            upload_dir = _get_upload_dir()
+            import shutil
+            import uuid
+            ext = os.path.splitext(item_data.video_file_path)[1]
+            safe_filename = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}{ext}"
+            safe_file_path = os.path.join(upload_dir, safe_filename)
+            
+            try:
+                shutil.copy2(item_data.video_file_path, safe_file_path)
+                logger.info(f"📁 Video safely copied to official upload storage: {safe_file_path}")
+                # [HEVC Fix] 코덱 검사 및 자동 H.264 변환
+                safe_file_path = check_and_convert_video_to_h264(safe_file_path)
+            except Exception as e:
+                logger.error(f"Failed to copy video file: {e}")
+                safe_file_path = item_data.video_file_path
     elif is_discovery:
         # DISCOVERY: YouTube URL을 그대로 경로로 저장
         safe_file_path = item_data.video_file_path
@@ -837,10 +842,14 @@ def attach_video(
 
 
 def _get_upload_dir() -> str:
-    """작업 대기열 업로드 디렉토리 반환 (미존재 시 자동 생성)"""
+    """작업 대기열 업로드 디렉토리 반환 (공식 영구 런타임 저장소 단일 진실 공급원)"""
     date_str = datetime.now().strftime("%Y%m%d")
-    base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    upload_dir = os.path.join(base_dir, "media", "uploads", "work_queue", date_str)
+    local_app = os.environ.get("LOCALAPPDATA", "")
+    if local_app:
+        upload_dir = os.path.join(local_app, "ViraLoop Studio", "media", "uploads", "work_queue", date_str)
+    else:
+        from app.config import DEFAULT_MEDIA_ROOT
+        upload_dir = os.path.join(DEFAULT_MEDIA_ROOT, "uploads", "work_queue", date_str)
     os.makedirs(upload_dir, exist_ok=True)
     return upload_dir
 
@@ -1365,6 +1374,35 @@ def trigger_upload(item_id: int, db: Session = Depends(get_db)):
         "item_id": item_id,
         "mode": "native_queue"
     }
+
+
+@router.post("/toggle-headless")
+def toggle_headless_mode(
+    headless: bool = Query(True, description="True for background headless, False for visible window"),
+    db: Session = Depends(get_db)
+):
+    """작업 대기열 업로드 브라우저 창 표시 일괄 전환 (백그라운드 스텔스 / 화면 창 표시)"""
+    from app.services.browser_uploader import browser_uploader
+    browser_uploader.default_headless_mode = headless
+    
+    items = db.query(models.WorkQueueItem).filter(
+        models.WorkQueueItem.status.in_(["DRAFT", "PENDING", "QUEUED", "SCHEDULED_UPLOAD"])
+    ).all()
+    
+    from sqlalchemy.orm.attributes import flag_modified
+    updated_count = 0
+    for it in items:
+        configs = dict(it.platform_configs or {})
+        yt = dict(configs.get("youtube") or {})
+        yt["headless_mode"] = headless
+        configs["youtube"] = yt
+        it.platform_configs = configs
+        flag_modified(it, "platform_configs")
+        updated_count += 1
+    
+    db.commit()
+    logger.info(f"🖥️ [Headless Toggle] Browser window visibility updated: headless={headless} (Updated {updated_count} items)")
+    return {"success": True, "headless": headless, "updated_items": updated_count}
 
 
 # ... (Batch Classes) ...

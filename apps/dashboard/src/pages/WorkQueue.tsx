@@ -16,7 +16,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { PixelingImportDialog } from "@/components/PixelingImportDialog";
 import {
-    Plus, Upload, RefreshCw, Trash2, Edit, CheckCircle, XCircle, Clock,
+    Plus, Upload, RefreshCw, Trash2, Edit, CheckCircle, Check, XCircle, Clock,
     AlertTriangle, Shield, Play, FileText, ArrowRight, FolderOpen,
     Eye, EyeOff, Paperclip, Rocket, RotateCcw, FileVideo, Layers, Clock4,
     FileCheck, Hash, Files, Filter, ChevronDown, ChevronUp, Copy, Film,
@@ -99,6 +99,41 @@ const WorkQueue = () => {
     const [uploadMethodFilter, setUploadMethodFilter] = useState('all');
     const [sortField, setSortField] = useState<'created_at' | 'scheduled_at' | 'channel' | 'status'>('created_at');
     const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+
+    // 브라우저 창 표시/숨김 글로벌 토글 (채널 육성과 동일한 일괄 제어 UX)
+    const [showBrowserWindow, setShowBrowserWindow] = useState<boolean>(() => {
+        if (typeof window !== 'undefined') {
+            const saved = localStorage.getItem('vl_work_queue_browser_visible');
+            return saved !== null ? saved === 'true' : false; // 기본값: 백그라운드 스텔스 (창 꺼짐)
+        }
+        return false;
+    });
+
+    const handleToggleBrowserWindow = async (checked: boolean) => {
+        setShowBrowserWindow(checked);
+        if (typeof window !== 'undefined') {
+            localStorage.setItem('vl_work_queue_browser_visible', String(checked));
+        }
+        try {
+            const res = await fetchWithRetry(`/api/work-queue/toggle-headless?headless=${!checked}`, {
+                method: 'POST'
+            });
+            if (res.ok) {
+                toast({
+                    title: checked ? "🖥️ 브라우저 창 표시 켜짐" : "🛡️ 백그라운드 스텔스 모드 (창 숨김)",
+                    description: checked
+                        ? "영상 업로드 시 브라우저 화면이 표시되어 진행 상황을 직접 모니터링할 수 있습니다."
+                        : "영상 업로드 시 브라우저 창이 뜨지 않고 백그라운드에서 조용히 자동 실행됩니다."
+                });
+                loadQueueItems();
+            }
+        } catch (_) {
+            toast({
+                title: checked ? "🖥️ 창 표시 켜짐 (로컬)" : "🛡️ 창 숨김 (로컬)",
+                description: "브라우저 화면 표시 설정이 변경되었습니다."
+            });
+        }
+    };
 
     useEffect(() => {
         loadQueueItems();
@@ -517,6 +552,23 @@ const WorkQueue = () => {
                 </div>
 
                 <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto">
+                    {/* Browser Window Visibility Switch (채널 육성과 동일한 일괄 제어 UX) */}
+                    <div className="flex items-center gap-2 px-3 py-1 rounded-xl border border-border bg-card shadow-2xs text-xs shrink-0">
+                        <Switch
+                            id="wq-browser-visible-toggle"
+                            checked={showBrowserWindow}
+                            onCheckedChange={handleToggleBrowserWindow}
+                            className="scale-75"
+                        />
+                        <Label
+                            htmlFor="wq-browser-visible-toggle"
+                            className="text-xs cursor-pointer select-none font-medium flex items-center gap-1.5 text-foreground"
+                        >
+                            {showBrowserWindow ? <Eye className="w-3.5 h-3.5 text-blue-500 shrink-0" /> : <EyeOff className="w-3.5 h-3.5 text-muted-foreground shrink-0" />}
+                            <span>창 표시: <strong className={showBrowserWindow ? "text-blue-600 dark:text-blue-400 font-bold" : "text-muted-foreground font-normal"}>{showBrowserWindow ? "켜짐 (화면 표시)" : "꺼짐 (백그라운드)"}</strong></span>
+                        </Label>
+                    </div>
+
                     <Button onClick={() => setIsPixelingOpen(true)} className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-xs flex-1 sm:flex-initial">
                         <Layers className="w-3.5 h-3.5 mr-1.5" /> 픽셀링 제작물 등록
                     </Button>
@@ -641,7 +693,13 @@ const WorkQueue = () => {
             )}
 
             <VideoPlayerDialog isOpen={isPlayerOpen} setIsOpen={setIsPlayerOpen} item={playingItem} />
-            <AddVideoDialog isOpen={isAddDialogOpen} setIsOpen={setIsAddDialogOpen} onSuccess={() => { loadQueueItems(); loadStats(); setIsAddDialogOpen(false); }} initialData={editingItem} />
+            <AddVideoDialog
+                isOpen={isAddDialogOpen}
+                setIsOpen={setIsAddDialogOpen}
+                onSuccess={() => { loadQueueItems(); loadStats(); setIsAddDialogOpen(false); }}
+                initialData={editingItem}
+                showBrowserWindow={showBrowserWindow}
+            />
             <BulkImportDialog isOpen={showBulkImport} setIsOpen={setShowBulkImport} onSuccess={() => { loadQueueItems(); loadStats(); }} />
             {isPixelingOpen && (
                 <PixelingImportDialog isOpen={isPixelingOpen} setIsOpen={setIsPixelingOpen} onSuccess={() => { loadQueueItems(); loadStats(); }} />
@@ -968,7 +1026,19 @@ const parseFailureReason = (rawReason: string): ParsedFailureInfo => {
         };
     }
 
-    if (lower.includes('quota') || lower.includes('limit') || lower.includes('exceeded') || lower.includes('한도') || lower.includes('제한')) {
+    // 1. 브라우저 자동화 요소 탐색 및 폼 조작 타임아웃
+    if (lower.includes('scroll_into_view') || lower.includes('locator') || lower.includes('timeout') || lower.includes('wait_for') || lower.includes('did not match')) {
+        return {
+            platform: platformName,
+            title: `${platformName ? platformName + ' ' : ''}스튜디오 UI 요소 탐색 타임아웃`,
+            description: "유튜브 스튜디오 페이지의 폼 입력 요소(시청자층, 버튼 등) 탐색 중 시간 초과가 발생했습니다.",
+            actionGuide: "최신 유튜브 스튜디오 변경사항이 반영된 패치로 [즉시 재시도]를 눌러 다시 진행해 주세요.",
+            rawMessage: rawReason
+        };
+    }
+
+    // 2. 플랫폼 일일 업로드 한도
+    if (lower.includes('quota') || lower.includes('daily limit') || lower.includes('upload limit') || lower.includes('일일 업로드') || lower.includes('한도 초과')) {
         return {
             platform: platformName,
             title: `${platformName ? platformName + ' ' : ''}일일 업로드 한도 도달`,
@@ -988,7 +1058,7 @@ const parseFailureReason = (rawReason: string): ParsedFailureInfo => {
         };
     }
 
-    if (lower.includes('timeout') || lower.includes('network') || lower.includes('connect') || lower.includes('econnrefused')) {
+    if (lower.includes('network') || lower.includes('connect') || lower.includes('econnrefused')) {
         return {
             platform: platformName,
             title: "네트워크 연결 시간 초과",
@@ -1809,7 +1879,7 @@ const VideoPlayerDialog = ({ isOpen, setIsOpen, item }: any) => {
 
 
 
-const AddVideoDialog = ({ isOpen, setIsOpen, onSuccess, initialData }: any) => {
+const AddVideoDialog = ({ isOpen, setIsOpen, onSuccess, initialData, showBrowserWindow = false }: any) => {
     const { toast } = useToast();
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [channels, setChannels] = useState<any[]>([]);
@@ -1835,7 +1905,7 @@ const AddVideoDialog = ({ isOpen, setIsOpen, onSuccess, initialData }: any) => {
         upload_method: 'BROWSER_AUTO',
         target_platforms: ['youtube'],
         platform_configs: {
-            youtube: { channel_id: '', privacy: 'private', category: '22', made_for_kids: false, headless_mode: true },
+            youtube: { channel_id: '', privacy: 'private', category: '22', made_for_kids: false, headless_mode: !showBrowserWindow },
             tiktok: { account_id: '', privacy: 'private', allow_comments: true, allow_duet: true },
             instagram: { account_id: '', caption: '', share_to_feed: false }
         },
@@ -1902,8 +1972,10 @@ const AddVideoDialog = ({ isOpen, setIsOpen, onSuccess, initialData }: any) => {
             if (initialData) {
                 const pc = initialData.platform_configs || {};
                 const ytChanId = pc.youtube?.channel_id || initialData.channel_id || '';
+                const defaultHeadless = !showBrowserWindow;
+                const ytHeadless = pc.youtube?.headless_mode !== undefined ? pc.youtube.headless_mode : defaultHeadless;
                 const mergedConfigs = {
-                    youtube: { ...defaultForm.platform_configs.youtube, ...(pc.youtube || {}), channel_id: ytChanId },
+                    youtube: { ...defaultForm.platform_configs.youtube, ...(pc.youtube || {}), channel_id: ytChanId, headless_mode: ytHeadless },
                     tiktok: { ...defaultForm.platform_configs.tiktok, ...(pc.tiktok || {}) },
                     instagram: { ...defaultForm.platform_configs.instagram, ...(pc.instagram || {}) },
                 };
@@ -2115,7 +2187,7 @@ const AddVideoDialog = ({ isOpen, setIsOpen, onSuccess, initialData }: any) => {
 
         try {
             if (isEditing) {
-                // 기존 항목 수정: 절대 POST 하지 않고 PATCH로 원자적 업데이트
+                // 기존 항목 단순 수정: 상태를 변경하지 않고 메타데이터만 안전하게 업데이트
                 const r1 = await fetchWithRetry(`/api/work-queue/items/${initialData.id}`, {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
@@ -2125,34 +2197,10 @@ const AddVideoDialog = ({ isOpen, setIsOpen, onSuccess, initialData }: any) => {
                     const err = await r1.json();
                     throw new Error(err.detail || '항목 수정 실패');
                 }
-
-                // DRAFT 또는 PENDING 상태에서 즉시 등록 제출 시 QUEUED로 최종 확정(finalize)
-                if (initialData.status === 'DRAFT' || initialData.status === 'PENDING') {
-                    const r2 = await fetchWithRetry(`/api/work-queue/items/${initialData.id}/finalize`, {
-                        method: 'PATCH',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            approval_required: form.approval_required,
-                            upload_method: form.upload_method,
-                            target_platforms: selectedPlatforms,
-                            scheduled_upload_time: form.scheduleMode === 'scheduled' && form.scheduledTime ? form.scheduledTime : null,
-                        })
-                    });
-                    if (!r2.ok) {
-                        const err = await r2.json();
-                        throw new Error(err.detail || '대기열 등록 실패');
-                    }
-                    const f2 = await r2.json();
-                    toast({
-                        title: "대기열 등록 완료",
-                        description: f2.upload_queued ? "대기열 등록 및 백그라운드 자동 업로드가 시작되었습니다." : "대기열에 등록되었습니다."
-                    });
-                } else {
-                    toast({
-                        title: "수정 완료",
-                        description: `작업 #${initialData.id}의 정보가 안전하게 업데이트되었습니다.`
-                    });
-                }
+                toast({
+                    title: "변경사항 저장 완료",
+                    description: `작업 #${initialData.id}의 정보가 안전하게 업데이트되었습니다.`
+                });
             } else {
                 // 신규 항목 생성 (POST)
                 const r = await fetchWithRetry('/api/work-queue/items', {
@@ -2170,6 +2218,84 @@ const AddVideoDialog = ({ isOpen, setIsOpen, onSuccess, initialData }: any) => {
                     throw new Error(err.detail || '등록 실패');
                 }
             }
+
+            setIsOpen(false);
+            onSuccess();
+            setForm(defaultForm);
+        } catch (err: any) {
+            toast({ variant: "destructive", title: "처리 실패", description: err?.message || '서버 오류' });
+        }
+    };
+
+    const handleSaveAndFinalize = async () => {
+        if (!form.title.trim()) {
+            toast({ variant: "destructive", title: "필수", description: "제목을 입력해 주세요" });
+            return;
+        }
+
+        const isEditing = Boolean(initialData && initialData.id);
+        const alreadyHasVideo = isEditing && Boolean(initialData?.video_file_path);
+
+        if (!form.video_file_path.trim() && !alreadyHasVideo) {
+            toast({ variant: "destructive", title: "영상 파일 필요", description: "공식 저장소에서 영상을 선택하거나 로컬 파일을 첨부해 주세요" });
+            return;
+        }
+
+        const selectedPlatforms = form.target_platforms?.length ? form.target_platforms : ['youtube'];
+        if (selectedPlatforms.includes('youtube') && !form.platform_configs?.youtube?.channel_id) {
+            toast({ variant: "destructive", title: "채널 선택 필요", description: "YouTube 업로드 채널을 지정해 주세요" });
+            return;
+        }
+
+        const ytChan = form.platform_configs?.youtube?.channel_id || null;
+        const payload: any = {
+            title: form.title,
+            description: form.description,
+            tags: form.tags.split(',').map((t: string) => t.trim()).filter(Boolean),
+            hashtags: form.hashtags.split(/[ ,]+/).map((t: string) => t.startsWith('#') ? t : `#${t}`).filter((t: string) => t.length > 1),
+            video_file_path: form.video_file_path || initialData?.video_file_path || '',
+            source_external_id: form.source_external_id,
+            source_type: form.source_type,
+            target_platforms: selectedPlatforms,
+            platform_configs: form.platform_configs,
+            channel_id: ytChan,
+            upload_method: form.upload_method,
+            approval_required: false,
+            scheduled_upload_time: form.scheduleMode === 'scheduled' && form.scheduledTime ? form.scheduledTime : null,
+            enable_shopping_tag: form.enable_shopping_tag,
+            shopping_tag_keyword: form.shopping_tag_keyword,
+        };
+
+        try {
+            const r1 = await fetchWithRetry(`/api/work-queue/items/${initialData.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (!r1.ok) {
+                const err = await r1.json();
+                throw new Error(err.detail || '항목 수정 실패');
+            }
+
+            const r2 = await fetchWithRetry(`/api/work-queue/items/${initialData.id}/finalize`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    approval_required: false,
+                    upload_method: form.upload_method,
+                    target_platforms: selectedPlatforms,
+                    scheduled_upload_time: form.scheduleMode === 'scheduled' && form.scheduledTime ? form.scheduledTime : null,
+                })
+            });
+            if (!r2.ok) {
+                const err = await r2.json();
+                throw new Error(err.detail || '대기열 등록 실패');
+            }
+            const f2 = await r2.json();
+            toast({
+                title: "대기열 등록 완료",
+                description: f2.upload_queued ? "대기열 등록 및 백그라운드 자동 업로드가 시작되었습니다." : "대기열에 등록되었습니다."
+            });
 
             setIsOpen(false);
             onSuccess();
@@ -2701,13 +2827,36 @@ const AddVideoDialog = ({ isOpen, setIsOpen, onSuccess, initialData }: any) => {
                             >
                                 취소
                             </Button>
-                            <Button
-                                type="submit"
-                                className="h-8 text-xs bg-indigo-600 hover:bg-indigo-700 text-white font-bold gap-1.5 shadow-xs"
-                            >
-                                <Rocket className="w-3.5 h-3.5" />
-                                {initialData ? '수정 완료' : '대기열 즉시 등록'}
-                            </Button>
+                            {initialData ? (
+                                <>
+                                    <Button
+                                        type="submit"
+                                        variant="secondary"
+                                        className="h-8 text-xs font-semibold gap-1.5 border border-border"
+                                    >
+                                        <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                                        변경사항 저장
+                                    </Button>
+                                    {(initialData.status === 'DRAFT' || initialData.status === 'PENDING') && (
+                                        <Button
+                                            type="button"
+                                            onClick={handleSaveAndFinalize}
+                                            className="h-8 text-xs bg-indigo-600 hover:bg-indigo-700 text-white font-bold gap-1.5 shadow-xs"
+                                        >
+                                            <Rocket className="w-3.5 h-3.5" />
+                                            수정 후 대기열 즉시 등록
+                                        </Button>
+                                    )}
+                                </>
+                            ) : (
+                                <Button
+                                    type="submit"
+                                    className="h-8 text-xs bg-indigo-600 hover:bg-indigo-700 text-white font-bold gap-1.5 shadow-xs"
+                                >
+                                    <Rocket className="w-3.5 h-3.5" />
+                                    대기열 즉시 등록
+                                </Button>
+                            )}
                         </div>
                     </div>
                 </form>
