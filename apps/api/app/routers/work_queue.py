@@ -169,6 +169,7 @@ class WorkQueueItemUpdate(BaseModel):
     render_engine: Optional[str] = None
     status: Optional[str] = None
     scheduled_upload_time: Optional[datetime] = None
+    channel_id: Optional[str] = None
 
 
 class WorkQueueItemResponse(BaseModel):
@@ -308,6 +309,56 @@ def extract_shopping_keyword_api(
 
 
 from sqlalchemy import or_
+
+@router.get("/official-exports")
+def get_official_exports():
+    """
+    공식 영구 런타임 저장소(%LOCALAPPDATA%/ViraLoop Studio/media/05_Exports)의 
+    렌더링 완료 영상 목록을 최신순으로 반환합니다.
+    """
+    local_app = os.environ.get("LOCALAPPDATA", "")
+    official_dir = os.path.join(local_app, "ViraLoop Studio", "media", "05_Exports")
+    legacy_dir = os.path.join(os.getcwd(), "05_Exports")
+    
+    exports = []
+    seen_names = set()
+    
+    def scan_dir(target_dir: str, is_official: bool):
+        if not os.path.exists(target_dir):
+            return
+        try:
+            for root, _, files in os.walk(target_dir):
+                for f in files:
+                    if f.lower().endswith(('.mp4', '.mov', '.webm', '.mkv')):
+                        if f in seen_names:
+                            continue
+                        full_path = os.path.join(root, f)
+                        try:
+                            stat = os.stat(full_path)
+                            size_mb = round(stat.st_size / (1024 * 1024), 2)
+                            mtime = stat.st_mtime
+                            mtime_str = datetime.fromtimestamp(mtime).strftime("%Y-%m-%d %H:%M")
+                            seen_names.add(f)
+                            exports.append({
+                                "filename": f,
+                                "path": full_path.replace("\\", "/"),
+                                "size_mb": size_mb,
+                                "mtime": mtime,
+                                "mtime_str": mtime_str,
+                                "is_official": is_official
+                            })
+                        except Exception:
+                            pass
+        except Exception as e:
+            logger.warning(f"Error scanning exports dir {target_dir}: {e}")
+
+    scan_dir(official_dir, True)
+    scan_dir(legacy_dir, False)
+    
+    # 최신 수정 일시순 정렬
+    exports.sort(key=lambda x: x["mtime"], reverse=True)
+    return {"exports": exports, "official_dir": official_dir.replace("\\", "/")}
+
 
 @router.get("/batches")
 def get_batch_groups(db: Session = Depends(get_db)):
@@ -540,6 +591,18 @@ def update_queue_item(
     # 업데이트
     for key, value in update_data.dict(exclude_unset=True).items():
         setattr(item, key, value)
+    
+    # channel_id 및 platform_configs 상호 동기화 보장
+    if update_data.platform_configs:
+        yt_chan = (update_data.platform_configs.get("youtube") or {}).get("channel_id")
+        if yt_chan:
+            item.channel_id = yt_chan
+    elif update_data.channel_id:
+        configs = dict(item.platform_configs or {})
+        yt = dict(configs.get("youtube") or {})
+        yt["channel_id"] = update_data.channel_id
+        configs["youtube"] = yt
+        item.platform_configs = configs
     
     item.updated_at = datetime.now()
     db.commit()
@@ -1660,15 +1723,18 @@ def stream_video(path: str, request: Request):
         if os.path.exists(raw_path):
             cleaned_path = raw_path
         else:
-            # Fallback: 파일명만 넘어왔을 때 Downloads, Videos, Desktop 및 작업 경로에서 자동 탐색
+            # Fallback: 파일명만 넘어왔거나 경로가 변경되었을 때 공식 05_Exports 및 미디어 경로에서 자동 자가 치유(Self-Healing) 탐색
             filename = os.path.basename(cleaned_path)
+            local_app = os.environ.get("LOCALAPPDATA", "")
             candidate_dirs = [
+                os.path.join(local_app, "ViraLoop Studio", "media", "05_Exports"),
+                os.path.join(local_app, "ViraLoop Studio", "media", "work_queue_uploads"),
+                os.path.join(local_app, "ViraLoop Studio", "media", "07_Downloads"),
+                os.path.join(local_app, "ViraLoop Studio", "media", "02_Operations", "Temp"),
+                "c:\\ViraLoopMedia\\VLStudio\\05_Exports",
                 os.path.expanduser("~/Downloads"),
                 os.path.expanduser("~/Videos"),
                 os.path.expanduser("~/Desktop"),
-                "C:\\Users\\jmyoo\\Downloads",
-                "C:\\Users\\jmyoo\\Videos",
-                "C:\\Users\\jmyoo\\Desktop",
                 os.getcwd(),
             ]
             found = False

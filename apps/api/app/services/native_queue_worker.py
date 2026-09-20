@@ -97,17 +97,21 @@ class NativeQueueWorker:
             self._profile_first_use.add(profile_id)
             
             if item and item.source_type == "SOVEREIGN_AI":
-                logger.info(f"[FALLBACK] [NativeQueue] SOVEREIGN_AI mission for {item_id}")
-                try:
-                    import asyncio as aio
-                    production_result = aio.run(workflow_runner_singleton.execute_workflow_for_mission(db, item_id))
-                    logger.info(f"🎨 Production Success: {production_result.get('video_path')}")
-                except Exception as prod_err:
-                    logger.error(f"[FAIL] Production Failed: {prod_err}")
-                    item.status = "FAILED"
-                    item.failure_reason = f"Production Error: {str(prod_err)}"
-                    db.commit()
-                    return
+                has_valid_video = bool(item.video_file_path and os.path.exists(item.video_file_path))
+                if not has_valid_video:
+                    logger.info(f"[NativeQueue] SOVEREIGN_AI mission for {item_id} needs video production")
+                    try:
+                        import asyncio as aio
+                        production_result = aio.run(workflow_runner_singleton.execute_workflow_for_mission(db, item_id))
+                        logger.info(f"🎨 Production Success: {production_result.get('video_path')}")
+                    except Exception as prod_err:
+                        logger.error(f"[FAIL] Production Failed: {prod_err}")
+                        item.status = "FAILED"
+                        item.failure_reason = f"Production Error: {str(prod_err)}"
+                        db.commit()
+                        return
+                else:
+                    logger.info(f"✅ [NativeQueue] SOVEREIGN_AI mission {item_id} already has verified video: {item.video_file_path}")
 
             result = upload_orchestrator.process_item(db, item_id, task_instance=None, force_ip_rotation=should_rotate)
             logger.info(f"[OK] [NativeQueue] Finished item {item_id}: {result}")

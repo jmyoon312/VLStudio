@@ -404,7 +404,19 @@ const WorkQueue = () => {
         if (!item) return;
         const currentConfigs = item.platform_configs || {};
         const key = platform === 'youtube' ? 'channel_id' : 'account_id';
-        handleUpdateItem(itemId, { platform_configs: { ...currentConfigs, [platform]: { ...(currentConfigs[platform] || {}), [key]: value } } });
+        const currentPlatforms = Array.isArray(item.target_platforms) && item.target_platforms.length > 0
+            ? item.target_platforms
+            : ['youtube'];
+        const updatedPlatforms = currentPlatforms.includes(platform) ? currentPlatforms : [...currentPlatforms, platform];
+
+        const payload: any = {
+            target_platforms: updatedPlatforms,
+            platform_configs: { ...currentConfigs, [platform]: { ...(currentConfigs[platform] || {}), [key]: value } }
+        };
+        if (platform === 'youtube') {
+            payload.channel_id = value;
+        }
+        handleUpdateItem(itemId, payload);
     };
 
     const toggleItemSelection = (id: number) => setSelectedItems(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
@@ -1060,6 +1072,37 @@ const FailureReasonCard = ({ failureReason, onRetry }: { failureReason: string; 
     );
 };
 
+// === 주권 멀티라인 네트워크 회선 뱃지 렌더러 (LTE 1080~1089, 고정 ISP, 로컬 직결) ===
+const renderChannelNetworkBadge = (ch: any) => {
+    if (!ch) return null;
+    if (ch.bound_device_serial) {
+        return (
+            <span className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30 shrink-0">
+                📱 LTE ({ch.bound_device_serial})
+            </span>
+        );
+    }
+    if (ch.proxy_port && ch.proxy_port >= 1080 && ch.proxy_port <= 1089) {
+        return (
+            <span className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 shrink-0">
+                📱 모바일 포트 {ch.proxy_port}
+            </span>
+        );
+    }
+    if (ch.proxy_mode === 'MANUAL' || ch.proxy_host) {
+        return (
+            <span className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/30 shrink-0">
+                🌐 ISP 고정 {ch.proxy_port ? `(${ch.proxy_port})` : ''}
+            </span>
+        );
+    }
+    return (
+        <span className="inline-flex items-center gap-1 text-[9px] font-medium px-1.5 py-0.5 rounded bg-muted text-muted-foreground border border-border shrink-0">
+            🛡️ 로컬 단독 회선
+        </span>
+    );
+};
+
 const QueueItemCompactCard = ({
     index, item, onApprove, onReject, onDelete, onReset, onEdit, onPlay,
     onAttach, onFinalize, onUpdateUploadMethod, onUpdateChannel,
@@ -1127,14 +1170,16 @@ const QueueItemCompactCard = ({
 
     const getPlatformSummary = () => {
         const plats = item.target_platforms || [];
-        if (!plats.length) return <span className="text-muted-foreground">플랫폼 미지정</span>;
         const configs = item.platform_configs || {};
+        const ytChanId = configs.youtube?.channel_id || item.channel_id;
+        const ytChan = channels.find((c: any) => c.channel_id === ytChanId);
 
         return (
             <div className="flex flex-wrap items-center gap-1.5">
-                {plats.includes('youtube') && (
-                    <span className="inline-flex items-center text-[10px] font-medium bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800 rounded px-1.5 py-0.5">
-                        🎬 YT: {channels.find((c: any) => c.channel_id === configs.youtube?.channel_id)?.channel_name || configs.youtube?.channel_id || '채널 미선택'}
+                {(!plats.length || plats.includes('youtube')) && (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-medium bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800 rounded px-1.5 py-0.5">
+                        🎬 YT: {ytChan?.channel_name || ytChan?.title || ytChanId || '채널 미선택'}
+                        {renderChannelNetworkBadge(ytChan)}
                     </span>
                 )}
                 {plats.includes('tiktok') && (
@@ -1518,11 +1563,14 @@ const QueueItemCompactCard = ({
                                         </span>
                                         
                                         <div className="space-y-1.5">
-                                            {item.target_platforms?.includes('youtube') && (
-                                                <div className="p-1.5 rounded-lg bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/40 flex items-center justify-between gap-2">
-                                                    <span className="text-[11px] font-bold text-blue-700 dark:text-blue-300 shrink-0">🎬 YT</span>
+                                            {(!item.target_platforms || item.target_platforms.length === 0 || item.target_platforms.includes('youtube')) && (
+                                                <div className="p-1.5 rounded-lg bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/40 space-y-1">
+                                                    <div className="flex items-center justify-between">
+                                                        <span className="text-[11px] font-bold text-blue-700 dark:text-blue-300 shrink-0">🎬 YouTube 채널</span>
+                                                        {renderChannelNetworkBadge(channels.find((ch: any) => ch.channel_id === (item.platform_configs?.youtube?.channel_id || item.channel_id)))}
+                                                    </div>
                                                     <Select
-                                                        value={(item.platform_configs?.youtube?.channel_id) || ''}
+                                                        value={(item.platform_configs?.youtube?.channel_id || item.channel_id) || ''}
                                                         onValueChange={(v) => onUpdateChannel(item.id, 'youtube', v)}
                                                     >
                                                         <SelectTrigger className="h-6 text-[10px] bg-background border-border flex-1">
@@ -1531,7 +1579,10 @@ const QueueItemCompactCard = ({
                                                         <SelectContent>
                                                             {channels.map((ch: any) => (
                                                                 <SelectItem key={ch.channel_id} value={ch.channel_id}>
-                                                                    {ch.channel_name || ch.title} ({ch.subscriber_count?.toLocaleString()}명)
+                                                                    <div className="flex items-center justify-between gap-2 w-full text-[10px]">
+                                                                        <span className="truncate">{ch.channel_name || ch.title} ({ch.subscriber_count?.toLocaleString()}명)</span>
+                                                                        {renderChannelNetworkBadge(ch)}
+                                                                    </div>
                                                                 </SelectItem>
                                                             ))}
                                                         </SelectContent>
@@ -1764,28 +1815,95 @@ const AddVideoDialog = ({ isOpen, setIsOpen, onSuccess, initialData }: any) => {
     const [channels, setChannels] = useState<any[]>([]);
     const [tiktokChannels, setTiktokChannels] = useState<any[]>([]);
     const [instagramChannels, setInstagramChannels] = useState<any[]>([]);
+    const [officialExports, setOfficialExports] = useState<any[]>([]);
+    const [isLoadingExports, setIsLoadingExports] = useState(false);
     const [isGenerating, setIsGenerating] = useState(false);
+    const [isUploadingVideo, setIsUploadingVideo] = useState(false);
+    const [uploadPercent, setUploadPercent] = useState(0);
 
     const defaultForm = {
-        title: '', description: '', hashtags: '', tags: '', video_file_path: '', source_external_id: '',
-        enable_shopping_tag: false, shopping_tag_keyword: '',
-        source_type: 'MANUAL', approval_required: false, upload_method: 'BROWSER_AUTO',
+        title: '',
+        description: '',
+        hashtags: '',
+        tags: '',
+        video_file_path: '',
+        source_external_id: '',
+        enable_shopping_tag: false,
+        shopping_tag_keyword: '',
+        source_type: 'MANUAL',
+        approval_required: false,
+        upload_method: 'BROWSER_AUTO',
         target_platforms: ['youtube'],
         platform_configs: {
             youtube: { channel_id: '', privacy: 'private', category: '22', made_for_kids: false, headless_mode: true },
             tiktok: { account_id: '', privacy: 'private', allow_comments: true, allow_duet: true },
             instagram: { account_id: '', caption: '', share_to_feed: false }
         },
-        scheduleMode: 'immediate' as 'immediate' | 'scheduled', scheduledTime: ''
+        scheduleMode: 'immediate' as 'immediate' | 'scheduled',
+        scheduledTime: ''
     };
     const [form, setForm] = useState(defaultForm);
 
+    const loadOfficialExports = async () => {
+        setIsLoadingExports(true);
+        try {
+            const res = await fetchWithRetry('/api/work-queue/official-exports');
+            if (res.ok) {
+                const data = await res.json();
+                setOfficialExports(Array.isArray(data.files) ? data.files : []);
+            }
+        } catch (_) {
+            setOfficialExports([]);
+        } finally {
+            setIsLoadingExports(false);
+        }
+    };
+
+    const loadSocialChannels = async () => {
+        try {
+            const [r1, r2] = await Promise.all([
+                fetchWithRetry('/api/tiktok-channels/'),
+                fetchWithRetry('/api/instagram-channels/')
+            ]);
+            if (r1.ok) setTiktokChannels(await r1.json());
+            if (r2.ok) setInstagramChannels(await r2.json());
+        } catch (_) { }
+    };
+
+    const loadChannels = async (initialChanId?: string) => {
+        try {
+            const r = await fetchWithRetry('/api/youtube/all');
+            if (!r.ok) throw new Error();
+            const data = await r.json();
+            const chanList = Array.isArray(data) ? data : [];
+            setChannels(chanList);
+            if (!initialChanId && chanList.length > 0) {
+                setForm(prev => {
+                    if (!prev.platform_configs?.youtube?.channel_id) {
+                        return {
+                            ...prev,
+                            platform_configs: {
+                                ...prev.platform_configs,
+                                youtube: { ...(prev.platform_configs?.youtube || {}), channel_id: chanList[0].channel_id }
+                            }
+                        };
+                    }
+                    return prev;
+                });
+            }
+        } catch (_) { setChannels([]); }
+    };
+
     useEffect(() => {
         if (isOpen) {
+            loadOfficialExports();
+            loadSocialChannels();
+
             if (initialData) {
                 const pc = initialData.platform_configs || {};
+                const ytChanId = pc.youtube?.channel_id || initialData.channel_id || '';
                 const mergedConfigs = {
-                    youtube: { ...defaultForm.platform_configs.youtube, ...(pc.youtube || {}) },
+                    youtube: { ...defaultForm.platform_configs.youtube, ...(pc.youtube || {}), channel_id: ytChanId },
                     tiktok: { ...defaultForm.platform_configs.tiktok, ...(pc.tiktok || {}) },
                     instagram: { ...defaultForm.platform_configs.instagram, ...(pc.instagram || {}) },
                 };
@@ -1793,6 +1911,10 @@ const AddVideoDialog = ({ isOpen, setIsOpen, onSuccess, initialData }: any) => {
                 for (const key of Object.keys(initialData)) {
                     if (initialData[key] != null) safeData[key] = initialData[key];
                 }
+                const platforms = Array.isArray(safeData.target_platforms) && safeData.target_platforms.length > 0
+                    ? safeData.target_platforms
+                    : ['youtube'];
+
                 setForm({
                     ...defaultForm,
                     ...safeData,
@@ -1802,42 +1924,49 @@ const AddVideoDialog = ({ isOpen, setIsOpen, onSuccess, initialData }: any) => {
                     tags: Array.isArray(safeData.tags) ? safeData.tags.join(', ') : (safeData.tags || ''),
                     hashtags: Array.isArray(safeData.hashtags) ? safeData.hashtags.join(' ') : (safeData.hashtags || ''),
                     platform_configs: mergedConfigs,
-                    target_platforms: safeData.target_platforms || defaultForm.target_platforms,
+                    target_platforms: platforms,
+                    approval_required: Boolean(safeData.approval_required),
+                    upload_method: safeData.upload_method || 'BROWSER_AUTO',
+                    source_type: safeData.source_type || 'MANUAL',
+                    enable_shopping_tag: Boolean(safeData.enable_shopping_tag),
+                    shopping_tag_keyword: safeData.shopping_tag_keyword || '',
                     scheduleMode: safeData.scheduled_upload_time ? 'scheduled' : 'immediate',
-                    scheduledTime: safeData.scheduled_upload_time ? (safeData.scheduled_upload_time.includes('T') ? safeData.scheduled_upload_time : safeData.scheduled_upload_time.replace(' ', 'T')).slice(0, 16) : '',
+                    scheduledTime: safeData.scheduled_upload_time
+                        ? (safeData.scheduled_upload_time.includes('T') ? safeData.scheduled_upload_time : safeData.scheduled_upload_time.replace(' ', 'T')).slice(0, 16)
+                        : '',
                 });
-            } else setForm(defaultForm);
+                loadChannels(ytChanId);
+            } else {
+                setForm(defaultForm);
+                loadChannels();
+            }
         }
-        loadChannels();
-        loadSocialChannels();
     }, [isOpen, initialData]);
 
-    const loadSocialChannels = async () => {
-        try {
-            const [r1, r2] = await Promise.all([fetchWithRetry('/api/tiktok-channels/'), fetchWithRetry('/api/instagram-channels/')]);
-            if (r1.ok) setTiktokChannels(await r1.json());
-            if (r2.ok) setInstagramChannels(await r2.json());
-        } catch (_) { }
+    const handleSelectOfficialExport = (filePath: string) => {
+        if (!filePath) return;
+        setForm(prev => {
+            const updated = { ...prev, video_file_path: filePath };
+            if (!prev.title.trim()) {
+                const fileName = filePath.split(/[/\\]/).pop() || '';
+                updated.title = fileName.replace(/\.[^/.]+$/, '').replace(/_/g, ' ');
+            }
+            return updated;
+        });
     };
-
-    const loadChannels = async () => {
-        try {
-            const r = await fetchWithRetry('/api/youtube/all');
-            if (!r.ok) throw new Error();
-            const data = await r.json();
-            setChannels(Array.isArray(data) ? data : []);
-            if (data.length > 0 && !form.platform_configs?.youtube?.channel_id) setForm(prev => ({ ...prev, platform_configs: { ...prev.platform_configs, youtube: { ...(prev.platform_configs?.youtube || {}), channel_id: data[0].channel_id } } }));
-        } catch (_) { setChannels([]); }
-    };
-
-    const [isUploadingVideo, setIsUploadingVideo] = useState(false);
-    const [uploadPercent, setUploadPercent] = useState(0);
 
     const handleBrowseVideo = async () => {
         if ((window as any).electronAPI?.selectVideoFile) {
             const r = await (window as any).electronAPI.selectVideoFile();
             if (r.success && r.path) {
-                setForm({ ...form, video_file_path: r.path });
+                setForm(prev => {
+                    const updated = { ...prev, video_file_path: r.path };
+                    if (!prev.title.trim()) {
+                        const fileName = r.path.split(/[/\\]/).pop() || '';
+                        updated.title = fileName.replace(/\.[^/.]+$/, '').replace(/_/g, ' ');
+                    }
+                    return updated;
+                });
                 return;
             }
         }
@@ -1848,7 +1977,6 @@ const AddVideoDialog = ({ isOpen, setIsOpen, onSuccess, initialData }: any) => {
         const file = e.target.files?.[0];
         if (!file) return;
 
-        // 브라우저 환경: 서버로 multipart 업로드
         setIsUploadingVideo(true);
         setUploadPercent(0);
         try {
@@ -1869,8 +1997,7 @@ const AddVideoDialog = ({ isOpen, setIsOpen, onSuccess, initialData }: any) => {
                 xhr.onload = () => {
                     if (xhr.status >= 200 && xhr.status < 300) {
                         try {
-                            const data = JSON.parse(xhr.responseText);
-                            resolve(data);
+                            resolve(JSON.parse(xhr.responseText));
                         } catch (err) {
                             reject(err);
                         }
@@ -1884,7 +2011,11 @@ const AddVideoDialog = ({ isOpen, setIsOpen, onSuccess, initialData }: any) => {
             xhr.send(formData);
             const data = await uploadPromise;
 
-            setForm({ ...form, video_file_path: data.server_file_path });
+            setForm(prev => ({
+                ...prev,
+                video_file_path: data.server_file_path,
+                title: prev.title.trim() ? prev.title : file.name.replace(/\.[^/.]+$/, '').replace(/_/g, ' ')
+            }));
             toast({ title: "영상 업로드 완료", description: `서버에 안전하게 저장되었습니다: ${file.name}` });
         } catch (err: any) {
             toast({ variant: "destructive", title: "업로드 실패", description: err.message || '서버 오류' });
@@ -1894,8 +2025,13 @@ const AddVideoDialog = ({ isOpen, setIsOpen, onSuccess, initialData }: any) => {
     };
 
     const handleDraftSave = async () => {
-        if (!form.title.trim()) { toast({ variant: "destructive", title: "필수", description: "제목은 필수입니다" }); return; }
+        if (!form.title.trim()) {
+            toast({ variant: "destructive", title: "필수", description: "제목을 입력해 주세요" });
+            return;
+        }
 
+        const isEditing = Boolean(initialData && initialData.id);
+        const ytChan = form.platform_configs?.youtube?.channel_id || null;
         const payload: any = {
             title: form.title,
             description: form.description,
@@ -1903,227 +2039,674 @@ const AddVideoDialog = ({ isOpen, setIsOpen, onSuccess, initialData }: any) => {
             hashtags: form.hashtags.split(/[ ,]+/).map((t: string) => t.startsWith('#') ? t : `#${t}`).filter((t: string) => t.length > 1),
             source_external_id: form.source_external_id,
             source_type: form.source_type,
-            target_platforms: form.target_platforms,
+            target_platforms: form.target_platforms?.length ? form.target_platforms : ['youtube'],
             platform_configs: form.platform_configs,
-            upload_method: form.upload_method
+            upload_method: form.upload_method,
+            channel_id: ytChan,
+            enable_shopping_tag: form.enable_shopping_tag,
+            shopping_tag_keyword: form.shopping_tag_keyword,
         };
         if (form.video_file_path) payload.video_file_path = form.video_file_path;
 
         try {
-            const url = initialData ? `/api/work-queue/items/${initialData.id}` : '/api/work-queue/items/draft';
-            const method = initialData ? 'PATCH' : 'POST';
-            const r = await fetchWithRetry(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-            if (r.ok) { toast({ title: "임시 보관됨", description: "기본 정보가 저장되었습니다. 나중에 영상을 첨부하고 즉시 등록할 수 있습니다." }); setIsOpen(false); onSuccess(); setForm(defaultForm); }
-            else { const e = await r.json(); toast({ variant: "destructive", title: "오류", description: e.detail }); }
-        } catch (_) { toast({ variant: "destructive", title: "오류", description: "임시 저장 실패" }); }
+            const url = isEditing ? `/api/work-queue/items/${initialData.id}` : '/api/work-queue/items/draft';
+            const method = isEditing ? 'PATCH' : 'POST';
+            const r = await fetchWithRetry(url, {
+                method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (r.ok) {
+                toast({
+                    title: isEditing ? "수정 완료" : "임시 보관됨",
+                    description: isEditing ? "작업 대기열 정보가 수정되었습니다." : "기본 정보가 임시 저장되었습니다."
+                });
+                setIsOpen(false);
+                onSuccess();
+                setForm(defaultForm);
+            } else {
+                const e = await r.json();
+                toast({ variant: "destructive", title: "오류", description: e.detail || '저장 실패' });
+            }
+        } catch (_) {
+            toast({ variant: "destructive", title: "오류", description: "임시 저장 실패" });
+        }
     };
 
-    const handleImmediateSubmit = async (e: any) => {
+    const handleImmediateSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!form.title.trim()) { toast({ variant: "destructive", title: "필수", description: "제목은 필수입니다" }); return; }
+        if (!form.title.trim()) {
+            toast({ variant: "destructive", title: "필수", description: "제목을 입력해 주세요" });
+            return;
+        }
 
-        const payload = {
-            ...form,
+        const isEditing = Boolean(initialData && initialData.id);
+        const alreadyHasVideo = isEditing && Boolean(initialData?.video_file_path);
+
+        if (!form.video_file_path.trim() && !alreadyHasVideo) {
+            toast({ variant: "destructive", title: "영상 파일 필요", description: "공식 저장소에서 영상을 선택하거나 로컬 파일을 첨부해 주세요" });
+            return;
+        }
+
+        const selectedPlatforms = form.target_platforms?.length ? form.target_platforms : ['youtube'];
+        if (selectedPlatforms.includes('youtube') && !form.platform_configs?.youtube?.channel_id) {
+            toast({ variant: "destructive", title: "채널 선택 필요", description: "YouTube 업로드 채널을 지정해 주세요" });
+            return;
+        }
+
+        const ytChan = form.platform_configs?.youtube?.channel_id || null;
+        const payload: any = {
+            title: form.title,
+            description: form.description,
             tags: form.tags.split(',').map((t: string) => t.trim()).filter(Boolean),
             hashtags: form.hashtags.split(/[ ,]+/).map((t: string) => t.startsWith('#') ? t : `#${t}`).filter((t: string) => t.length > 1),
+            video_file_path: form.video_file_path || initialData?.video_file_path || '',
             source_external_id: form.source_external_id,
-            scheduled_upload_time: form.scheduleMode === 'scheduled' ? form.scheduledTime : null,
+            source_type: form.source_type,
+            target_platforms: selectedPlatforms,
+            platform_configs: form.platform_configs,
+            channel_id: ytChan,
+            upload_method: form.upload_method,
+            approval_required: form.approval_required,
+            scheduled_upload_time: form.scheduleMode === 'scheduled' && form.scheduledTime ? form.scheduledTime : null,
+            enable_shopping_tag: form.enable_shopping_tag,
+            shopping_tag_keyword: form.shopping_tag_keyword,
         };
 
-        const isEditingDraft = initialData && (initialData.status === 'DRAFT' || initialData.status === 'PENDING');
-        const videoChanged = isEditingDraft && form.video_file_path && form.video_file_path !== initialData.video_file_path;
-
-        // Validation: must have video unless it's an existing draft with video already attached
-        const alreadyHasVideo = isEditingDraft && initialData.video_file_path && !videoChanged;
-        if (!form.video_file_path.trim() && !alreadyHasVideo) {
-            toast({ variant: "destructive", title: "필수", description: "영상 파일을 선택해주세요" });
-            return;
-        }
-        if (form.target_platforms.includes('youtube') && !form.platform_configs.youtube.channel_id) {
-            toast({ variant: "destructive", title: "필수", description: "채널을 선택해주세요" });
-            return;
-        }
-
         try {
-            if (isEditingDraft) {
-                // Step 1: Update metadata
-                const metaPayload: any = {
-                    title: payload.title,
-                    description: payload.description,
-                    hashtags: payload.hashtags,
-                    tags: payload.tags,
-                    source_external_id: payload.source_external_id,
-                    source_type: payload.source_type,
-                    target_platforms: payload.target_platforms,
-                    platform_configs: payload.platform_configs,
-                    upload_method: payload.upload_method,
-                    scheduled_upload_time: payload.scheduled_upload_time,
-                };
+            if (isEditing) {
+                // 기존 항목 수정: 절대 POST 하지 않고 PATCH로 원자적 업데이트
                 const r1 = await fetchWithRetry(`/api/work-queue/items/${initialData.id}`, {
-                    method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(metaPayload)
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
                 });
-                if (!r1.ok) { const e = await r1.json(); throw new Error(e.detail || 'Metadata update failed'); }
-
-                // Step 2: Attach video if changed
-                if (videoChanged) {
-                    const r2 = await fetchWithRetry(`/api/work-queue/items/${initialData.id}/attach`, {
-                        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ video_file_path: form.video_file_path })
-                    });
-                    if (!r2.ok) { const e = await r2.json(); throw new Error(e.detail || 'Video attach failed'); }
+                if (!r1.ok) {
+                    const err = await r1.json();
+                    throw new Error(err.detail || '항목 수정 실패');
                 }
 
-                // Step 3: Finalize (DRAFT/PENDING → QUEUED + trigger upload)
-                const r3 = await fetchWithRetry(`/api/work-queue/items/${initialData.id}/finalize`, {
-                    method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        approval_required: false,
-                        upload_method: form.upload_method,
-                        target_platforms: form.target_platforms,
-                        scheduled_upload_time: form.scheduleMode === 'scheduled' ? form.scheduledTime : null,
-                    })
-                });
-                if (!r3.ok) { const e = await r3.json(); throw new Error(e.detail || 'Finalize failed'); }
-                const f3 = await r3.json();
-                toast({ title: "등록됨", description: f3.upload_queued ? "대기열 등록 및 업로드 시작됨" : "대기열에 등록됨" });
+                // DRAFT 또는 PENDING 상태에서 즉시 등록 제출 시 QUEUED로 최종 확정(finalize)
+                if (initialData.status === 'DRAFT' || initialData.status === 'PENDING') {
+                    const r2 = await fetchWithRetry(`/api/work-queue/items/${initialData.id}/finalize`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            approval_required: form.approval_required,
+                            upload_method: form.upload_method,
+                            target_platforms: selectedPlatforms,
+                            scheduled_upload_time: form.scheduleMode === 'scheduled' && form.scheduledTime ? form.scheduledTime : null,
+                        })
+                    });
+                    if (!r2.ok) {
+                        const err = await r2.json();
+                        throw new Error(err.detail || '대기열 등록 실패');
+                    }
+                    const f2 = await r2.json();
+                    toast({
+                        title: "대기열 등록 완료",
+                        description: f2.upload_queued ? "대기열 등록 및 백그라운드 자동 업로드가 시작되었습니다." : "대기열에 등록되었습니다."
+                    });
+                } else {
+                    toast({
+                        title: "수정 완료",
+                        description: `작업 #${initialData.id}의 정보가 안전하게 업데이트되었습니다.`
+                    });
+                }
             } else {
-                // New item: use the full POST with video
-                const fullPayload = { ...payload, video_file_path: form.video_file_path };
+                // 신규 항목 생성 (POST)
                 const r = await fetchWithRetry('/api/work-queue/items', {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(fullPayload)
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
                 });
-                if (r.ok) { toast({ title: "등록됨", description: "대기열에 추가되었습니다" }); }
-                else { const e = await r.json(); toast({ variant: "destructive", title: "오류", description: e.detail }); return; }
+                if (r.ok) {
+                    toast({
+                        title: "등록 완료",
+                        description: form.approval_required ? "승인 대기열(PENDING)에 등록되었습니다." : "작업 대기열에 등록되어 순차 업로드됩니다."
+                    });
+                } else {
+                    const err = await r.json();
+                    throw new Error(err.detail || '등록 실패');
+                }
             }
+
             setIsOpen(false);
             onSuccess();
             setForm(defaultForm);
         } catch (err: any) {
-            toast({ variant: "destructive", title: "등록 실패", description: err?.message || '서버 오류' });
+            toast({ variant: "destructive", title: "처리 실패", description: err?.message || '서버 오류' });
         }
+    };
+
+    const selectedYtChannel = channels.find((ch: any) => ch.channel_id === (form.platform_configs?.youtube?.channel_id || ''));
+
+    const renderDialogStatusBadge = (status: string) => {
+        if (!status) return null;
+        const s = status.toUpperCase();
+        const colors: Record<string, string> = {
+            'DRAFT': 'bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-500/20',
+            'PENDING': 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20',
+            'QUEUED': 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20',
+            'UPLOADING': 'bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-500/20',
+            'COMPLETED': 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20',
+            'FAILED': 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20',
+            'FAILED_REVIEW': 'bg-pink-500/10 text-pink-600 dark:text-pink-400 border-pink-500/20',
+        };
+        return (
+            <Badge variant="outline" className={`text-[10px] font-semibold px-2 py-0.5 ${colors[s] || 'bg-muted text-muted-foreground'}`}>
+                {s}
+            </Badge>
+        );
     };
 
     return (
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
-            <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto bg-card text-foreground border-border">
-                <DialogHeader><DialogTitle>{initialData ? '항목 수정' : '새 항목'}</DialogTitle><DialogDescription>기본 정보를 입력하고 영상을 첨부하세요</DialogDescription></DialogHeader>
-                <form onSubmit={handleImmediateSubmit} className="space-y-4">
-                    <Tabs defaultValue="basic" className="w-full">
-                        <TabsList className="grid w-full grid-cols-3 mb-3"><TabsTrigger value="basic">기본 정보</TabsTrigger><TabsTrigger value="upload">업로드 설정</TabsTrigger><TabsTrigger value="platform">플랫폼</TabsTrigger></TabsList>
-                        <TabsContent value="basic" className="space-y-4">
-                            <div className="space-y-3 p-4 bg-muted/50 rounded-lg border border-border">
-                                <div><Label>제목 *</Label><Input value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} className="bg-background border-border" /></div>
-                                <div><Label>설명</Label><Textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} rows={4} className="bg-background border-border" /></div>
-                                <div className="grid grid-cols-2 gap-3">
-                                    <div><Label>해시태그</Label><Input value={form.hashtags} onChange={e => setForm({ ...form, hashtags: e.target.value })} placeholder="#shorts #viral" className="bg-background border-border" /></div>
-                                    <div><Label>태그 (쉼표 구분)</Label><Input value={form.tags} onChange={e => setForm({ ...form, tags: e.target.value })} placeholder="tag1, tag2" className="bg-background border-border" /></div>
+            <DialogContent className="max-w-4xl max-h-[92vh] flex flex-col p-0 overflow-hidden bg-card text-foreground border-border">
+                {/* 1. 모달 헤더 */}
+                <div className="px-6 py-3.5 border-b border-border/80 flex items-center justify-between bg-muted/20">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="p-2 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 shrink-0">
+                            <Rocket className="w-5 h-5" />
+                        </div>
+                        <div className="min-w-0">
+                            <DialogTitle className="text-base font-bold text-foreground truncate">
+                                {initialData ? `배포 작업 수정 (#${initialData.id})` : '쇼츠 주권 배포 작업 등록'}
+                            </DialogTitle>
+                            <DialogDescription className="text-xs text-muted-foreground truncate">
+                                공식 저장소 렌더링 영상을 선택하고, 전용 LTE 모바일/ISP 회선으로 안전하게 자동 배포합니다
+                            </DialogDescription>
+                        </div>
+                    </div>
+                    {initialData && (
+                        <div className="shrink-0">
+                            {renderDialogStatusBadge(initialData.status)}
+                        </div>
+                    )}
+                </div>
+
+                {/* 2. 2-컬럼 주권 스튜디오 바디 */}
+                <form onSubmit={handleImmediateSubmit} className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-5 dashboard-scroll-area">
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+                        
+                        {/* [좌측 컬럼: 7칸 / 58%] 영상 소스 및 콘텐츠 메타데이터 */}
+                        <div className="lg:col-span-7 space-y-4 min-w-0">
+                            
+                            {/* 1) 영상 파일 소스 박스 */}
+                            <div className="p-4 rounded-xl border border-border bg-muted/30 space-y-3">
+                                <div className="flex items-center justify-between">
+                                    <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                                        <Film className="w-3.5 h-3.5 text-indigo-500" /> 영상 파일 소스 *
+                                    </Label>
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={loadOfficialExports}
+                                        disabled={isLoadingExports}
+                                        className="h-6 text-[11px] px-2 text-muted-foreground hover:text-foreground"
+                                    >
+                                        <RefreshCw className={`w-3 h-3 mr-1 ${isLoadingExports ? 'animate-spin' : ''}`} /> 새로고침
+                                    </Button>
                                 </div>
+
+                                {/* 공식 저장소 빠른 선택 드롭다운 */}
                                 <div>
-                                    <Label>영상 파일 *</Label>
-                                    <div className="flex gap-2 mt-1">
-                                        <Input value={form.video_file_path} onChange={e => setForm({ ...form, video_file_path: e.target.value })} placeholder="파일을 선택하거나 경로를 입력하세요" className="bg-background border-border flex-1" />
-                                        <Button type="button" variant="outline" onClick={handleBrowseVideo} disabled={isUploadingVideo} className="shrink-0 font-medium">
-                                            {isUploadingVideo ? <Loader2 className="w-4 h-4 mr-1 animate-spin text-primary" /> : <FolderOpen className="w-4 h-4 mr-1" />}
-                                            {isUploadingVideo ? `${uploadPercent}% 업로드 중` : '찾아보기'}
-                                        </Button>
-                                        <input ref={fileInputRef} type="file" accept="video/*" className="hidden" onChange={handleFileSelected} />
-                                    </div>
-                                    {isUploadingVideo && (
-                                        <div className="mt-2 space-y-1">
-                                            <div className="w-full bg-muted rounded-full h-1.5 overflow-hidden">
-                                                <div className="bg-primary h-1.5 rounded-full transition-all duration-150" style={{ width: `${uploadPercent}%` }} />
-                                            </div>
-                                            <p className="text-[11px] text-muted-foreground">서버로 영상 전송 중... {uploadPercent}%</p>
+                                    <Select
+                                        value={form.video_file_path || ''}
+                                        onValueChange={handleSelectOfficialExport}
+                                    >
+                                        <SelectTrigger className="h-8 text-xs bg-background border-border">
+                                            <SelectValue placeholder={isLoadingExports ? "05_Exports 스캔 중..." : (officialExports.length ? `📁 공식 05_Exports 선택 (${officialExports.length}개 영상)` : "05_Exports 폴더에 렌더링 영상 없음")} />
+                                        </SelectTrigger>
+                                        <SelectContent className="max-h-60">
+                                            {officialExports.map((file: any) => (
+                                                <SelectItem key={file.path} value={file.path}>
+                                                    <div className="flex items-center justify-between gap-3 text-xs w-full">
+                                                        <span className="font-medium truncate max-w-[260px]">{file.filename}</span>
+                                                        <span className="text-[10px] text-muted-foreground shrink-0">{file.size_mb} MB · {file.modified_at}</span>
+                                                    </div>
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
+                                {/* 직접 경로 입력 및 찾아보기 버튼 */}
+                                <div className="flex gap-2">
+                                    <Input
+                                        value={form.video_file_path}
+                                        onChange={e => setForm({ ...form, video_file_path: e.target.value })}
+                                        placeholder="공식 저장소 영상 또는 로컬 파일 경로..."
+                                        className="h-8 text-xs font-mono bg-background border-border flex-1"
+                                    />
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={handleBrowseVideo}
+                                        disabled={isUploadingVideo}
+                                        className="h-8 text-xs shrink-0 font-medium border-border"
+                                    >
+                                        {isUploadingVideo ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin text-primary" /> : <FolderOpen className="w-3.5 h-3.5 mr-1 text-indigo-500" />}
+                                        {isUploadingVideo ? `${uploadPercent}%` : '찾아보기'}
+                                    </Button>
+                                    <input ref={fileInputRef} type="file" accept="video/*" className="hidden" onChange={handleFileSelected} />
+                                </div>
+
+                                {isUploadingVideo && (
+                                    <div className="space-y-1">
+                                        <div className="w-full bg-muted rounded-full h-1.5 overflow-hidden">
+                                            <div className="bg-primary h-1.5 rounded-full transition-all duration-150" style={{ width: `${uploadPercent}%` }} />
                                         </div>
-                                    )}
-                                </div>
-                                <div className="grid grid-cols-2 gap-3">
-                                    <div><Label>외부 ID</Label><Input value={form.source_external_id} onChange={e => setForm({ ...form, source_external_id: e.target.value })} placeholder="예: CSV 행 ID" className="bg-background border-border" /></div>
-                                </div>
-                                <div className="flex items-center justify-between pt-2 border-t">
-                                    <div>
-                                        <Label>쇼핑 태그</Label><p className="text-xs text-muted-foreground">업로드 시 제품 자동 태깅</p>
+                                        <p className="text-[10px] text-muted-foreground text-right">서버 전송 중... {uploadPercent}%</p>
                                     </div>
-                                    <Switch checked={form.enable_shopping_tag} onCheckedChange={c => setForm({ ...form, enable_shopping_tag: c })} />
-                                </div>
-                                {form.enable_shopping_tag && (
-                                    <div className="bg-muted/40 p-3 rounded-lg">
-                                        <Label>제품 키워드</Label>
-                                        <div className="flex gap-2 mt-1">
-                                            <Input value={form.shopping_tag_keyword} onChange={e => setForm({ ...form, shopping_tag_keyword: e.target.value })} placeholder="예: 캠핑 의자" className="bg-background border-border" />
-                                            <Button type="button" variant="secondary" onClick={async () => {
-                                                try {
-                                                    const r = await fetchWithRetry('/api/work-queue/extract-shopping-keyword', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: form.title, description: form.description }) });
-                                                    const d = await r.json();
-                                                    if (d.keyword) setForm({ ...form, shopping_tag_keyword: d.keyword });
-                                                } catch (_) { }
-                                            }} disabled={isGenerating}>AI 추출</Button>
+                                )}
+
+                                {/* 인라인 9:16 비디오 프리뷰어 */}
+                                {form.video_file_path ? (
+                                    <div className="mt-2 pt-2 border-t border-border/60">
+                                        <div className="relative rounded-xl overflow-hidden border border-border bg-black aspect-[9/16] max-w-[160px] mx-auto shadow-inner group">
+                                            <video
+                                                key={form.video_file_path}
+                                                src={getStreamUrl(form.video_file_path)}
+                                                controls
+                                                playsInline
+                                                className="w-full h-full object-contain"
+                                            />
                                         </div>
+                                        <p className="text-[10px] font-mono text-center text-muted-foreground mt-1.5 truncate">
+                                            {form.video_file_path.split(/[/\\]/).pop()}
+                                        </p>
+                                    </div>
+                                ) : (
+                                    <div
+                                        onClick={handleBrowseVideo}
+                                        className="border-2 border-dashed border-border/80 hover:border-indigo-400 dark:hover:border-indigo-500 rounded-xl p-5 text-center cursor-pointer transition-colors bg-muted/10 hover:bg-muted/30"
+                                    >
+                                        <FileVideo className="w-7 h-7 mx-auto text-muted-foreground/60 mb-1.5" />
+                                        <p className="text-xs font-semibold text-foreground">영상을 선택해 주세요</p>
+                                        <p className="text-[11px] text-muted-foreground mt-0.5">
+                                            위의 드롭다운에서 선택하거나 [찾아보기]를 클릭하세요
+                                        </p>
                                     </div>
                                 )}
                             </div>
-                        </TabsContent>
-                        <TabsContent value="upload" className="space-y-4">
-                            <div className="space-y-3 p-4 bg-muted/50 rounded-lg border border-border">
-                                <div><Label>소스</Label><Select value={form.source_type} onValueChange={v => setForm({ ...form, source_type: v })}><SelectTrigger className="bg-background"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="MANUAL">수동</SelectItem><SelectItem value="WORKFLOW">워크플로우</SelectItem><SelectItem value="BULK_IMPORT">일괄 가져오기</SelectItem></SelectContent></Select></div>
-                                <div><Label>업로드 방식</Label><Select value={form.upload_method} onValueChange={v => setForm({ ...form, upload_method: v })}><SelectTrigger className="bg-background"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="API">Google API</SelectItem><SelectItem value="BROWSER_AUTO">브라우저 자동화</SelectItem><SelectItem value="MANUAL">수동</SelectItem></SelectContent></Select></div>
-                                <div className="flex items-center gap-2 pt-3 border-t"><Checkbox checked={form.approval_required} onCheckedChange={c => setForm({ ...form, approval_required: !!c })} /><Label>승인 필요 (체크 해제 시 자동 대기열)</Label></div>
+
+                            {/* 2) 콘텐츠 메타데이터 박스 */}
+                            <div className="p-4 rounded-xl border border-border bg-muted/30 space-y-3">
                                 <div>
-                                    <Label>스케줄</Label>
-                                    <div className="flex gap-4 mt-1">
-                                        <label className="flex items-center gap-2"><input type="radio" checked={form.scheduleMode === 'immediate'} onChange={() => setForm({ ...form, scheduleMode: 'immediate' })} /> 즉시</label>
-                                        <label className="flex items-center gap-2"><input type="radio" checked={form.scheduleMode === 'scheduled'} onChange={() => setForm({ ...form, scheduleMode: 'scheduled' })} /> 예약</label>
+                                    <div className="flex items-center justify-between mb-1">
+                                        <Label className="text-xs font-semibold text-foreground">제목 *</Label>
+                                        <span className="text-[10px] text-muted-foreground">{form.title.length}/100</span>
                                     </div>
-                                    {form.scheduleMode === 'scheduled' && (
-                                        <div className="mt-2"><Input type="datetime-local" value={form.scheduledTime} onChange={e => setForm({ ...form, scheduledTime: e.target.value })} className="bg-background border-border" /></div>
+                                    <Input
+                                        value={form.title}
+                                        onChange={e => setForm({ ...form, title: e.target.value })}
+                                        placeholder="쇼츠 영상의 매력적인 제목을 입력하세요"
+                                        className="h-8 text-xs bg-background border-border"
+                                    />
+                                </div>
+
+                                <div>
+                                    <Label className="text-xs font-semibold text-foreground">설명</Label>
+                                    <Textarea
+                                        value={form.description}
+                                        onChange={e => setForm({ ...form, description: e.target.value })}
+                                        rows={3}
+                                        placeholder="영상 설명, 요약문, 링크 등을 작성하세요"
+                                        className="text-xs bg-background border-border mt-1"
+                                    />
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <Label className="text-xs font-semibold text-foreground">해시태그</Label>
+                                        <Input
+                                            value={form.hashtags}
+                                            onChange={e => setForm({ ...form, hashtags: e.target.value })}
+                                            placeholder="#shorts #viral #이슈"
+                                            className="h-8 text-xs font-medium text-indigo-600 dark:text-indigo-400 bg-background border-border mt-1"
+                                        />
+                                    </div>
+                                    <div>
+                                        <Label className="text-xs font-semibold text-foreground">검색 태그 (쉼표 구분)</Label>
+                                        <Input
+                                            value={form.tags}
+                                            onChange={e => setForm({ ...form, tags: e.target.value })}
+                                            placeholder="쇼츠, 꿀팁, AI, 추천"
+                                            className="h-8 text-xs bg-background border-border mt-1"
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* 쇼핑 태그 설정 */}
+                                <div className="pt-2 border-t border-border/60 space-y-2">
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <Label className="text-xs font-semibold text-foreground">유튜브 쇼핑 제품 태그</Label>
+                                            <p className="text-[10px] text-muted-foreground">업로드 시 제휴 수익 제품 자동 태깅</p>
+                                        </div>
+                                        <Switch
+                                            checked={form.enable_shopping_tag}
+                                            onCheckedChange={c => setForm({ ...form, enable_shopping_tag: c })}
+                                        />
+                                    </div>
+                                    {form.enable_shopping_tag && (
+                                        <div className="flex gap-2">
+                                            <Input
+                                                value={form.shopping_tag_keyword}
+                                                onChange={e => setForm({ ...form, shopping_tag_keyword: e.target.value })}
+                                                placeholder="예: 초경량 무선 청소기, 캠핑 의자"
+                                                className="h-8 text-xs bg-background border-border flex-1"
+                                            />
+                                            <Button
+                                                type="button"
+                                                variant="secondary"
+                                                size="sm"
+                                                onClick={async () => {
+                                                    try {
+                                                        setIsGenerating(true);
+                                                        const r = await fetchWithRetry('/api/work-queue/extract-shopping-keyword', {
+                                                            method: 'POST',
+                                                            headers: { 'Content-Type': 'application/json' },
+                                                            body: JSON.stringify({ title: form.title, description: form.description })
+                                                        });
+                                                        const d = await r.json();
+                                                        if (d.keyword) setForm(prev => ({ ...prev, shopping_tag_keyword: d.keyword }));
+                                                    } catch (_) {
+                                                    } finally {
+                                                        setIsGenerating(false);
+                                                    }
+                                                }}
+                                                disabled={isGenerating || !form.title.trim()}
+                                                className="h-8 text-xs shrink-0"
+                                            >
+                                                {isGenerating ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : null}
+                                                AI 추출
+                                            </Button>
+                                        </div>
                                     )}
                                 </div>
                             </div>
-                        </TabsContent>
-                        <TabsContent value="platform" className="space-y-4">
-                            <div className="space-y-3 p-4 bg-muted/50 rounded-lg border border-border">
-                                <Label>대상 플랫폼</Label>
-                                <div className="flex gap-4">{['youtube', 'tiktok', 'instagram'].map(p => <label key={p} className="flex items-center gap-2"><Checkbox checked={form.target_platforms.includes(p)} onCheckedChange={c => c ? setForm({ ...form, target_platforms: [...form.target_platforms, p] }) : setForm({ ...form, target_platforms: form.target_platforms.filter(x => x !== p) })} /> <span className="capitalize">{p}</span></label>)}</div>
-                            </div>
-                            {form.target_platforms.includes('youtube') && (
-                                <div className="space-y-3 p-4 bg-blue-50/50 dark:bg-blue-900/10 rounded-lg border border-blue-200">
-                                    <h4 className="font-semibold text-sm text-blue-700 dark:text-blue-400">YouTube</h4>
-                                    <div><Label>채널 *</Label><Select value={form.platform_configs.youtube.channel_id} onValueChange={v => setForm({ ...form, platform_configs: { ...form.platform_configs, youtube: { ...form.platform_configs.youtube, channel_id: v } } })} disabled={channels.length === 0}><SelectTrigger className="bg-background"><SelectValue placeholder={channels.length ? "채널 선택" : "연결된 채널 없음"} /></SelectTrigger><SelectContent>{channels.map(ch => <SelectItem key={ch.channel_id} value={ch.channel_id}>{ch.channel_name || ch.title} ({ch.subscriber_count?.toLocaleString()}명)</SelectItem>)}</SelectContent></Select></div>
-                                    <div><Label>공개 설정</Label><Select value={form.platform_configs.youtube.privacy} onValueChange={v => setForm({ ...form, platform_configs: { ...form.platform_configs, youtube: { ...form.platform_configs.youtube, privacy: v } } })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="public">공개</SelectItem><SelectItem value="unlisted">미등록</SelectItem><SelectItem value="private">비공개</SelectItem></SelectContent></Select></div>
-                                    <div className="flex items-center gap-2"><Checkbox checked={form.platform_configs.youtube.headless_mode} onCheckedChange={c => setForm({ ...form, platform_configs: { ...form.platform_configs, youtube: { ...form.platform_configs.youtube, headless_mode: !!c } } })} disabled={form.upload_method !== 'BROWSER_AUTO'} /><Label>헤드리스 모드</Label></div>
-                                </div>
-                            )}
-                            {form.target_platforms.includes('tiktok') && (
-                                <div className="space-y-3 p-4 bg-pink-50/50 dark:bg-pink-900/10 rounded-lg border border-pink-200">
-                                    <h4 className="font-semibold text-sm text-pink-700 dark:text-pink-400">TikTok</h4>
-                                    <div><Label>계정 *</Label><Select value={form.platform_configs.tiktok.account_id} onValueChange={v => setForm({ ...form, platform_configs: { ...form.platform_configs, tiktok: { ...form.platform_configs.tiktok, account_id: v } } })}><SelectTrigger className="bg-background"><SelectValue placeholder="계정 선택" /></SelectTrigger><SelectContent>{tiktokChannels.map(c => <SelectItem key={c.id} value={c.id}>{c.nickname || c.id}</SelectItem>)}</SelectContent></Select></div>
-                                    <div><Label>공개 설정</Label><Select value={form.platform_configs.tiktok.privacy} onValueChange={v => setForm({ ...form, platform_configs: { ...form.platform_configs, tiktok: { ...form.platform_configs.tiktok, privacy: v } } })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="public">공개</SelectItem><SelectItem value="private">비공개</SelectItem></SelectContent></Select></div>
-                                    <div className="flex gap-4"><label className="flex items-center gap-2"><Checkbox checked={form.platform_configs.tiktok.allow_comments} onCheckedChange={c => setForm({ ...form, platform_configs: { ...form.platform_configs, tiktok: { ...form.platform_configs.tiktok, allow_comments: !!c } } })} /> 댓글</label><label className="flex items-center gap-2"><Checkbox checked={form.platform_configs.tiktok.allow_duet} onCheckedChange={c => setForm({ ...form, platform_configs: { ...form.platform_configs, tiktok: { ...form.platform_configs.tiktok, allow_duet: !!c } } })} /> Duet</label></div>
-                                </div>
-                            )}
-                            {form.target_platforms.includes('instagram') && (
-                                <div className="space-y-3 p-4 bg-purple-50/50 dark:bg-purple-900/10 rounded-lg border border-purple-200">
-                                    <h4 className="font-semibold text-sm text-purple-700 dark:text-purple-400">Instagram</h4>
-                                    <div><Label>계정 *</Label><Select value={form.platform_configs.instagram.account_id} onValueChange={v => setForm({ ...form, platform_configs: { ...form.platform_configs, instagram: { ...form.platform_configs.instagram, account_id: v } } })}><SelectTrigger className="bg-background"><SelectValue placeholder="계정 선택" /></SelectTrigger><SelectContent>{instagramChannels.map(c => <SelectItem key={c.id} value={c.id}>{c.nickname || c.id}</SelectItem>)}</SelectContent></Select></div>
-                                    <div><Label>캡션</Label><Textarea value={form.platform_configs.instagram.caption} onChange={e => setForm({ ...form, platform_configs: { ...form.platform_configs, instagram: { ...form.platform_configs.instagram, caption: e.target.value } } })} rows={2} placeholder="릴스 캡션..." /></div>
-                                    <label className="flex items-center gap-2"><Checkbox checked={form.platform_configs.instagram.share_to_feed} onCheckedChange={c => setForm({ ...form, platform_configs: { ...form.platform_configs, instagram: { ...form.platform_configs.instagram, share_to_feed: !!c } } })} /> 피드 공유</label>
-                                </div>
-                            )}
-                        </TabsContent>
-                    </Tabs>
+                        </div>
 
-                    <div className="flex justify-between gap-2 pt-3 border-t">
+                        {/* [우측 컬럼: 5칸 / 42%] 배포 채널 및 스케줄 네트워크 거버넌스 */}
+                        <div className="lg:col-span-5 space-y-4 min-w-0">
+                            
+                            {/* 1) 주권 채널 및 네트워크 회선 박스 */}
+                            <div className="p-4 rounded-xl border border-border bg-muted/30 space-y-3.5">
+                                <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                                    <Rocket className="w-3.5 h-3.5 text-indigo-500" /> 대상 플랫폼 및 주권 채널
+                                </Label>
+
+                                {/* 플랫폼 체크박스 */}
+                                <div className="flex items-center gap-3">
+                                    {['youtube', 'tiktok', 'instagram'].map(p => (
+                                        <label key={p} className="flex items-center gap-1.5 text-xs font-medium cursor-pointer">
+                                            <Checkbox
+                                                checked={form.target_platforms.includes(p)}
+                                                onCheckedChange={c => {
+                                                    const updated = c
+                                                        ? [...form.target_platforms, p]
+                                                        : form.target_platforms.filter(x => x !== p);
+                                                    setForm({ ...form, target_platforms: updated.length ? updated : ['youtube'] });
+                                                }}
+                                            />
+                                            <span className="capitalize">{p === 'youtube' ? 'YouTube' : p === 'tiktok' ? 'TikTok' : 'Instagram'}</span>
+                                        </label>
+                                    ))}
+                                </div>
+
+                                {/* YouTube 전용 채널 및 회선 카드 */}
+                                {form.target_platforms.includes('youtube') && (
+                                    <div className="p-3 rounded-xl bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/40 space-y-2.5">
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-[11px] font-bold text-blue-700 dark:text-blue-300">
+                                                🎬 YouTube 업로드 채널 *
+                                            </span>
+                                            {renderChannelNetworkBadge(selectedYtChannel)}
+                                        </div>
+
+                                        <Select
+                                            value={form.platform_configs?.youtube?.channel_id || ''}
+                                            onValueChange={v => setForm(prev => ({
+                                                ...prev,
+                                                platform_configs: {
+                                                    ...prev.platform_configs,
+                                                    youtube: { ...(prev.platform_configs?.youtube || {}), channel_id: v }
+                                                }
+                                            }))}
+                                            disabled={channels.length === 0}
+                                        >
+                                            <SelectTrigger className="h-8 text-xs bg-background border-border">
+                                                <SelectValue placeholder={channels.length ? "채널 선택" : "등록된 채널 없음"} />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {channels.map((ch: any) => (
+                                                    <SelectItem key={ch.channel_id} value={ch.channel_id}>
+                                                        <div className="flex items-center justify-between gap-2 w-full text-xs">
+                                                            <span className="truncate max-w-[180px]">{ch.channel_name || ch.title} ({ch.subscriber_count?.toLocaleString()}명)</span>
+                                                            {renderChannelNetworkBadge(ch)}
+                                                        </div>
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+
+                                        {/* 선택된 채널의 네트워크 라인 안내 */}
+                                        {selectedYtChannel && (
+                                            <div className="text-[10px] bg-background/80 p-2 rounded-lg border border-border/70 space-y-1">
+                                                <div className="flex items-center justify-between text-muted-foreground">
+                                                    <span>소유 계정:</span>
+                                                    <span className="font-mono text-foreground font-medium truncate max-w-[140px]">
+                                                        {selectedYtChannel.profile_email || selectedYtChannel.account_email || '전용 브라우저 세션'}
+                                                    </span>
+                                                </div>
+                                                <div className="flex items-center justify-between text-muted-foreground">
+                                                    <span>독립 네트워크 회선:</span>
+                                                    <span className="font-semibold text-foreground">
+                                                        {selectedYtChannel.bound_device_serial ? `📱 모바일 LTE (${selectedYtChannel.bound_device_serial})` :
+                                                         (selectedYtChannel.proxy_port && selectedYtChannel.proxy_port >= 1080 && selectedYtChannel.proxy_port <= 1089) ? `📱 모바일 프록시 (포트 ${selectedYtChannel.proxy_port})` :
+                                                         selectedYtChannel.proxy_host ? `🌐 ISP 고정 (${selectedYtChannel.proxy_host})` : `🛡️ 단독 로컬 회선`}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* 공개 상태 및 헤드리스 모드 */}
+                                        <div className="grid grid-cols-2 gap-2 pt-1">
+                                            <div>
+                                                <Label className="text-[10px] text-muted-foreground">공개 상태</Label>
+                                                <Select
+                                                    value={form.platform_configs?.youtube?.privacy || 'private'}
+                                                    onValueChange={v => setForm(prev => ({
+                                                        ...prev,
+                                                        platform_configs: {
+                                                            ...prev.platform_configs,
+                                                            youtube: { ...(prev.platform_configs?.youtube || {}), privacy: v }
+                                                        }
+                                                    }))}
+                                                >
+                                                    <SelectTrigger className="h-7 text-xs bg-background border-border mt-0.5">
+                                                        <SelectValue />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="private">비공개 (권장)</SelectItem>
+                                                        <SelectItem value="unlisted">미등록 (링크)</SelectItem>
+                                                        <SelectItem value="public">전체 공개</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                            <div className="flex flex-col justify-end pb-1">
+                                                <label className="flex items-center gap-1.5 text-xs text-foreground cursor-pointer">
+                                                    <Checkbox
+                                                        checked={form.platform_configs?.youtube?.headless_mode ?? true}
+                                                        onCheckedChange={c => setForm(prev => ({
+                                                            ...prev,
+                                                            platform_configs: {
+                                                                ...prev.platform_configs,
+                                                                youtube: { ...(prev.platform_configs?.youtube || {}), headless_mode: !!c }
+                                                            }
+                                                        }))}
+                                                    />
+                                                    <span className="text-[11px] font-medium">스텔스 백그라운드</span>
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* TikTok (체크 시 표시) */}
+                                {form.target_platforms.includes('tiktok') && (
+                                    <div className="p-3 rounded-xl bg-pink-50/50 dark:bg-pink-950/20 border border-pink-200 dark:border-pink-900/40 space-y-2">
+                                        <Label className="text-[11px] font-bold text-pink-700 dark:text-pink-300">🎵 TikTok 계정</Label>
+                                        <Select
+                                            value={form.platform_configs?.tiktok?.account_id || ''}
+                                            onValueChange={v => setForm(prev => ({
+                                                ...prev,
+                                                platform_configs: {
+                                                    ...prev.platform_configs,
+                                                    tiktok: { ...(prev.platform_configs?.tiktok || {}), account_id: v }
+                                                }
+                                            }))}
+                                        >
+                                            <SelectTrigger className="h-7 text-xs bg-background border-border">
+                                                <SelectValue placeholder="TikTok 계정 선택" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {tiktokChannels.map((c: any) => (
+                                                    <SelectItem key={c.id} value={c.id}>{c.nickname || c.id}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                )}
+
+                                {/* Instagram (체크 시 표시) */}
+                                {form.target_platforms.includes('instagram') && (
+                                    <div className="p-3 rounded-xl bg-purple-50/50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-900/40 space-y-2">
+                                        <Label className="text-[11px] font-bold text-purple-700 dark:text-purple-300">📸 Instagram 계정</Label>
+                                        <Select
+                                            value={form.platform_configs?.instagram?.account_id || ''}
+                                            onValueChange={v => setForm(prev => ({
+                                                ...prev,
+                                                platform_configs: {
+                                                    ...prev.platform_configs,
+                                                    instagram: { ...(prev.platform_configs?.instagram || {}), account_id: v }
+                                                }
+                                            }))}
+                                        >
+                                            <SelectTrigger className="h-7 text-xs bg-background border-border">
+                                                <SelectValue placeholder="Instagram 계정 선택" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {instagramChannels.map((c: any) => (
+                                                    <SelectItem key={c.id} value={c.id}>{c.nickname || c.id}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* 2) 업로드 엔진 및 스케줄 거버넌스 박스 */}
+                            <div className="p-4 rounded-xl border border-border bg-muted/30 space-y-3">
+                                <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                                    <Settings className="w-3.5 h-3.5 text-indigo-500" /> 업로드 엔진 및 발행 스케줄
+                                </Label>
+
+                                <div>
+                                    <Label className="text-[11px] text-muted-foreground">업로드 실행 엔진</Label>
+                                    <Select
+                                        value={form.upload_method}
+                                        onValueChange={v => setForm({ ...form, upload_method: v })}
+                                    >
+                                        <SelectTrigger className="h-8 text-xs bg-background border-border mt-0.5">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="BROWSER_AUTO">🤖 스텔스 브라우저 자동화 (회선 격리 보호)</SelectItem>
+                                            <SelectItem value="API">⚡ Google Data API (OAuth 직결)</SelectItem>
+                                            <SelectItem value="MANUAL">✍️ 수동 (대기열 기록 및 관리용)</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
+                                <div className="space-y-1.5 pt-1">
+                                    <Label className="text-[11px] text-muted-foreground">발행 타이밍</Label>
+                                    <div className="flex gap-4">
+                                        <label className="flex items-center gap-2 text-xs font-medium cursor-pointer">
+                                            <input
+                                                type="radio"
+                                                name="scheduleMode"
+                                                checked={form.scheduleMode === 'immediate'}
+                                                onChange={() => setForm({ ...form, scheduleMode: 'immediate' })}
+                                            />
+                                            <span>즉시 대기열 진입</span>
+                                        </label>
+                                        <label className="flex items-center gap-2 text-xs font-medium cursor-pointer">
+                                            <input
+                                                type="radio"
+                                                name="scheduleMode"
+                                                checked={form.scheduleMode === 'scheduled'}
+                                                onChange={() => setForm({ ...form, scheduleMode: 'scheduled' })}
+                                            />
+                                            <span>예약 발행</span>
+                                        </label>
+                                    </div>
+                                    {form.scheduleMode === 'scheduled' && (
+                                        <div className="mt-1.5">
+                                            <Input
+                                                type="datetime-local"
+                                                value={form.scheduledTime}
+                                                onChange={e => setForm({ ...form, scheduledTime: e.target.value })}
+                                                className="h-8 text-xs bg-background border-border"
+                                            />
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="pt-2 border-t border-border/60">
+                                    <label className="flex items-center gap-2 text-xs font-medium text-foreground cursor-pointer">
+                                        <Checkbox
+                                            checked={form.approval_required}
+                                            onCheckedChange={c => setForm({ ...form, approval_required: Boolean(c) })}
+                                        />
+                                        <span>관리자 승인 필요 (체크 시 승인 대기 PENDING 상태로 보관)</span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* 3. 모달 하단 푸터 액션 버튼 */}
+                    <div className="flex items-center justify-between pt-3 border-t border-border/80">
                         <div>
-                            <Button type="button" variant="outline" onClick={handleDraftSave} className="border-slate-300">
-                                <Save className="w-4 h-4 mr-1" /> 임시 보관
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={handleDraftSave}
+                                className="h-8 text-xs border-border bg-background hover:bg-muted text-foreground"
+                            >
+                                <Save className="w-3.5 h-3.5 mr-1.5" /> 임시 보관
                             </Button>
                         </div>
-                        <div className="flex gap-2">
-                            <Button type="button" variant="outline" onClick={() => setIsOpen(false)}>취소</Button>
-                            <Button type="submit" className="bg-indigo-600 hover:bg-indigo-700 text-white">
-                                <Rocket className="w-4 h-4 mr-1" /> {initialData ? '수정 완료' : '즉시 등록'}
+                        <div className="flex items-center gap-2">
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                onClick={() => setIsOpen(false)}
+                                className="h-8 text-xs text-muted-foreground hover:text-foreground"
+                            >
+                                취소
+                            </Button>
+                            <Button
+                                type="submit"
+                                className="h-8 text-xs bg-indigo-600 hover:bg-indigo-700 text-white font-bold gap-1.5 shadow-xs"
+                            >
+                                <Rocket className="w-3.5 h-3.5" />
+                                {initialData ? '수정 완료' : '대기열 즉시 등록'}
                             </Button>
                         </div>
                     </div>

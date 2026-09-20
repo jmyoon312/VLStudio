@@ -70,7 +70,25 @@ def get_all_youtube_channels(
             YouTubeChannel.owner_profile_id.isnot(None)
         )
     channels = query.all()
-    return [channel_to_dict(ch) for ch in channels]
+    profiles = {p.id: p for p in db.query(Profile).all()}
+    result = []
+    for ch in channels:
+        d = channel_to_dict(ch)
+        prof = profiles.get(ch.owner_profile_id)
+        if prof:
+            d["bound_device_serial"] = getattr(prof, "bound_device_serial", None)
+            d["proxy_mode"] = getattr(prof, "proxy_mode", "DIRECT_LTE")
+            d["proxy_host"] = getattr(prof, "proxy_host", None)
+            d["proxy_port"] = getattr(prof, "proxy_port", None)
+            d["profile_email"] = getattr(prof, "email", None)
+        else:
+            d["bound_device_serial"] = None
+            d["proxy_mode"] = "DIRECT_LTE"
+            d["proxy_host"] = None
+            d["proxy_port"] = 1080
+            d["profile_email"] = None
+        result.append(d)
+    return result
 
 @router.get("/captain/{profile_id}/channels")
 async def get_captain_channels(

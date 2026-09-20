@@ -1,11 +1,11 @@
 {
-  "version": "0.9.54",
-  "buildNumber": 1159,
+  "version": "0.9.55",
+  "buildNumber": 1160,
   "channel": "latest",
-  "releaseDate": "2026-09-20T03:10:29.922Z",
-  "sha256": "42ebbad0b305a091af5a493e15e8027fda462c6718a7a86719f242e1805cf839",
-  "sha512": "/Nz6SARSOtoc4TkgqbU7sYlBaWE1x+idj/r/bS04Fo9VQihk3+y4IlHLl+SxZiNMh+GM+SUDALVvcTvBtEJHyg==",
-  "sizeBytes": 118656976,
+  "releaseDate": "2026-09-20T03:36:55.393Z",
+  "sha256": "3ee554d9f38b2708cfbe95e53f81f5d8c8f2ebda83ce6cc3020246781a9c9d75",
+  "sha512": "L/G2eysP2HUPxUERLCme9THz0fZC6K7TCujaoc6el0DFpGD83rQWR2SQFtTskWzaFGOShFJY8d3B3ZV5J1+Rag==",
+  "sizeBytes": 118659060,
   "sizeMB": "113.16 MB",
   "bundleName": "update-bundle.zip",
   "downloadUrl": "https://github.com/jmyoon312/VLStudio/releases/latest/download/update-bundle.zip"

@@ -446,7 +446,13 @@ export function registerFilesystemIPC(ipcMain) {
   // 1e. fs:select-video-file
   ipcMain.handle('fs:select-video-file', async () => {
     try {
+      const localAppData = process.env.LOCALAPPDATA || ''
+      const defaultExportDir = process.platform === 'win32'
+        ? path.join(localAppData, 'ViraLoop Studio', 'media', '05_Exports')
+        : path.join(app.getPath('documents'), 'ViraLoop Studio', 'media', '05_Exports')
+
       const result = await dialog.showOpenDialog({
+        defaultPath: fsSync.existsSync(defaultExportDir) ? defaultExportDir : undefined,
         properties: ['openFile'],
         filters: [{ name: 'Videos', extensions: ['mp4', 'webm', 'mov', 'avi'] }]
       })
