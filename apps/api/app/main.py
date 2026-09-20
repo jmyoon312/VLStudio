@@ -19,12 +19,14 @@ import subprocess
 import threading
 from contextlib import asynccontextmanager
 
-# [Global Console Encoding Shield for Windows]
+# [Global Console Encoding Shield & Proactor Policy for Windows]
 try:
     if hasattr(sys.stdout, 'reconfigure'):
         sys.stdout.reconfigure(encoding='utf-8', errors='backslashreplace')
     if hasattr(sys.stderr, 'reconfigure'):
         sys.stderr.reconfigure(encoding='utf-8', errors='backslashreplace')
+    if sys.platform == 'win32':
+        asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 except Exception:
     pass
 

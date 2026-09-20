@@ -136,6 +136,12 @@ const WorkQueue = () => {
     };
 
     useEffect(() => {
+        // [Headless Sync] Ensure backend default matches UI toggle state on mount
+        if (typeof window !== 'undefined') {
+            const saved = localStorage.getItem('vl_work_queue_browser_visible');
+            const isVisible = saved !== null ? saved === 'true' : false;
+            fetchWithRetry(`/api/work-queue/toggle-headless?headless=${!isVisible}`, { method: 'POST' }).catch(() => {});
+        }
         loadQueueItems();
         loadStats();
         loadAllChannels();

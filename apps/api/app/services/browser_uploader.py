@@ -104,16 +104,13 @@ class BrowserUploader:
         # 1. Launch Secure Browser (IP Rotation handled inside)
         try:
             rotate_decision = force_ip_rotation
-            # Headless Mode Resolution (Prioritize global toggle so "창 표시: 켜짐" ALWAYS shows the window!)
-            global_headless = getattr(self, 'default_headless_mode', None)
-            if global_headless is not None:
-                headless_mode = bool(global_headless)
+            # Headless Mode Resolution (Respect item setting first; fallback to global default)
+            item_headless = yt_config.get('headless_mode')
+            if item_headless is not None:
+                headless_mode = bool(item_headless)
             else:
-                item_headless = yt_config.get('headless_mode')
-                if item_headless is not None:
-                    headless_mode = bool(item_headless)
-                else:
-                    headless_mode = True
+                global_headless = getattr(self, 'default_headless_mode', None)
+                headless_mode = bool(global_headless) if global_headless is not None else False
             logger.info(f"🛡️ IP Rotation Policy: {'ROTATE' if rotate_decision else 'STICKY'} (Force={force_ip_rotation}) | Headless={headless_mode}")
 
             # [Direct Studio Launch]
@@ -318,28 +315,41 @@ class BrowserUploader:
             except Exception:
                 pass
 
-            # Expand 'Show More' (자세히 보기)
-            try:
-                show_more = page.locator('button:has-text("자세히 보기"), button:has-text("Show more"), #toggle-button, [aria-label*="자세히"]').first
-                if show_more.is_visible(timeout=2000):
-                    show_more.evaluate("node => { node.scrollIntoView({ block: 'center' }); node.click(); }")
-                    time.sleep(1.0)
-            except Exception:
-                pass
-
-            # --- Tags ---
+            # Expand 'Show More' (자세히 표시 / Show more) & Input Tags
             if item.tags:
                 try:
-                    logger.info("🏷️ Processing Tags...")
+                    logger.info("🏷️ Processing Tags (Expanding Show More)...")
+                    # 1. Scroll container down to mount #toggle-button in virtual DOM
+                    page.evaluate('''() => {
+                        const sc = document.querySelector('#scrollable-content');
+                        if (sc) sc.scrollTop = sc.scrollHeight;
+                    }''')
+                    time.sleep(1.0)
+
+                    # 2. Click toggle button (자세히 표시)
+                    toggle_btn = page.locator('ytcp-button#toggle-button, #toggle-button, ytcp-button:has-text("자세히 표시"), ytcp-button:has-text("Show more")').first
+                    if toggle_btn.count() > 0:
+                        toggle_btn.evaluate("node => node.click()")
+                        logger.info("[OK] Clicked '자세히 표시 (Show more)' button")
+                        time.sleep(1.0)
+
+                    # 3. Scroll down again to reveal #tags-container
+                    page.evaluate('''() => {
+                        const sc = document.querySelector('#scrollable-content');
+                        if (sc) sc.scrollTop = sc.scrollHeight;
+                    }''')
+                    time.sleep(1.0)
+
+                    # 4. Insert tags with comma separation to create chips
                     tag_input = page.locator('#tags-container #text-input, input[aria-label*="태그"], input[aria-label*="Tags"]').first
-                    if tag_input.is_visible(timeout=3000):
+                    if tag_input.is_visible(timeout=5000):
                         tags_list = item.tags if isinstance(item.tags, list) else [t.strip() for t in str(item.tags).split(',') if t.strip()]
-                        for t in tags_list:
-                            if t:
-                                tag_input.fill(t)
-                                tag_input.press("Enter")
-                                time.sleep(0.1)
-                        logger.info(f"[OK] Tags applied ({len(tags_list)} tags)")
+                        tags_text = ",".join(tags_list) + ","
+                        tag_input.type(tags_text, delay=20)
+                        time.sleep(0.5)
+                        logger.info(f"[OK] Tags applied ({len(tags_list)} tags: {tags_text[:40]}...)")
+                    else:
+                        logger.warning("[WARN] Tag input not visible after expand")
                 except Exception as t_e:
                     logger.warning(f"Tags non-critical warning: {t_e}")
 
@@ -382,31 +392,80 @@ class BrowserUploader:
 
             click_next_step("Checks -> Visibility")
 
-            # [VISIBILITY LOGIC]
-            logger.info("👁️ Setting Visibility...")
+            # [VISIBILITY & SCHEDULING LOGIC]
+            logger.info("👁️ Setting Visibility & Schedule...")
             yt_config = item.platform_configs.get('youtube', {})
             original_privacy = yt_config.get('privacy', 'private').lower()
+            is_scheduled = (original_privacy in ["schedule", "scheduled"]) or (item.scheduled_upload_time is not None and item.scheduled_upload_time > __import__('datetime').datetime.now())
 
-            yt_config['final_privacy'] = original_privacy
+            yt_config['final_privacy'] = 'scheduled' if is_scheduled else original_privacy
             item.platform_configs['youtube'] = yt_config
             from sqlalchemy.orm.attributes import flag_modified
             flag_modified(item, "platform_configs")
 
-            # Select Private for safe upload
-            try:
-                private_radio = page.locator('tp-yt-paper-radio-button[name="PRIVATE"], #privacy-radios-private').first
-                private_radio.evaluate("node => { node.scrollIntoView({ block: 'center' }); node.click(); }")
-            except Exception:
+            if is_scheduled and item.scheduled_upload_time:
+                logger.info(f"📅 Setting Direct Scheduled Publish for {item.scheduled_upload_time}...")
                 try:
-                    page.locator('tp-yt-paper-radio-button[name="PRIVATE"]').first.click(force=True, timeout=5000)
+                    sched_radio = page.locator('tp-yt-paper-radio-button[name="SCHEDULE"], #schedule-radio, tp-yt-paper-radio-button:has-text("게시 일정"), tp-yt-paper-radio-button:has-text("예약")').first
+                    if sched_radio.count() > 0:
+                        sched_radio.evaluate("node => { node.scrollIntoView({ block: 'center' }); node.click(); }")
+                        time.sleep(1.0)
+
+                    t = item.scheduled_upload_time
+                    date_input = page.locator('#datepicker-trigger input, input[aria-label*="날짜"], input[aria-label*="date"]').first
+                    if date_input.is_visible(timeout=3000):
+                        date_input.click()
+                        page.keyboard.press("Control+A")
+                        page.keyboard.press("Backspace")
+                        date_str = f"{t.year}. {t.month:02d}. {t.day:02d}."
+                        date_input.type(date_str, delay=30)
+                        page.keyboard.press("Enter")
+                        time.sleep(0.5)
+
+                    time_input = page.locator('#time-of-day-trigger input, input[aria-label*="시간"], input[aria-label*="time"]').first
+                    if time_input.is_visible(timeout=3000):
+                        time_input.click()
+                        page.keyboard.press("Control+A")
+                        page.keyboard.press("Backspace")
+                        time_str = t.strftime("%H:%M")
+                        time_input.type(time_str, delay=30)
+                        page.keyboard.press("Enter")
+                        time.sleep(0.5)
+
+                    logger.info(f"📅 Schedule configured for {date_str} {time_str}")
+                except Exception as sc_e:
+                    logger.warning(f"Scheduling direct config pass: {sc_e}")
+
+            elif original_privacy == 'public':
+                try:
+                    pub_radio = page.locator('tp-yt-paper-radio-button[name="PUBLIC"], #privacy-radios-public').first
+                    pub_radio.evaluate("node => { node.scrollIntoView({ block: 'center' }); node.click(); }")
+                    logger.info("🌐 Selected PUBLIC")
                 except Exception:
-                    page.locator(':text("비공개"), :text("Private")').first.click(force=True, timeout=5000)
-            logger.info(f"🔒 Selected PRIVATE (Original was {original_privacy})")
+                    pass
+            elif original_privacy == 'unlisted':
+                try:
+                    unl_radio = page.locator('tp-yt-paper-radio-button[name="UNLISTED"], #privacy-radios-unlisted').first
+                    unl_radio.evaluate("node => { node.scrollIntoView({ block: 'center' }); node.click(); }")
+                    logger.info("🔗 Selected UNLISTED")
+                except Exception:
+                    pass
+            else:
+                # Default to Private for safe upload
+                try:
+                    private_radio = page.locator('tp-yt-paper-radio-button[name="PRIVATE"], #privacy-radios-private').first
+                    private_radio.evaluate("node => { node.scrollIntoView({ block: 'center' }); node.click(); }")
+                    logger.info("🔒 Selected PRIVATE")
+                except Exception:
+                    try:
+                        page.locator('tp-yt-paper-radio-button[name="PRIVATE"]').first.click(force=True, timeout=5000)
+                    except Exception:
+                        page.locator(':text("비공개"), :text("Private")').first.click(force=True, timeout=5000)
 
             # Final Click: Save / Publish
             logger.info("🚀 Clicking Done / Publish...")
             time.sleep(1.0)
-            done_btn = page.locator('#done-button, #save-button, ytcp-button#done-button, button:has-text("저장"), button:has-text("게시"), button:has-text("Save"), button:has-text("Publish")').first
+            done_btn = page.locator('#done-button, #save-button, ytcp-button#done-button, button:has-text("저장"), button:has-text("게시"), button:has-text("예약"), button:has-text("Save"), button:has-text("Publish"), button:has-text("Schedule")').first
             done_btn.wait_for(state='visible', timeout=15000)
             done_btn.evaluate("node => node.click()")
             time.sleep(3.0)
@@ -441,12 +500,20 @@ class BrowserUploader:
 
         # [Status Update - Sovereign Publisher v4]
         item.upload_completed_at = __import__('datetime').datetime.now()
-        if original_privacy == 'private':
+        if original_privacy == 'private' or is_scheduled:
             item.status = "COMPLETED"
-            logger.info("[OK] Video uploaded directly as PRIVATE. Status -> COMPLETED.")
+            logger.info(f"[OK] Video uploaded directly as {'SCHEDULED' if is_scheduled else 'PRIVATE'}. Status -> COMPLETED.")
         else:
             item.status = "VERIFYING"
             logger.info("[WAIT] Upload Task Complete. Routing to VERIFYING queue for aging/copyright checks.")
+
+        # Cleanly release browser session on upload completion so profile locks and processes are freed
+        try:
+            time.sleep(1.0)
+            self.session_manager.close_session(channel_id)
+            logger.info(f"🚪 Browser session closed for channel {channel_id}")
+        except Exception as cs_e:
+            logger.debug(f"Session close pass: {cs_e}")
 
     def verify_and_publish_video(self, db: Session, item_id: int):
         """
