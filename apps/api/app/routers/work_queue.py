@@ -170,6 +170,8 @@ class WorkQueueItemUpdate(BaseModel):
     status: Optional[str] = None
     scheduled_upload_time: Optional[datetime] = None
     channel_id: Optional[str] = None
+    approval_required: Optional[bool] = None
+    source_type: Optional[str] = None
 
 
 class WorkQueueItemResponse(BaseModel):

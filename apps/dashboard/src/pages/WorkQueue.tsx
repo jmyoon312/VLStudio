@@ -22,7 +22,7 @@ import {
     FileCheck, Hash, Files, Filter, ChevronDown, ChevronUp, Copy, Film,
     Save, FileSpreadsheet, Send, Search, ArrowUpDown, Workflow, Pause,
     PlaySquare, Settings, Table, Columns2, Volume2, VolumeX, X, SlidersHorizontal,
-    Loader2, Sparkles
+    Loader2, Sparkles, ExternalLink
 } from 'lucide-react';
 
 
@@ -94,6 +94,8 @@ const WorkQueue = () => {
     const [channels, setChannels] = useState<any[]>(() => getLocalCache('channels', []));
     const [tiktokChannels, setTiktokChannels] = useState<any[]>(() => getLocalCache('tiktokChannels', []));
     const [instagramChannels, setInstagramChannels] = useState<any[]>(() => getLocalCache('instagramChannels', []));
+    const [officialExports, setOfficialExports] = useState<any[]>(() => getLocalCache('officialExports', []));
+    const [isLoadingExports, setIsLoadingExports] = useState(false);
     // 강화된 검색/정렬 상태
     const [channelFilter, setChannelFilter] = useState('all');
     const [uploadMethodFilter, setUploadMethodFilter] = useState('all');
@@ -145,6 +147,7 @@ const WorkQueue = () => {
         loadQueueItems();
         loadStats();
         loadAllChannels();
+        loadOfficialExports();
         loadBatchGroups();
         const interval = setInterval(() => { loadQueueItems(); loadStats(); loadBatchGroups(); }, 10000);
         return () => clearInterval(interval);
@@ -223,6 +226,23 @@ const WorkQueue = () => {
             if (r2.ok) { const d2 = await r2.json(); setTiktokChannels(d2); setLocalCache('tiktokChannels', d2); }
             if (r3.ok) { const d3 = await r3.json(); setInstagramChannels(d3); setLocalCache('instagramChannels', d3); }
         } catch (_) { }
+    };
+
+    const loadOfficialExports = async () => {
+        setIsLoadingExports(true);
+        try {
+            const res = await fetchWithRetry('/api/work-queue/official-exports');
+            if (res.ok) {
+                const data = await res.json();
+                const files = Array.isArray(data.files) ? data.files : [];
+                setOfficialExports(files);
+                setLocalCache('officialExports', files);
+            }
+        } catch (_) {
+            setOfficialExports([]);
+        } finally {
+            setIsLoadingExports(false);
+        }
     };
 
     const getStatusBadge = (status: string) => {
@@ -948,9 +968,13 @@ const WorkQueue = () => {
                                     onUpdateUploadMethod={handleUpdateUploadMethod}
                                     onUpdateChannel={handleUpdateChannel}
                                     onUpdateItem={handleUpdateItem}
+                                    onRefresh={() => { loadQueueItems(); loadStats(); }}
                                     channels={channels}
                                     tiktokChannels={tiktokChannels}
                                     instagramChannels={instagramChannels}
+                                    officialExports={officialExports}
+                                    isLoadingExports={isLoadingExports}
+                                    onRefreshOfficialExports={loadOfficialExports}
                                     getStatusBadge={getStatusBadge}
                                     getApprovalBadge={getApprovalBadge}
                                     selectedItems={selectedItems}
@@ -1183,7 +1207,9 @@ const renderChannelNetworkBadge = (ch: any) => {
 const QueueItemCompactCard = ({
     index, item, onApprove, onReject, onDelete, onReset, onEdit, onPlay,
     onAttach, onFinalize, onUpdateUploadMethod, onUpdateChannel, onUpdateItem,
+    onRefresh,
     channels, tiktokChannels, instagramChannels,
+    officialExports = [], isLoadingExports = false, onRefreshOfficialExports,
     getStatusBadge, getApprovalBadge, selectedItems, toggleItemSelection,
     isUploadingAttach, targetItemId
 }: any) => {
@@ -1196,9 +1222,14 @@ const QueueItemCompactCard = ({
     const [videoInfo, setVideoInfo] = useState<{ width: number; height: number; duration: number; isVertical: boolean } | null>(null);
     const videoRef = useRef<HTMLVideoElement>(null);
     const cardRef = useRef<HTMLDivElement>(null);
-    const hasVideo = !!item.video_file_path;
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
-    // --- Inline Live-Edit State ---
+    // --- Video Source State ---
+    const [editVideoFilePath, setEditVideoFilePath] = useState(item.video_file_path || '');
+    const [isUploadingVideo, setIsUploadingVideo] = useState(false);
+    const [uploadPercent, setUploadPercent] = useState(0);
+
+    // --- Content Metadata State ---
     const [editTitle, setEditTitle] = useState(item.title || '');
     const [editDescription, setEditDescription] = useState(item.description || '');
     const [editHashtags, setEditHashtags] = useState(
@@ -1207,66 +1238,309 @@ const QueueItemCompactCard = ({
     const [editTags, setEditTags] = useState(
         Array.isArray(item.tags) ? item.tags.join(', ') : (item.tags || '')
     );
+
+    // --- Target Platforms & Active Sub-Tab ---
+    const initialPlatforms = Array.isArray(item.target_platforms) && item.target_platforms.length > 0
+        ? item.target_platforms
+        : ['youtube'];
+    const [editTargetPlatforms, setEditTargetPlatforms] = useState<string[]>(initialPlatforms);
+    const [activePlatformTab, setActivePlatformTab] = useState<'youtube' | 'tiktok' | 'instagram'>(
+        initialPlatforms.includes('youtube') ? 'youtube' : (initialPlatforms[0] as any) || 'youtube'
+    );
+
+    // --- YouTube Configs ---
     const [editChannelId, setEditChannelId] = useState(
         item.platform_configs?.youtube?.channel_id || item.channel_id || ''
     );
-    const [editUploadMethod, setEditUploadMethod] = useState(item.upload_method || 'BROWSER_AUTO');
     const [editPrivacy, setEditPrivacy] = useState(
         item.platform_configs?.youtube?.privacy || (item.scheduled_upload_time ? 'scheduled' : 'private')
     );
     const [editScheduleTime, setEditScheduleTime] = useState(
-        item.scheduled_upload_time ? new Date(item.scheduled_upload_time).toISOString().slice(0, 16) : ''
+        item.scheduled_upload_time
+            ? (item.scheduled_upload_time.includes('T') ? item.scheduled_upload_time : item.scheduled_upload_time.replace(' ', 'T')).slice(0, 16)
+            : ''
     );
     const [editHeadlessMode, setEditHeadlessMode] = useState(
         item.platform_configs?.youtube?.headless_mode !== undefined
             ? !item.platform_configs.youtube.headless_mode
             : false
     );
+    const [editEnableShoppingTag, setEditEnableShoppingTag] = useState(Boolean(item.enable_shopping_tag));
+    const [editShoppingTagKeyword, setEditShoppingTagKeyword] = useState(item.shopping_tag_keyword || '');
+    const [isExtractingShoppingKeyword, setIsExtractingShoppingKeyword] = useState(false);
+
+    // --- TikTok Configs ---
+    const [editTiktokAccountId, setEditTiktokAccountId] = useState(
+        item.platform_configs?.tiktok?.account_id || ''
+    );
+    const [editTiktokPrivacy, setEditTiktokPrivacy] = useState(
+        item.platform_configs?.tiktok?.privacy || 'private'
+    );
+    const [editTiktokAllowComments, setEditTiktokAllowComments] = useState(
+        item.platform_configs?.tiktok?.allow_comments !== undefined ? Boolean(item.platform_configs.tiktok.allow_comments) : true
+    );
+    const [editTiktokAllowDuet, setEditTiktokAllowDuet] = useState(
+        item.platform_configs?.tiktok?.allow_duet !== undefined ? Boolean(item.platform_configs.tiktok.allow_duet) : true
+    );
+
+    // --- Instagram Configs ---
+    const [editInstagramAccountId, setEditInstagramAccountId] = useState(
+        item.platform_configs?.instagram?.account_id || ''
+    );
+    const [editInstagramShareToFeed, setEditInstagramShareToFeed] = useState(
+        Boolean(item.platform_configs?.instagram?.share_to_feed)
+    );
+    const [editInstagramCaption, setEditInstagramCaption] = useState(
+        item.platform_configs?.instagram?.caption || ''
+    );
+
+    // --- Common / Governance ---
+    const [editUploadMethod, setEditUploadMethod] = useState(item.upload_method || 'BROWSER_AUTO');
+    const [editSourceExternalId, setEditSourceExternalId] = useState(item.source_external_id || '');
+    const [editApprovalRequired, setEditApprovalRequired] = useState(Boolean(item.approval_required));
+
     const [isSaving, setIsSaving] = useState(false);
+    const [isFinalizing, setIsFinalizing] = useState(false);
 
     useEffect(() => {
+        setEditVideoFilePath(item.video_file_path || '');
         setEditTitle(item.title || '');
         setEditDescription(item.description || '');
         setEditHashtags(Array.isArray(item.hashtags) ? item.hashtags.join(' ') : (item.hashtags || ''));
         setEditTags(Array.isArray(item.tags) ? item.tags.join(', ') : (item.tags || ''));
-        setEditChannelId(item.platform_configs?.youtube?.channel_id || item.channel_id || '');
-        setEditUploadMethod(item.upload_method || 'BROWSER_AUTO');
-        setEditPrivacy(item.platform_configs?.youtube?.privacy || (item.scheduled_upload_time ? 'scheduled' : 'private'));
-        setEditScheduleTime(item.scheduled_upload_time ? new Date(item.scheduled_upload_time).toISOString().slice(0, 16) : '');
-        setEditHeadlessMode(
-            item.platform_configs?.youtube?.headless_mode !== undefined
-                ? !item.platform_configs.youtube.headless_mode
-                : false
+
+        const plats = Array.isArray(item.target_platforms) && item.target_platforms.length > 0
+            ? item.target_platforms
+            : ['youtube'];
+        setEditTargetPlatforms(plats);
+        if (!plats.includes(activePlatformTab)) {
+            setActivePlatformTab(plats[0] as any || 'youtube');
+        }
+
+        const ytConf = item.platform_configs?.youtube || {};
+        setEditChannelId(ytConf.channel_id || item.channel_id || '');
+        setEditPrivacy(ytConf.privacy || (item.scheduled_upload_time ? 'scheduled' : 'private'));
+        setEditScheduleTime(
+            item.scheduled_upload_time
+                ? (item.scheduled_upload_time.includes('T') ? item.scheduled_upload_time : item.scheduled_upload_time.replace(' ', 'T')).slice(0, 16)
+                : ''
         );
+        setEditHeadlessMode(
+            ytConf.headless_mode !== undefined ? !ytConf.headless_mode : false
+        );
+        setEditEnableShoppingTag(Boolean(item.enable_shopping_tag));
+        setEditShoppingTagKeyword(item.shopping_tag_keyword || '');
+
+        const ttConf = item.platform_configs?.tiktok || {};
+        setEditTiktokAccountId(ttConf.account_id || '');
+        setEditTiktokPrivacy(ttConf.privacy || 'private');
+        setEditTiktokAllowComments(ttConf.allow_comments !== undefined ? Boolean(ttConf.allow_comments) : true);
+        setEditTiktokAllowDuet(ttConf.allow_duet !== undefined ? Boolean(ttConf.allow_duet) : true);
+
+        const igConf = item.platform_configs?.instagram || {};
+        setEditInstagramAccountId(igConf.account_id || '');
+        setEditInstagramShareToFeed(Boolean(igConf.share_to_feed));
+        setEditInstagramCaption(igConf.caption || '');
+
+        setEditUploadMethod(item.upload_method || 'BROWSER_AUTO');
+        setEditSourceExternalId(item.source_external_id || '');
+        setEditApprovalRequired(Boolean(item.approval_required));
     }, [item]);
 
+    const initialPlatStr = (Array.isArray(item.target_platforms) && item.target_platforms.length > 0 ? item.target_platforms : ['youtube']).slice().sort().join(',');
+    const currentPlatStr = editTargetPlatforms.slice().sort().join(',');
+
     const isDirty = (
+        editVideoFilePath !== (item.video_file_path || '') ||
         editTitle !== (item.title || '') ||
         editDescription !== (item.description || '') ||
         editHashtags !== (Array.isArray(item.hashtags) ? item.hashtags.join(' ') : (item.hashtags || '')) ||
         editTags !== (Array.isArray(item.tags) ? item.tags.join(', ') : (item.tags || '')) ||
+        currentPlatStr !== initialPlatStr ||
         editChannelId !== (item.platform_configs?.youtube?.channel_id || item.channel_id || '') ||
-        editUploadMethod !== (item.upload_method || 'BROWSER_AUTO') ||
         editPrivacy !== (item.platform_configs?.youtube?.privacy || (item.scheduled_upload_time ? 'scheduled' : 'private')) ||
-        (editPrivacy === 'scheduled' && editScheduleTime !== (item.scheduled_upload_time ? new Date(item.scheduled_upload_time).toISOString().slice(0, 16) : '')) ||
-        editHeadlessMode !== (item.platform_configs?.youtube?.headless_mode !== undefined ? !item.platform_configs.youtube.headless_mode : false)
+        (editPrivacy === 'scheduled' && editScheduleTime !== (item.scheduled_upload_time ? (item.scheduled_upload_time.includes('T') ? item.scheduled_upload_time : item.scheduled_upload_time.replace(' ', 'T')).slice(0, 16) : '')) ||
+        editHeadlessMode !== (item.platform_configs?.youtube?.headless_mode !== undefined ? !item.platform_configs.youtube.headless_mode : false) ||
+        editEnableShoppingTag !== Boolean(item.enable_shopping_tag) ||
+        editShoppingTagKeyword !== (item.shopping_tag_keyword || '') ||
+        editTiktokAccountId !== (item.platform_configs?.tiktok?.account_id || '') ||
+        editTiktokPrivacy !== (item.platform_configs?.tiktok?.privacy || 'private') ||
+        editTiktokAllowComments !== (item.platform_configs?.tiktok?.allow_comments !== undefined ? Boolean(item.platform_configs.tiktok.allow_comments) : true) ||
+        editTiktokAllowDuet !== (item.platform_configs?.tiktok?.allow_duet !== undefined ? Boolean(item.platform_configs.tiktok.allow_duet) : true) ||
+        editInstagramAccountId !== (item.platform_configs?.instagram?.account_id || '') ||
+        editInstagramShareToFeed !== Boolean(item.platform_configs?.instagram?.share_to_feed) ||
+        editInstagramCaption !== (item.platform_configs?.instagram?.caption || '') ||
+        editUploadMethod !== (item.upload_method || 'BROWSER_AUTO') ||
+        editSourceExternalId !== (item.source_external_id || '') ||
+        editApprovalRequired !== Boolean(item.approval_required)
     );
 
     const handleRevert = () => {
+        setEditVideoFilePath(item.video_file_path || '');
         setEditTitle(item.title || '');
         setEditDescription(item.description || '');
         setEditHashtags(Array.isArray(item.hashtags) ? item.hashtags.join(' ') : (item.hashtags || ''));
         setEditTags(Array.isArray(item.tags) ? item.tags.join(', ') : (item.tags || ''));
-        setEditChannelId(item.platform_configs?.youtube?.channel_id || item.channel_id || '');
-        setEditUploadMethod(item.upload_method || 'BROWSER_AUTO');
-        setEditPrivacy(item.platform_configs?.youtube?.privacy || (item.scheduled_upload_time ? 'scheduled' : 'private'));
-        setEditScheduleTime(item.scheduled_upload_time ? new Date(item.scheduled_upload_time).toISOString().slice(0, 16) : '');
-        setEditHeadlessMode(
-            item.platform_configs?.youtube?.headless_mode !== undefined
-                ? !item.platform_configs.youtube.headless_mode
-                : false
+
+        const plats = Array.isArray(item.target_platforms) && item.target_platforms.length > 0
+            ? item.target_platforms
+            : ['youtube'];
+        setEditTargetPlatforms(plats);
+        setActivePlatformTab(plats.includes(activePlatformTab) ? activePlatformTab : (plats[0] as any || 'youtube'));
+
+        const ytConf = item.platform_configs?.youtube || {};
+        setEditChannelId(ytConf.channel_id || item.channel_id || '');
+        setEditPrivacy(ytConf.privacy || (item.scheduled_upload_time ? 'scheduled' : 'private'));
+        setEditScheduleTime(
+            item.scheduled_upload_time
+                ? (item.scheduled_upload_time.includes('T') ? item.scheduled_upload_time : item.scheduled_upload_time.replace(' ', 'T')).slice(0, 16)
+                : ''
         );
+        setEditHeadlessMode(
+            ytConf.headless_mode !== undefined ? !ytConf.headless_mode : false
+        );
+        setEditEnableShoppingTag(Boolean(item.enable_shopping_tag));
+        setEditShoppingTagKeyword(item.shopping_tag_keyword || '');
+
+        const ttConf = item.platform_configs?.tiktok || {};
+        setEditTiktokAccountId(ttConf.account_id || '');
+        setEditTiktokPrivacy(ttConf.privacy || 'private');
+        setEditTiktokAllowComments(ttConf.allow_comments !== undefined ? Boolean(ttConf.allow_comments) : true);
+        setEditTiktokAllowDuet(ttConf.allow_duet !== undefined ? Boolean(ttConf.allow_duet) : true);
+
+        const igConf = item.platform_configs?.instagram || {};
+        setEditInstagramAccountId(igConf.account_id || '');
+        setEditInstagramShareToFeed(Boolean(igConf.share_to_feed));
+        setEditInstagramCaption(igConf.caption || '');
+
+        setEditUploadMethod(item.upload_method || 'BROWSER_AUTO');
+        setEditSourceExternalId(item.source_external_id || '');
+        setEditApprovalRequired(Boolean(item.approval_required));
         toast({ title: "변경사항 복원", description: "원래 데이터로 되돌렸습니다." });
+    };
+
+    const togglePlatform = (p: string) => {
+        let updated: string[];
+        if (editTargetPlatforms.includes(p)) {
+            if (editTargetPlatforms.length <= 1) {
+                toast({ variant: "destructive", title: "최소 1개 플랫폼 필수", description: "적어도 하나의 배포 플랫폼이 선택되어 있어야 합니다." });
+                return;
+            }
+            updated = editTargetPlatforms.filter(x => x !== p);
+            if (activePlatformTab === p) {
+                setActivePlatformTab(updated[0] as any || 'youtube');
+            }
+        } else {
+            updated = [...editTargetPlatforms, p];
+            setActivePlatformTab(p as any);
+        }
+        setEditTargetPlatforms(updated);
+    };
+
+    const handleSelectOfficialExport = (filePath: string) => {
+        if (!filePath) return;
+        setEditVideoFilePath(filePath);
+        if (!editTitle.trim()) {
+            const fileName = filePath.split(/[/\\]/).pop() || '';
+            setEditTitle(fileName.replace(/\.[^/.]+$/, '').replace(/_/g, ' '));
+        }
+        toast({ title: "공식 저장소 영상 선택", description: filePath.split(/[/\\]/).pop() });
+    };
+
+    const handleBrowseVideo = async () => {
+        if ((window as any).electronAPI?.selectVideoFile) {
+            const r = await (window as any).electronAPI.selectVideoFile();
+            if (r.success && r.path) {
+                setEditVideoFilePath(r.path);
+                if (!editTitle.trim()) {
+                    const fileName = r.path.split(/[/\\]/).pop() || '';
+                    setEditTitle(fileName.replace(/\.[^/.]+$/, '').replace(/_/g, ' '));
+                }
+                toast({ title: "영상 파일 선택 완료", description: r.path });
+                return;
+            }
+        }
+        fileInputRef.current?.click();
+    };
+
+    const handleFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setIsUploadingVideo(true);
+        setUploadPercent(0);
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', `/api/work-queue/items/${item.id}/upload-attach`);
+
+            xhr.upload.onprogress = (event) => {
+                if (event.lengthComputable) {
+                    const percent = Math.round((event.loaded / event.total) * 100);
+                    setUploadPercent(percent);
+                }
+            };
+
+            const uploadPromise = new Promise<any>((resolve, reject) => {
+                xhr.onload = () => {
+                    if (xhr.status >= 200 && xhr.status < 300) {
+                        try {
+                            resolve(JSON.parse(xhr.responseText));
+                        } catch (err) {
+                            reject(err);
+                        }
+                    } else {
+                        reject(new Error(xhr.responseText || '업로드 실패'));
+                    }
+                };
+                xhr.onerror = () => reject(new Error('네트워크 오류로 업로드 실패'));
+            });
+
+            xhr.send(formData);
+            const data = await uploadPromise;
+
+            const newPath = data.video_file_path || data.server_file_path || '';
+            if (newPath) {
+                setEditVideoFilePath(newPath);
+            }
+            if (!editTitle.trim()) {
+                setEditTitle(file.name.replace(/\.[^/.]+$/, '').replace(/_/g, ' '));
+            }
+            toast({ title: "영상 업로드 완료", description: `서버에 저장되어 연결되었습니다: ${file.name}` });
+            if (typeof onRefresh === 'function') {
+                onRefresh();
+            } else if (typeof onUpdateItem === 'function') {
+                onUpdateItem(item.id, { video_file_path: newPath });
+            }
+        } catch (err: any) {
+            toast({ variant: "destructive", title: "업로드 실패", description: err.message || '서버 오류' });
+        } finally {
+            setIsUploadingVideo(false);
+            if (e.target) e.target.value = '';
+        }
+    };
+
+    const handleExtractShoppingKeyword = async () => {
+        if (!editTitle.trim()) return;
+        setIsExtractingShoppingKeyword(true);
+        try {
+            const r = await fetchWithRetry('/api/work-queue/extract-shopping-keyword', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title: editTitle, description: editDescription })
+            });
+            const d = await r.json();
+            if (d.keyword) {
+                setEditShoppingTagKeyword(d.keyword);
+                toast({ title: "AI 키워드 추출 완료", description: `추출된 상품 태그: ${d.keyword}` });
+            }
+        } catch (_) {
+            toast({ variant: "destructive", title: "키워드 추출 실패", description: "AI 서비스 응답 실패" });
+        } finally {
+            setIsExtractingShoppingKeyword(false);
+        }
     };
 
     const handleCleanAndSeparateHashtags = () => {
@@ -1319,41 +1593,70 @@ const QueueItemCompactCard = ({
         });
     };
 
-    const handleSaveInline = async () => {
-        setIsSaving(true);
-        try {
-            const parsedHashtags = editHashtags
-                .split(/[\s,]+/)
-                .map(t => t.trim())
-                .filter(Boolean)
-                .map(t => t.startsWith('#') ? t : `#${t}`);
+    const buildPayload = () => {
+        const parsedHashtags = editHashtags
+            .split(/[\s,]+/)
+            .map(t => t.trim())
+            .filter(Boolean)
+            .map(t => t.startsWith('#') ? t : `#${t}`);
 
-            const parsedTags = editTags
-                .split(',')
-                .map(t => t.trim().replace(/^#+/, ''))
-                .filter(Boolean);
+        const parsedTags = editTags
+            .split(',')
+            .map(t => t.trim().replace(/^#+/, ''))
+            .filter(Boolean);
 
-            const configs = { ...(item.platform_configs || {}) };
-            configs.youtube = {
-                ...(configs.youtube || {}),
+        const configs: any = {
+            ...(item.platform_configs || {}),
+            youtube: {
+                ...((item.platform_configs || {}).youtube || {}),
                 channel_id: editChannelId,
                 privacy: editPrivacy,
                 headless_mode: !editHeadlessMode
-            };
+            },
+            tiktok: {
+                ...((item.platform_configs || {}).tiktok || {}),
+                account_id: editTiktokAccountId,
+                privacy: editTiktokPrivacy,
+                allow_comments: editTiktokAllowComments,
+                allow_duet: editTiktokAllowDuet
+            },
+            instagram: {
+                ...((item.platform_configs || {}).instagram || {}),
+                account_id: editInstagramAccountId,
+                share_to_feed: editInstagramShareToFeed,
+                caption: editInstagramCaption
+            }
+        };
 
-            const payload: any = {
-                title: editTitle,
-                description: editDescription,
-                hashtags: parsedHashtags,
-                tags: parsedTags,
-                upload_method: editUploadMethod,
-                platform_configs: configs,
-                channel_id: editChannelId,
-                scheduled_upload_time: (editPrivacy === 'scheduled' && editScheduleTime)
-                    ? new Date(editScheduleTime).toISOString()
-                    : (editPrivacy !== 'scheduled' ? null : (item.scheduled_upload_time || null))
-            };
+        const payload: any = {
+            title: editTitle,
+            description: editDescription,
+            hashtags: parsedHashtags,
+            tags: parsedTags,
+            video_file_path: editVideoFilePath,
+            target_platforms: editTargetPlatforms,
+            platform_configs: configs,
+            channel_id: editChannelId || null,
+            upload_method: editUploadMethod,
+            source_external_id: editSourceExternalId,
+            approval_required: editApprovalRequired,
+            enable_shopping_tag: editEnableShoppingTag,
+            shopping_tag_keyword: editShoppingTagKeyword,
+            scheduled_upload_time: (editPrivacy === 'scheduled' && editScheduleTime)
+                ? (editScheduleTime.includes('T') ? editScheduleTime : editScheduleTime.replace(' ', 'T'))
+                : (editPrivacy !== 'scheduled' ? null : (item.scheduled_upload_time || null))
+        };
+        return payload;
+    };
 
+    const handleSaveInline = async () => {
+        if (!editTitle.trim()) {
+            toast({ variant: "destructive", title: "제목 필수", description: "영상 제목을 입력해 주세요." });
+            return;
+        }
+        setIsSaving(true);
+        try {
+            const payload = buildPayload();
             const res = await fetchWithRetry(`/api/work-queue/items/${item.id}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
@@ -1367,10 +1670,12 @@ const QueueItemCompactCard = ({
 
             toast({
                 title: "변경사항 저장 완료",
-                description: "작업 대기열 항목이 성공적으로 업데이트되었습니다."
+                description: `작업 #${item.id}의 정보가 안전하게 업데이트되었습니다.`
             });
 
-            if (typeof onUpdateItem === 'function') {
+            if (typeof onRefresh === 'function') {
+                onRefresh();
+            } else if (typeof onUpdateItem === 'function') {
                 onUpdateItem(item.id, payload);
             }
         } catch (e: any) {
@@ -1381,6 +1686,72 @@ const QueueItemCompactCard = ({
             });
         } finally {
             setIsSaving(false);
+        }
+    };
+
+    const handleSaveAndFinalizeInline = async () => {
+        if (!editTitle.trim()) {
+            toast({ variant: "destructive", title: "제목 필수", description: "영상 제목을 입력해 주세요." });
+            return;
+        }
+        if (!editVideoFilePath.trim()) {
+            toast({ variant: "destructive", title: "영상 파일 필요", description: "대기열 등록을 위해 영상을 선택하거나 첨부해 주세요." });
+            return;
+        }
+        if (editTargetPlatforms.includes('youtube') && !editChannelId) {
+            toast({ variant: "destructive", title: "채널 선택 필요", description: "YouTube 업로드 채널을 지정해 주세요." });
+            return;
+        }
+
+        setIsFinalizing(true);
+        try {
+            const payload = buildPayload();
+            // 1. 메타데이터 저장
+            const res1 = await fetchWithRetry(`/api/work-queue/items/${item.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (!res1.ok) {
+                const err = await res1.json().catch(() => ({}));
+                throw new Error(err.detail || "메타데이터 저장 실패");
+            }
+
+            // 2. 대기열 즉시 등록 (finalize)
+            const res2 = await fetchWithRetry(`/api/work-queue/items/${item.id}/finalize`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    approval_required: false,
+                    upload_method: editUploadMethod,
+                    target_platforms: editTargetPlatforms,
+                    scheduled_upload_time: payload.scheduled_upload_time
+                })
+            });
+            if (!res2.ok) {
+                const err = await res2.json().catch(() => ({}));
+                throw new Error(err.detail || "대기열 등록 실패");
+            }
+
+            const f2 = await res2.json();
+            toast({
+                title: "대기열 등록 완료",
+                description: f2.upload_queued ? "대기열 등록 및 백그라운드 자동 업로드가 시작되었습니다." : "대기열에 등록되었습니다."
+            });
+
+            if (typeof onRefresh === 'function') {
+                onRefresh();
+            } else if (typeof onUpdateItem === 'function') {
+                onUpdateItem(item.id, { ...payload, status: f2.status || 'QUEUED', approval_status: 'AUTO_APPROVED' });
+            }
+        } catch (e: any) {
+            toast({
+                title: "대기열 등록 실패",
+                description: e.message || "처리 중 오류가 발생했습니다.",
+                variant: "destructive"
+            });
+        } finally {
+            setIsFinalizing(false);
         }
     };
 
@@ -1459,7 +1830,8 @@ const QueueItemCompactCard = ({
         );
     };
 
-    const streamUrl = getStreamUrl(item.video_file_path);
+    const streamUrl = getStreamUrl(editVideoFilePath || item.video_file_path);
+    const hasVideo = !!(editVideoFilePath || item.video_file_path);
 
     const handleLoadedMetadata = (e: React.SyntheticEvent<HTMLVideoElement>) => {
         const v = e.currentTarget;
@@ -1690,13 +2062,13 @@ const QueueItemCompactCard = ({
                     )}
                 </div>
 
-                {/* 4. 인라인 원클릭 즉시 편집 스튜디오 (아이디어 A) */}
+                {/* 4. 인라인 원클릭 즉시 편집 스튜디오 (멀티 플랫폼 & 영상 관리 완벽 흡수) */}
                 {expanded && (
                     <div className="mt-3 pt-3 border-t border-border/80 space-y-3 w-full min-w-0" onClick={(e) => e.stopPropagation()}>
                         <div className="flex flex-col md:flex-row items-stretch gap-4 text-xs w-full min-w-0">
                             
-                            {/* [좌측] 📱 9:16 모바일 폰 숏폼 프리뷰어 (고정 폭 170px) */}
-                            <div className="w-full md:w-[170px] shrink-0 flex flex-col items-center justify-between p-2.5 rounded-xl border border-border bg-muted/30 space-y-2 shadow-xs">
+                            {/* [좌측] 📱 9:16 모바일 폰 숏폼 프리뷰어 & 🎬 영상 소스 관리 (폭 220px) */}
+                            <div className="w-full md:w-[220px] shrink-0 flex flex-col p-2.5 rounded-xl border border-border bg-muted/30 space-y-2.5 shadow-xs">
                                 <div className="w-full flex items-center justify-between text-[11px] font-bold text-foreground">
                                     <span className="flex items-center gap-1">
                                         <Play className="w-3 h-3 text-indigo-500" /> 숏폼 뷰
@@ -1705,8 +2077,8 @@ const QueueItemCompactCard = ({
                                         <Button 
                                             variant="ghost" 
                                             size="sm" 
-                                            className="h-4 text-[9px] px-1 text-indigo-600 hover:text-indigo-700" 
-                                            onClick={() => handleOpenInSystem(item.video_file_path)}
+                                            className="h-5 text-[9px] px-1 text-indigo-600 dark:text-indigo-400 hover:text-indigo-700" 
+                                            onClick={() => handleOpenInSystem(editVideoFilePath || item.video_file_path)}
                                             title="시스템 기본 플레이어로 열기"
                                         >
                                             열기 ↗
@@ -1714,14 +2086,15 @@ const QueueItemCompactCard = ({
                                     )}
                                 </div>
 
-                                {/* 9:16 모바일 폰 프레임 */}
+                                {/* 9:16 비디오 플레이어 프레임 */}
                                 {hasVideo || item.thumbnail_url ? (
                                     <div 
                                         onClick={togglePlayPause}
-                                        className="relative w-[150px] h-[266px] rounded-lg overflow-hidden bg-black border-2 border-slate-700/80 shadow-md group cursor-pointer flex items-center justify-center"
+                                        className="relative w-full aspect-[9/16] max-h-[280px] rounded-lg overflow-hidden bg-black border border-border shadow-md group cursor-pointer flex items-center justify-center mx-auto"
                                     >
                                         <video 
                                             ref={videoRef}
+                                            key={editVideoFilePath || item.video_file_path}
                                             src={streamUrl} 
                                             poster={item.thumbnail_url}
                                             autoPlay 
@@ -1746,6 +2119,7 @@ const QueueItemCompactCard = ({
 
                                         {/* 우하단 음소거 토글 버튼 */}
                                         <button
+                                            type="button"
                                             onClick={toggleMute}
                                             className="absolute bottom-2 right-2 p-1.5 rounded-full bg-black/70 hover:bg-black/90 text-white backdrop-blur-xs transition-all z-10"
                                             title={isMuted ? "소리 켜기" : "음소거"}
@@ -1762,24 +2136,90 @@ const QueueItemCompactCard = ({
                                     </div>
                                 ) : (
                                     <div 
-                                        onClick={() => onAttach(item.id)}
-                                        className="w-[150px] h-[266px] rounded-lg border-2 border-dashed border-border/80 bg-background/50 flex flex-col items-center justify-center p-3 text-center cursor-pointer hover:border-indigo-400 transition-colors"
+                                        onClick={handleBrowseVideo}
+                                        className="w-full aspect-[9/16] max-h-[220px] rounded-lg border-2 border-dashed border-border/80 bg-background/50 flex flex-col items-center justify-center p-3 text-center cursor-pointer hover:border-indigo-400 transition-colors"
                                     >
-                                        <FileVideo className="w-7 h-7 text-muted-foreground/60 mb-1" />
+                                        <FileVideo className="w-8 h-8 text-muted-foreground/60 mb-1" />
                                         <p className="text-[11px] font-semibold text-muted-foreground">영상 미첨부</p>
-                                        <p className="text-[9px] text-muted-foreground/70 mt-0.5">클릭하여 연결</p>
-                                        <Button size="sm" variant="outline" className="h-5 text-[9px] mt-2 border-border px-1.5">
-                                            <Paperclip className="w-2.5 h-2.5 mr-0.5" /> 영상 첨부
-                                        </Button>
+                                        <p className="text-[9px] text-muted-foreground/70 mt-0.5">아래에서 영상 선택</p>
                                     </div>
                                 )}
 
-                                <p className="text-[9px] text-muted-foreground/80 text-center">
-                                    {hasVideo ? "화면 클릭 시 재생/정지" : "9:16 쇼츠 지원"}
-                                </p>
+                                {/* 영상 소스 관리 (05_Exports & 로컬 첨부) */}
+                                <div className="pt-2 border-t border-border/60 space-y-1.5 w-full">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-[10px] font-bold text-foreground flex items-center gap-1">
+                                            <Film className="w-3 h-3 text-indigo-500" /> 영상 파일 소스
+                                        </span>
+                                        {onRefreshOfficialExports && (
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={onRefreshOfficialExports}
+                                                disabled={isLoadingExports}
+                                                className="h-5 text-[9px] px-1 text-muted-foreground hover:text-foreground"
+                                                title="05_Exports 폴더 새로고침"
+                                            >
+                                                <RefreshCw className={`w-2.5 h-2.5 mr-0.5 ${isLoadingExports ? 'animate-spin' : ''}`} /> 새로고침
+                                            </Button>
+                                        )}
+                                    </div>
+
+                                    {/* 05_Exports 드롭다운 */}
+                                    <Select
+                                        value={editVideoFilePath || ''}
+                                        onValueChange={handleSelectOfficialExport}
+                                    >
+                                        <SelectTrigger className="h-7 text-[10px] bg-background border-border">
+                                            <SelectValue placeholder={isLoadingExports ? "스캔 중..." : (officialExports.length ? `📁 05_Exports (${officialExports.length}개)` : "05_Exports 폴더 비어있음")} />
+                                        </SelectTrigger>
+                                        <SelectContent className="max-h-52">
+                                            {officialExports.map((file: any) => (
+                                                <SelectItem key={file.path} value={file.path}>
+                                                    <div className="flex items-center justify-between gap-2 text-[10px] w-full">
+                                                        <span className="font-medium truncate max-w-[140px]">{file.filename}</span>
+                                                        <span className="text-[9px] text-muted-foreground shrink-0">{file.size_mb}MB</span>
+                                                    </div>
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+
+                                    {/* 파일 경로 직접 입력 & 찾아보기 */}
+                                    <div className="flex gap-1">
+                                        <Input 
+                                            value={editVideoFilePath}
+                                            onChange={e => setEditVideoFilePath(e.target.value)}
+                                            placeholder="파일 경로..."
+                                            className="h-7 text-[9px] font-mono bg-background border-border flex-1 px-1.5"
+                                        />
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={handleBrowseVideo}
+                                            disabled={isUploadingVideo}
+                                            className="h-7 text-[10px] px-2 shrink-0 border-border"
+                                        >
+                                            {isUploadingVideo ? <Loader2 className="w-3 h-3 animate-spin text-primary" /> : <FolderOpen className="w-3 h-3 text-indigo-500" />}
+                                            <span className="ml-1">{isUploadingVideo ? `${uploadPercent}%` : '찾기'}</span>
+                                        </Button>
+                                        <input ref={fileInputRef} type="file" accept="video/*" className="hidden" onChange={handleFileSelected} />
+                                    </div>
+
+                                    {isUploadingVideo && (
+                                        <div className="space-y-0.5">
+                                            <div className="w-full bg-muted rounded-full h-1 overflow-hidden">
+                                                <div className="bg-primary h-1 rounded-full transition-all duration-150" style={{ width: `${uploadPercent}%` }} />
+                                            </div>
+                                            <p className="text-[8px] text-muted-foreground text-right">업로드 중... {uploadPercent}%</p>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
 
-                            {/* [우측] 📝 콘텐츠 메타 편집 (약 58%) + ⚙️ 배포/채널 설정 (약 42%) */}
+                            {/* [우측] 📝 콘텐츠 메타 편집 (7칸) + 🚀 멀티 플랫폼 배포 거버넌스 (5칸) */}
                             <div className="flex-1 min-w-0 grid grid-cols-1 lg:grid-cols-12 gap-3.5">
                                 
                                 {/* 1) 콘텐츠 메타데이터 즉시 편집 (7칸) */}
@@ -1813,7 +2253,7 @@ const QueueItemCompactCard = ({
                                         {/* 제목 입력 */}
                                         <div className="space-y-1">
                                             <div className="flex items-center justify-between">
-                                                <span className="text-[10px] text-muted-foreground font-semibold">제목 (Title)</span>
+                                                <span className="text-[10px] text-muted-foreground font-semibold">제목 (Title) *</span>
                                                 <span className="text-[9px] text-muted-foreground font-mono">{editTitle.length}/100자</span>
                                             </div>
                                             <Input 
@@ -1884,30 +2324,123 @@ const QueueItemCompactCard = ({
                                         <div className="flex items-center justify-between text-[10px] text-muted-foreground mb-1">
                                             <span>영상 파일 경로</span>
                                             {hasVideo && (
-                                                <Button variant="ghost" size="sm" className="h-4 text-[9px] px-1" onClick={() => copyText(item.video_file_path, '경로 복사됨')}>
+                                                <Button variant="ghost" size="sm" className="h-4 text-[9px] px-1" onClick={() => copyText(editVideoFilePath || item.video_file_path, '경로 복사됨')}>
                                                     <Copy className="w-2.5 h-2.5 mr-0.5" /> 복사
                                                 </Button>
                                             )}
                                         </div>
                                         <p className="font-mono text-[10px] text-muted-foreground break-all bg-background/80 p-1.5 rounded-lg border border-border">
-                                            {item.video_file_path || '미첨부'}
+                                            {editVideoFilePath || item.video_file_path || '미첨부'}
                                         </p>
                                     </div>
                                 </div>
 
-                                {/* 2) 배포 & 채널 설정 (5칸) */}
+                                {/* 2) 배포 플랫폼 및 거버넌스 설정 (5칸) */}
                                 <div className="lg:col-span-5 rounded-xl border border-border bg-muted/20 p-3.5 space-y-3 min-w-0 overflow-hidden flex flex-col justify-between shadow-xs">
                                     <div className="space-y-3">
-                                        <span className="font-bold text-foreground flex items-center gap-1.5 text-xs">
-                                            <Rocket className="w-3.5 h-3.5 text-indigo-500" /> 플랫폼 채널 및 배포 설정
-                                        </span>
-                                        
-                                        {/* 채널 선택 */}
+                                        {/* 상단 플랫폼 선택 토글 필 (Pills) */}
                                         <div className="space-y-1.5">
-                                            {(!item.target_platforms || item.target_platforms.length === 0 || item.target_platforms.includes('youtube')) && (
-                                                <div className="p-2 rounded-lg bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/40 space-y-1.5">
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                                                    <Rocket className="w-3.5 h-3.5 text-indigo-500" /> 대상 플랫폼 선택
+                                                </span>
+                                                <span className="text-[10px] text-muted-foreground font-medium">
+                                                    {editTargetPlatforms.length}개 플랫폼 활성
+                                                </span>
+                                            </div>
+                                            
+                                            <div className="flex items-center gap-1.5 p-1 rounded-lg bg-background border border-border">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => togglePlatform('youtube')}
+                                                    className={`flex-1 flex items-center justify-center gap-1 py-1 px-2 rounded-md text-[11px] font-semibold transition-all ${
+                                                        editTargetPlatforms.includes('youtube')
+                                                            ? 'bg-blue-600 text-white shadow-xs'
+                                                            : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                                                    }`}
+                                                >
+                                                    <span>🎬 YouTube</span>
+                                                    {editTargetPlatforms.includes('youtube') && <Check className="w-3 h-3 shrink-0" />}
+                                                </button>
+
+                                                <button
+                                                    type="button"
+                                                    onClick={() => togglePlatform('tiktok')}
+                                                    className={`flex-1 flex items-center justify-center gap-1 py-1 px-2 rounded-md text-[11px] font-semibold transition-all ${
+                                                        editTargetPlatforms.includes('tiktok')
+                                                            ? 'bg-pink-600 text-white shadow-xs'
+                                                            : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                                                    }`}
+                                                >
+                                                    <span>🎵 TikTok</span>
+                                                    {editTargetPlatforms.includes('tiktok') && <Check className="w-3 h-3 shrink-0" />}
+                                                </button>
+
+                                                <button
+                                                    type="button"
+                                                    onClick={() => togglePlatform('instagram')}
+                                                    className={`flex-1 flex items-center justify-center gap-1 py-1 px-2 rounded-md text-[11px] font-semibold transition-all ${
+                                                        editTargetPlatforms.includes('instagram')
+                                                            ? 'bg-purple-600 text-white shadow-xs'
+                                                            : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                                                    }`}
+                                                >
+                                                    <span>📸 Insta</span>
+                                                    {editTargetPlatforms.includes('instagram') && <Check className="w-3 h-3 shrink-0" />}
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        {/* 활성 플랫폼 서브 탭 전환기 */}
+                                        <div className="border-b border-border/80 flex items-center gap-1 pb-1">
+                                            {editTargetPlatforms.includes('youtube') && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setActivePlatformTab('youtube')}
+                                                    className={`text-xs font-semibold px-2.5 py-1 rounded-md transition-all ${
+                                                        activePlatformTab === 'youtube'
+                                                            ? 'bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/30'
+                                                            : 'text-muted-foreground hover:text-foreground'
+                                                    }`}
+                                                >
+                                                    🎬 YouTube 설정
+                                                </button>
+                                            )}
+                                            {editTargetPlatforms.includes('tiktok') && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setActivePlatformTab('tiktok')}
+                                                    className={`text-xs font-semibold px-2.5 py-1 rounded-md transition-all ${
+                                                        activePlatformTab === 'tiktok'
+                                                            ? 'bg-pink-500/15 text-pink-700 dark:text-pink-300 border border-pink-500/30'
+                                                            : 'text-muted-foreground hover:text-foreground'
+                                                    }`}
+                                                >
+                                                    🎵 TikTok 설정
+                                                </button>
+                                            )}
+                                            {editTargetPlatforms.includes('instagram') && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setActivePlatformTab('instagram')}
+                                                    className={`text-xs font-semibold px-2.5 py-1 rounded-md transition-all ${
+                                                        activePlatformTab === 'instagram'
+                                                            ? 'bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/30'
+                                                            : 'text-muted-foreground hover:text-foreground'
+                                                    }`}
+                                                >
+                                                    📸 Instagram 설정
+                                                </button>
+                                            )}
+                                        </div>
+
+                                        {/* 탭 1: YouTube 설정 */}
+                                        {activePlatformTab === 'youtube' && editTargetPlatforms.includes('youtube') && (
+                                            <div className="space-y-2.5 animate-in fade-in duration-150">
+                                                {/* YouTube 채널 선택 & 회선 안내 */}
+                                                <div className="p-2.5 rounded-xl bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/40 space-y-2">
                                                     <div className="flex items-center justify-between">
-                                                        <span className="text-[11px] font-bold text-blue-700 dark:text-blue-300 shrink-0">🎬 YouTube 채널</span>
+                                                        <span className="text-[11px] font-bold text-blue-700 dark:text-blue-300 shrink-0">🎬 YouTube 채널 *</span>
                                                         {renderChannelNetworkBadge(channels.find((ch: any) => ch.channel_id === editChannelId))}
                                                     </div>
                                                     <Select
@@ -1916,146 +2449,291 @@ const QueueItemCompactCard = ({
                                                             setEditChannelId(v);
                                                             if (onUpdateChannel) onUpdateChannel(item.id, 'youtube', v);
                                                         }}
+                                                        disabled={channels.length === 0}
                                                     >
-                                                        <SelectTrigger className="h-7 text-[10px] bg-background border-border flex-1">
-                                                            <SelectValue placeholder="채널 선택" />
+                                                        <SelectTrigger className="h-7 text-[11px] bg-background border-border">
+                                                            <SelectValue placeholder={channels.length ? "채널 선택" : "등록된 채널 없음"} />
                                                         </SelectTrigger>
                                                         <SelectContent>
                                                             {channels.map((ch: any) => (
                                                                 <SelectItem key={ch.channel_id} value={ch.channel_id}>
-                                                                    <div className="flex items-center justify-between gap-2 w-full text-[10px]">
-                                                                        <span className="truncate">{ch.channel_name || ch.title} ({ch.subscriber_count?.toLocaleString()}명)</span>
+                                                                    <div className="flex items-center justify-between gap-2 w-full text-xs">
+                                                                        <span className="truncate max-w-[180px]">{ch.channel_name || ch.title} ({ch.subscriber_count?.toLocaleString()}명)</span>
                                                                         {renderChannelNetworkBadge(ch)}
                                                                     </div>
                                                                 </SelectItem>
                                                             ))}
                                                         </SelectContent>
                                                     </Select>
+
+                                                    {channels.find((ch: any) => ch.channel_id === editChannelId) && (
+                                                        <div className="text-[10px] bg-background/80 p-2 rounded-lg border border-border/70 space-y-1">
+                                                            <div className="flex items-center justify-between text-muted-foreground">
+                                                                <span>소유 계정:</span>
+                                                                <span className="font-mono text-foreground font-medium truncate max-w-[150px]">
+                                                                    {channels.find((ch: any) => ch.channel_id === editChannelId).profile_email || channels.find((ch: any) => ch.channel_id === editChannelId).account_email || '전용 브라우저 세션'}
+                                                                </span>
+                                                            </div>
+                                                            <div className="flex items-center justify-between text-muted-foreground">
+                                                                <span>독립 회선:</span>
+                                                                <span className="font-semibold text-foreground">
+                                                                    {channels.find((ch: any) => ch.channel_id === editChannelId).bound_device_serial ? `📱 모바일 LTE (${channels.find((ch: any) => ch.channel_id === editChannelId).bound_device_serial})` :
+                                                                     (channels.find((ch: any) => ch.channel_id === editChannelId).proxy_port && channels.find((ch: any) => ch.channel_id === editChannelId).proxy_port >= 1080 && channels.find((ch: any) => ch.channel_id === editChannelId).proxy_port <= 1089) ? `📱 모바일 프록시 (포트 ${channels.find((ch: any) => ch.channel_id === editChannelId).proxy_port})` :
+                                                                     channels.find((ch: any) => ch.channel_id === editChannelId).proxy_host ? `🌐 ISP 고정 (${channels.find((ch: any) => ch.channel_id === editChannelId).proxy_host})` : `🛡️ 로컬 단독 회선`}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    )}
                                                 </div>
-                                            )}
-                                            {item.target_platforms?.includes('tiktok') && (
-                                                <div className="p-1.5 rounded-lg bg-pink-50/50 dark:bg-pink-950/20 border border-pink-200 dark:border-pink-900/40 flex items-center justify-between gap-2">
-                                                    <span className="text-[11px] font-bold text-pink-700 dark:text-pink-300 shrink-0">🎵 TT</span>
+
+                                                {/* 공개 상태 & 스텔스 창 표시 */}
+                                                <div className="grid grid-cols-2 gap-2">
+                                                    <div>
+                                                        <span className="text-[10px] text-muted-foreground font-semibold">공개 상태</span>
+                                                        <Select value={editPrivacy} onValueChange={setEditPrivacy}>
+                                                            <SelectTrigger className="h-7 text-xs bg-background border-border mt-0.5">
+                                                                <SelectValue />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                <SelectItem value="private">🔒 비공개 (권장)</SelectItem>
+                                                                <SelectItem value="unlisted">🔗 일부 공개 (링크)</SelectItem>
+                                                                <SelectItem value="public">🌐 즉시 공개</SelectItem>
+                                                                <SelectItem value="scheduled">📅 예약 발행</SelectItem>
+                                                            </SelectContent>
+                                                        </Select>
+                                                    </div>
+
+                                                    <div className="flex flex-col justify-end">
+                                                        <div className="flex items-center justify-between p-1.5 rounded-lg bg-background border border-border">
+                                                            <span className="text-[10px] font-medium text-foreground flex items-center gap-1">
+                                                                {editHeadlessMode ? <Eye className="w-3 h-3 text-indigo-500" /> : <EyeOff className="w-3 h-3 text-muted-foreground" />}
+                                                                창 표시
+                                                            </span>
+                                                            <Switch checked={editHeadlessMode} onCheckedChange={setEditHeadlessMode} />
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                {/* 예약 일시 */}
+                                                {(editPrivacy === 'scheduled' || !!editScheduleTime) && (
+                                                    <div className="p-2 rounded-lg bg-indigo-50/50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-900/40 space-y-1">
+                                                        <span className="text-[10px] font-semibold text-indigo-700 dark:text-indigo-300 flex items-center gap-1">
+                                                            <Clock className="w-3 h-3" /> 예약 게시 일시 (YouTube Studio 자동 예약)
+                                                        </span>
+                                                        <Input 
+                                                            type="datetime-local" 
+                                                            value={editScheduleTime} 
+                                                            onChange={(e) => setEditScheduleTime(e.target.value)} 
+                                                            className="h-7 text-xs bg-background border-border" 
+                                                        />
+                                                    </div>
+                                                )}
+
+                                                {/* 유튜브 쇼핑 태그 */}
+                                                <div className="pt-1.5 border-t border-border/60 space-y-1.5">
+                                                    <div className="flex items-center justify-between">
+                                                        <div>
+                                                            <span className="text-[11px] font-semibold text-foreground">유튜브 쇼핑 제휴 태그</span>
+                                                            <p className="text-[9px] text-muted-foreground">업로드 시 수익 제품 자동 태깅</p>
+                                                        </div>
+                                                        <Switch
+                                                            checked={editEnableShoppingTag}
+                                                            onCheckedChange={setEditEnableShoppingTag}
+                                                        />
+                                                    </div>
+                                                    {editEnableShoppingTag && (
+                                                        <div className="flex gap-1.5 pt-0.5">
+                                                            <Input
+                                                                value={editShoppingTagKeyword}
+                                                                onChange={e => setEditShoppingTagKeyword(e.target.value)}
+                                                                placeholder="예: 초경량 무선 청소기, 캠핑 텐트"
+                                                                className="h-7 text-xs bg-background border-border flex-1"
+                                                            />
+                                                            <Button
+                                                                type="button"
+                                                                variant="secondary"
+                                                                size="sm"
+                                                                onClick={handleExtractShoppingKeyword}
+                                                                disabled={isExtractingShoppingKeyword || !editTitle.trim()}
+                                                                className="h-7 text-[10px] px-2 shrink-0 font-medium"
+                                                            >
+                                                                {isExtractingShoppingKeyword ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Sparkles className="w-3 h-3 mr-1 text-amber-500" />}
+                                                                AI 추출
+                                                            </Button>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* 탭 2: TikTok 설정 */}
+                                        {activePlatformTab === 'tiktok' && editTargetPlatforms.includes('tiktok') && (
+                                            <div className="space-y-2.5 animate-in fade-in duration-150">
+                                                <div className="p-2.5 rounded-xl bg-pink-50/50 dark:bg-pink-950/20 border border-pink-200 dark:border-pink-900/40 space-y-2">
+                                                    <div className="flex items-center justify-between">
+                                                        <span className="text-[11px] font-bold text-pink-700 dark:text-pink-300">🎵 TikTok 계정 *</span>
+                                                        <Badge variant="outline" className="text-[9px] py-0 bg-pink-100/50 text-pink-700 dark:bg-pink-950/60 dark:text-pink-300 border-pink-300 dark:border-pink-800">
+                                                            {tiktokChannels.length}개 연동됨
+                                                        </Badge>
+                                                    </div>
+
                                                     <Select
-                                                        value={(item.platform_configs?.tiktok?.account_id) || ''}
-                                                        onValueChange={(v) => onUpdateChannel(item.id, 'tiktok', v)}
+                                                        value={editTiktokAccountId || ''}
+                                                        onValueChange={setEditTiktokAccountId}
+                                                        disabled={tiktokChannels.length === 0}
                                                     >
-                                                        <SelectTrigger className="h-6 text-[10px] bg-background border-border flex-1">
-                                                            <SelectValue placeholder="계정 선택" />
+                                                        <SelectTrigger className="h-7 text-xs bg-background border-border">
+                                                            <SelectValue placeholder={tiktokChannels.length ? "TikTok 계정 선택" : "연동된 TikTok 계정 없음"} />
                                                         </SelectTrigger>
                                                         <SelectContent>
                                                             {tiktokChannels.map((c: any) => (
                                                                 <SelectItem key={c.id} value={c.id}>
-                                                                    {c.nickname || c.id}
+                                                                    <div className="flex items-center justify-between gap-2 text-xs">
+                                                                        <span className="font-medium">{c.nickname || c.id}</span>
+                                                                        {c.account_id && <span className="text-[10px] text-muted-foreground font-mono">@{c.account_id}</span>}
+                                                                    </div>
                                                                 </SelectItem>
                                                             ))}
                                                         </SelectContent>
                                                     </Select>
                                                 </div>
-                                            )}
-                                            {item.target_platforms?.includes('instagram') && (
-                                                <div className="p-1.5 rounded-lg bg-purple-50/50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-900/40 flex items-center justify-between gap-2">
-                                                    <span className="text-[11px] font-bold text-purple-700 dark:text-purple-300 shrink-0">📸 IG</span>
+
+                                                <div className="grid grid-cols-2 gap-2">
+                                                    <div>
+                                                        <span className="text-[10px] text-muted-foreground font-semibold">공개 범위</span>
+                                                        <Select value={editTiktokPrivacy} onValueChange={setEditTiktokPrivacy}>
+                                                            <SelectTrigger className="h-7 text-xs bg-background border-border mt-0.5">
+                                                                <SelectValue />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                <SelectItem value="private">🔒 비공개 (Private)</SelectItem>
+                                                                <SelectItem value="friends_only">👥 친구 공개 (Friends)</SelectItem>
+                                                                <SelectItem value="public">🌐 전체 공개 (Public)</SelectItem>
+                                                            </SelectContent>
+                                                        </Select>
+                                                    </div>
+
+                                                    <div className="space-y-1 pt-1">
+                                                        <label className="flex items-center justify-between text-xs cursor-pointer p-1 rounded bg-background border border-border">
+                                                            <span className="text-[10px] font-medium">댓글 허용</span>
+                                                            <Switch checked={editTiktokAllowComments} onCheckedChange={setEditTiktokAllowComments} />
+                                                        </label>
+                                                        <label className="flex items-center justify-between text-xs cursor-pointer p-1 rounded bg-background border border-border">
+                                                            <span className="text-[10px] font-medium">듀엣/스티치</span>
+                                                            <Switch checked={editTiktokAllowDuet} onCheckedChange={setEditTiktokAllowDuet} />
+                                                        </label>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* 탭 3: Instagram 설정 */}
+                                        {activePlatformTab === 'instagram' && editTargetPlatforms.includes('instagram') && (
+                                            <div className="space-y-2.5 animate-in fade-in duration-150">
+                                                <div className="p-2.5 rounded-xl bg-purple-50/50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-900/40 space-y-2">
+                                                    <div className="flex items-center justify-between">
+                                                        <span className="text-[11px] font-bold text-purple-700 dark:text-purple-300">📸 Instagram 계정 *</span>
+                                                        <Badge variant="outline" className="text-[9px] py-0 bg-purple-100/50 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300 border-purple-300 dark:border-purple-800">
+                                                            {instagramChannels.length}개 연동됨
+                                                        </Badge>
+                                                    </div>
+
                                                     <Select
-                                                        value={(item.platform_configs?.instagram?.account_id) || ''}
-                                                        onValueChange={(v) => onUpdateChannel(item.id, 'instagram', v)}
+                                                        value={editInstagramAccountId || ''}
+                                                        onValueChange={setEditInstagramAccountId}
+                                                        disabled={instagramChannels.length === 0}
                                                     >
-                                                        <SelectTrigger className="h-6 text-[10px] bg-background border-border flex-1">
-                                                            <SelectValue placeholder="계정 선택" />
+                                                        <SelectTrigger className="h-7 text-xs bg-background border-border">
+                                                            <SelectValue placeholder={instagramChannels.length ? "Instagram 계정 선택" : "연동된 Instagram 계정 없음"} />
                                                         </SelectTrigger>
                                                         <SelectContent>
                                                             {instagramChannels.map((c: any) => (
                                                                 <SelectItem key={c.id} value={c.id}>
-                                                                    {c.nickname || c.id}
+                                                                    <div className="flex items-center justify-between gap-2 text-xs">
+                                                                        <span className="font-medium">{c.nickname || c.id}</span>
+                                                                        {c.account_id && <span className="text-[10px] text-muted-foreground font-mono">@{c.account_id}</span>}
+                                                                    </div>
                                                                 </SelectItem>
                                                             ))}
                                                         </SelectContent>
                                                     </Select>
                                                 </div>
-                                            )}
-                                        </div>
 
-                                        {/* 업로드 방식 & 공개 상태 */}
-                                        <div className="grid grid-cols-2 gap-2 pt-1 border-t border-border/50">
-                                            <div>
-                                                <span className="text-[10px] text-muted-foreground font-semibold">업로드 방식</span>
-                                                <Select value={editUploadMethod} onValueChange={setEditUploadMethod}>
-                                                    <SelectTrigger className="h-7 text-[10px] bg-background border-border mt-0.5">
-                                                        <SelectValue />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        <SelectItem value="BROWSER_AUTO">스텔스 자동화 (권장)</SelectItem>
-                                                        <SelectItem value="API">Google API</SelectItem>
-                                                        <SelectItem value="MANUAL">수동 복사</SelectItem>
-                                                    </SelectContent>
-                                                </Select>
-                                            </div>
-                                            <div>
-                                                <span className="text-[10px] text-muted-foreground font-semibold">공개 상태</span>
-                                                <Select value={editPrivacy} onValueChange={setEditPrivacy}>
-                                                    <SelectTrigger className="h-7 text-[10px] bg-background border-border mt-0.5">
-                                                        <SelectValue />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        <SelectItem value="private">🔒 비공개</SelectItem>
-                                                        <SelectItem value="unlisted">🔗 일부 공개</SelectItem>
-                                                        <SelectItem value="public">🌐 즉시 공개</SelectItem>
-                                                        <SelectItem value="scheduled">📅 예약 발행</SelectItem>
-                                                    </SelectContent>
-                                                </Select>
-                                            </div>
-                                        </div>
+                                                <div className="flex items-center justify-between p-2 rounded-lg bg-background border border-border">
+                                                    <div className="space-y-0.5">
+                                                        <span className="text-[11px] font-medium text-foreground">피드 동시 게시 (Share to Feed)</span>
+                                                        <p className="text-[9px] text-muted-foreground">릴스 탭 외에 일반 격자 피드에도 노출합니다.</p>
+                                                    </div>
+                                                    <Switch checked={editInstagramShareToFeed} onCheckedChange={setEditInstagramShareToFeed} />
+                                                </div>
 
-                                        {/* 예약 일시 설정 (예약 발행 선택 시 또는 예약 시간이 설정된 경우) */}
-                                        {(editPrivacy === 'scheduled' || !!editScheduleTime) && (
-                                            <div className="p-2 rounded-lg bg-indigo-50/50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-900/40 space-y-1">
-                                                <span className="text-[10px] font-semibold text-indigo-700 dark:text-indigo-300 flex items-center gap-1">
-                                                    <Clock className="w-3 h-3" /> 예약 게시 일시 (YouTube Studio 자동 예약)
-                                                </span>
-                                                <Input 
-                                                    type="datetime-local" 
-                                                    value={editScheduleTime} 
-                                                    onChange={(e) => setEditScheduleTime(e.target.value)} 
-                                                    className="h-7 text-xs bg-background border-border" 
-                                                />
-                                                <p className="text-[9px] text-muted-foreground/80 leading-tight">
-                                                    * 업로드 완료 후 지정한 날짜/시간에 자동으로 공개 예약됩니다.
-                                                </p>
+                                                <div className="space-y-1">
+                                                    <div className="flex items-center justify-between">
+                                                        <span className="text-[10px] text-muted-foreground font-semibold">인스타 맞춤 캡션 (선택)</span>
+                                                        <span className="text-[9px] text-muted-foreground">비워두면 본문 자동 사용</span>
+                                                    </div>
+                                                    <Textarea
+                                                        value={editInstagramCaption}
+                                                        onChange={e => setEditInstagramCaption(e.target.value)}
+                                                        placeholder="인스타그램 전용 캡션 (해시태그 포함 가능)..."
+                                                        rows={2}
+                                                        className="text-xs bg-background border-border"
+                                                    />
+                                                </div>
                                             </div>
                                         )}
 
-                                        {/* 브라우저 창 표시 (Headless/Visible Toggle) */}
-                                        <div className="flex items-center justify-between p-2 rounded-lg bg-background/80 border border-border">
-                                            <div className="space-y-0.5">
-                                                <span className="text-[11px] font-medium text-foreground flex items-center gap-1">
-                                                    {editHeadlessMode ? <Eye className="w-3.5 h-3.5 text-indigo-500" /> : <EyeOff className="w-3.5 h-3.5 text-muted-foreground" />}
-                                                    브라우저 창 표시 (시각적 확인)
-                                                </span>
-                                                <p className="text-[9px] text-muted-foreground">업로드 진행 중 실제 크롬 창을 화면에 띄웁니다.</p>
+                                        {/* 하단 공통 거버넌스 (업로드 엔진 & 외부 ID) */}
+                                        <div className="pt-2 border-t border-border/60 space-y-2">
+                                            <div>
+                                                <span className="text-[10px] text-muted-foreground font-semibold">업로드 실행 엔진</span>
+                                                <Select value={editUploadMethod} onValueChange={setEditUploadMethod}>
+                                                    <SelectTrigger className="h-7 text-xs bg-background border-border mt-0.5">
+                                                        <SelectValue />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="BROWSER_AUTO">🤖 스텔스 브라우저 자동화 (회선 격리 보호)</SelectItem>
+                                                        <SelectItem value="API">⚡ Google Data API (OAuth 직결)</SelectItem>
+                                                        <SelectItem value="MANUAL">✍️ 수동 (대기열 기록 및 관리용)</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
                                             </div>
-                                            <Switch checked={editHeadlessMode} onCheckedChange={setEditHeadlessMode} />
+
+                                            <div className="flex items-center justify-between gap-2 pt-1">
+                                                <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground font-mono">
+                                                    <span>외부ID:</span>
+                                                    <Input
+                                                        value={editSourceExternalId}
+                                                        onChange={e => setEditSourceExternalId(e.target.value)}
+                                                        placeholder="ID/행번호"
+                                                        className="h-6 text-[10px] font-mono bg-background border-border w-24 px-1.5"
+                                                    />
+                                                </div>
+                                                <label className="flex items-center gap-1.5 text-[10px] font-medium text-foreground cursor-pointer">
+                                                    <Checkbox
+                                                        checked={editApprovalRequired}
+                                                        onCheckedChange={c => setEditApprovalRequired(Boolean(c))}
+                                                    />
+                                                    <span>관리자 승인 필요</span>
+                                                </label>
+                                            </div>
                                         </div>
                                     </div>
 
-                                    <div className="space-y-2 pt-2 border-t border-border/50">
-                                        {/* 실패 사유 카드 */}
-                                        {isFailed && (
+                                    {/* 실패 사유 카드 */}
+                                    {isFailed && (
+                                        <div className="pt-2 border-t border-border/50">
                                             <FailureReasonCard
                                                 failureReason={rawFailureReason}
                                                 onRetry={onReset ? () => onReset(item.id) : undefined}
                                             />
-                                        )}
-
-                                        <div className="flex flex-wrap gap-2 text-[10px] text-muted-foreground pt-0.5">
-                                            <div><span>외부ID:</span> <span className="font-mono">{item.source_external_id || '--'}</span></div>
-                                            <div><span>Batch:</span> <span className="font-mono">{item.source_batch_id ? item.source_batch_id.slice(0, 10) : '--'}</span></div>
                                         </div>
-                                    </div>
+                                    )}
                                 </div>
                             </div>
                         </div>
 
-                        {/* [인라인 작업대 하단 액션 바] 원클릭 변경사항 저장 및 복원 */}
+                        {/* [인라인 작업대 하단 액션 바] */}
                         <div className="pt-2.5 mt-1 border-t border-border flex items-center justify-between gap-2 flex-wrap bg-muted/10 p-2.5 rounded-lg">
                             <div className="flex items-center gap-2">
                                 {isDirty ? (
@@ -2070,6 +2748,17 @@ const QueueItemCompactCard = ({
                             </div>
 
                             <div className="flex items-center gap-2 ml-auto">
+                                {onEdit && (
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => onEdit(item)}
+                                        className="h-7 text-xs px-2 text-muted-foreground hover:text-foreground"
+                                        title="전체 팝업 모달 형태로 열기"
+                                    >
+                                        <ExternalLink className="w-3 h-3 mr-1" /> 모달로 열기
+                                    </Button>
+                                )}
                                 {isDirty && (
                                     <Button 
                                         variant="ghost" 
@@ -2083,12 +2772,24 @@ const QueueItemCompactCard = ({
                                 <Button 
                                     size="sm" 
                                     onClick={handleSaveInline} 
-                                    disabled={isSaving} 
-                                    className="h-7 text-xs px-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-medium shadow-xs gap-1.5"
+                                    disabled={isSaving || isFinalizing} 
+                                    variant="secondary"
+                                    className="h-7 text-xs px-3 border border-border font-medium shadow-2xs gap-1.5"
                                 >
                                     {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
                                     <span>{isSaving ? "저장 중..." : "변경사항 저장"}</span>
                                 </Button>
+                                {(item.status === 'DRAFT' || item.status === 'PENDING') && (
+                                    <Button 
+                                        size="sm" 
+                                        onClick={handleSaveAndFinalizeInline} 
+                                        disabled={isSaving || isFinalizing} 
+                                        className="h-7 text-xs px-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold shadow-xs gap-1.5"
+                                    >
+                                        {isFinalizing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Rocket className="w-3.5 h-3.5" />}
+                                        <span>{isFinalizing ? "대기열 등록 중..." : "수정 후 대기열 즉시 등록"}</span>
+                                    </Button>
+                                )}
                             </div>
                         </div>
 
