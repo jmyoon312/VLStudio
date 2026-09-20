@@ -50,6 +50,8 @@ class PatchrightStealth:
         profile_dir = None
         try:
             profile = db_session.query(Profile).filter(Profile.id == profile_id).first()
+            if not profile:
+                profile = db_session.query(Profile).filter(Profile.channel_id == profile_id).first()
             if profile and profile.folder_path:
                 profile_dir = profile.folder_path
             else:

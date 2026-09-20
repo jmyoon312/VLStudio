@@ -59,30 +59,60 @@ class BrowserSessionManager:
                 keys = list(self._sessions.keys())
                 for k in keys:
                     self._close_single_session_locked(k)
+                self._sessions.clear()
                 return
 
-            matched = False
-            for k in list(self._sessions.keys()):
-                if k == profile_or_channel_id or str(profile_or_channel_id) in str(k):
-                    self._close_single_session_locked(k)
-                    matched = True
-            
-            if not matched and len(self._sessions) == 1:
-                k = list(self._sessions.keys())[0]
+            keys_to_close = []
+            for k in self._sessions.keys():
+                if k == profile_or_channel_id or str(profile_or_channel_id) in str(k) or str(k) in str(profile_or_channel_id):
+                    keys_to_close.append(k)
+
+            # Check if profile_or_channel_id is a channel_id that maps to a profile_id in DB
+            if not keys_to_close:
+                try:
+                    from app.database import SessionLocal
+                    from app.models import YouTubeChannel, Profile
+                    db = SessionLocal()
+                    try:
+                        ch = db.query(YouTubeChannel).filter(YouTubeChannel.channel_id == profile_or_channel_id).first()
+                        if ch and ch.owner_profile_id and ch.owner_profile_id in self._sessions:
+                            keys_to_close.append(ch.owner_profile_id)
+                        prof = db.query(Profile).filter(Profile.channel_id == profile_or_channel_id).first()
+                        if prof and prof.id in self._sessions and prof.id not in keys_to_close:
+                            keys_to_close.append(prof.id)
+                    finally:
+                        db.close()
+                except Exception:
+                    pass
+
+            if not keys_to_close and len(self._sessions) == 1:
+                keys_to_close = list(self._sessions.keys())
+
+            for k in set(keys_to_close):
                 self._close_single_session_locked(k)
 
     def _close_single_session_locked(self, key: str):
         page = self._sessions.pop(key, None)
         if page:
             try:
+                if not page.is_closed():
+                    page.close()
+            except Exception:
+                pass
+            try:
                 ctx = getattr(page, 'context', None)
                 if ctx:
                     ctx.close()
-                else:
-                    page.close()
-                logger.info(f"🛑 [SessionManager] Browser session closed for {key}")
-            except Exception as e:
-                logger.warning(f"[SessionManager] Soft warning while closing session for {key}: {e}")
+            except Exception:
+                pass
+            logger.info(f"🛑 [SessionManager] Browser session closed for {key}")
+        try:
+            from app.services.stealth_ops_v2 import stealth_ops
+            if stealth_ops.context:
+                stealth_ops.context.close()
+                stealth_ops.context = None
+        except Exception:
+            pass
 
     def reset_abort(self):
         """중단 신호를 리셋합니다."""
@@ -216,25 +246,60 @@ class BrowserSessionManager:
         """
         [Multi-Profile] 각 프로필별 독립 브라우저 세션 관리
         - 동일 profile_id면 세션 재사용, 다른 profile_id면 새 세션 생성
+        - 닫힌/종료된 세션은 자동 감지 및 정리 후 재생성 (Self-Healing)
         - ISP 프록시는 프로필마다 독립 IP → 동시 업로드 가능
         - LTE는 USB 회선 공유 → 순차적 업로드 (native_queue_worker에서 제어)
         """
 
         channel = db.query(YouTubeChannel).filter(YouTubeChannel.channel_id == channel_id).first()
         owner_profile_id = getattr(channel, 'owner_profile_id', None)
-        profile_id = owner_profile_id if owner_profile_id else channel_id
+        
+        # 1. 프로필 ID 정밀 매핑 (owner_profile_id -> Profile.channel_id -> ChannelAccess -> channel_id)
+        profile_id = owner_profile_id
+        if not profile_id:
+            profile_obj = db.query(Profile).filter(Profile.channel_id == channel_id).first()
+            if profile_obj:
+                profile_id = profile_obj.id
+                if channel and not channel.owner_profile_id:
+                    channel.owner_profile_id = profile_obj.id
+                    try:
+                        db.commit()
+                    except Exception:
+                        pass
+        if not profile_id:
+            access = db.query(ChannelAccess).filter(ChannelAccess.channel_id == channel_id).first()
+            if access:
+                profile_id = access.profile_id
+        if not profile_id:
+            profile_id = channel_id
 
+        # 2. 세션 생존 여부(Liveness) 철저 검증 및 캐시 정리
+        page = None
         with self._session_lock:
-            if profile_id in self._sessions:
-                logger.info(f"[TURBO] [Context Reuse] Reusing browser session for profile {profile_id}")
-                page = self._sessions[profile_id]
-            else:
-                self._sessions[profile_id] = None  # placeholder while creating
+            existing_page = self._sessions.get(profile_id)
+            if existing_page:
+                is_dead = False
+                try:
+                    if existing_page.is_closed():
+                        is_dead = True
+                    elif getattr(existing_page, 'context', None) is None:
+                        is_dead = True
+                    else:
+                        # 브라우저 컨텍스트 활성 상태 확인
+                        _ = len(existing_page.context.pages)
+                except Exception:
+                    is_dead = True
 
-        if self._sessions.get(profile_id):
-            page = self._sessions[profile_id]
-        else:
-            # 1. 기존 세션 중 불필요한 것 정리 (LTE 프로필이거나 다른 채널인 경우)
+                if is_dead:
+                    logger.info(f"🧹 [SessionManager] Stale/closed page detected for profile {profile_id}. Discarding.")
+                    self._sessions.pop(profile_id, None)
+                    page = None
+                else:
+                    logger.info(f"[TURBO] [Context Reuse] Reusing healthy browser session for profile {profile_id}")
+                    page = existing_page
+
+        # 3. 브라우저 세션 생성 (필요 시)
+        if not page:
             if rotate_ip:
                 try:
                     from app.services.network_stealth_manager import network_stealth_manager
@@ -248,11 +313,30 @@ class BrowserSessionManager:
             with self._session_lock:
                 self._sessions[profile_id] = page
 
+        # 4. 목표 URL 안전 이동 (네비게이션 중 창 종료 시 자가 치유 재시도)
         if target_url:
-            page.goto(target_url, wait_until="domcontentloaded")
-            time.sleep(3)
             try:
-                page.wait_for_selector('#create-icon, text="만들기", text="Create"', timeout=30000)
+                page.goto(target_url, wait_until="domcontentloaded", timeout=45000)
+            except Exception as nav_err:
+                logger.warning(f"Navigation to {target_url} encountered issue: {nav_err}")
+                err_str = str(nav_err).lower()
+                if "closed" in err_str or "target page" in err_str or "destroyed" in err_str:
+                    logger.info("Target page/browser was closed during initial goto. Recreating fresh browser context...")
+                    with self._session_lock:
+                        self._sessions.pop(profile_id, None)
+                    page = self._create_browser(profile_id, engine_mode=engine_mode, headless=headless)
+                    with self._session_lock:
+                        self._sessions[profile_id] = page
+                    page.goto(target_url, wait_until="domcontentloaded", timeout=45000)
+                else:
+                    try:
+                        page.goto(target_url, timeout=30000)
+                    except Exception:
+                        pass
+
+            time.sleep(2)
+            try:
+                page.wait_for_selector('#create-icon, text="만들기", text="Create"', timeout=15000)
             except Exception:
                 logger.warning("Dashboard elements not found after goto, continuing...")
 
@@ -637,28 +721,6 @@ class BrowserSessionManager:
                     adb_service.rotate_ip(method='soft')
                 except Exception:
                     pass
-
-    def close_session(self, profile_id: str = None):
-        if profile_id:
-            with self._session_lock:
-                page = self._sessions.pop(profile_id, None)
-            if page:
-                try:
-                    if page.context:
-                        page.context.close()
-                except:
-                    pass
-        else:
-            with self._session_lock:
-                sessions = list(self._sessions.items())
-            for pid, page in sessions:
-                try:
-                    if page and page.context:
-                        page.context.close()
-                except:
-                    pass
-            with self._session_lock:
-                self._sessions.clear()
 
     def get_active_channel(self) -> Optional[str]:
         return self._active_channel_id

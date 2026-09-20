@@ -135,10 +135,13 @@ class BrowserUploader:
                         time.sleep(random.uniform(1.0, 2.0))
                     
                     logger.info("🎬 [Pre-Upload Warmup] Transitioning to YouTube Studio for upload...")
-                    page.goto("https://studio.youtube.com/", wait_until="domcontentloaded")
+                    page.goto("https://studio.youtube.com/", wait_until="domcontentloaded", timeout=45000)
                 except Exception as w_e:
                     logger.warning(f"Pre-upload buffer soft warning: {w_e}")
-                    page.goto("https://studio.youtube.com/")
+                    try:
+                        page.goto("https://studio.youtube.com/", timeout=30000)
+                    except Exception as e2:
+                        logger.warning(f"Fallback navigation to studio: {e2}")
 
             target_page = page
 
