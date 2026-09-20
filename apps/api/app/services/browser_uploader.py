@@ -104,12 +104,16 @@ class BrowserUploader:
         # 1. Launch Secure Browser (IP Rotation handled inside)
         try:
             rotate_decision = force_ip_rotation
-            # Headless Mode Resolution (Respects global toggle & item override)
-            item_headless = yt_config.get('headless_mode')
-            if item_headless is not None:
-                headless_mode = bool(item_headless)
+            # Headless Mode Resolution (Prioritize global toggle so "창 표시: 켜짐" ALWAYS shows the window!)
+            global_headless = getattr(self, 'default_headless_mode', None)
+            if global_headless is not None:
+                headless_mode = bool(global_headless)
             else:
-                headless_mode = getattr(self, 'default_headless_mode', True)
+                item_headless = yt_config.get('headless_mode')
+                if item_headless is not None:
+                    headless_mode = bool(item_headless)
+                else:
+                    headless_mode = True
             logger.info(f"🛡️ IP Rotation Policy: {'ROTATE' if rotate_decision else 'STICKY'} (Force={force_ip_rotation}) | Headless={headless_mode}")
 
             # [Direct Studio Launch]
@@ -339,25 +343,14 @@ class BrowserUploader:
             logger.error(f"[FAIL] Metadata Entry Error: {e}")
             raise Exception(f"Metadata phase failed: {e}")
 
-        # Check for any disruptive popup
-        try:
-            close_popup = page.locator('button[aria-label="Close"], button[aria-label="닫기"]').filter(has_text="Close").first
-            if close_popup.is_visible(timeout=2000):
-                close_popup.click()
-        except Exception:
-            pass
-
         # 4. Progression & Publish
         logger.info("➡️ Progression & Publish Flow...")
         try:
             def click_next_step(step_name: str):
                 logger.info(f"➡️ Transitioning: {step_name}")
-                btn = page.locator('#next-button').first
-                btn.wait_for(state='attached', timeout=30000)
-                try:
-                    page.wait_for_selector('#next-button:not([disabled])', timeout=30000)
-                except Exception:
-                    logger.warning(f"[WARN] Next button remained disabled for {step_name}, attempting click")
+                time.sleep(1.5)
+                btn = page.locator('#next-button, ytcp-button#next-button, button:has-text("다음"), button:has-text("Next")').first
+                btn.wait_for(state='attached', timeout=20000)
                 btn.evaluate("node => node.click()")
                 time.sleep(2)
 

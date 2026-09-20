@@ -1385,9 +1385,7 @@ def toggle_headless_mode(
     from app.services.browser_uploader import browser_uploader
     browser_uploader.default_headless_mode = headless
     
-    items = db.query(models.WorkQueueItem).filter(
-        models.WorkQueueItem.status.in_(["DRAFT", "PENDING", "QUEUED", "SCHEDULED_UPLOAD"])
-    ).all()
+    items = db.query(models.WorkQueueItem).all()
     
     from sqlalchemy.orm.attributes import flag_modified
     updated_count = 0
@@ -1528,6 +1526,15 @@ def batch_reset(
             item.failure_reason = None
             item.upload_progress = 0
             item.updated_at = datetime.now()
+
+            from app.services.browser_uploader import browser_uploader
+            configs = dict(item.platform_configs or {})
+            yt = dict(configs.get("youtube") or {})
+            yt["headless_mode"] = getattr(browser_uploader, 'default_headless_mode', True)
+            configs["youtube"] = yt
+            item.platform_configs = configs
+            from sqlalchemy.orm.attributes import flag_modified
+            flag_modified(item, "platform_configs")
             
             reset_items.append(item.id)
             
