@@ -22,7 +22,7 @@ import {
     FileCheck, Hash, Files, Filter, ChevronDown, ChevronUp, Copy, Film,
     Save, FileSpreadsheet, Send, Search, ArrowUpDown, Workflow, Pause,
     PlaySquare, Settings, Table, Columns2, Volume2, VolumeX, X, SlidersHorizontal,
-    Loader2
+    Loader2, Sparkles
 } from 'lucide-react';
 
 
@@ -947,6 +947,7 @@ const WorkQueue = () => {
                                     onFinalize={handleFinalize}
                                     onUpdateUploadMethod={handleUpdateUploadMethod}
                                     onUpdateChannel={handleUpdateChannel}
+                                    onUpdateItem={handleUpdateItem}
                                     channels={channels}
                                     tiktokChannels={tiktokChannels}
                                     instagramChannels={instagramChannels}
@@ -1181,7 +1182,7 @@ const renderChannelNetworkBadge = (ch: any) => {
 
 const QueueItemCompactCard = ({
     index, item, onApprove, onReject, onDelete, onReset, onEdit, onPlay,
-    onAttach, onFinalize, onUpdateUploadMethod, onUpdateChannel,
+    onAttach, onFinalize, onUpdateUploadMethod, onUpdateChannel, onUpdateItem,
     channels, tiktokChannels, instagramChannels,
     getStatusBadge, getApprovalBadge, selectedItems, toggleItemSelection,
     isUploadingAttach, targetItemId
@@ -1196,6 +1197,192 @@ const QueueItemCompactCard = ({
     const videoRef = useRef<HTMLVideoElement>(null);
     const cardRef = useRef<HTMLDivElement>(null);
     const hasVideo = !!item.video_file_path;
+
+    // --- Inline Live-Edit State ---
+    const [editTitle, setEditTitle] = useState(item.title || '');
+    const [editDescription, setEditDescription] = useState(item.description || '');
+    const [editHashtags, setEditHashtags] = useState(
+        Array.isArray(item.hashtags) ? item.hashtags.join(' ') : (item.hashtags || '')
+    );
+    const [editTags, setEditTags] = useState(
+        Array.isArray(item.tags) ? item.tags.join(', ') : (item.tags || '')
+    );
+    const [editChannelId, setEditChannelId] = useState(
+        item.platform_configs?.youtube?.channel_id || item.channel_id || ''
+    );
+    const [editUploadMethod, setEditUploadMethod] = useState(item.upload_method || 'BROWSER_AUTO');
+    const [editPrivacy, setEditPrivacy] = useState(
+        item.platform_configs?.youtube?.privacy || (item.scheduled_upload_time ? 'scheduled' : 'private')
+    );
+    const [editScheduleTime, setEditScheduleTime] = useState(
+        item.scheduled_upload_time ? new Date(item.scheduled_upload_time).toISOString().slice(0, 16) : ''
+    );
+    const [editHeadlessMode, setEditHeadlessMode] = useState(
+        item.platform_configs?.youtube?.headless_mode !== undefined
+            ? !item.platform_configs.youtube.headless_mode
+            : false
+    );
+    const [isSaving, setIsSaving] = useState(false);
+
+    useEffect(() => {
+        setEditTitle(item.title || '');
+        setEditDescription(item.description || '');
+        setEditHashtags(Array.isArray(item.hashtags) ? item.hashtags.join(' ') : (item.hashtags || ''));
+        setEditTags(Array.isArray(item.tags) ? item.tags.join(', ') : (item.tags || ''));
+        setEditChannelId(item.platform_configs?.youtube?.channel_id || item.channel_id || '');
+        setEditUploadMethod(item.upload_method || 'BROWSER_AUTO');
+        setEditPrivacy(item.platform_configs?.youtube?.privacy || (item.scheduled_upload_time ? 'scheduled' : 'private'));
+        setEditScheduleTime(item.scheduled_upload_time ? new Date(item.scheduled_upload_time).toISOString().slice(0, 16) : '');
+        setEditHeadlessMode(
+            item.platform_configs?.youtube?.headless_mode !== undefined
+                ? !item.platform_configs.youtube.headless_mode
+                : false
+        );
+    }, [item]);
+
+    const isDirty = (
+        editTitle !== (item.title || '') ||
+        editDescription !== (item.description || '') ||
+        editHashtags !== (Array.isArray(item.hashtags) ? item.hashtags.join(' ') : (item.hashtags || '')) ||
+        editTags !== (Array.isArray(item.tags) ? item.tags.join(', ') : (item.tags || '')) ||
+        editChannelId !== (item.platform_configs?.youtube?.channel_id || item.channel_id || '') ||
+        editUploadMethod !== (item.upload_method || 'BROWSER_AUTO') ||
+        editPrivacy !== (item.platform_configs?.youtube?.privacy || (item.scheduled_upload_time ? 'scheduled' : 'private')) ||
+        (editPrivacy === 'scheduled' && editScheduleTime !== (item.scheduled_upload_time ? new Date(item.scheduled_upload_time).toISOString().slice(0, 16) : '')) ||
+        editHeadlessMode !== (item.platform_configs?.youtube?.headless_mode !== undefined ? !item.platform_configs.youtube.headless_mode : false)
+    );
+
+    const handleRevert = () => {
+        setEditTitle(item.title || '');
+        setEditDescription(item.description || '');
+        setEditHashtags(Array.isArray(item.hashtags) ? item.hashtags.join(' ') : (item.hashtags || ''));
+        setEditTags(Array.isArray(item.tags) ? item.tags.join(', ') : (item.tags || ''));
+        setEditChannelId(item.platform_configs?.youtube?.channel_id || item.channel_id || '');
+        setEditUploadMethod(item.upload_method || 'BROWSER_AUTO');
+        setEditPrivacy(item.platform_configs?.youtube?.privacy || (item.scheduled_upload_time ? 'scheduled' : 'private'));
+        setEditScheduleTime(item.scheduled_upload_time ? new Date(item.scheduled_upload_time).toISOString().slice(0, 16) : '');
+        setEditHeadlessMode(
+            item.platform_configs?.youtube?.headless_mode !== undefined
+                ? !item.platform_configs.youtube.headless_mode
+                : false
+        );
+        toast({ title: "변경사항 복원", description: "원래 데이터로 되돌렸습니다." });
+    };
+
+    const handleCleanAndSeparateHashtags = () => {
+        if (!editDescription) return;
+        const matches = editDescription.match(/#[A-Za-z0-9가-힣_]+/g) || [];
+        const lines = editDescription.trim().split('\n');
+        while (lines.length > 0) {
+            const lastLine = lines[lines.length - 1].trim();
+            if (!lastLine) {
+                lines.pop();
+                continue;
+            }
+            const tokens = lastLine.split(/\s+/);
+            if (tokens.every(t => t.startsWith('#'))) {
+                lines.pop();
+            } else {
+                lines[lines.length - 1] = lastLine.replace(/(?:\s*#[A-Za-z0-9가-힣_]+)+$/, '').trim();
+                break;
+            }
+        }
+        const cleanedDesc = lines.join('\n').trim();
+
+        const existingTags = editHashtags.split(/\s+/).filter(Boolean);
+        const allTags = [...matches, ...existingTags];
+        const seen = new Set<string>();
+        const uniqueTags: string[] = [];
+        let shortsTag: string | null = null;
+
+        for (const t of allTags) {
+            const tag = t.startsWith('#') ? t : `#${t}`;
+            const lower = tag.toLowerCase();
+            if (!seen.has(lower)) {
+                seen.add(lower);
+                if (lower === '#shorts' || lower === '#쇼츠') {
+                    shortsTag = tag;
+                } else {
+                    uniqueTags.push(tag);
+                }
+            }
+        }
+        if (shortsTag) {
+            uniqueTags.unshift(shortsTag);
+        }
+
+        setEditDescription(cleanedDesc);
+        setEditHashtags(uniqueTags.join(' '));
+        toast({
+            title: "해시태그 분리 및 정리 완료",
+            description: `본문에서 해시태그를 분리하여 [해시태그] 칸에 통합했습니다. (${uniqueTags.length}개)`
+        });
+    };
+
+    const handleSaveInline = async () => {
+        setIsSaving(true);
+        try {
+            const parsedHashtags = editHashtags
+                .split(/[\s,]+/)
+                .map(t => t.trim())
+                .filter(Boolean)
+                .map(t => t.startsWith('#') ? t : `#${t}`);
+
+            const parsedTags = editTags
+                .split(',')
+                .map(t => t.trim().replace(/^#+/, ''))
+                .filter(Boolean);
+
+            const configs = { ...(item.platform_configs || {}) };
+            configs.youtube = {
+                ...(configs.youtube || {}),
+                channel_id: editChannelId,
+                privacy: editPrivacy,
+                headless_mode: !editHeadlessMode
+            };
+
+            const payload: any = {
+                title: editTitle,
+                description: editDescription,
+                hashtags: parsedHashtags,
+                tags: parsedTags,
+                upload_method: editUploadMethod,
+                platform_configs: configs,
+                channel_id: editChannelId,
+                scheduled_upload_time: (editPrivacy === 'scheduled' && editScheduleTime)
+                    ? new Date(editScheduleTime).toISOString()
+                    : (editPrivacy !== 'scheduled' ? null : (item.scheduled_upload_time || null))
+            };
+
+            const res = await fetchWithRetry(`/api/work-queue/items/${item.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                throw new Error(errData.detail || "저장 실패");
+            }
+
+            toast({
+                title: "변경사항 저장 완료",
+                description: "작업 대기열 항목이 성공적으로 업데이트되었습니다."
+            });
+
+            if (typeof onUpdateItem === 'function') {
+                onUpdateItem(item.id, payload);
+            }
+        } catch (e: any) {
+            toast({
+                title: "저장 실패",
+                description: e.message || "항목 저장 중 오류가 발생했습니다.",
+                variant: "destructive"
+            });
+        } finally {
+            setIsSaving(false);
+        }
+    };
 
     // 실패 사유 원시 텍스트 통합 (failure_reason, error_message, error, last_error 모두 지원)
     const rawFailureReason = item.failure_reason || item.error_message || item.error || item.last_error || '';
@@ -1307,7 +1494,7 @@ const QueueItemCompactCard = ({
         >
             <CardContent className="p-3 w-full min-w-0 space-y-2">
                 {/* 1. 모바일 상단 바 (체크박스, 순번, 상태 배지 & 간편 조작 아이콘) */}
-                <div className="flex items-center justify-between w-full sm:hidden border-b border-border/40 pb-1.5">
+                <div className="flex items-center justify-between w-full sm:hidden border-b border-border/40 pb-1.5" onClick={(e) => e.stopPropagation()}>
                     <div className="flex items-center gap-2">
                         <Checkbox checked={selectedItems.includes(item.id)} onCheckedChange={() => toggleItemSelection(item.id)} className="border-border" />
                         <span className="text-[11px] font-mono text-muted-foreground">{index}</span>
@@ -1319,23 +1506,30 @@ const QueueItemCompactCard = ({
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-0.5">
-                        <Button size="icon" variant="ghost" onClick={() => setExpanded(!expanded)} className={`h-7 w-7 ${expanded ? 'text-indigo-600 bg-indigo-50 dark:bg-indigo-950/40' : 'text-muted-foreground'}`} title="자세히 보기">
-                            {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                    <div className="flex items-center gap-1">
+                        <Button 
+                            size="sm" 
+                            variant={expanded ? "secondary" : "outline"} 
+                            onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }} 
+                            className="h-7 text-xs px-2 gap-1 font-medium border-border"
+                        >
+                            {expanded ? <ChevronUp className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" /> : <Edit className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />}
+                            <span>{expanded ? '닫기' : '수정'}</span>
                         </Button>
-                        <Button size="icon" variant="ghost" onClick={() => onEdit(item)} className="h-7 w-7 text-muted-foreground hover:text-foreground" title="수정">
-                            <Edit className="w-3.5 h-3.5" />
-                        </Button>
-                        <Button size="icon" variant="ghost" onClick={() => onDelete(item.id)} className="h-7 w-7 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/40" title="삭제">
+                        <Button size="icon" variant="ghost" onClick={(e) => { e.stopPropagation(); onDelete(item.id); }} className="h-7 w-7 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/40" title="삭제">
                             <Trash2 className="w-3.5 h-3.5" />
                         </Button>
                     </div>
                 </div>
 
-                {/* 2. 본문 컨텐츠 행 (썸네일 + 제목/배지/플랫폼 정보 + 데스크톱 버튼) */}
-                <div className="flex items-start sm:items-center gap-2.5 sm:gap-3 w-full min-w-0">
+                {/* 2. 본문 컨텐츠 행 (빈 공간 클릭 시에도 펼쳐지도록 전체 클릭 가능) */}
+                <div 
+                    onClick={() => setExpanded(!expanded)} 
+                    className="flex items-start sm:items-center gap-2.5 sm:gap-3 w-full min-w-0 cursor-pointer rounded-lg p-1 -m-1 transition-colors hover:bg-muted/40"
+                    title={expanded ? "클릭하여 인라인 편집 작업대 닫기" : "클릭하여 인라인 편집 작업대 열기"}
+                >
                     {/* 데스크톱 전용 체크박스 & 순번 & 상태 배지 */}
-                    <div className="hidden sm:flex items-center gap-1.5 shrink-0">
+                    <div className="hidden sm:flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
                         <Checkbox checked={selectedItems.includes(item.id)} onCheckedChange={() => toggleItemSelection(item.id)} className="border-border" />
                         <span className="text-[11px] font-mono text-muted-foreground w-5 text-right">{index}</span>
                     </div>
@@ -1349,9 +1543,7 @@ const QueueItemCompactCard = ({
 
                     {/* 미니 썸네일 / 비디오 미리보기 박스 */}
                     <div 
-                        onClick={() => setExpanded(!expanded)}
-                        className="w-12 h-12 rounded-lg bg-muted/80 border border-border shrink-0 overflow-hidden flex items-center justify-center cursor-pointer relative group hover:border-indigo-500 shadow-2xs"
-                        title={hasVideo ? "클릭하여 영상 미리보기 및 상세 확인" : "영상 미첨부"}
+                        className="w-12 h-12 rounded-lg bg-muted/80 border border-border shrink-0 overflow-hidden flex items-center justify-center relative group shadow-2xs"
                     >
                         {item.thumbnail_url ? (
                             <img src={item.thumbnail_url} alt="" className="w-full h-full object-cover" />
@@ -1375,7 +1567,7 @@ const QueueItemCompactCard = ({
                     {/* 제목, 외부 ID, 플랫폼 채널 정보 */}
                     <div className="flex-1 min-w-0 space-y-1">
                         <div className="flex items-center gap-1.5 flex-wrap min-w-0">
-                            <h4 className="font-semibold text-xs sm:text-sm text-foreground truncate cursor-pointer hover:text-indigo-600 max-w-full sm:max-w-md" onClick={() => setExpanded(!expanded)}>
+                            <h4 className="font-semibold text-xs sm:text-sm text-foreground truncate hover:text-indigo-600 max-w-full sm:max-w-md">
                                 {item.title || '(제목 없음)'}
                             </h4>
                             {item.source_type === 'PIXELING' ? (
@@ -1412,7 +1604,7 @@ const QueueItemCompactCard = ({
                             </span>
                             <span className="text-muted-foreground/60 hidden sm:inline">·</span>
                             {hasVideo ? (
-                                <span className="text-[10px] text-emerald-600 dark:text-emerald-400 flex items-center gap-0.5 cursor-pointer hover:underline shrink-0" onClick={() => setExpanded(!expanded)}>
+                                <span className="text-[10px] text-emerald-600 dark:text-emerald-400 flex items-center gap-0.5 shrink-0">
                                     <Play className="w-3 h-3" /> 영상 연결됨
                                 </span>
                             ) : (
@@ -1424,7 +1616,7 @@ const QueueItemCompactCard = ({
                     </div>
 
                     {/* 데스크톱 전용 우측 액션 버튼 바 */}
-                    <div className="hidden sm:flex items-center gap-1 shrink-0 ml-auto">
+                    <div className="hidden sm:flex items-center gap-1.5 shrink-0 ml-auto" onClick={(e) => e.stopPropagation()}>
                         {(item.status === 'DRAFT' || !item.video_file_path) && (
                             <>
                                 <Button size="sm" variant="outline" onClick={() => onAttach(item.id)} disabled={isUploadingAttach} className="h-7 text-xs px-2 border-border">
@@ -1446,11 +1638,26 @@ const QueueItemCompactCard = ({
                                 </Button>
                             </>
                         )}
-                        <Button size="icon" variant="ghost" onClick={() => setExpanded(!expanded)} className={`h-7 w-7 ${expanded ? 'text-indigo-600 bg-indigo-50 dark:bg-indigo-950/40' : 'text-muted-foreground'}`} title="자세히 보기">
-                            {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                        </Button>
-                        <Button size="icon" variant="ghost" onClick={() => onEdit(item)} className="h-7 w-7 text-muted-foreground hover:text-foreground" title="수정">
-                            <Edit className="w-3.5 h-3.5" />
+                        <Button 
+                            size="sm" 
+                            variant={expanded ? "secondary" : "outline"} 
+                            onClick={() => setExpanded(!expanded)} 
+                            className={`h-7 text-xs px-2.5 gap-1.5 font-medium border-border transition-all ${
+                                expanded ? 'bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 border-indigo-300 dark:border-indigo-800 shadow-xs' : 'text-foreground hover:border-indigo-400'
+                            }`}
+                            title="인라인 편집 작업대 열기/닫기"
+                        >
+                            {expanded ? (
+                                <>
+                                    <ChevronUp className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                                    <span>편집 닫기</span>
+                                </>
+                            ) : (
+                                <>
+                                    <Edit className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                                    <span>수정 / 상세</span>
+                                </>
+                            )}
                         </Button>
                         <Button size="icon" variant="ghost" onClick={() => onDelete(item.id)} className="h-7 w-7 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/40" title="삭제">
                             <Trash2 className="w-3.5 h-3.5" />
@@ -1459,7 +1666,7 @@ const QueueItemCompactCard = ({
                 </div>
 
                 {/* 3. 모바일 전용 하단 주요 액션 버튼 바 */}
-                <div className="sm:hidden flex items-center gap-1.5 w-full pt-1.5 border-t border-border/40 justify-end">
+                <div className="sm:hidden flex items-center gap-1.5 w-full pt-1.5 border-t border-border/40 justify-end" onClick={(e) => e.stopPropagation()}>
                     {(item.status === 'DRAFT' || !item.video_file_path) && (
                         <>
                             <Button size="sm" variant="outline" onClick={() => onAttach(item.id)} disabled={isUploadingAttach} className="h-7 text-xs px-2.5 border-border flex-1">
@@ -1483,9 +1690,9 @@ const QueueItemCompactCard = ({
                     )}
                 </div>
 
-                {/* 4. 자세히 보기 펼침 패널 (좌: 9:16 모바일 폰 숏폼 뷰어 / 우: 메타 60% + 배포 40% 최적 레이아웃) */}
+                {/* 4. 인라인 원클릭 즉시 편집 스튜디오 (아이디어 A) */}
                 {expanded && (
-                    <div className="mt-3 pt-3 border-t border-border/80 space-y-3 w-full min-w-0">
+                    <div className="mt-3 pt-3 border-t border-border/80 space-y-3 w-full min-w-0" onClick={(e) => e.stopPropagation()}>
                         <div className="flex flex-col md:flex-row items-stretch gap-4 text-xs w-full min-w-0">
                             
                             {/* [좌측] 📱 9:16 모바일 폰 숏폼 프리뷰어 (고정 폭 170px) */}
@@ -1572,45 +1779,102 @@ const QueueItemCompactCard = ({
                                 </p>
                             </div>
 
-                            {/* [우측] 📝 콘텐츠 메타 (60%) + ⚙️ 배포/채널 설정 (40%) */}
+                            {/* [우측] 📝 콘텐츠 메타 편집 (약 58%) + ⚙️ 배포/채널 설정 (약 42%) */}
                             <div className="flex-1 min-w-0 grid grid-cols-1 lg:grid-cols-12 gap-3.5">
                                 
-                                {/* 1) 콘텐츠 메타 (7칸 - 약 58%) */}
-                                <div className="lg:col-span-7 rounded-xl border border-border bg-muted/20 p-3.5 space-y-2.5 min-w-0 overflow-hidden flex flex-col justify-between">
-                                    <div className="space-y-2.5">
+                                {/* 1) 콘텐츠 메타데이터 즉시 편집 (7칸) */}
+                                <div className="lg:col-span-7 rounded-xl border border-border bg-muted/20 p-3.5 space-y-3 min-w-0 overflow-hidden flex flex-col justify-between shadow-xs">
+                                    <div className="space-y-3">
                                         <div className="flex items-center justify-between">
                                             <span className="font-bold text-foreground flex items-center gap-1.5 text-xs">
-                                                <FileText className="w-3.5 h-3.5 text-indigo-500" /> 콘텐츠 메타데이터
+                                                <FileText className="w-3.5 h-3.5 text-indigo-500" /> 콘텐츠 메타데이터 (인라인 즉시 편집)
                                             </span>
-                                            <Button variant="ghost" size="sm" className="h-5 text-[10px] px-1" onClick={() => copyText(item.title, '제목 복사됨')}>
-                                                <Copy className="w-2.5 h-2.5 mr-1" /> 제목 복사
-                                            </Button>
-                                        </div>
-                                        <div>
-                                            <span className="text-[10px] text-muted-foreground font-medium">제목</span>
-                                            <p className="font-semibold text-xs leading-snug mt-0.5 break-words bg-background/80 p-2 rounded-lg border border-border">
-                                                {item.title || '--'}
-                                            </p>
-                                        </div>
-                                        <div>
-                                            <div className="flex items-center justify-between">
-                                                <span className="text-[10px] text-muted-foreground font-medium">설명</span>
-                                                <Button variant="ghost" size="sm" className="h-5 text-[10px] px-1" onClick={() => copyText(item.description, '설명 복사됨')}>
-                                                    <Copy className="w-2.5 h-2.5 mr-1" /> 설명 복사
+                                            <div className="flex items-center gap-1">
+                                                <Button 
+                                                    variant="outline" 
+                                                    size="sm" 
+                                                    className="h-6 text-[10px] px-2 text-indigo-600 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 gap-1" 
+                                                    onClick={handleCleanAndSeparateHashtags} 
+                                                    title="설명 본문 끝에 달린 해시태그를 분리하여 아래 해시태그 칸으로 정돈합니다"
+                                                >
+                                                    <Sparkles className="w-3 h-3 text-amber-500" /> 본문/해시태그 분리정리
+                                                </Button>
+                                                <Button 
+                                                    variant="ghost" 
+                                                    size="sm" 
+                                                    className="h-6 text-[10px] px-1.5" 
+                                                    onClick={() => copyText(`${editTitle}\n\n${editDescription}\n\n${editHashtags}`, '전체 메타 복사됨')}
+                                                >
+                                                    <Copy className="w-2.5 h-2.5 mr-1" /> 복사
                                                 </Button>
                                             </div>
-                                            <div className="text-[11px] text-muted-foreground whitespace-pre-wrap max-h-24 overflow-y-auto bg-background/80 p-2 rounded-lg border border-border mt-0.5 break-words">
-                                                {item.description || '(설명 없음)'}
-                                            </div>
                                         </div>
-                                        <div className="grid grid-cols-2 gap-2">
-                                            <div className="min-w-0">
-                                                <span className="text-[10px] text-muted-foreground font-medium">태그</span>
-                                                <p className="text-[11px] truncate bg-background/80 p-1.5 rounded-lg border border-border mt-0.5">{item.tags?.length ? item.tags.join(', ') : '--'}</p>
+
+                                        {/* 제목 입력 */}
+                                        <div className="space-y-1">
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-[10px] text-muted-foreground font-semibold">제목 (Title)</span>
+                                                <span className="text-[9px] text-muted-foreground font-mono">{editTitle.length}/100자</span>
                                             </div>
-                                            <div className="min-w-0">
-                                                <span className="text-[10px] text-muted-foreground font-medium">해시태그</span>
-                                                <p className="text-[11px] text-indigo-600 dark:text-indigo-400 font-medium truncate bg-background/80 p-1.5 rounded-lg border border-border mt-0.5">{item.hashtags?.length ? item.hashtags.join(' ') : '--'}</p>
+                                            <Input 
+                                                value={editTitle} 
+                                                onChange={(e) => setEditTitle(e.target.value)} 
+                                                placeholder="동영상 제목을 입력하세요 (최대 100자)" 
+                                                className="text-xs font-semibold h-8 bg-background border-border focus-visible:ring-indigo-500" 
+                                                maxLength={100}
+                                            />
+                                        </div>
+
+                                        {/* 설명 입력 */}
+                                        <div className="space-y-1">
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-[10px] text-muted-foreground font-semibold">설명 본문 (Description)</span>
+                                                <span className="text-[9px] text-muted-foreground font-mono">{editDescription.length}자</span>
+                                            </div>
+                                            <Textarea 
+                                                value={editDescription} 
+                                                onChange={(e) => setEditDescription(e.target.value)} 
+                                                placeholder="동영상 설명글을 입력하세요 (해시태그는 아래 [해시태그] 칸에 적으면 업로드 시 자동으로 맨 밑에 결합됩니다)" 
+                                                rows={4} 
+                                                className="text-xs leading-relaxed bg-background border-border resize-y focus-visible:ring-indigo-500" 
+                                            />
+                                        </div>
+
+                                        {/* 해시태그 & 검색 태그 */}
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                                            <div className="space-y-1 min-w-0">
+                                                <div className="flex items-center justify-between">
+                                                    <span className="text-[10px] text-muted-foreground font-semibold flex items-center gap-1">
+                                                        <Hash className="w-3 h-3 text-indigo-500" /> 해시태그 (Hashtags)
+                                                    </span>
+                                                    <span className="text-[9px] text-muted-foreground">공백 구분</span>
+                                                </div>
+                                                <Input 
+                                                    value={editHashtags} 
+                                                    onChange={(e) => setEditHashtags(e.target.value)} 
+                                                    placeholder="#쇼츠 #유머 #바이럴" 
+                                                    className="text-xs text-indigo-600 dark:text-indigo-400 font-medium h-8 bg-background border-border focus-visible:ring-indigo-500" 
+                                                />
+                                                <p className="text-[9px] text-muted-foreground/70 leading-tight">
+                                                    * 업로드 시 설명글 하단에 중복 없이 결합됩니다.
+                                                </p>
+                                            </div>
+                                            <div className="space-y-1 min-w-0">
+                                                <div className="flex items-center justify-between">
+                                                    <span className="text-[10px] text-muted-foreground font-semibold">
+                                                        검색 태그 (Tags 칩)
+                                                    </span>
+                                                    <span className="text-[9px] text-muted-foreground">쉼표(,) 구분</span>
+                                                </div>
+                                                <Input 
+                                                    value={editTags} 
+                                                    onChange={(e) => setEditTags(e.target.value)} 
+                                                    placeholder="shorts, 유머, 바이럴" 
+                                                    className="text-xs h-8 bg-background border-border focus-visible:ring-indigo-500" 
+                                                />
+                                                <p className="text-[9px] text-muted-foreground/70 leading-tight">
+                                                    * YouTube Studio '자세히 표시' 태그 칩으로 등록됩니다.
+                                                </p>
                                             </div>
                                         </div>
                                     </div>
@@ -1631,25 +1895,29 @@ const QueueItemCompactCard = ({
                                     </div>
                                 </div>
 
-                                {/* 2) 배포 & 채널 설정 (5칸 - 약 42%) */}
-                                <div className="lg:col-span-5 rounded-xl border border-border bg-muted/20 p-3.5 space-y-2.5 min-w-0 overflow-hidden flex flex-col justify-between">
-                                    <div className="space-y-2.5">
+                                {/* 2) 배포 & 채널 설정 (5칸) */}
+                                <div className="lg:col-span-5 rounded-xl border border-border bg-muted/20 p-3.5 space-y-3 min-w-0 overflow-hidden flex flex-col justify-between shadow-xs">
+                                    <div className="space-y-3">
                                         <span className="font-bold text-foreground flex items-center gap-1.5 text-xs">
-                                            <Rocket className="w-3.5 h-3.5 text-indigo-500" /> 플랫폼 채널 및 스케줄
+                                            <Rocket className="w-3.5 h-3.5 text-indigo-500" /> 플랫폼 채널 및 배포 설정
                                         </span>
                                         
+                                        {/* 채널 선택 */}
                                         <div className="space-y-1.5">
                                             {(!item.target_platforms || item.target_platforms.length === 0 || item.target_platforms.includes('youtube')) && (
-                                                <div className="p-1.5 rounded-lg bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/40 space-y-1">
+                                                <div className="p-2 rounded-lg bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/40 space-y-1.5">
                                                     <div className="flex items-center justify-between">
                                                         <span className="text-[11px] font-bold text-blue-700 dark:text-blue-300 shrink-0">🎬 YouTube 채널</span>
-                                                        {renderChannelNetworkBadge(channels.find((ch: any) => ch.channel_id === (item.platform_configs?.youtube?.channel_id || item.channel_id)))}
+                                                        {renderChannelNetworkBadge(channels.find((ch: any) => ch.channel_id === editChannelId))}
                                                     </div>
                                                     <Select
-                                                        value={(item.platform_configs?.youtube?.channel_id || item.channel_id) || ''}
-                                                        onValueChange={(v) => onUpdateChannel(item.id, 'youtube', v)}
+                                                        value={editChannelId || ''}
+                                                        onValueChange={(v) => {
+                                                            setEditChannelId(v);
+                                                            if (onUpdateChannel) onUpdateChannel(item.id, 'youtube', v);
+                                                        }}
                                                     >
-                                                        <SelectTrigger className="h-6 text-[10px] bg-background border-border flex-1">
+                                                        <SelectTrigger className="h-7 text-[10px] bg-background border-border flex-1">
                                                             <SelectValue placeholder="채널 선택" />
                                                         </SelectTrigger>
                                                         <SelectContent>
@@ -1707,31 +1975,70 @@ const QueueItemCompactCard = ({
                                             )}
                                         </div>
 
+                                        {/* 업로드 방식 & 공개 상태 */}
                                         <div className="grid grid-cols-2 gap-2 pt-1 border-t border-border/50">
                                             <div>
-                                                <span className="text-[10px] text-muted-foreground font-medium">업로드 방식</span>
-                                                <Select value={item.upload_method || 'BROWSER_AUTO'} onValueChange={(v) => onUpdateUploadMethod(item.id, v)}>
-                                                    <SelectTrigger className="h-6 text-[10px] bg-background border-border mt-0.5">
+                                                <span className="text-[10px] text-muted-foreground font-semibold">업로드 방식</span>
+                                                <Select value={editUploadMethod} onValueChange={setEditUploadMethod}>
+                                                    <SelectTrigger className="h-7 text-[10px] bg-background border-border mt-0.5">
                                                         <SelectValue />
                                                     </SelectTrigger>
                                                     <SelectContent>
-                                                        <SelectItem value="BROWSER_AUTO">스텔스 자동화</SelectItem>
+                                                        <SelectItem value="BROWSER_AUTO">스텔스 자동화 (권장)</SelectItem>
                                                         <SelectItem value="API">Google API</SelectItem>
-                                                        <SelectItem value="MANUAL">수동</SelectItem>
+                                                        <SelectItem value="MANUAL">수동 복사</SelectItem>
                                                     </SelectContent>
                                                 </Select>
                                             </div>
                                             <div>
-                                                <span className="text-[10px] text-muted-foreground font-medium">예약 시각</span>
-                                                <p className="font-semibold text-[11px] mt-1 bg-background/80 p-1 rounded border border-border truncate">
-                                                    {item.scheduled_upload_time ? new Date(item.scheduled_upload_time).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '즉시 등록'}
+                                                <span className="text-[10px] text-muted-foreground font-semibold">공개 상태</span>
+                                                <Select value={editPrivacy} onValueChange={setEditPrivacy}>
+                                                    <SelectTrigger className="h-7 text-[10px] bg-background border-border mt-0.5">
+                                                        <SelectValue />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="private">🔒 비공개</SelectItem>
+                                                        <SelectItem value="unlisted">🔗 일부 공개</SelectItem>
+                                                        <SelectItem value="public">🌐 즉시 공개</SelectItem>
+                                                        <SelectItem value="scheduled">📅 예약 발행</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                        </div>
+
+                                        {/* 예약 일시 설정 (예약 발행 선택 시 또는 예약 시간이 설정된 경우) */}
+                                        {(editPrivacy === 'scheduled' || !!editScheduleTime) && (
+                                            <div className="p-2 rounded-lg bg-indigo-50/50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-900/40 space-y-1">
+                                                <span className="text-[10px] font-semibold text-indigo-700 dark:text-indigo-300 flex items-center gap-1">
+                                                    <Clock className="w-3 h-3" /> 예약 게시 일시 (YouTube Studio 자동 예약)
+                                                </span>
+                                                <Input 
+                                                    type="datetime-local" 
+                                                    value={editScheduleTime} 
+                                                    onChange={(e) => setEditScheduleTime(e.target.value)} 
+                                                    className="h-7 text-xs bg-background border-border" 
+                                                />
+                                                <p className="text-[9px] text-muted-foreground/80 leading-tight">
+                                                    * 업로드 완료 후 지정한 날짜/시간에 자동으로 공개 예약됩니다.
                                                 </p>
                                             </div>
+                                        )}
+
+                                        {/* 브라우저 창 표시 (Headless/Visible Toggle) */}
+                                        <div className="flex items-center justify-between p-2 rounded-lg bg-background/80 border border-border">
+                                            <div className="space-y-0.5">
+                                                <span className="text-[11px] font-medium text-foreground flex items-center gap-1">
+                                                    {editHeadlessMode ? <Eye className="w-3.5 h-3.5 text-indigo-500" /> : <EyeOff className="w-3.5 h-3.5 text-muted-foreground" />}
+                                                    브라우저 창 표시 (시각적 확인)
+                                                </span>
+                                                <p className="text-[9px] text-muted-foreground">업로드 진행 중 실제 크롬 창을 화면에 띄웁니다.</p>
+                                            </div>
+                                            <Switch checked={editHeadlessMode} onCheckedChange={setEditHeadlessMode} />
                                         </div>
                                     </div>
 
                                     <div className="space-y-2 pt-2 border-t border-border/50">
-                                        {/* 실패 사유 카드 (사용자가 이해할 수 있는 설명 + 시스템 상세 로그 확인) */}
+                                        {/* 실패 사유 카드 */}
                                         {isFailed && (
                                             <FailureReasonCard
                                                 failureReason={rawFailureReason}
@@ -1739,12 +2046,49 @@ const QueueItemCompactCard = ({
                                             />
                                         )}
 
-                                        <div className="flex flex-wrap gap-2 text-[10px] text-muted-foreground pt-1">
+                                        <div className="flex flex-wrap gap-2 text-[10px] text-muted-foreground pt-0.5">
                                             <div><span>외부ID:</span> <span className="font-mono">{item.source_external_id || '--'}</span></div>
                                             <div><span>Batch:</span> <span className="font-mono">{item.source_batch_id ? item.source_batch_id.slice(0, 10) : '--'}</span></div>
                                         </div>
                                     </div>
                                 </div>
+                            </div>
+                        </div>
+
+                        {/* [인라인 작업대 하단 액션 바] 원클릭 변경사항 저장 및 복원 */}
+                        <div className="pt-2.5 mt-1 border-t border-border flex items-center justify-between gap-2 flex-wrap bg-muted/10 p-2.5 rounded-lg">
+                            <div className="flex items-center gap-2">
+                                {isDirty ? (
+                                    <Badge variant="outline" className="text-[10px] bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 border-amber-300 dark:border-amber-800 animate-pulse">
+                                        ● 저장되지 않은 변경사항이 있습니다
+                                    </Badge>
+                                ) : (
+                                    <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                                        <Check className="w-3 h-3 text-emerald-500" /> 현재 데이터가 DB와 일치합니다
+                                    </span>
+                                )}
+                            </div>
+
+                            <div className="flex items-center gap-2 ml-auto">
+                                {isDirty && (
+                                    <Button 
+                                        variant="ghost" 
+                                        size="sm" 
+                                        onClick={handleRevert} 
+                                        className="h-7 text-xs px-2.5 text-muted-foreground hover:text-foreground"
+                                    >
+                                        원래대로
+                                    </Button>
+                                )}
+                                <Button 
+                                    size="sm" 
+                                    onClick={handleSaveInline} 
+                                    disabled={isSaving} 
+                                    className="h-7 text-xs px-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-medium shadow-xs gap-1.5"
+                                >
+                                    {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                                    <span>{isSaving ? "저장 중..." : "변경사항 저장"}</span>
+                                </Button>
                             </div>
                         </div>
 

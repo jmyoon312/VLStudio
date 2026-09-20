@@ -237,22 +237,23 @@ class BrowserUploader:
             logger.info(f"[OK] Title applied cleanly: {item.title}")
             time.sleep(1.0)
 
+            # --- Normalize Metadata (SSOT: Single Source of Truth) ---
+            from app.services.metadata_normalizer import normalize_item_metadata
+            normalized_meta = normalize_item_metadata(item.description, item.hashtags, item.tags)
+            final_description = normalized_meta["youtube_description"]
+            tags_to_upload = normalized_meta["tags"]
+
             # --- Description ---
             logger.info("✍️ Writing Description...")
             desc_input = page.locator('#description-textarea #textbox, div[aria-label*="설명"] #textbox, div[aria-label*="description"] #textbox').first
             if desc_input.count() > 0 and desc_input.is_visible():
-                description = item.description or ""
-                if item.hashtags:
-                    tags_str = " ".join(item.hashtags) if isinstance(item.hashtags, list) else str(item.hashtags)
-                    description += f"\n\n{tags_str} "
-
                 desc_input.evaluate('''(el, val) => {
                     el.focus();
                     el.innerText = val;
                     el.dispatchEvent(new Event('input', { bubbles: true }));
                     el.dispatchEvent(new Event('change', { bubbles: true }));
-                }''', description)
-                logger.info(f"[OK] Description applied cleanly via JS injection ({len(description)} chars)")
+                }''', final_description)
+                logger.info(f"[OK] Description applied cleanly via JS injection ({len(final_description)} chars, {len(normalized_meta['hashtags'])} hashtags)")
                 time.sleep(1.0)
             else:
                 logger.warning("[WARN] Description input not found or not visible")
@@ -316,9 +317,9 @@ class BrowserUploader:
                 pass
 
             # Expand 'Show More' (자세히 표시 / Show more) & Input Tags
-            if item.tags:
+            if tags_to_upload:
                 try:
-                    logger.info("🏷️ Processing Tags (Expanding Show More)...")
+                    logger.info(f"🏷️ Processing Tags (Expanding Show More, {len(tags_to_upload)} tags)...")
                     # 1. Scroll container down to mount #toggle-button in virtual DOM
                     page.evaluate('''() => {
                         const sc = document.querySelector('#scrollable-content');
@@ -343,11 +344,10 @@ class BrowserUploader:
                     # 4. Insert tags with comma separation to create chips
                     tag_input = page.locator('#tags-container #text-input, input[aria-label*="태그"], input[aria-label*="Tags"]').first
                     if tag_input.is_visible(timeout=5000):
-                        tags_list = item.tags if isinstance(item.tags, list) else [t.strip() for t in str(item.tags).split(',') if t.strip()]
-                        tags_text = ",".join(tags_list) + ","
+                        tags_text = ",".join(tags_to_upload) + ","
                         tag_input.type(tags_text, delay=20)
                         time.sleep(0.5)
-                        logger.info(f"[OK] Tags applied ({len(tags_list)} tags: {tags_text[:40]}...)")
+                        logger.info(f"[OK] Tags applied ({len(tags_to_upload)} chips created: {tags_text[:40]}...)")
                     else:
                         logger.warning("[WARN] Tag input not visible after expand")
                 except Exception as t_e:

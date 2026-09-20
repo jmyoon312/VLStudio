@@ -597,6 +597,21 @@ def update_queue_item(
     for key, value in update_data.dict(exclude_unset=True).items():
         setattr(item, key, value)
     
+    # 메타데이터 정규화 (설명 및 해시태그 중복 0% 제거)
+    if update_data.description is not None or update_data.hashtags is not None or update_data.tags is not None:
+        try:
+            from app.services.metadata_normalizer import normalize_item_metadata
+            normalized = normalize_item_metadata(
+                item.description,
+                item.hashtags,
+                item.tags
+            )
+            item.description = normalized["clean_description"]
+            item.hashtags = normalized["hashtags"]
+            item.tags = normalized["tags"]
+        except Exception as norm_err:
+            logger.warning(f"Metadata normalization warning: {norm_err}")
+    
     # channel_id 및 platform_configs 상호 동기화 보장
     if update_data.platform_configs:
         yt_chan = (update_data.platform_configs.get("youtube") or {}).get("channel_id")
@@ -1134,8 +1149,12 @@ def bulk_upload_file(
 
         hashtags_raw = row.get(hashtag_col, "") if hashtag_col else ""
         tags_raw = row.get(tag_col, "") if tag_col else ""
-        parsed_hashtags = [t if t.startswith('#') else f"#{t}" for t in hashtags_raw.split() if t.strip()] if hashtags_raw else None
-        parsed_tags = [t.strip() for t in tags_raw.split(",") if t.strip()] if tags_raw else None
+
+        from app.services.metadata_normalizer import normalize_item_metadata
+        normalized = normalize_item_metadata(description, hashtags_raw, tags_raw)
+        clean_description = normalized["clean_description"]
+        parsed_hashtags = normalized["hashtags"] if normalized["hashtags"] else None
+        parsed_tags = normalized["tags"] if normalized["tags"] else None
 
         upload_method = row.get(um_col, "").strip() if um_col else None
         if not upload_method:
@@ -1160,7 +1179,7 @@ def bulk_upload_file(
 
         queue_item = models.WorkQueueItem(
             title=title.strip() or f"Item {len(created) + 1}",
-            description=description.strip(),
+            description=clean_description,
             hashtags=parsed_hashtags,
             tags=parsed_tags,
             source_type="BULK_IMPORT",
