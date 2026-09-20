@@ -5,7 +5,7 @@ import { useModalVisibility } from '@/features/flow2capcut/hooks/useModalVisibil
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Check, ChevronRight, ShieldCheck, AlertTriangle, Smartphone, Loader2, Wifi, RefreshCw, Upload, FileJson, Sparkles, ChevronLeft, ExternalLink, Copy, Lock, Activity } from 'lucide-react';
+import { Check, ChevronRight, ShieldCheck, AlertTriangle, Smartphone, Loader2, Wifi, RefreshCw, Upload, FileJson, Sparkles, ChevronLeft, ExternalLink, Copy, Lock, Activity, Battery, CheckCircle2, XCircle, Server, Radio } from 'lucide-react';
 import GoogleAuthGuide from '../GoogleAuthGuide';
 import { useToast } from "@/components/ui/use-toast";
 import axios from 'axios';
@@ -62,12 +62,17 @@ const TinCanWizard: React.FC<TinCanWizardProps> = ({ isOpen, onClose, onComplete
     const [proxyPort, setProxyPort] = useState("");
     const [proxyUsername, setProxyUsername] = useState("");
     const [proxyPassword, setProxyPassword] = useState("");
+    const [boundDeviceSerial, setBoundDeviceSerial] = useState<string>("");
+    const [devicesList, setDevicesList] = useState<any[]>([]);
+    const [ispProxiesList, setIspProxiesList] = useState<any[]>([]);
+    const [isLoadingDevices, setIsLoadingDevices] = useState(false);
+    const [isTestingProxy, setIsTestingProxy] = useState(false);
+    const [proxyTestResult, setProxyTestResult] = useState<any>(null);
+    const [selectedIspIndex, setSelectedIspIndex] = useState<string>("custom");
 
     // Auth State
     const [isAuthorized, setIsAuthorized] = useState(false);
     const [authChecking, setAuthChecking] = useState(false);
-
-
 
     // UI State
     const [isLoading, setIsLoading] = useState(false);
@@ -90,6 +95,7 @@ const TinCanWizard: React.FC<TinCanWizardProps> = ({ isOpen, onClose, onComplete
             setProxyPort(initialData.proxy_port || "");
             setProxyUsername(initialData.proxy_username || "");
             setProxyPassword(initialData.proxy_password || "");
+            setBoundDeviceSerial(initialData.bound_device_serial || "");
 
             // Auto-advance if we have an ID
             if (initialData.id) {
@@ -113,6 +119,9 @@ const TinCanWizard: React.FC<TinCanWizardProps> = ({ isOpen, onClose, onComplete
             setPassword("");
             setRecoveryEmail("");
             setEngineType("cloakbrowser");
+            setBoundDeviceSerial("");
+            setDevicesList([]);
+            setProxyTestResult(null);
             setLteStatus({ connected: false, ip: "확인 전" });
         }
     }, [isOpen, initialData]);
@@ -167,17 +176,95 @@ const TinCanWizard: React.FC<TinCanWizardProps> = ({ isOpen, onClose, onComplete
         }
     };
 
-    // --- Step 3: Network Setup ---
+    // --- Step 3: Network Setup & Multi-Device Discovery ---
+    const fetchDevicesAndProxies = async () => {
+        setIsLoadingDevices(true);
+        try {
+            const res = await axios.get(`${API_BASE}/resources/network/status?force=true&t=${Date.now()}`);
+            const data = res.data;
+            const devs = data.devices || [];
+            setDevicesList(devs);
+            setIspProxiesList(data.isp_proxies || []);
+
+            // Auto-assign device if not set yet
+            if (devs.length > 0 && !boundDeviceSerial) {
+                const sorted = [...devs].sort((a, b) => (a.assigned_accounts_count || 0) - (b.assigned_accounts_count || 0));
+                setBoundDeviceSerial(sorted[0].serial);
+                setProxyPort(String(sorted[0].port || 1080));
+            }
+        } catch (err) {
+            console.error("Failed to fetch devices:", err);
+        } finally {
+            setIsLoadingDevices(false);
+        }
+    };
+
+    useEffect(() => {
+        if (isOpen && step === 3) {
+            fetchDevicesAndProxies();
+        }
+    }, [isOpen, step]);
+
+    const handleTestProxy = async (overrideSerial?: string) => {
+        setIsTestingProxy(true);
+        setProxyTestResult(null);
+        try {
+            const targetSerial = overrideSerial || boundDeviceSerial;
+            const dev = devicesList.find(d => d.serial === targetSerial);
+            const payload: any = { 
+                proxy_mode: proxyMode,
+                serial: targetSerial,
+                port: dev?.port || (proxyPort ? parseInt(proxyPort) : 1080)
+            };
+            if (proxyMode === 'ISP_PROXY') {
+                payload.host = proxyHost;
+                payload.protocol = proxyProtocol;
+                payload.username = proxyUsername;
+                payload.password = proxyPassword;
+            }
+
+            const res = await axios.post(`${API_BASE}/resources/network/test-proxy`, payload);
+            setProxyTestResult(res.data);
+            if (res.data.status === 'success') {
+                toast({
+                    title: "회선 통신 정상 확인",
+                    description: `공인 IP: ${res.data.public_ip} (${res.data.elapsed_ms}ms)`
+                });
+            } else {
+                toast({
+                    variant: "destructive",
+                    title: "회선 통신 실패",
+                    description: res.data.detail || "프록시 응답 없음"
+                });
+            }
+        } catch (err: any) {
+            setProxyTestResult({ status: 'error', detail: err.message });
+            toast({
+                variant: "destructive",
+                title: "테스트 에러",
+                description: err.message
+            });
+        } finally {
+            setIsTestingProxy(false);
+        }
+    };
+
     const handleSaveNetwork = async () => {
         setIsLoading(true);
         try {
+            const dev = devicesList.find(d => d.serial === boundDeviceSerial);
+            const effectivePort = proxyMode === 'DIRECT_LTE'
+                ? (dev?.port ? String(dev.port) : (proxyPort || "1080"))
+                : proxyPort;
+
             await axios.put(`${API_BASE}/resources/profiles/${draftId}`, {
                 proxy_mode: proxyMode,
                 proxy_protocol: proxyProtocol,
-                proxy_host: proxyHost,
-                proxy_port: proxyPort,
+                proxy_host: proxyMode === 'DIRECT_LTE' ? "127.0.0.1" : proxyHost,
+                proxy_port: effectivePort,
                 proxy_username: proxyUsername,
-                proxy_password: proxyPassword
+                proxy_password: proxyPassword,
+                bound_device_serial: proxyMode === 'DIRECT_LTE' ? (boundDeviceSerial || null) : null
             });
             setStep(4);
         } catch (e: any) {
@@ -630,60 +717,275 @@ const TinCanWizard: React.FC<TinCanWizardProps> = ({ isOpen, onClose, onComplete
                         )}
 
                         {step === 3 && (
-                            <div className="space-y-4 py-4 animate-in fade-in zoom-in-95 duration-200">
-                                <div className="space-y-2">
-                                    <Label>네트워크 연결 방식</Label>
-                                    <select 
-                                        className="w-full p-2 border border-slate-300 rounded-lg text-sm"
-                                        value={proxyMode} 
-                                        onChange={(e) => setProxyMode(e.target.value)}
-                                    >
-                                        <option value="DIRECT_LTE">📱 LTE 모바일 (ADB / EveryProxy)</option>
-                                        <option value="ISP_PROXY">🌐 ISP 고정 IP 프록시</option>
-                                        <option value="DIRECT">직접 연결 (비권장)</option>
-                                    </select>
+                            <div className="space-y-4 py-3 animate-in fade-in zoom-in-95 duration-200">
+                                <div className="space-y-1.5">
+                                    <Label className="text-xs font-bold text-foreground">네트워크 연결 방식</Label>
+                                    <div className="grid grid-cols-3 gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => setProxyMode('DIRECT_LTE')}
+                                            className={`p-2.5 rounded-xl border text-left transition-all ${proxyMode === 'DIRECT_LTE' ? 'bg-primary/10 border-primary text-primary font-bold shadow-xs' : 'bg-card border-border text-muted-foreground hover:border-border/80'}`}
+                                        >
+                                            <div className="flex items-center gap-1.5 text-xs font-bold mb-1 text-foreground">
+                                                <Smartphone className="w-4 h-4 text-rose-500 shrink-0" />
+                                                <span>LTE 모바일</span>
+                                            </div>
+                                            <p className="text-[10px] text-muted-foreground leading-tight">스마트폰 SOCKS5 전용망</p>
+                                        </button>
+
+                                        <button
+                                            type="button"
+                                            onClick={() => setProxyMode('ISP_PROXY')}
+                                            className={`p-2.5 rounded-xl border text-left transition-all ${proxyMode === 'ISP_PROXY' ? 'bg-indigo-500/10 border-indigo-500 text-indigo-600 dark:text-indigo-400 font-bold shadow-xs' : 'bg-card border-border text-muted-foreground hover:border-border/80'}`}
+                                        >
+                                            <div className="flex items-center gap-1.5 text-xs font-bold mb-1 text-foreground">
+                                                <Server className="w-4 h-4 text-indigo-500 shrink-0" />
+                                                <span>ISP 고정 IP</span>
+                                            </div>
+                                            <p className="text-[10px] text-muted-foreground leading-tight">상시 고정 전용 프록시</p>
+                                        </button>
+
+                                        <button
+                                            type="button"
+                                            onClick={() => setProxyMode('DIRECT')}
+                                            className={`p-2.5 rounded-xl border text-left transition-all ${proxyMode === 'DIRECT' ? 'bg-amber-500/10 border-amber-500 text-amber-600 dark:text-amber-400 font-bold shadow-xs' : 'bg-card border-border text-muted-foreground hover:border-border/80'}`}
+                                        >
+                                            <div className="flex items-center gap-1.5 text-xs font-bold mb-1 text-foreground">
+                                                <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
+                                                <span>직접 연결</span>
+                                            </div>
+                                            <p className="text-[10px] text-muted-foreground leading-tight">PC 일반망 (비권장)</p>
+                                        </button>
+                                    </div>
                                 </div>
-                                
-                                {proxyMode === 'ISP_PROXY' && (
-                                    <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
-                                        <div className="space-y-2">
-                                            <Label>프로토콜 (Protocol)</Label>
-                                            <select 
-                                                className="w-full p-2 border border-slate-300 rounded-lg text-sm"
-                                                value={proxyProtocol} 
-                                                onChange={(e) => setProxyProtocol(e.target.value)}
+
+                                {/* CASE 1: DIRECT_LTE Phone Selection Grid */}
+                                {proxyMode === 'DIRECT_LTE' && (
+                                    <div className="space-y-3 animate-in fade-in slide-in-from-top-2">
+                                        <div className="flex justify-between items-center">
+                                            <div>
+                                                <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                                                    <Smartphone className="w-3.5 h-3.5 text-primary" />
+                                                    연결된 스마트폰 전용 회선 선택
+                                                    <span className="text-[10px] text-muted-foreground font-normal">({devicesList.length}대 감지)</span>
+                                                </Label>
+                                                <p className="text-[11px] text-muted-foreground">
+                                                    기기마다 고유 포트(1080, 1081...)로 자동 다중화되어 충돌 없이 독립 동작합니다.
+                                                </p>
+                                            </div>
+                                            <Button 
+                                                variant="outline" 
+                                                size="sm" 
+                                                onClick={fetchDevicesAndProxies} 
+                                                disabled={isLoadingDevices}
+                                                className="text-xs h-7 px-2 border-border"
                                             >
-                                                <option value="http">HTTP / HTTPS</option>
-                                                <option value="socks5">SOCKS5</option>
-                                            </select>
+                                                <RefreshCw className={`w-3 h-3 mr-1 ${isLoadingDevices ? 'animate-spin' : ''}`} />
+                                                기기 갱신
+                                            </Button>
                                         </div>
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div className="space-y-2">
-                                                <Label>프록시 IP (Host)</Label>
-                                                <Input placeholder="예: 123.45.67.89" value={proxyHost} onChange={e => setProxyHost(e.target.value)} />
+
+                                        {devicesList.length === 0 ? (
+                                            <div className="p-4 rounded-xl border border-amber-500/30 bg-amber-500/5 text-center space-y-2">
+                                                <AlertTriangle className="w-6 h-6 text-amber-500 mx-auto" />
+                                                <p className="text-xs font-bold text-foreground">연결된 안드로이드 스마트폰이 없습니다.</p>
+                                                <p className="text-[11px] text-muted-foreground">
+                                                    스마트폰을 USB로 PC에 연결하고, Every Proxy 앱에서 SOCKS Proxy가 켜져 있는지 확인하세요.
+                                                </p>
+                                                <Button size="sm" variant="secondary" onClick={fetchDevicesAndProxies} className="text-xs h-7 mt-1">
+                                                    다시 검색
+                                                </Button>
                                             </div>
-                                            <div className="space-y-2">
-                                                <Label>포트 (Port)</Label>
-                                                <Input placeholder="예: 1080" value={proxyPort} onChange={e => setProxyPort(e.target.value)} />
+                                        ) : (
+                                            <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                                                {devicesList.map((dev) => {
+                                                    const isSelected = boundDeviceSerial === dev.serial || (!boundDeviceSerial && dev.is_default);
+                                                    return (
+                                                        <div
+                                                            key={dev.serial}
+                                                            onClick={() => {
+                                                                setBoundDeviceSerial(dev.serial);
+                                                                setProxyPort(String(dev.port || 1080));
+                                                            }}
+                                                            className={`p-3 rounded-xl border transition-all cursor-pointer ${
+                                                                isSelected 
+                                                                    ? 'bg-primary/5 border-primary shadow-xs ring-1 ring-primary/40' 
+                                                                    : 'bg-card border-border hover:border-border/80'
+                                                            }`}
+                                                        >
+                                                            <div className="flex justify-between items-start">
+                                                                <div className="flex items-center gap-2 min-w-0">
+                                                                    <div className={`p-1.5 rounded-lg shrink-0 ${isSelected ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}`}>
+                                                                        <Smartphone className="w-4 h-4" />
+                                                                    </div>
+                                                                    <div className="min-w-0">
+                                                                        <div className="flex items-center gap-2">
+                                                                            <span className="font-bold text-xs text-foreground truncate">{dev.model || '안드로이드 폰'}</span>
+                                                                            <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-muted text-muted-foreground">{dev.serial}</span>
+                                                                            {dev.is_default && (
+                                                                                <span className="text-[9px] px-1 py-0.2 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded font-bold">기본</span>
+                                                                            )}
+                                                                        </div>
+                                                                        <div className="flex flex-wrap items-center gap-2 mt-0.5 text-[11px] text-muted-foreground font-medium">
+                                                                            <span>📶 {dev.carrier || 'LTE'}</span>
+                                                                            <span>•</span>
+                                                                            <span>🔋 {dev.battery}%</span>
+                                                                            <span>•</span>
+                                                                            <span className="font-mono text-primary font-bold">포트: {dev.port}</span>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+
+                                                                <div className="flex items-center gap-2 shrink-0">
+                                                                    <Button
+                                                                        type="button"
+                                                                        size="sm"
+                                                                        variant="outline"
+                                                                        disabled={isTestingProxy}
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            setBoundDeviceSerial(dev.serial);
+                                                                            setProxyPort(String(dev.port || 1080));
+                                                                            handleTestProxy(dev.serial);
+                                                                        }}
+                                                                        className="text-[11px] h-6 px-2 border-border text-foreground hover:bg-muted font-bold"
+                                                                    >
+                                                                        {isTestingProxy && boundDeviceSerial === dev.serial ? (
+                                                                            <Loader2 className="w-3 h-3 animate-spin mr-1" />
+                                                                        ) : (
+                                                                            <Activity className="w-3 h-3 mr-1 text-primary" />
+                                                                        )}
+                                                                        사전 테스트
+                                                                    </Button>
+
+                                                                    <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${isSelected ? 'border-primary bg-primary text-primary-foreground' : 'border-border'}`}>
+                                                                        {isSelected && <Check className="w-2.5 h-2.5" />}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+
+                                                            <div className="flex justify-between items-center mt-2 pt-1.5 border-t border-border/60 text-[10px] text-muted-foreground">
+                                                                <span className="font-mono">공인 IP: <strong className="text-foreground font-mono">{dev.public_ip || '조회 중'}</strong></span>
+                                                                <span className="bg-muted px-1.5 py-0.5 rounded">할당 계정: <strong className="text-foreground">{dev.assigned_accounts_count || 0}개</strong></span>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
                                             </div>
-                                            <div className="space-y-2">
-                                                <Label>사용자명 (선택)</Label>
-                                                <Input placeholder="Username" value={proxyUsername} onChange={e => setProxyUsername(e.target.value)} />
+                                        )}
+                                    </div>
+                                )}
+
+                                {/* CASE 2: ISP_PROXY Preset or Custom */}
+                                {proxyMode === 'ISP_PROXY' && (
+                                    <div className="space-y-3 animate-in fade-in slide-in-from-top-2">
+                                        {ispProxiesList.length > 0 && (
+                                            <div className="space-y-1.5">
+                                                <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                                                    <Server className="w-3.5 h-3.5 text-indigo-500" />
+                                                    기존 등록된 ISP 프록시 풀에서 선택
+                                                </Label>
+                                                <select
+                                                    className="w-full p-2 bg-card border border-border rounded-lg text-xs font-mono text-foreground"
+                                                    value={selectedIspIndex}
+                                                    onChange={(e) => {
+                                                        const val = e.target.value;
+                                                        setSelectedIspIndex(val);
+                                                        if (val !== 'custom') {
+                                                            const p = ispProxiesList[parseInt(val)];
+                                                            if (p) {
+                                                                setProxyHost(p.host);
+                                                                setProxyPort(String(p.port));
+                                                                setProxyProtocol(p.protocol || 'http');
+                                                                if (p.username) setProxyUsername(p.username);
+                                                            }
+                                                        }
+                                                    }}
+                                                >
+                                                    <option value="custom">직접 신규 프록시 입력</option>
+                                                    {ispProxiesList.map((isp, idx) => (
+                                                        <option key={idx} value={String(idx)}>
+                                                            {isp.protocol?.toUpperCase()}://{isp.host}:{isp.port} ({isp.account_count}개 계정 귀속 중)
+                                                        </option>
+                                                    ))}
+                                                </select>
                                             </div>
-                                            <div className="space-y-2">
-                                                <Label>비밀번호 (선택)</Label>
-                                                <Input type="password" placeholder="Password" value={proxyPassword} onChange={e => setProxyPassword(e.target.value)} />
+                                        )}
+
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <div className="space-y-1">
+                                                <Label className="text-xs">프로토콜</Label>
+                                                <select 
+                                                    className="w-full p-2 bg-card border border-border rounded-lg text-xs text-foreground"
+                                                    value={proxyProtocol} 
+                                                    onChange={(e) => setProxyProtocol(e.target.value)}
+                                                >
+                                                    <option value="http">HTTP / HTTPS</option>
+                                                    <option value="socks5">SOCKS5</option>
+                                                </select>
                                             </div>
+                                            <div className="space-y-1">
+                                                <Label className="text-xs">포트 (Port)</Label>
+                                                <Input placeholder="예: 1080" value={proxyPort} onChange={e => setProxyPort(e.target.value)} className="text-xs font-mono" />
+                                            </div>
+                                            <div className="col-span-2 space-y-1">
+                                                <Label className="text-xs">프록시 IP / Host</Label>
+                                                <Input placeholder="예: 123.45.67.89" value={proxyHost} onChange={e => setProxyHost(e.target.value)} className="text-xs font-mono" />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <Label className="text-xs">사용자명 (선택)</Label>
+                                                <Input placeholder="Username" value={proxyUsername} onChange={e => setProxyUsername(e.target.value)} className="text-xs" />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <Label className="text-xs">비밀번호 (선택)</Label>
+                                                <Input type="password" placeholder="Password" value={proxyPassword} onChange={e => setProxyPassword(e.target.value)} className="text-xs" />
+                                            </div>
+                                        </div>
+
+                                        <div className="pt-1">
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                size="sm"
+                                                disabled={isTestingProxy || !proxyHost}
+                                                onClick={() => handleTestProxy()}
+                                                className="w-full text-xs font-bold border-indigo-500/30 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-500/10"
+                                            >
+                                                {isTestingProxy ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : <Activity className="w-3.5 h-3.5 mr-1.5" />}
+                                                ISP 고정 프록시 회선 통신 사전 테스트
+                                            </Button>
                                         </div>
                                     </div>
                                 )}
-                                
-                                <div className="text-xs text-slate-500 bg-slate-50 p-3 rounded-lg border border-slate-100">
-                                    💡 <strong>네트워크 격리 안내</strong>: 
+
+                                {/* Test Result Banner */}
+                                {proxyTestResult && (
+                                    <div className={`p-3 rounded-xl border text-xs animate-in fade-in ${
+                                        proxyTestResult.status === 'success' 
+                                            ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400' 
+                                            : 'bg-rose-500/10 border-rose-500/30 text-rose-600 dark:text-rose-400'
+                                    }`}>
+                                        <div className="flex items-center gap-1.5 font-bold">
+                                            {proxyTestResult.status === 'success' ? (
+                                                <CheckCircle2 className="w-4 h-4 shrink-0" />
+                                            ) : (
+                                                <XCircle className="w-4 h-4 shrink-0" />
+                                            )}
+                                            <span>
+                                                {proxyTestResult.status === 'success' 
+                                                    ? `통신 성공! 공인 IP: ${proxyTestResult.public_ip} (${proxyTestResult.elapsed_ms}ms)` 
+                                                    : `통신 실패: ${proxyTestResult.detail || '프록시 응답 없음'}`}
+                                            </span>
+                                        </div>
+                                    </div>
+                                )}
+
+                                <div className="text-[11px] text-muted-foreground bg-muted/60 p-3 rounded-xl border border-border">
+                                    💡 <strong>보안 가이드</strong>: 
                                     {proxyMode === 'DIRECT_LTE' 
-                                        ? ' USB 테더링 및 EveryProxy(Port 1080/SOCKS5)를 통해 안드로이드 스마트폰의 LTE 망을 전용으로 사용합니다.' 
-                                        : proxyMode === 'ISP_PROXY' ? ' 고정된 ISP IP 할당을 통해 안정적이고 독립적인 네트워크 채널을 구축합니다.' 
-                                        : ' 현재 PC의 기본 네트워크를 그대로 사용합니다. 다계정 운영 시 밴 위험이 매우 높습니다.'}
+                                        ? ' 선택한 스마트폰의 EveryProxy(SOCKS5)를 통해 유튜브 전용 LTE 망으로 터널링됩니다. 채널 교체 시 기기별 독립 IP 로테이션이 수행됩니다.' 
+                                        : proxyMode === 'ISP_PROXY' ? ' 고정된 ISP 통신망을 통해 독립적인 고정 IP로 상시 안전하게 연동됩니다.' 
+                                        : ' PC의 기본 인터넷(Wi-Fi/유선랜)을 그대로 공유하므로 다계정 운영 시 유튜브 계정 일괄 밴 위험이 있습니다.'}
                                 </div>
                             </div>
                         )}
@@ -691,51 +993,51 @@ const TinCanWizard: React.FC<TinCanWizardProps> = ({ isOpen, onClose, onComplete
                         {step === 4 && (
                             <div className="space-y-5 animate-in fade-in zoom-in-95 duration-200">
                                 {/* Summary Review Report Cards */}
-                                <div className="bg-slate-50/80 border border-slate-200 rounded-xl p-4 space-y-3">
-                                    <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center justify-between">
+                                <div className="bg-muted/40 border border-border rounded-xl p-4 space-y-3">
+                                    <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center justify-between">
                                         <span>📋 설정 내역 최종 검토</span>
-                                        <span className="text-[10px] text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded font-normal">Step 1~3 검토 완료</span>
+                                        <span className="text-[10px] text-primary bg-primary/10 px-2 py-0.5 rounded font-normal">Step 1~3 검토 완료</span>
                                     </h4>
                                     
                                     <div className="grid grid-cols-3 gap-3 text-xs">
                                         {/* Card 1: Account Info */}
-                                        <div className="bg-white p-3 rounded-lg border border-slate-200 space-y-1">
-                                            <p className="font-semibold text-slate-700 flex items-center gap-1 text-[11px]">
+                                        <div className="bg-card p-3 rounded-lg border border-border space-y-1">
+                                            <p className="font-semibold text-foreground flex items-center gap-1 text-[11px]">
                                                 <span>📧</span> 계정 정보
                                             </p>
-                                            <p className="font-bold text-slate-900 truncate" title={email}>{email || "미입력"}</p>
-                                            <p className="text-[10px] text-slate-500 truncate" title={recoveryEmail}>
+                                            <p className="font-bold text-foreground truncate" title={email}>{email || "미입력"}</p>
+                                            <p className="text-[10px] text-muted-foreground truncate" title={recoveryEmail}>
                                                 복구: {recoveryEmail || "미지정"}
                                             </p>
                                         </div>
 
                                         {/* Card 2: Browser Engine */}
-                                        <div className="bg-white p-3 rounded-lg border border-slate-200 space-y-1">
-                                            <p className="font-semibold text-slate-700 flex items-center gap-1 text-[11px]">
+                                        <div className="bg-card p-3 rounded-lg border border-border space-y-1">
+                                            <p className="font-semibold text-foreground flex items-center gap-1 text-[11px]">
                                                 <span>🛡️</span> 브라우저 엔진
                                             </p>
-                                            <p className="font-bold text-indigo-600">
+                                            <p className="font-bold text-primary">
                                                 {engineType === 'cloakbrowser' ? 'CloakBrowser (내장)' : 'iXBrowser (외부 API)'}
                                             </p>
-                                            <p className="text-[10px] text-slate-500">
-                                                핑거프린트: <span className="text-emerald-600 font-semibold">Auto-Noise</span>
+                                            <p className="text-[10px] text-muted-foreground">
+                                                핑거프린트: <span className="text-emerald-600 dark:text-emerald-400 font-semibold">Auto-Noise</span>
                                             </p>
                                         </div>
 
                                         {/* Card 3: Network Setup */}
-                                        <div className="bg-white p-3 rounded-lg border border-slate-200 space-y-1">
-                                            <p className="font-semibold text-slate-700 flex items-center gap-1 text-[11px]">
+                                        <div className="bg-card p-3 rounded-lg border border-border space-y-1">
+                                            <p className="font-semibold text-foreground flex items-center gap-1 text-[11px]">
                                                 <span>🌐</span> 네트워크 격리
                                             </p>
-                                            <p className="font-bold text-slate-900">
+                                            <p className="font-bold text-foreground truncate">
                                                 {proxyMode === 'DIRECT_LTE' 
-                                                    ? '📱 LTE 모바일 (EveryProxy)' 
-                                                    : proxyMode === 'ISP_PROXY' ? `🌐 ISP 고정 IP (${proxyProtocol.toUpperCase()})` 
+                                                    ? `📱 LTE (${devicesList.find(d => d.serial === boundDeviceSerial)?.model || '스마트폰'})` 
+                                                    : proxyMode === 'ISP_PROXY' ? `🌐 ISP 고정 IP` 
                                                     : '직접 연결'}
                                             </p>
-                                            <p className="text-[10px] text-slate-500 truncate">
+                                            <p className="text-[10px] text-muted-foreground truncate">
                                                 {proxyMode === 'DIRECT_LTE' 
-                                                    ? '⚡ 필요 시 수동 IP 교체' 
+                                                    ? `포트 ${proxyPort || '1080'} (SOCKS5)` 
                                                     : proxyMode === 'ISP_PROXY' ? `${proxyHost || 'IP미지정'}:${proxyPort || '1080'}` 
                                                     : '보안 미적용'}
                                             </p>
@@ -744,11 +1046,11 @@ const TinCanWizard: React.FC<TinCanWizardProps> = ({ isOpen, onClose, onComplete
                                 </div>
 
                                 {/* Action Buttons Container */}
-                                <div className="bg-white border border-slate-200 rounded-xl p-5 text-center shadow-sm space-y-4">
+                                <div className="bg-card border border-border rounded-xl p-5 text-center shadow-xs space-y-4">
                                     <div>
-                                        <h3 className="text-base font-bold text-slate-800">보안 로그인 및 자동 검증</h3>
-                                        <p className="text-xs text-slate-500 mt-1">
-                                            {proxyMode === 'DIRECT_LTE' ? '스텔스 브라우저 구동 시 LTE 공인 IP가 소프트 교체(Soft Rotation)된 후 창이 열립니다.' : '설정된 브라우저 엔진 및 네트워크 환경으로 구동됩니다.'}
+                                        <h3 className="text-base font-bold text-foreground">보안 로그인 및 자동 검증</h3>
+                                        <p className="text-xs text-muted-foreground mt-1">
+                                            {proxyMode === 'DIRECT_LTE' ? '스텔스 브라우저 구동 시 선택된 스마트폰 LTE 공인 IP가 소프트 교체(Soft Rotation)된 후 전용 포트로 창이 열립니다.' : '설정된 브라우저 엔진 및 네트워크 환경으로 구동됩니다.'}
                                         </p>
                                     </div>
 

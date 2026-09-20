@@ -157,7 +157,11 @@ class PatchrightStealth:
                         else:
                             proxy_str = f"{protocol}://{profile.proxy_host}:{p_port}"
                     elif profile.proxy_mode == "DIRECT_LTE":
-                        proxy_str = "1080"
+                        from app.services.adb_service import adb_service
+                        target_serial = getattr(profile, "bound_device_serial", None)
+                        port = getattr(profile, "proxy_port", None) or adb_service.get_device_port(target_serial)
+                        adb_service.ensure_every_proxy_socks_active(target_serial)
+                        proxy_str = str(port)
             
             script_path = os.path.join(os.path.dirname(__file__), "local_browser.py")
             import sys
@@ -189,7 +193,8 @@ class PatchrightStealth:
                     process.wait()
                     logger.info(f"🚪 CloakBrowser closed for profile {profile_id}. Triggering background IP rotation!")
                     from app.services.adb_service import adb_service
-                    adb_service.rotate_ip(method='soft')
+                    target_serial = getattr(profile, "bound_device_serial", None)
+                    adb_service.rotate_ip(serial=target_serial, method='soft')
                 
                 threading.Thread(target=_wait_and_rotate, daemon=True).start()
                 

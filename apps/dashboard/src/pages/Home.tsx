@@ -24,6 +24,8 @@ import {
     Scissors,
     Search, 
     Send,
+    Server,
+    Shield,
     ShieldCheck, 
     SlidersHorizontal,
     Smartphone,
@@ -66,6 +68,24 @@ interface DashboardStats {
 
 }
 
+interface NetworkDevice {
+    serial: string;
+    model: string;
+    carrier?: string;
+    battery?: number;
+    port: number;
+    public_ip?: string;
+    assigned_accounts_count?: number;
+}
+
+interface IspProxyItem {
+    host: string;
+    port: number;
+    protocol?: string;
+    username?: string;
+    account_count?: number;
+}
+
 interface NetworkStatus {
 
     monitor?: {
@@ -90,6 +110,10 @@ interface NetworkStatus {
 
         };
 
+        system_gateway_mode?: string;
+
+        last_check?: string;
+
     };
 
     isolation_ok?: boolean;
@@ -97,6 +121,22 @@ interface NetworkStatus {
     mobile_public_ip?: string;
 
     system_public_ip?: string;
+
+    primary_port?: number;
+
+    devices?: NetworkDevice[];
+
+    isp_proxies?: IspProxyItem[];
+
+    profiles?: {
+
+        lte?: any[];
+
+        isp?: any[];
+
+        direct?: any[];
+
+    };
 
 }
 
@@ -2244,92 +2284,84 @@ const Home = () => {
 
                 </div>
 
-                {/* 4열: 🛡️ LTE 스텔스 보안 네트워크 위젯 */}
-
+                {/* 4열: 🛡️ 주권 다중 회선 쉴드 허브 위젯 */}
                 <div className="bg-card border border-border/80 rounded-2xl p-4 sm:p-5 shadow-xs flex flex-col justify-between">
-
                     <div>
-
                         <div className="flex items-center justify-between mb-3">
-
                             <h3 className="text-xs sm:text-sm font-bold text-foreground flex items-center gap-1.5">
-
-                                <Wifi className="w-4 h-4 text-indigo-500" /> 프록시 보안 격리
-
+                                <Shield className="w-4 h-4 text-indigo-500" /> 주권 다중 회선 쉴드
                             </h3>
-
                             <span className={cn(
-
-                                "text-[9px] font-bold px-1.5 py-0.2 rounded",
-
-                                isLteConnected ? "bg-emerald-500/10 text-emerald-600" : "bg-amber-500/10 text-amber-600"
-
+                                "text-[9px] font-bold px-1.5 py-0.5 rounded-full border",
+                                (isLteConnected || (netStatus?.isp_proxies?.length || 0) > 0)
+                                    ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20" 
+                                    : "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20"
                             )}>
-
-                                {isLteConnected ? "SECURE" : "UNPROTECTED"}
-
+                                {(isLteConnected || (netStatus?.isp_proxies?.length || 0) > 0) ? "SECURE" : "UNPROTECTED"}
                             </span>
-
                         </div>
 
                         <div className="space-y-2 text-xs">
-
-                            <div className="p-2 bg-muted/40 rounded-xl space-y-1">
-
-                                <p className="text-[10px] font-bold text-muted-foreground">LTE 채널 업로드 전용 IP</p>
-
-                                <p className="font-mono text-xs font-bold text-emerald-600 dark:text-emerald-400 truncate">
-
-                                    {displayIp(netStatus?.mobile_public_ip, isRotating ? '갱신 중...' : (isLteConnected ? '조회 중...' : '미연결')).text}
-
-                                </p>
-
-                            </div>
-
-                            <div className="p-2 bg-muted/40 rounded-xl space-y-1">
-
-                                <p className="text-[10px] font-bold text-muted-foreground">시스템 일반 IP (Wi-Fi)</p>
-
-                                <p className="font-mono text-xs font-semibold text-foreground/80 truncate">
-
-                                    {displayIp(netStatus?.system_public_ip, '미조회').text}
-
-                                </p>
-
-                            </div>
-
-                            <div 
-                                onClick={() => {
-                                    navigator.clipboard.writeText("172.16.1.2:11080");
-                                    toast.success("LDPlayer 고정 프록시 복사됨", { description: "172.16.1.2:11080 (NekoBox 서버/포트)" });
-                                }}
-                                className="p-2 bg-indigo-500/5 hover:bg-indigo-500/10 border border-indigo-500/20 rounded-xl space-y-0.5 cursor-pointer transition-colors group"
-                                title="클릭하여 LDPlayer NekoBox용 만국 공통 프록시 주소 복사"
-                            >
+                            {/* 1. LTE 전용선 */}
+                            <div className="p-2.5 bg-muted/40 rounded-xl space-y-1 border border-border/60">
                                 <div className="flex items-center justify-between">
-                                    <p className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 flex items-center gap-1">
-                                        📱 LDPlayer 전용 프록시
+                                    <p className="text-[10px] font-bold text-rose-600 dark:text-rose-400 flex items-center gap-1">
+                                        <Smartphone className="w-3 h-3" /> LTE 모바일 전용선 ({netStatus?.devices?.length || (isLteConnected ? 1 : 0)}대)
                                     </p>
-                                    <span className="text-[9px] text-muted-foreground group-hover:text-indigo-500 font-mono">복사 📋</span>
+                                    <span className="text-[9px] font-mono text-muted-foreground">Port 1080~</span>
                                 </div>
-                                <p className="font-mono text-xs font-bold text-foreground truncate">
-                                    172.16.1.2:11080
+                                <div className="flex items-center justify-between">
+                                    <p className="font-mono text-xs font-bold text-rose-600 dark:text-rose-400 truncate">
+                                        {displayIp(netStatus?.mobile_public_ip, isRotating ? '갱신 중...' : (isLteConnected ? '조회 중...' : '미연결')).text}
+                                    </p>
+                                    {netStatus?.devices && netStatus.devices.length > 0 && netStatus.devices[0].carrier && (
+                                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-600 dark:text-rose-400 font-bold">
+                                            {netStatus.devices[0].carrier}
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* 2. ISP 고정 프록시 풀 */}
+                            <div className="p-2.5 bg-muted/40 rounded-xl space-y-1 border border-border/60">
+                                <div className="flex items-center justify-between">
+                                    <p className="text-[10px] font-bold text-blue-600 dark:text-blue-400 flex items-center gap-1">
+                                        <Server className="w-3 h-3" /> ISP 고정 프록시 풀
+                                    </p>
+                                    <span className="text-[9px] font-bold text-blue-600 dark:text-blue-400">
+                                        {(netStatus?.isp_proxies?.length || 0) > 0 ? `${netStatus?.isp_proxies?.length}개 회선` : '미할당'}
+                                    </span>
+                                </div>
+                                <p className="font-mono text-xs text-foreground truncate">
+                                    {(netStatus?.isp_proxies?.length || 0) > 0 
+                                        ? `${netStatus?.isp_proxies?.[0]?.host}:${netStatus?.isp_proxies?.[0]?.port} 외 ${Math.max(0, (netStatus?.isp_proxies?.length || 0) - 1)}개`
+                                        : '등록 시 고정 전용선 즉시 편입'}
                                 </p>
                             </div>
 
+                            {/* 3. 시스템 기본망 (Wi-Fi/LAN) */}
+                            <div className="p-2.5 bg-muted/40 rounded-xl space-y-1 border border-border/60">
+                                <div className="flex items-center justify-between">
+                                    <p className="text-[10px] font-bold text-muted-foreground flex items-center gap-1">
+                                        <Wifi className="w-3 h-3" /> 시스템 일반망 (Hard-Gate)
+                                    </p>
+                                    <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-mono font-bold">보호 활성</span>
+                                </div>
+                                <p className="font-mono text-xs font-semibold text-foreground/80 truncate">
+                                    {displayIp(netStatus?.system_public_ip, '미조회').text}
+                                </p>
+                            </div>
                         </div>
-
                     </div>
 
                     <div className="space-y-1.5 mt-2.5">
-
                         <button 
                             onClick={handleRotateIp}
                             disabled={isRotating}
                             className="w-full py-1.5 bg-muted hover:bg-muted/80 text-foreground border border-border rounded-xl text-[11px] font-bold transition-all flex items-center justify-center gap-1.5 active:scale-95 disabled:opacity-50"
                         >
                             <RefreshCw className={cn("w-3.5 h-3.5 text-indigo-500", isRotating && "animate-spin")} />
-                            LTE IP 강제 로테이션
+                            LTE IP 소프트 로테이션
                         </button>
                         {!isLteConnected && (
                             <button 
@@ -2342,22 +2374,23 @@ const Home = () => {
                             </button>
                         )}
 
-                        <Link 
-
-                            to="/reports"
-
-                            className="w-full py-2 bg-muted/80 hover:bg-muted text-foreground/90 hover:text-foreground border border-border/80 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1.5 active:scale-95"
-
-                        >
-
-                            <Activity className="w-3.5 h-3.5 text-muted-foreground" />
-
-                            일일 BI 리포트 관제 ➔
-
-                        </Link>
-
+                        <div className="grid grid-cols-2 gap-1.5">
+                            <Link 
+                                to="/incubator" 
+                                className="py-2 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 border border-indigo-500/30 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1 active:scale-95 text-center truncate"
+                            >
+                                <Shield className="w-3.5 h-3.5 shrink-0" />
+                                <span className="truncate">다중 관제</span>
+                            </Link>
+                            <Link 
+                                to="/reports" 
+                                className="py-2 bg-muted/80 hover:bg-muted text-foreground/90 hover:text-foreground border border-border/80 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1 active:scale-95 text-center truncate"
+                            >
+                                <Activity className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                                <span className="truncate">BI 리포트</span>
+                            </Link>
+                        </div>
                     </div>
-
                 </div>
 
             </div>

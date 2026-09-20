@@ -85,6 +85,7 @@ class Profile(Base):
     proxy_port = Column(String, nullable=True)    # 1080 or ISP Proxy Port
     proxy_username = Column(String, nullable=True)
     proxy_password = Column(String, nullable=True)
+    bound_device_serial = Column(String, nullable=True) # [Multi-Device] Paired USB Phone Serial
 class WorkerAccount(Base):
     __tablename__ = "worker_accounts"
 

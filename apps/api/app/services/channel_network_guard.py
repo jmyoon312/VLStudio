@@ -110,7 +110,8 @@ class ChannelNetworkGuard:
             elif _LAST_ACTIVE_CHANNEL != channel_id:
                 logger.info(f"⚡ [NetworkGuard] 채널 전환 감지 ({_LAST_ACTIVE_CHANNEL} -> {channel_id}). LTE 소프트 IP 교체 중...")
                 try:
-                    adb_service.rotate_ip(method='soft')
+                    target_serial = getattr(profile, "bound_device_serial", None)
+                    adb_service.rotate_ip(serial=target_serial, method='soft')
                     rotated = True
                     _LAST_ROTATION_TIME = now
                 except Exception as e:
@@ -118,7 +119,9 @@ class ChannelNetworkGuard:
                 _LAST_ACTIVE_CHANNEL = channel_id
 
             # 로컬 Every Proxy SOCKS5 매핑 (socks5h:// 사용하여 DNS 누출 원천 방지)
-            lte_proxy_url = "socks5h://127.0.0.1:1080"
+            port = getattr(profile, "proxy_port", None) or adb_service.get_device_port(getattr(profile, "bound_device_serial", None))
+            adb_service.ensure_every_proxy_socks_active(getattr(profile, "bound_device_serial", None))
+            lte_proxy_url = f"socks5h://127.0.0.1:{port}"
             return {
                 "mode": "DIRECT_LTE",
                 "proxies": {"http": lte_proxy_url, "https": lte_proxy_url},
@@ -169,12 +172,17 @@ class ChannelNetworkGuard:
                 "description": "지정된 고정 IP 프록시 전용 통신 (IP 로테이션 금지)"
             }
         elif proxy_mode in ["DIRECT_LTE", "NETSHARE"]:
+            port = getattr(profile, "proxy_port", None) or adb_service.get_device_port(getattr(profile, "bound_device_serial", None))
+            serial = getattr(profile, "bound_device_serial", None)
+            serial_label = f" (Port {port})" if port else ""
             return {
                 "channel_id": channel_id,
                 "proxy_mode": proxy_mode,
-                "label": "⚡ LTE 모바일 (소프트 IP 자동 교체)",
+                "label": f"⚡ LTE 모바일{serial_label}",
                 "badge_type": "lte_proxy",
                 "is_static": False,
+                "port": port,
+                "bound_device_serial": serial,
                 "description": "채널 전환 시 LTE 비행기모드 소프트 교체로 통신사 IP 자동 갱신"
             }
         else:

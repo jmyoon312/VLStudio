@@ -468,24 +468,25 @@ async def launch_setup(
 
         print(f"DEBUG: launch_setup called for {profile_id}, rotate_ip: {rotate_ip_flag}, skip_browser: {skip_browser}, target_channel: {target_channel_id}")
         
+        profile = db.query(Profile).filter(Profile.id == profile_id).first()
+        email = profile.email if profile else None
+        password = profile.password if profile else None
+        target_serial = getattr(profile, "bound_device_serial", None) if profile else None
+
         new_ip = None
         if rotate_ip_flag:
-            logger.info(f"⚡ [Setup] Triggering background Soft IP rotation for profile {profile_id}")
+            logger.info(f"⚡ [Setup] Triggering background Soft IP rotation for profile {profile_id} (Device: {target_serial or 'default'})")
             import threading
             def _bg_soft_rotate():
                 try:
                     from app.services.adb_service import adb_service
-                    adb_service.rotate_ip(method='soft')
+                    adb_service.rotate_ip(serial=target_serial, method='soft')
                 except Exception as rot_e:
                     logger.warning(f"⚠️ Background Soft IP rotation warning: {rot_e}")
             threading.Thread(target=_bg_soft_rotate, daemon=True).start()
         
         if skip_browser:
             return {"status": "ip_rotated", "new_ip": new_ip, "msg": "IP Rotation triggered."}
-        
-        profile = db.query(Profile).filter(Profile.id == profile_id).first()
-        email = profile.email if profile else None
-        password = profile.password if profile else None
         
         if profile:
             # [Guard] Check Quarantine
@@ -1021,22 +1022,67 @@ def reset_profile_status(profile_id: str, db: Session = Depends(get_db)):
     }
 
 
-# --- Legacy & Network Endpoints (Maintained for Backward Compatibility) ---
-# --- Legacy & Network Endpoints (Maintained for Backward Compatibility) ---
+# --- Multi-Line Sovereign Network Endpoints ---
 @router.get("/network/status")
-def get_network_status(force: bool = False):
-    """ Passive Status Check (Fast) """
-    print(f"API HIT: /resources/network/status (force={force})")
+def get_network_status(force: bool = False, db: Session = Depends(get_db)):
+    """ 실시간 멀티 디바이스 및 격리 상태 조회 """
     try:
-        # returns { adb_connected, mobile_data_enabled, tethering_ip, status ... }
-        return adb_service.get_network_status_detail(force=force)
+        base = adb_service.get_network_status_detail(force=force, db=db)
+        
+        # 프로필 분류 추가
+        profiles = db.query(Profile).filter(Profile.status != ProfileStatus.QUARANTINED).all()
+        lte_profiles, isp_profiles, direct_profiles = [], [], []
+        seen_isp = set()
+        isp_proxies = []
+        for p in profiles:
+            p_data = {
+                "id": p.id, 
+                "email": p.email, 
+                "proxy_mode": p.proxy_mode,
+                "proxy_host": p.proxy_host, 
+                "proxy_port": p.proxy_port,
+                "bound_device_serial": getattr(p, "bound_device_serial", None)
+            }
+            if p.proxy_mode == "DIRECT_LTE":
+                lte_profiles.append(p_data)
+            elif p.proxy_mode == "ISP_PROXY":
+                isp_profiles.append(p_data)
+                if p.proxy_host and p.proxy_port:
+                    key = f"{p.proxy_host}:{p.proxy_port}"
+                    if key not in seen_isp:
+                        seen_isp.add(key)
+                        isp_proxies.append({
+                            "host": p.proxy_host,
+                            "port": p.proxy_port,
+                            "protocol": getattr(p, "proxy_protocol", "http") or "http",
+                            "username": getattr(p, "proxy_username", None),
+                            "account_count": 0
+                        })
+            else:
+                direct_profiles.append(p_data)
+
+        for isp in isp_proxies:
+            isp["account_count"] = sum(1 for p in isp_profiles if p.get("proxy_host") == isp["host"] and str(p.get("proxy_port")) == str(isp["port"]))
+
+        base["profiles"] = {"lte": lte_profiles, "isp": isp_profiles, "direct": direct_profiles}
+        base["isp_proxies"] = isp_proxies
+        return base
     except Exception as e:
+        logger.error(f"Failed to get network status: {e}")
         return {"status": "ERROR", "detail": str(e)}
+
+@router.get("/network/devices")
+def get_network_devices(db: Session = Depends(get_db)):
+    """ 연결된 모든 USB 스마트폰 노드 목록 및 할당 상태 조회 """
+    try:
+        return adb_service.get_connected_devices_info(db=db)
+    except Exception as e:
+        logger.error(f"Failed to get devices: {e}")
+        return []
 
 @router.post("/network/verify")
 def verify_network_connection():
     """ Active Verification: Soft Rotate -> Wait -> Force Bind Check """
-    print(f"API HIT: /resources/network/verify")
     try:
         public_ip = adb_service.perform_rotation_check()
         return {
@@ -1047,20 +1093,67 @@ def verify_network_connection():
         return {"status": "ERROR", "detail": str(e)}
 
 @router.post("/network/rotate")
-def rotate_ip(method: str = Body("soft", embed=True)):
-    logger.info(f"⚡ [API] IP Rotation Request Received: Method={method}")
+def rotate_ip(payload: dict = Body(...)):
+    """ 대상 스마트폰 지정 IP 로테이션 (기본값: soft) """
+    method = payload.get("method", "soft")
+    serial = payload.get("serial")
+    logger.info(f"⚡ [API] IP Rotation Request Received: Method={method}, Serial={serial or 'default'}")
     try:
-        success = adb_service.rotate_ip(method=method)
+        success = adb_service.rotate_ip(serial=serial, method=method)
         if success:
-            new_ip = adb_service.get_current_ip(force=False)
-            logger.info(f"✅ [API] IP Rotation Success (Method={method}, IP={new_ip})")
-            return {"status": "rotated", "current_ip": new_ip}
+            new_ip = adb_service.get_current_ip(serial=serial, force=False)
+            logger.info(f"✅ [API] IP Rotation Success (Method={method}, Serial={serial}, IP={new_ip})")
+            return {"status": "rotated", "current_ip": new_ip, "serial": serial}
         else:
-            logger.error(f"❌ [API] IP Rotation Failed (Method={method})")
-            return {"status": "failed"}
+            logger.error(f"❌ [API] IP Rotation Failed (Method={method}, Serial={serial})")
+            return {"status": "failed", "detail": "기기 응답 없음"}
     except Exception as e:
         logger.error(f"❌ [API] IP Rotation Exception: {e}")
         return {"status": "error", "detail": str(e)}
+
+@router.post("/network/test-proxy")
+def test_network_proxy(payload: dict = Body(...)):
+    """ 사전 네트워크/프록시 연결 테스트 및 IP 반환 """
+    import requests
+    mode = payload.get("proxy_mode", "DIRECT_LTE")
+    try:
+        if mode == "DIRECT_LTE":
+            serial = payload.get("serial")
+            port = payload.get("port") or adb_service.get_device_port(serial)
+            adb_service.ensure_every_proxy_socks_active(serial)
+            proxy_url = f"socks5h://127.0.0.1:{port}"
+            proxies = {"http": proxy_url, "https": proxy_url}
+        elif mode == "ISP_PROXY":
+            host = payload.get("host")
+            port = payload.get("port", 1080)
+            proto = payload.get("protocol", "http")
+            user = payload.get("username")
+            pwd = payload.get("password")
+            if user and pwd:
+                proxy_url = f"{proto}://{user}:{pwd}@{host}:{port}"
+            else:
+                proxy_url = f"{proto}://{host}:{port}"
+            proxies = {"http": proxy_url, "https": proxy_url}
+        else:
+            proxies = None
+
+        start = time.time()
+        resp = requests.get("https://api.ipify.org", proxies=proxies, timeout=5.0)
+        elapsed = round((time.time() - start) * 1000)
+        public_ip = resp.text.strip()
+        return {
+            "status": "success",
+            "public_ip": public_ip,
+            "elapsed_ms": elapsed,
+            "mode": mode
+        }
+    except Exception as e:
+        logger.error(f"Proxy test failed: {e}")
+        return {
+            "status": "error",
+            "detail": str(e),
+            "mode": mode
+        }
 
 @router.post("/network/every-proxy/activate")
 def activate_every_proxy(serial: Optional[str] = None):

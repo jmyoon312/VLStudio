@@ -41,9 +41,11 @@ class ADBService:
             self.adb_path = fallback_auto_downloaded_path
         self.CMD_POWERSHELL = "powershell.exe"
         
-        # 장치별 캐시
+        # 장치별 캐시 및 포트 매핑
         self._cached_public_ips = {} # {serial: ip}
         self.default_serial = None
+        self._device_ports = {} # {serial: port} (e.g. 1080, 1081, 1082)
+        self._device_info_cache = {} # {serial: {"data": dict, "time": float}}
 
         # [Perf] 시스템 공인 IP 캐시 (30초 TTL) — get_system_public_ip() 블로킹 방지
         self._system_ip_cache = ""
@@ -53,8 +55,12 @@ class ADBService:
         # [NEW] Settings Cache
         self.config_connection_method = "usb"
 
-        # [Global Concurrency Guard] 동시 다채널 업로드 시 충돌 방지용 Mutex 락
+        # [Targeted Concurrency Guard] 기기별 독립 Mutex 락 & 디바운스
         import threading
+        from collections import defaultdict
+        self._rotation_locks = defaultdict(threading.Lock)
+        self._last_rotation_times = defaultdict(float)
+        # 하위 호환용 글로벌 락
         self._rotation_lock = threading.Lock()
         self._last_rotation_time = 0.0
 
@@ -76,6 +82,90 @@ class ADBService:
             if db_settings.adb_connection_method:
                 self.config_connection_method = db_settings.adb_connection_method
             logger.info(f"[REFRESH] ADB Service config refreshed from DB (Serial: {self.default_serial})")
+
+    def get_device_port(self, serial: Optional[str] = None) -> int:
+        """기기별 고유 로컬 프록시 포트 반환 (1080부터 자동 순차 분배)"""
+        devices = self.list_devices()
+        if not devices:
+            return 1080
+        target = serial or self.default_serial or devices[0]
+        if target not in self._device_ports:
+            used_ports = set(self._device_ports.values())
+            try:
+                idx = devices.index(target)
+                candidate = 1080 + idx
+            except ValueError:
+                candidate = 1080
+            while candidate in used_ports:
+                candidate += 1
+            self._device_ports[target] = candidate
+        return self._device_ports[target]
+
+    def get_connected_devices_info(self, db=None) -> List[dict]:
+        """연결된 모든 스마트폰의 상세 정보 (기종, 통신사, 배터리, 포트, 공인 IP, 할당 계정 수) 반환"""
+        devices = self.list_devices()
+        if not devices:
+            return []
+
+        # 프로필 할당 카운트 계산 (db가 제공된 경우)
+        assigned_map = {}
+        if db:
+            try:
+                from app.models import Profile, ProfileStatus
+                profiles = db.query(Profile).filter(Profile.status != ProfileStatus.QUARANTINED).all()
+                for p in profiles:
+                    s = getattr(p, "bound_device_serial", None)
+                    if s:
+                        assigned_map[s] = assigned_map.get(s, 0) + 1
+                    elif p.proxy_mode == "DIRECT_LTE":
+                        assigned_map["default"] = assigned_map.get("default", 0) + 1
+            except Exception as e:
+                logger.debug(f"Failed to count assigned accounts: {e}")
+
+        res = []
+        now = time.time()
+        for idx, serial in enumerate(devices):
+            cached = self._device_info_cache.get(serial)
+            if cached and (now - cached.get("time", 0) < 10.0):
+                info = dict(cached["data"])
+                info["assigned_accounts_count"] = assigned_map.get(serial, 0) + (assigned_map.get("default", 0) if idx == 0 else 0)
+                info["public_ip"] = self.get_current_ip(serial)
+                res.append(info)
+                continue
+
+            port = self.get_device_port(serial)
+            model = self.run_command(['shell', 'getprop', 'ro.product.model'], serial) or "안드로이드 기기"
+            carrier_raw = self.run_command(['shell', 'getprop', 'gsm.sim.operator.alpha'], serial) or ""
+            carrier = carrier_raw.strip().rstrip(',').strip() or "알뜰폰/통신사"
+
+            battery_level = 100
+            try:
+                b_out = self.run_command(['shell', 'dumpsys', 'battery'], serial)
+                for line in b_out.splitlines():
+                    if 'level:' in line:
+                        battery_level = int(line.split('level:')[1].strip())
+                        break
+            except Exception:
+                pass
+
+            public_ip = self.get_current_ip(serial)
+            socks_active = self.is_socks_listening(serial)
+
+            info = {
+                "serial": serial,
+                "model": model,
+                "carrier": carrier,
+                "battery": battery_level,
+                "port": port,
+                "public_ip": public_ip,
+                "socks_active": socks_active,
+                "assigned_accounts_count": assigned_map.get(serial, 0) + (assigned_map.get("default", 0) if idx == 0 else 0),
+                "is_default": (serial == self.default_serial) or (idx == 0 and not self.default_serial)
+            }
+            self._device_info_cache[serial] = {"data": info, "time": now}
+            res.append(info)
+
+        return res
 
     def list_devices(self) -> List[str]:
         """연결된 모든 ADB 장치 시리얼 목록 반환"""
@@ -150,12 +240,13 @@ class ADBService:
 
     def ensure_every_proxy_socks_active(self, serial: Optional[str] = None) -> bool:
         """Every Proxy의 SOCKS 프록시가 꺼져 있으면 화면을 켜고 앱을 실행하여 자동으로 켬 (Self-Healing)"""
+        local_port = self.get_device_port(serial)
         # 1. 이미 정상 리슨 중이면 포워딩만 보장하고 즉시 리턴
         if self.is_socks_listening(serial):
-            self.run_command(['forward', 'tcp:1080', 'tcp:1080'], serial)
+            self.run_command(['forward', f'tcp:{local_port}', 'tcp:1080'], serial)
             return True
 
-        logger.info("[EVERY_PROXY] SOCKS5(포트 1080) 비활성 감지 -> 전자동 활성화 시퀀스 개시")
+        logger.info(f"[EVERY_PROXY] SOCKS5(포트 {local_port}->1080) 비활성 감지 -> 전자동 활성화 시퀀스 개시 ({serial or 'default'})")
         try:
             # 2. 화면 깨우기 및 잠금 해제
             self.run_command(['shell', 'input', 'keyevent', '224'], serial)
@@ -204,10 +295,10 @@ class ADBService:
             self.run_command(['shell', 'input', 'keyevent', '3'], serial)
 
             # 8. 포트 포워딩 갱신
-            self.run_command(['forward', 'tcp:1080', 'tcp:1080'], serial)
+            self.run_command(['forward', f'tcp:{local_port}', 'tcp:1080'], serial)
 
             listening = self.is_socks_listening(serial)
-            logger.info(f"[EVERY_PROXY] 자동 활성화 완료 여부: {listening}")
+            logger.info(f"[EVERY_PROXY] ({serial or 'default'} : {local_port}) 자동 활성화 완료 여부: {listening}")
             return listening
         except Exception as e:
             logger.error(f"[EVERY_PROXY] 자동 활성화 실패: {e}")
@@ -216,6 +307,7 @@ class ADBService:
     def get_current_ip(self, serial: Optional[str] = None, force: bool = False) -> str:
         """핸드폰 내부에서 공인 IP 확인 (최적화 버전 + SOCKS5 자가치유)"""
         target = serial or "default"
+        local_port = self.get_device_port(serial)
         
         # 너무 잦은 폴링 부하 방지: 강제 갱신이 아니고 유효한 IP가 있다면 15초간 캐시 유지
         cached = self._cached_public_ips.get(target)
@@ -231,14 +323,14 @@ class ADBService:
             
         providers = ["https://api.ipify.org", "https://ifconfig.me/ip"]
         
-        # Every Proxy 포트 포워딩 보장 (SOCKS5: 1080)
-        self.run_command(['forward', 'tcp:1080', 'tcp:1080'], serial)
+        # Every Proxy 포트 포워딩 보장 (SOCKS5: local_port -> 1080)
+        self.run_command(['forward', f'tcp:{local_port}', 'tcp:1080'], serial)
         import requests
 
-        proxy_endpoints = ["127.0.0.1:1080"]
+        proxy_endpoints = [f"127.0.0.1:{local_port}"]
         gw_ip = self.get_tethering_gateway_ip()
         if gw_ip and gw_ip not in ("127.0.0.1", ""):
-            proxy_endpoints.append(f"{gw_ip}:1080")
+            proxy_endpoints.append(f"{gw_ip}:{local_port}")
 
         # 1차 시도
         for endpoint in proxy_endpoints:
@@ -371,14 +463,18 @@ class ADBService:
         return ""
 
     def rotate_ip(self, serial: Optional[str] = None, method: str = 'soft') -> bool:
-        """IP 로테이션 실행 (기본값: 초고속 소프트 데이터 토글) — [Global Mutex] 다채널 동시 회전 충돌 방지"""
+        """IP 로테이션 실행 (기본값: 초고속 소프트 데이터 토글) — [Targeted Lock] 개별 스마트폰 독립 회전"""
         if serial in ('soft', 'hard') and method == 'soft':
             method = serial
             serial = None
-        target = serial or "default"
         
-        # 1. 락 획득 (동시 요청 순차 제어)
-        acquired = self._rotation_lock.acquire(timeout=45.0)
+        devices = self.list_devices()
+        target = serial or self.default_serial or (devices[0] if devices else "default")
+        cmd_serial = target if (target != "default" and target in devices) else None
+        
+        # 1. 대상 기기 전용 락 획득 (타 기기 회전 블로킹 방지)
+        lock = self._rotation_locks[target]
+        acquired = lock.acquire(timeout=45.0)
         if not acquired:
             logger.warning(f"[WARN] [{target}] 이전 IP 로테이션이 진행 중이어서 타임아웃 발생")
             return False
@@ -386,8 +482,8 @@ class ADBService:
         try:
             # 2. 최근 3초 이내에 이미 회전이 완료되었으면 중복 회전 방지 (Debounce)
             now = time.time()
-            if now - self._last_rotation_time < 3.0:
-                logger.info(f"[SKIP] [{target}] 최근({now - self._last_rotation_time:.1f}초 전)에 이미 로테이션됨 — 최신 IP 유지")
+            if now - self._last_rotation_times[target] < 3.0:
+                logger.info(f"[SKIP] [{target}] 최근({now - self._last_rotation_times[target]:.1f}초 전)에 이미 로테이션됨 — 최신 IP 유지")
                 return True
 
             logger.info(f"[REFRESH] [{target}] IP 로테이션 시작 (방식: {method})")
@@ -399,23 +495,23 @@ class ADBService:
                 # 기지국 연결(RRC)을 끊지 않고 모바일 데이터 세션만 초고속 재할당 (0.8s)
                 # 비행기 모드를 건드리지 않아 삼성 Knox의 보안 잠금(Lock network and security)에 걸리지 않습니다.
                 logger.info(f"[SOFT] [{target}] 초고속 데이터 세션 토글 (svc data disable/enable)...")
-                self.run_command(['shell', 'svc', 'data', 'disable'], serial)
+                self.run_command(['shell', 'svc', 'data', 'disable'], cmd_serial)
                 time.sleep(0.8)
-                self.run_command(['shell', 'svc', 'data', 'enable'], serial)
+                self.run_command(['shell', 'svc', 'data', 'enable'], cmd_serial)
             else:
                 # [하드 교체 - Airplane Mode Deep Reset]
                 logger.info(f"[HARD] [{target}] 비행기 모드 펄스 (3초)...")
-                self.run_command(['shell', 'cmd', 'connectivity', 'airplane-mode', 'enable'], serial)
+                self.run_command(['shell', 'cmd', 'connectivity', 'airplane-mode', 'enable'], cmd_serial)
                 time.sleep(3.0)
-                self.run_command(['shell', 'cmd', 'connectivity', 'airplane-mode', 'disable'], serial)
-                self.run_command(['shell', 'svc', 'wifi', 'disable'], serial)
-                self.run_command(['shell', 'svc', 'data', 'enable'], serial)
+                self.run_command(['shell', 'cmd', 'connectivity', 'airplane-mode', 'disable'], cmd_serial)
+                self.run_command(['shell', 'svc', 'wifi', 'disable'], cmd_serial)
+                self.run_command(['shell', 'svc', 'data', 'enable'], cmd_serial)
 
             # 3. 통신사 셀룰러 데이터 베어러(mDataConnectionState=2) 활성화 대기 (최대 5초 스마트 폴링)
             bearer_connected = False
             start_bearer_wait = time.time()
             while time.time() - start_bearer_wait < 5.0:
-                tel_dump = self.run_command(['shell', 'dumpsys', 'telephony.registry'], serial)
+                tel_dump = self.run_command(['shell', 'dumpsys', 'telephony.registry'], cmd_serial)
                 if 'mDataConnectionState=2' in tel_dump:
                     bearer_connected = True
                     logger.info(f"[BEARER] [{target}] 통신사 LTE 베어러 연결 완료 ({time.time() - start_bearer_wait:.1f}초 소요)")
@@ -426,15 +522,17 @@ class ADBService:
                 logger.warning(f"[WARN] [{target}] LTE 베어러 5초 이내 미연결 — Every Proxy 및 IP 조회 폴백 시도")
 
             # Every Proxy 포트 포워딩 보장
-            self.run_command(['forward', 'tcp:1080', 'tcp:1080'], serial)
+            local_port = self.get_device_port(cmd_serial)
+            self.run_command(['forward', f'tcp:{local_port}', 'tcp:1080'], cmd_serial)
 
             setattr(self, f"_last_check_{target}", 0)  # 캐시 무효화
-            new_ip = self.get_current_ip(serial, force=True)
+            new_ip = self.get_current_ip(cmd_serial, force=True)
 
             # 새 IP 조회가 실패하거나 정상 포맷이 아닌 경우 무한 갱신 루프 차단
             if not new_ip or not re.match(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$', new_ip):
                 self._cached_public_ips.pop(target, None)
 
+            self._last_rotation_times[target] = time.time()
             self._last_rotation_time = time.time()
             self._cached_network_status = None
             logger.info(f"[OK] [{target}] IP 갱신 완료: {new_ip}")
@@ -443,7 +541,7 @@ class ADBService:
             logger.error(f"[FAIL] [{target}] 로테이션 실패: {e}")
             return False
         finally:
-            self._rotation_lock.release()
+            lock.release()
 
 
     def enable_wifi(self, serial: Optional[str] = None):
@@ -451,10 +549,20 @@ class ADBService:
         self._cached_network_status = None
 
     def disable_wifi(self, serial: Optional[str] = None):
-        """스마트폰 Wi-Fi 끄고 순수 LTE 데이터 고정 & 포트 포워딩 보장"""
-        self.run_command(['shell', 'svc', 'wifi', 'disable'], serial)
-        self.run_command(['shell', 'svc', 'data', 'enable'], serial)
-        self.run_command(['forward', 'tcp:1080', 'tcp:1080'], serial)
+        """스마트폰 Wi-Fi 끄고 순수 LTE 데이터 고정 & 포트 포워딩 보장 (복수 단말기 지원)"""
+        if serial:
+            serials = [serial]
+        else:
+            connected = self.get_devices()
+            serials = connected if connected else ([self.get_active_device()] if self.get_active_device() else [])
+
+        for s in serials:
+            if not s:
+                continue
+            local_port = self.get_device_port(s)
+            self.run_command(['shell', 'svc', 'wifi', 'disable'], s)
+            self.run_command(['shell', 'svc', 'data', 'enable'], s)
+            self.run_command(['forward', f'tcp:{local_port}', 'tcp:1080'], s)
         self._cached_network_status = None
 
     def get_tethering_gateway_ip(self) -> Optional[str]:
@@ -552,7 +660,7 @@ class ADBService:
         except Exception:
             return "Error"
 
-    def get_network_status_detail(self, force: bool = False) -> dict:
+    def get_network_status_detail(self, force: bool = False, db = None) -> dict:
         """프론트엔드용 네트워크 상세 상태 반환 (5초 인메모리 캐싱으로 폴링 부하 방지 및 고속 반영)"""
         now = time.time()
         if not force and hasattr(self, "_cached_network_status") and self._cached_network_status:
@@ -595,10 +703,15 @@ class ADBService:
             else:
                 status_detail = "WIFI_MODE"
 
+            # 연결된 안드로이드 기기 상세 정보 목록 (멀티 디바이스 매트릭스)
+            devices_info = self.get_connected_devices_info(db=db)
+
             res = {
                 "status_detail": status_detail,
                 "adb_connected": adb_connected,
                 "device_count": len(devices),
+                "devices": devices_info,
+                "primary_port": 1080,
                 "tethering_ip": tethering_ip if tethering_ip != "Not Detected" else ("ADB-Linked" if adb_connected else "Not Detected"),
                 "mobile_data_enabled": True,
                 "public_ip": mobile_ip if is_lte_active else system_ip,

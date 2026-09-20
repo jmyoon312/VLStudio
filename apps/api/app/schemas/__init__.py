@@ -825,6 +825,7 @@ class ProfileBase(BaseModel):
     proxy_port: Optional[str] = None
     proxy_username: Optional[str] = None
     proxy_password: Optional[str] = None
+    bound_device_serial: Optional[str] = None
     
     # [NEW] Engine config
     engine_type: Optional[str] = "cloakbrowser"

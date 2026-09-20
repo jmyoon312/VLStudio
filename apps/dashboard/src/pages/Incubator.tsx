@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Button } from "@/components/ui/button";
 import {
     Shield, User, Activity, RefreshCw, Smartphone, Wifi,
-    Signal, Rocket, Globe, Server, CheckCircle2, XCircle, Cable, Bot
+    Signal, Rocket, Globe, Server, CheckCircle2, XCircle, Cable, Bot, Battery
 } from 'lucide-react';
 import TinCanVault from '@/components/resource/TinCanVault';
 import SocialAccountsManager from '@/components/captain/SocialAccountsManager';
@@ -60,16 +60,17 @@ const Incubator = () => {
         }, 1500);
     };
 
-    // handleSourceSwitch is removed as system-wide metric switching is obsolete in Dual-Proxy architecture.
+    const [rotatingSerial, setRotatingSerial] = useState<string | null>(null);
 
-    const handleRotate = async (method: 'soft' | 'hard') => {
+    const handleRotate = async (method: 'soft' | 'hard', serial?: string) => {
         setIsRotating(true);
+        if (serial) setRotatingSerial(serial);
         try {
-            const res = await api.post(`/resources/network/rotate`, { method });
+            const res = await api.post(`/resources/network/rotate`, { method, serial });
             if (res.data?.status === 'rotated') {
                 const newIp = res.data?.current_ip;
                 toast({
-                    title: "IP 교체 완료",
+                    title: `IP 교체 완료${serial ? ` (${serial.slice(0, 8)}...)` : ''}`,
                     description: newIp ? `새 공인 IP: ${newIp}` : "새 공인 IP가 할당되었습니다."
                 });
             } else {
@@ -80,6 +81,7 @@ const Incubator = () => {
             toast({ variant: "destructive", title: "오류", description: "IP 교체 요청 실패" });
         } finally {
             setIsRotating(false);
+            setRotatingSerial(null);
         }
     };
 
@@ -239,80 +241,266 @@ const Incubator = () => {
 
                                 <hr className="border-border/80" />
 
-                                {/* Dual-Proxy Status Grid */}
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-                                    {/* LTE Proxy Group */}
-                                    <div className="p-4 sm:p-5 rounded-2xl border border-rose-500/20 bg-rose-500/5 space-y-3 sm:space-y-4">
-                                        <div className="flex justify-between items-start">
-                                            <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
-                                                <div className="p-2 bg-rose-500/10 text-rose-500 rounded-xl shrink-0"><Smartphone className="w-5 h-5 sm:w-6 sm:h-6" /></div>
-                                                <div className="min-w-0">
-                                                    <h3 className="font-bold text-sm sm:text-base text-foreground truncate">LTE 듀얼 프록시 그룹 (공유망)</h3>
-                                                    <p className="text-[11px] sm:text-xs text-rose-400 font-medium truncate">Every Proxy (Port 1080 SOCKS5)</p>
-                                                </div>
-                                            </div>
-                                            {networkStatus.monitor?.lte ? (
-                                                <span className="flex items-center text-[10px] font-bold text-rose-500 bg-rose-500/10 px-2 py-0.5 rounded-full shrink-0">
-                                                    <Shield className="w-3 h-3 mr-1" /> 격리됨
-                                                </span>
-                                            ) : (
-                                                <span className="flex items-center text-[10px] font-bold text-muted-foreground bg-muted px-2 py-0.5 rounded-full shrink-0">
-                                                    <XCircle className="w-3 h-3 mr-1" /> 연결 안됨
-                                                </span>
-                                            )}
+                                {/* Sovereign Multi-Line Network Grid */}
+                                <div className="space-y-4">
+                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                        <div>
+                                            <h3 className="text-sm sm:text-base font-extrabold text-foreground flex items-center gap-2">
+                                                <Activity className="w-4 h-4 text-indigo-500" />
+                                                <span>주권 다중 회선 매트릭스 (Sovereign Multi-Line Grid)</span>
+                                            </h3>
+                                            <p className="text-[11px] text-muted-foreground mt-0.5">
+                                                USB 스마트폰별 1080~1089 독립 포트 자동 할당 및 ISP 고정 IP 채널 무간섭 병렬 운용
+                                            </p>
                                         </div>
-                                        <div className="space-y-2 bg-card p-3 rounded-xl border border-border/80">
-                                            <div className="flex justify-between text-xs pb-1 border-b border-border/80">
-                                                <span className="text-muted-foreground">공용 IP</span>
-                                                <span className="font-mono font-bold text-rose-500">{networkStatus.mobile_public_ip || '확인 중'}</span>
-                                            </div>
-                                            <div className="mt-2 space-y-1">
-                                                <span className="text-[11px] text-muted-foreground font-bold mb-1 block">소속 계정:</span>
-                                                {networkStatus.profiles?.lte?.length > 0 ? (
-                                                    networkStatus.profiles.lte.map((p: any) => (
-                                                        <div key={p.id} className="text-xs flex justify-between items-center bg-muted/50 px-2 py-1 rounded">
-                                                            <span className="truncate w-32">{p.email || p.id}</span>
-                                                            <span className="text-[10px] bg-rose-500/10 text-rose-500 px-1 rounded font-bold">LTE</span>
-                                                        </div>
-                                                    ))
-                                                ) : (
-                                                    <div className="text-xs text-muted-foreground text-center py-2">등록된 계정이 없습니다.</div>
-                                                )}
-                                            </div>
+                                        <div className="flex items-center gap-2 text-xs">
+                                            <span className="px-2.5 py-0.5 rounded-full font-bold bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 text-[10px]">
+                                                LTE 단말 {networkStatus.devices?.length || (networkStatus.monitor?.lte ? 1 : 0)}대
+                                            </span>
+                                            <span className="px-2.5 py-0.5 rounded-full font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 text-[10px]">
+                                                ISP 고정 {networkStatus.isp_proxies?.length || 0}개
+                                            </span>
                                         </div>
                                     </div>
 
-                                    {/* ISP Proxy Group */}
-                                    <div className="p-4 sm:p-5 rounded-2xl border border-blue-500/20 bg-blue-500/5 space-y-3 sm:space-y-4">
-                                        <div className="flex justify-between items-start">
-                                            <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
-                                                <div className="p-2 bg-blue-500/10 text-blue-500 rounded-xl shrink-0"><Server className="w-5 h-5 sm:w-6 sm:h-6" /></div>
-                                                <div className="min-w-0">
-                                                    <h3 className="font-bold text-sm sm:text-base text-foreground truncate">ISP 고정 프록시 그룹 (독립망)</h3>
-                                                    <p className="text-[11px] sm:text-xs text-blue-400 font-medium truncate">개별 IP 할당</p>
+                                    {/* Devices and Proxies Grid */}
+                                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                        {/* 1. LTE Mobile Devices Section */}
+                                        <div className="space-y-3">
+                                            <div className="flex items-center justify-between text-xs font-bold text-muted-foreground uppercase tracking-wider px-1">
+                                                <span className="flex items-center gap-1.5 text-rose-600 dark:text-rose-400">
+                                                    <Smartphone className="w-3.5 h-3.5" /> LTE 스마트폰 회선 목록
+                                                </span>
+                                                <span className="text-[10px] text-muted-foreground font-mono">
+                                                    Every Proxy SOCKS5
+                                                </span>
+                                            </div>
+
+                                            {networkStatus.devices && networkStatus.devices.length > 0 ? (
+                                                <div className="space-y-3">
+                                                    {networkStatus.devices.map((device: any, idx: number) => {
+                                                        const boundProfiles = (networkStatus.profiles?.lte || []).filter(
+                                                            (p: any) => p.bound_device_serial === device.serial || (!p.bound_device_serial && idx === 0)
+                                                        );
+                                                        const isRotatingThis = isRotating && rotatingSerial === device.serial;
+
+                                                        return (
+                                                            <div 
+                                                                key={device.serial || idx}
+                                                                className="p-4 rounded-2xl border border-rose-500/20 bg-card hover:border-rose-500/40 transition-all shadow-xs space-y-3"
+                                                            >
+                                                                <div className="flex items-start justify-between gap-2">
+                                                                    <div className="flex items-center gap-3 min-w-0">
+                                                                        <div className="p-2.5 bg-rose-500/10 text-rose-500 rounded-xl shrink-0">
+                                                                            <Smartphone className="w-5 h-5" />
+                                                                        </div>
+                                                                        <div className="min-w-0">
+                                                                            <div className="flex items-center gap-1.5 flex-wrap">
+                                                                                <h4 className="font-extrabold text-sm text-foreground truncate">
+                                                                                    {device.model || 'Galaxy 스마트폰'}
+                                                                                </h4>
+                                                                                {device.carrier && (
+                                                                                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
+                                                                                        {device.carrier}
+                                                                                    </span>
+                                                                                )}
+                                                                                <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-muted text-foreground border border-border">
+                                                                                    Port {device.port || (1080 + idx)}
+                                                                                </span>
+                                                                            </div>
+                                                                            <p className="text-[10px] font-mono text-muted-foreground mt-0.5 truncate">
+                                                                                S/N: {device.serial}
+                                                                            </p>
+                                                                        </div>
+                                                                    </div>
+
+                                                                    {/* Battery & Status */}
+                                                                    <div className="flex flex-col items-end shrink-0 gap-1">
+                                                                        <span className="flex items-center text-[10px] font-bold text-rose-600 dark:text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded-full border border-rose-500/20">
+                                                                            <Shield className="w-3 h-3 mr-1 text-rose-500" /> 격리 활성
+                                                                        </span>
+                                                                        {typeof device.battery === 'number' && (
+                                                                            <span className={`text-[10px] font-mono flex items-center gap-1 ${
+                                                                                device.battery <= 20 ? 'text-rose-500 font-bold' : device.battery <= 50 ? 'text-amber-500' : 'text-emerald-500'
+                                                                            }`}>
+                                                                                <Battery className="w-3 h-3" /> {device.battery}%
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+
+                                                                {/* IP and Bound Accounts */}
+                                                                <div className="p-3 bg-muted/40 rounded-xl border border-border/60 space-y-2">
+                                                                    <div className="flex justify-between items-center text-xs pb-1.5 border-b border-border/50">
+                                                                        <span className="text-muted-foreground text-[11px] font-medium">단말기 공용 IP</span>
+                                                                        <span className="font-mono font-bold text-rose-600 dark:text-rose-400">
+                                                                            {device.public_ip || networkStatus.mobile_public_ip || '조회 중...'}
+                                                                        </span>
+                                                                    </div>
+
+                                                                    <div className="space-y-1 pt-0.5">
+                                                                        <div className="flex justify-between items-center text-[11px]">
+                                                                            <span className="text-muted-foreground font-semibold">바인딩된 채널 계정:</span>
+                                                                            <span className="font-mono text-foreground font-bold">{boundProfiles.length}개</span>
+                                                                        </div>
+                                                                        {boundProfiles.length > 0 ? (
+                                                                            <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto pr-1">
+                                                                                {boundProfiles.map((p: any) => (
+                                                                                    <span 
+                                                                                        key={p.id}
+                                                                                        className="text-[10px] bg-card border border-border px-2 py-0.5 rounded text-foreground font-mono truncate max-w-[180px]"
+                                                                                        title={p.email || p.id}
+                                                                                    >
+                                                                                        {p.email || p.id}
+                                                                                    </span>
+                                                                                ))}
+                                                                            </div>
+                                                                        ) : (
+                                                                            <p className="text-[10px] text-muted-foreground italic">
+                                                                                할당된 계정 없음 (계정 등록 마법사에서 이 기기 선택 가능)
+                                                                            </p>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+
+                                                                {/* Individual Device IP Rotation Button */}
+                                                                <Button
+                                                                    size="sm"
+                                                                    variant="outline"
+                                                                    onClick={() => handleRotate('soft', device.serial)}
+                                                                    disabled={isRotating}
+                                                                    className="w-full text-xs h-8 border-rose-500/30 hover:bg-rose-500/10 text-rose-600 dark:text-rose-400 font-bold flex items-center justify-center gap-1.5 rounded-xl transition-all"
+                                                                >
+                                                                    <RefreshCw className={`w-3.5 h-3.5 ${isRotatingThis ? 'animate-spin text-rose-500' : ''}`} />
+                                                                    <span>{isRotatingThis ? '이 기기 IP 교체 중...' : `이 기기 소프트 IP 교체 (Port ${device.port || (1080 + idx)})`}</span>
+                                                                </Button>
+                                                            </div>
+                                                        );
+                                                    })}
                                                 </div>
-                                            </div>
-                                            <span className="flex items-center text-[10px] font-bold text-blue-500 bg-blue-500/10 px-2 py-0.5 rounded-full shrink-0">
-                                                <CheckCircle2 className="w-3 h-3 mr-1" /> 작동 중
-                                            </span>
-                                        </div>
-                                        <div className="space-y-2 bg-card p-3 rounded-xl border border-border/80">
-                                            <div className="flex justify-between text-xs pb-1 border-b border-border/80">
-                                                <span className="text-muted-foreground">할당된 계정 수</span>
-                                                <span className="font-mono font-bold text-blue-500">{networkStatus.profiles?.isp?.length || 0}개</span>
-                                            </div>
-                                            <div className="mt-2 space-y-1 max-h-40 overflow-y-auto pr-1">
-                                                {networkStatus.profiles?.isp?.length > 0 ? (
-                                                    networkStatus.profiles.isp.map((p: any) => (
-                                                        <div key={p.id} className="text-xs flex justify-between items-center bg-muted/50 px-2 py-1 rounded mb-1">
-                                                            <span className="truncate w-24">{p.email || p.id}</span>
-                                                            <span className="text-[10px] font-mono text-blue-500 truncate w-24 text-right">
-                                                                {p.proxy_host}:{p.proxy_port}
-                                                            </span>
+                                            ) : (
+                                                /* Fallback when device list is not populated yet */
+                                                <div className="p-5 rounded-2xl border border-border bg-card space-y-3">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="p-2.5 bg-muted text-muted-foreground rounded-xl shrink-0">
+                                                            <Smartphone className="w-5 h-5" />
                                                         </div>
-                                                    ))
-                                                ) : (
-                                                    <div className="text-xs text-muted-foreground text-center py-2">등록된 계정이 없습니다.</div>
+                                                        <div>
+                                                            <h4 className="font-bold text-sm text-foreground">
+                                                                {networkStatus.monitor?.lte ? '단일 LTE 모바일 회선 (기본 1080)' : '연결된 스마트폰 없음'}
+                                                            </h4>
+                                                            <p className="text-xs text-muted-foreground">
+                                                                {networkStatus.monitor?.lte 
+                                                                    ? `공용 IP: ${networkStatus.mobile_public_ip || '확인 중'}` 
+                                                                    : 'USB 케이블로 안드로이드 스마트폰을 PC에 연결하세요.'}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                    {networkStatus.profiles?.lte?.length > 0 && (
+                                                        <div className="p-2.5 bg-muted/40 rounded-lg text-xs space-y-1">
+                                                            <span className="text-muted-foreground font-bold text-[10px]">소속 계정 ({networkStatus.profiles.lte.length}개):</span>
+                                                            <div className="flex flex-wrap gap-1">
+                                                                {networkStatus.profiles.lte.map((p: any) => (
+                                                                    <span key={p.id} className="text-[10px] bg-card border border-border px-1.5 py-0.5 rounded text-foreground font-mono">
+                                                                        {p.email || p.id}
+                                                                    </span>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                    {networkStatus.monitor?.lte && (
+                                                        <Button
+                                                            size="sm"
+                                                            variant="outline"
+                                                            onClick={() => handleRotate('soft')}
+                                                            disabled={isRotating}
+                                                            className="w-full text-xs h-8 border-rose-500/30 text-rose-500 hover:bg-rose-500/10 font-bold"
+                                                        >
+                                                            <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${isRotating ? 'animate-spin' : ''}`} />
+                                                            기본 LTE IP 소프트 교체
+                                                        </Button>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* 2. ISP Static Proxy Pool Section */}
+                                        <div className="space-y-3">
+                                            <div className="flex items-center justify-between text-xs font-bold text-muted-foreground uppercase tracking-wider px-1">
+                                                <span className="flex items-center gap-1.5 text-blue-600 dark:text-blue-400">
+                                                    <Server className="w-3.5 h-3.5" /> ISP 고정 프록시 전용선 풀
+                                                </span>
+                                                <span className="text-[10px] text-muted-foreground font-mono">
+                                                    독립 고정 IP
+                                                </span>
+                                            </div>
+
+                                            <div className="p-4 sm:p-5 rounded-2xl border border-blue-500/20 bg-card space-y-4 shadow-xs">
+                                                <div className="flex justify-between items-start">
+                                                    <div className="flex items-center gap-3 min-w-0">
+                                                        <div className="p-2.5 bg-blue-500/10 text-blue-500 rounded-xl shrink-0">
+                                                            <Server className="w-5 h-5" />
+                                                        </div>
+                                                        <div className="min-w-0">
+                                                            <h4 className="font-extrabold text-sm text-foreground truncate">ISP 고정망 풀 현황</h4>
+                                                            <p className="text-xs text-blue-500 dark:text-blue-400 font-medium">
+                                                                총 {networkStatus.isp_proxies?.length || 0}개 전용 회선 운용 중
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                    <span className="flex items-center text-[10px] font-bold text-blue-600 dark:text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded-full border border-blue-500/20 shrink-0">
+                                                        <CheckCircle2 className="w-3 h-3 mr-1 text-blue-500" /> 독립 보호
+                                                    </span>
+                                                </div>
+
+                                                <div className="space-y-2">
+                                                    {networkStatus.isp_proxies && networkStatus.isp_proxies.length > 0 ? (
+                                                        <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                                                            {networkStatus.isp_proxies.map((isp: any, i: number) => {
+                                                                const ispAccounts = (networkStatus.profiles?.isp || []).filter(
+                                                                    (p: any) => p.proxy_host === isp.host && String(p.proxy_port) === String(isp.port)
+                                                                );
+                                                                return (
+                                                                    <div key={i} className="p-3 bg-muted/40 rounded-xl border border-border/60 space-y-1.5">
+                                                                        <div className="flex justify-between items-center text-xs">
+                                                                            <span className="font-mono font-bold text-blue-600 dark:text-blue-400">
+                                                                                {isp.protocol?.toUpperCase() || 'HTTP'}://{isp.host}:{isp.port}
+                                                                            </span>
+                                                                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400">
+                                                                                {isp.account_count || ispAccounts.length}개 채널
+                                                                            </span>
+                                                                        </div>
+                                                                        {ispAccounts.length > 0 && (
+                                                                            <div className="flex flex-wrap gap-1 pt-1">
+                                                                                {ispAccounts.map((p: any) => (
+                                                                                    <span key={p.id} className="text-[10px] bg-card border border-border px-1.5 py-0.5 rounded text-foreground font-mono truncate max-w-[150px]">
+                                                                                        {p.email || p.id}
+                                                                                    </span>
+                                                                                ))}
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    ) : (
+                                                        <div className="p-4 rounded-xl bg-muted/30 border border-border/60 text-center space-y-1.5">
+                                                            <p className="text-xs text-muted-foreground">
+                                                                현재 등록된 ISP 고정 프록시가 없습니다.
+                                                            </p>
+                                                            <p className="text-[11px] text-muted-foreground/80">
+                                                                [계정 등록 마법사]에서 ISP 고정 IP 모드를 선택하여 프록시 정보를 입력하면 자동으로 풀에 등록됩니다.
+                                                            </p>
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                {/* Direct profiles info */}
+                                                {networkStatus.profiles?.direct && networkStatus.profiles.direct.length > 0 && (
+                                                    <div className="pt-2 border-t border-border/50 text-[11px] text-muted-foreground flex justify-between items-center">
+                                                        <span>직접 연결 (프록시 없음) 계정:</span>
+                                                        <span className="font-mono font-bold text-foreground">{networkStatus.profiles.direct.length}개</span>
+                                                    </div>
                                                 )}
                                             </div>
                                         </div>
@@ -342,7 +530,7 @@ const Incubator = () => {
                                         <div className="flex items-center justify-between border-b border-border/50 pb-2">
                                             <span className="flex items-center text-muted-foreground">
                                                 <CheckCircle2 className="w-4 h-4 text-emerald-500 mr-2" />
-                                                유튜브 업로드 LTE 프록시 격리 (Port 1080)
+                                                유튜브 업로드 LTE 프록시 격리 (Port 1080~1089 다중 회선)
                                             </span>
                                             <span className={`font-mono px-1.5 py-0.5 rounded ${networkStatus.monitor?.lte ? 'text-emerald-400 bg-emerald-500/10' : 'text-amber-400 bg-amber-500/10'}`}>
                                                 {networkStatus.monitor?.lte ? '정상 작동 (LTE 전용)' : '대기 중 (LTE 미감지)'}
@@ -385,21 +573,21 @@ const Incubator = () => {
                                                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-300 opacity-75"></span>
                                                 <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
                                             </div>
-                                            <span className="font-bold text-emerald-500 tracking-wide text-[13px]">DUAL-PROXY ISOLATION ENGINE ACTIVE</span>
+                                            <span className="font-bold text-emerald-500 tracking-wide text-[13px]">SOVEREIGN MULTI-LINE ISOLATION ENGINE ACTIVE</span>
                                         </div>
                                         <span className="text-[11px] font-medium text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded-md border border-emerald-500/20">
                                             Last Updated: {networkStatus.monitor?.last_check || "Loading..."}
                                         </span>
                                     </div>
                                     <div className="mt-2 text-[11.5px] leading-relaxed text-foreground bg-card p-3 rounded-lg border border-border shadow-sm">
-                                        <span className="text-emerald-400 mr-1">▶</span> 시스템 기본망은 항상 Wi-Fi로 유지되며, 유튜브 브랜드 채널 창은 자동으로 1080 포트를 통해 LTE로 완벽히 터널링됩니다. 수동 모드 전환은 불필요합니다.
+                                        <span className="text-emerald-400 mr-1">▶</span> 시스템 기본망은 항상 Wi-Fi로 유지되며, 유튜브 브랜드 채널 창은 단말기 전용 포트(1080~1089) 또는 ISP 고정 프록시를 통해 100% 독립 터널링됩니다. 기기별 병렬 웜업 및 동시 업로드가 완벽히 격리 보장됩니다.
                                     </div>
                                 </div>
 
                                 {/* Controls (IP Rotation) */}
                                 <div className="space-y-4 pt-2 pb-16 sm:pb-8">
                                     <label className="flex items-center gap-2 text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                                        <Activity className="w-4 h-4 text-primary" /> 신원 교체 제어 (IP Rotation)
+                                        <Activity className="w-4 h-4 text-primary" /> 전체 LTE 신원 교체 제어 (Global IP Rotation)
                                     </label>
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                         <Button
@@ -408,12 +596,12 @@ const Incubator = () => {
                                             className="relative overflow-hidden group h-14 bg-blue-500/10 hover:bg-blue-500/20 text-blue-500 dark:text-blue-400 border border-blue-500/30 shadow-sm hover:shadow-md transition-all rounded-xl"
                                         >
                                             <div className="relative flex items-center justify-center font-extrabold text-sm tracking-wide">
-                                                {isRotating ? (
+                                                {isRotating && !rotatingSerial ? (
                                                     <RefreshCw className="w-4 h-4 mr-2.5 animate-spin text-blue-500" />
                                                 ) : (
                                                     <RefreshCw className="w-4 h-4 mr-2.5 text-blue-400 group-hover:rotate-180 transition-transform duration-500" />
                                                 )}
-                                                소프트 교체 <span className="ml-1.5 text-blue-400/80 font-medium text-xs">(Data Toggle)</span>
+                                                전체 소프트 교체 <span className="ml-1.5 text-blue-400/80 font-medium text-xs">(Data Toggle)</span>
                                             </div>
                                         </Button>
                                         
@@ -423,17 +611,17 @@ const Incubator = () => {
                                             className="relative overflow-hidden group h-14 bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 dark:text-rose-400 border border-rose-500/30 shadow-sm hover:shadow-md transition-all rounded-xl"
                                         >
                                             <div className="relative flex items-center justify-center font-extrabold text-sm tracking-wide">
-                                                {isRotating ? (
+                                                {isRotating && !rotatingSerial ? (
                                                     <RefreshCw className="w-4 h-4 mr-2.5 animate-spin text-rose-500" />
                                                 ) : (
                                                     <Rocket className="w-4 h-4 mr-2.5 text-rose-400 group-hover:-translate-y-1 group-hover:translate-x-1 transition-transform duration-300" />
                                                 )}
-                                                하드 교체 <span className="ml-1.5 text-rose-400/80 font-medium text-xs">(Airplane Mode)</span>
+                                                전체 하드 교체 <span className="ml-1.5 text-rose-400/80 font-medium text-xs">(Airplane Mode)</span>
                                             </div>
                                         </Button>
                                     </div>
                                     <p className="text-[11px] text-muted-foreground text-center pt-1">
-                                        💡 웜업 전/후 새로운 모바일 LTE IP가 필요할 때 원클릭으로 통신사 IP를 교체합니다.
+                                        💡 웜업 전/후 새로운 모바일 LTE IP가 필요할 때 원클릭으로 통신사 IP를 교체합니다. 단말기별 개별 교체는 위 기기 카드에서 가능합니다.
                                     </p>
                                 </div>
 
