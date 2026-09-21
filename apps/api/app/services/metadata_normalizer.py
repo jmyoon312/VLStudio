@@ -117,6 +117,11 @@ def merge_and_deduplicate_hashtags(
             tag_clean = f"#{tag_clean}"
             
         lower_tag = tag_clean.lower()
+        # 타사 플랫폼 태그 배제 (유튜브 쇼츠에 #fyp, #reels 등 스팸/알고리즘 감점 태그 방지)
+        raw_word = lower_tag.lstrip('#')
+        if raw_word in {"fyp", "foryou", "foryoupage", "틱톡", "틱톡순삭", "tiktok", "reels", "릴스"}:
+            continue
+
         if lower_tag in seen:
             continue
         seen.add(lower_tag)

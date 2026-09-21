@@ -338,15 +338,17 @@ const TinCanVault = ({ mode = 'vault' }: TinCanVaultProps) => {
         return diff > 0 ? `D-${diff}` : "Expire";
     };
 
-    const handleSecureConnect = async (p: any) => {
-        toast({ title: "🛡️ 보안 터널링 초기화", description: "IP 세탁 후 스튜디오에 접속합니다. (약 10-20초 소요)" });
+    const handleSecureConnect = async (p: any, platform?: string) => {
+        const platformName = platform === 'tiktok' ? '틱톡 스튜디오' : platform === 'instagram' ? '인스타 관리' : platform === 'all' ? '전체 스튜디오' : '유튜브 스튜디오';
+        toast({ title: "🛡️ 보안 터널링 초기화", description: `IP 확인 후 ${platformName}에 스텔스 접속합니다. (약 5-15초 소요)` });
         try {
             const res = await axios.post(`${API_BASE}/resources/profiles/${p.id}/launch-setup`, {
-                rotate_ip: false
+                rotate_ip: false,
+                platform: platform || 'youtube'
             });
 
             if (res.data.status === 'launched') {
-                toast({ title: "🚀 보안 접속 성공", description: "유튜브 스튜디오가 실행되었습니다." });
+                toast({ title: "🚀 보안 접속 성공", description: `${platformName}가 스텔스 브라우저로 실행되었습니다.` });
             } else {
                 throw new Error(res.data.msg || "Launch failed");
             }
@@ -655,15 +657,17 @@ const TinCanVault = ({ mode = 'vault' }: TinCanVaultProps) => {
             <TableCell className="align-middle">
                 <div className="flex items-center gap-2 py-1 whitespace-nowrap">
                     {p.status?.toLowerCase() === 'active' && (
-                        <Button
-                            variant="default"
-                            size="sm"
-                            className="h-8 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-xs border-emerald-600 shrink-0"
-                            onClick={() => handleSecureConnect(p)}
-                            title="유튜브 스튜디오 관리자 대시보드(studio.youtube.com) 직접 보안 접속"
-                        >
-                            <ShieldCheck className="w-3.5 h-3.5 mr-1" /> 🛡️ 스텔스 보안 접속
-                        </Button>
+                        <div className="flex items-center gap-1 shrink-0">
+                            <Button
+                                variant="default"
+                                size="sm"
+                                className="h-8 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-xs border-emerald-600 shrink-0"
+                                onClick={() => handleSecureConnect(p, 'youtube')}
+                                title="유튜브 스튜디오 관리자 대시보드(studio.youtube.com) 직접 보안 접속"
+                            >
+                                <ShieldCheck className="w-3.5 h-3.5 mr-1" /> 🛡️ 스텔스 접속
+                            </Button>
+                        </div>
                     )}
                     
                     {!isQuarantined && p.status?.toLowerCase() === 'active' && (
@@ -1078,14 +1082,17 @@ const TinCanVault = ({ mode = 'vault' }: TinCanVaultProps) => {
                                         {/* 3. 하단 운영 제어: 스텔스 접속 & 웜업 육성 제어 */}
                                         {p.status?.toLowerCase() === 'active' && (
                                             <div className="space-y-2.5 pt-1 border-t border-border/60">
-                                                <Button
-                                                    variant="default"
-                                                    size="sm"
-                                                    className="w-full h-8.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-xs flex items-center justify-center gap-1.5 rounded-xl"
-                                                    onClick={() => handleSecureConnect(p)}
-                                                >
-                                                    <ShieldCheck className="w-4 h-4" /> 🛡️ 스텔스 보안 접속
-                                                </Button>
+                                                <div className="space-y-1.5">
+                                                    <Button
+                                                        variant="default"
+                                                        size="sm"
+                                                        className="w-full h-8.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-xs flex items-center justify-center gap-1.5 rounded-xl"
+                                                        onClick={() => handleSecureConnect(p, 'youtube')}
+                                                        title="동일한 스텔스 보안 브라우저로 유튜브 스튜디오에 접속합니다"
+                                                    >
+                                                        <ShieldCheck className="w-4 h-4" /> 🛡️ 스텔스 보안 접속 (YouTube)
+                                                    </Button>
+                                                </div>
 
                                                 {/* 웜업 및 채널 개설 제어 영역 */}
                                                 {channel ? (

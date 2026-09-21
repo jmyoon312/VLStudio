@@ -104,19 +104,24 @@ class BrowserUploader:
         # 1. Launch Secure Browser (IP Rotation handled inside)
         try:
             rotate_decision = force_ip_rotation
-            # Headless Mode Resolution (Respect item setting first; fallback to global default)
-            item_headless = yt_config.get('headless_mode')
-            if item_headless is not None:
-                headless_mode = bool(item_headless)
+            # Headless Mode Resolution:
+            # If the user explicitly set the global toggle to "창 표시: 켜짐" (default_headless_mode == False),
+            # global visibility takes absolute precedence over any item-level stale configs!
+            global_headless = getattr(self, 'default_headless_mode', None)
+            if global_headless is False:
+                headless_mode = False
             else:
-                global_headless = getattr(self, 'default_headless_mode', None)
-                headless_mode = bool(global_headless) if global_headless is not None else False
-            logger.info(f"🛡️ IP Rotation Policy: {'ROTATE' if rotate_decision else 'STICKY'} (Force={force_ip_rotation}) | Headless={headless_mode}")
+                item_headless = yt_config.get('headless_mode')
+                if item_headless is not None:
+                    headless_mode = bool(item_headless)
+                else:
+                    headless_mode = bool(global_headless) if global_headless is not None else True
+            logger.info(f"🛡️ IP Rotation Policy: {'ROTATE' if rotate_decision else 'STICKY'} (Force={force_ip_rotation}) | Headless={headless_mode} (Global={global_headless}, Item={item_headless})")
 
             # [Direct Studio Launch]
-            # Default to True so uploads navigate straight to YouTube Studio without wasting time on home feed
-            skip_pre_warmup = yt_config.get('skip_pre_upload_warmup', True)
-            initial_url = "https://studio.youtube.com/" if skip_pre_warmup else "https://www.youtube.com/"
+            # 대기열 업로드는 홈 피드 시청/프리 웜업을 무조건 건너뛰고 YouTube Studio로 즉시 직행 (웜업은 독립 백그라운드 루틴에서 별도 처리)
+            skip_pre_warmup = True
+            initial_url = "https://studio.youtube.com/"
 
             page = self.session_manager._launch_orchestrator(
                 channel_id=channel_id, db=db,

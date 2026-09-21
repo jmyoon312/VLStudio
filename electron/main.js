@@ -2829,11 +2829,11 @@ function _doStartBackend(force = false) {
   } else if (foundPython) {
     console.log('[Orchestration] Launching ViraLoop FastAPI Backend via:', foundPython, 'in CWD:', workingDir)
     executablePath = foundPython
-    spawnArgs = ['-m', 'uvicorn', 'app.main:app', '--host', '0.0.0.0', '--port', '8000']
+    spawnArgs = ['-m', 'uvicorn', 'app.main:app', '--host', '0.0.0.0', '--port', '8000', '--no-access-log']
   } else {
     console.log('[Orchestration] Fallback: using system python in CWD:', workingDir)
     executablePath = 'python'
-    spawnArgs = ['-m', 'uvicorn', 'app.main:app', '--host', '0.0.0.0', '--port', '8000']
+    spawnArgs = ['-m', 'uvicorn', 'app.main:app', '--host', '0.0.0.0', '--port', '8000', '--no-access-log']
   }
 
   // SQLite 및 로컬 환경 강제 설정을 위한 환경 변수 주입
@@ -2866,7 +2866,13 @@ function _doStartBackend(force = false) {
   // Fallback: release guard after 10s even if spawn event doesn't fire
   setTimeout(() => { _isRestartingBackend = false }, 10000)
 
-  infraProcess.stdout?.on('data', (data) => console.log(`[FastAPI] ${data}`))
+  infraProcess.stdout?.on('data', (data) => {
+    const text = data.toString()
+    if (text.includes(' 206 Partial Content') || text.includes('GET /api/health') || text.includes('GET /api/work-queue/stream') || text.includes('GET /api/work-queue/thumbnail')) {
+      return
+    }
+    console.log(`[FastAPI] ${text.trimEnd()}`)
+  })
   infraProcess.stderr?.on('data', (data) => console.warn(`[FastAPI ERR] ${data}`))
   
   infraProcess.on('close', (code) => {

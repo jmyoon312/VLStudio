@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useSearchParams, useLocation, useNavigate } from 'react-router-dom';
 import { useToast } from "@/components/ui/use-toast";
 import { fetchWithRetry, uint8ArrayToBase64 } from "@/lib/utils";
@@ -22,7 +22,7 @@ import {
     FileCheck, Hash, Files, Filter, ChevronDown, ChevronUp, Copy, Film,
     Save, FileSpreadsheet, Send, Search, ArrowUpDown, Workflow, Pause,
     PlaySquare, Settings, Table, Columns2, Volume2, VolumeX, X, SlidersHorizontal,
-    Loader2, Sparkles, ExternalLink
+    Loader2, Sparkles, ExternalLink, MousePointer, UploadCloud
 } from 'lucide-react';
 
 
@@ -32,6 +32,14 @@ const getStreamUrl = (filePath: string) => {
     const isDevHttp = typeof window !== 'undefined' && window.location.protocol.startsWith('http') && window.location.port !== '8000';
     const baseUrl = isDevHttp ? '' : 'http://127.0.0.1:8000';
     return `${baseUrl}/api/work-queue/stream?path=${encodeURIComponent(filePath)}`;
+};
+
+const getThumbnailUrl = (filePath?: string, thumbPath?: string) => {
+    const target = thumbPath || filePath;
+    if (!target) return '';
+    const isDevHttp = typeof window !== 'undefined' && window.location.protocol.startsWith('http') && window.location.port !== '8000';
+    const baseUrl = isDevHttp ? '' : 'http://127.0.0.1:8000';
+    return `${baseUrl}/api/work-queue/thumbnail?path=${encodeURIComponent(target)}`;
 };
 
 
@@ -102,6 +110,119 @@ const WorkQueue = () => {
     const [sortField, setSortField] = useState<'created_at' | 'scheduled_at' | 'channel' | 'status'>('created_at');
     const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
 
+    // 대량 항목 대응: 페이지네이션 및 전체 접기/펼치기 상태
+    const [pageSize, setPageSize] = useState<number>(25);
+    const [currentPage, setCurrentPage] = useState<number>(1);
+    const [allExpanded, setAllExpanded] = useState<boolean | null>(null);
+
+    // 승인 자동화 거버넌스 모드 (SMART: 채널/85점 기반 자동승인, MANUAL: 전수 수동, AUTONOMOUS: 완전 자율)
+    const [governanceMode, setGovernanceMode] = useState<'SMART' | 'MANUAL' | 'AUTONOMOUS'>('SMART');
+
+    // 마우스 러버밴드 드래그 다중 선택 상태 및 Refs
+    const [selectionBox, setSelectionBox] = useState<{ startX: number; startY: number; currentX: number; currentY: number } | null>(null);
+    const [isDragSelecting, setIsDragSelecting] = useState(false);
+    const dragStartPos = useRef<{ x: number; y: number } | null>(null);
+    const dragStartSelectedIds = useRef<Set<number>>(new Set());
+    const itemCardRefs = useRef<{ [key: number]: HTMLDivElement | null }>({});
+    const justFinishedDrag = useRef(false);
+
+    const handleListMouseDown = (e: React.MouseEvent) => {
+        // 마우스 좌클릭(0)에만 반응
+        if (e.button !== 0) return;
+
+        const target = e.target as HTMLElement;
+        // 버튼, 입력창, 선택기, 텍스트에어리어, 체크박스, 비디오, 링크 등 인터랙티브 요소는 드래그 시작 제외
+        if (
+            target.closest('button') ||
+            target.closest('input') ||
+            target.closest('select') ||
+            target.closest('textarea') ||
+            target.closest('a') ||
+            target.closest('[role="button"]') ||
+            target.closest('[role="combobox"]') ||
+            target.closest('[role="checkbox"]') ||
+            target.closest('[data-no-drag]') ||
+            target.closest('video')
+        ) {
+            return;
+        }
+
+        dragStartPos.current = { x: e.clientX, y: e.clientY };
+        if (e.ctrlKey || e.shiftKey || e.metaKey) {
+            dragStartSelectedIds.current = new Set(selectedItems);
+        } else {
+            dragStartSelectedIds.current = new Set();
+        }
+    };
+
+    useEffect(() => {
+        const handleMouseMove = (e: MouseEvent) => {
+            if (!dragStartPos.current) return;
+
+            const dist = Math.hypot(e.clientX - dragStartPos.current.x, e.clientY - dragStartPos.current.y);
+            // 6px 이상 이동해야 드래그 선택 모드로 진입 (단순 클릭과 분리하여 카드 펼침 유지)
+            if (!isDragSelecting && dist < 6) return;
+
+            if (!isDragSelecting) {
+                setIsDragSelecting(true);
+            }
+
+            const startX = dragStartPos.current.x;
+            const startY = dragStartPos.current.y;
+            const currentX = e.clientX;
+            const currentY = e.clientY;
+
+            setSelectionBox({ startX, startY, currentX, currentY });
+
+            const boxRect = {
+                left: Math.min(startX, currentX),
+                top: Math.min(startY, currentY),
+                right: Math.max(startX, currentX),
+                bottom: Math.max(startY, currentY),
+            };
+
+            const newlySelected = new Set(dragStartSelectedIds.current);
+
+            Object.entries(itemCardRefs.current).forEach(([idStr, el]) => {
+                if (!el) return;
+                const rect = el.getBoundingClientRect();
+                const isIntersecting = !(
+                    boxRect.left > rect.right ||
+                    boxRect.right < rect.left ||
+                    boxRect.top > rect.bottom ||
+                    boxRect.bottom < rect.top
+                );
+                const itemId = Number(idStr);
+                if (isIntersecting) {
+                    newlySelected.add(itemId);
+                } else if (!dragStartSelectedIds.current.has(itemId)) {
+                    newlySelected.delete(itemId);
+                }
+            });
+
+            setSelectedItems(Array.from(newlySelected));
+        };
+
+        const handleMouseUp = () => {
+            dragStartPos.current = null;
+            if (isDragSelecting) {
+                setIsDragSelecting(false);
+                setSelectionBox(null);
+                justFinishedDrag.current = true;
+                setTimeout(() => {
+                    justFinishedDrag.current = false;
+                }, 100);
+            }
+        };
+
+        window.addEventListener('mousemove', handleMouseMove);
+        window.addEventListener('mouseup', handleMouseUp);
+        return () => {
+            window.removeEventListener('mousemove', handleMouseMove);
+            window.removeEventListener('mouseup', handleMouseUp);
+        };
+    }, [isDragSelecting]);
+
     // 브라우저 창 표시/숨김 글로벌 토글 (채널 육성과 동일한 일괄 제어 UX)
     const [showBrowserWindow, setShowBrowserWindow] = useState<boolean>(() => {
         if (typeof window !== 'undefined') {
@@ -110,6 +231,49 @@ const WorkQueue = () => {
         }
         return false;
     });
+
+    const loadGovernanceMode = async () => {
+        try {
+            const res = await fetchWithRetry('/api/work-queue/governance-mode');
+            if (res.ok) {
+                const data = await res.json();
+                if (data.governance_mode) {
+                    setGovernanceMode(data.governance_mode);
+                }
+                if (data.headless_mode !== undefined) {
+                    const isVisible = !data.headless_mode;
+                    setShowBrowserWindow(isVisible);
+                    if (typeof window !== 'undefined') {
+                        localStorage.setItem('vl_work_queue_browser_visible', String(isVisible));
+                    }
+                }
+            }
+        } catch (_) {}
+    };
+
+    const handleGovernanceModeChange = async (mode: 'SMART' | 'MANUAL' | 'AUTONOMOUS') => {
+        setGovernanceMode(mode);
+        try {
+            const res = await fetchWithRetry('/api/work-queue/governance-mode', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ mode })
+            });
+            if (res.ok) {
+                const labels: Record<string, string> = {
+                    'SMART': '⭐ 스마트 자동 승인 모드 (신뢰 채널 / 85점 이상 시 자동 승인)',
+                    'MANUAL': '🛡️ 전수 수동 승인 모드 (모든 등록 영상을 사용자가 직접 확인)',
+                    'AUTONOMOUS': '⚡ 완전 자율 무인 배포 모드 (등록 즉시 100% 자동 대기열 등록)'
+                };
+                toast({
+                    title: "승인 거버넌스 정책 변경",
+                    description: labels[mode] || mode
+                });
+            }
+        } catch (_) {
+            toast({ variant: "destructive", title: "거버넌스 설정 저장 실패" });
+        }
+    };
 
     const handleToggleBrowserWindow = async (checked: boolean) => {
         setShowBrowserWindow(checked);
@@ -138,19 +302,35 @@ const WorkQueue = () => {
     };
 
     useEffect(() => {
-        // [Headless Sync] Ensure backend default matches UI toggle state on mount
-        if (typeof window !== 'undefined') {
-            const saved = localStorage.getItem('vl_work_queue_browser_visible');
-            const isVisible = saved !== null ? saved === 'true' : false;
-            fetchWithRetry(`/api/work-queue/toggle-headless?headless=${!isVisible}`, { method: 'POST' }).catch(() => {});
-        }
+        // [Headless Sync & Governance Sync]
+        loadGovernanceMode();
         loadQueueItems();
         loadStats();
         loadAllChannels();
         loadOfficialExports();
         loadBatchGroups();
-        const interval = setInterval(() => { loadQueueItems(); loadStats(); loadBatchGroups(); }, 10000);
+        setCurrentPage(1);
+        const interval = setInterval(() => {
+            // [최적화] 탭/창이 백그라운드에 있거나 비활성화된 경우 불필요한 네트워크/디스크 폴링 스킵
+            if (typeof document !== 'undefined' && document.hidden) return;
+            loadQueueItems();
+            loadStats();
+            loadBatchGroups();
+        }, 10000);
         return () => clearInterval(interval);
+    }, [activeTab, dateFilter, limit, searchQuery, selectedBatch, channelFilter, uploadMethodFilter, sortField, sortDir]);
+
+    // [최적화] 사용자가 다른 앱 작업 후 창으로 복귀 시 1회 즉각 최신화
+    useEffect(() => {
+        const handleVisibilityChange = () => {
+            if (typeof document !== 'undefined' && !document.hidden) {
+                loadQueueItems();
+                loadStats();
+                loadBatchGroups();
+            }
+        };
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
     }, [activeTab, dateFilter, limit, searchQuery, selectedBatch]);
 
     const connectWebSocket = (itemId: number) => {
@@ -190,8 +370,26 @@ const WorkQueue = () => {
             const response = await fetchWithRetry(buildUrl());
             const data = await response.json();
             const items = Array.isArray(data) ? data : [];
-            setQueueItems(items);
-            setLocalCache('queueItems', items);
+            setQueueItems(prevItems => {
+                // [최적화] 스마트 얕은 비교: 아이템 개수, 각 ID, 상태, 업로드 진행률, 경로가 동일하면 참조 유지 (React 전체 리렌더링 차단)
+                if (prevItems.length === items.length) {
+                    const isIdentical = prevItems.every((prev, idx) => {
+                        const cur = items[idx];
+                        return cur &&
+                            prev.id === cur.id &&
+                            prev.status === cur.status &&
+                            prev.upload_progress === cur.upload_progress &&
+                            prev.video_file_path === cur.video_file_path &&
+                            prev.thumbnail_path === cur.thumbnail_path &&
+                            prev.thumbnail_url === cur.thumbnail_url;
+                    });
+                    if (isIdentical) {
+                        return prevItems; // 기존 참조 반환으로 컴포넌트 트리 렌더링 스킵
+                    }
+                }
+                setLocalCache('queueItems', items);
+                return items;
+            });
         } catch (_) {}
     };
 
@@ -260,12 +458,15 @@ const WorkQueue = () => {
     };
 
     const getApprovalBadge = (approvalStatus: string) => {
-        const v: Record<string, any> = {
-            'PENDING': 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300',
-            'APPROVED': 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300',
-            'REJECTED': 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300',
+        const v: Record<string, { className: string; label: string }> = {
+            'PENDING': { className: 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 border-amber-300/50', label: '승인 대기' },
+            'APPROVED': { className: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 border-emerald-300/50', label: '승인 완료' },
+            'AUTO_APPROVED': { className: 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300 border-blue-400 dark:border-blue-700 font-semibold', label: '⭐ 자동 승인' },
+            'REJECTED': { className: 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300 border-red-300/50', label: '반려' },
         };
-        return <Badge className={`text-[10px] py-0 px-1.5 ${v[approvalStatus] || ''}`}>{approvalStatus}</Badge>;
+        const badge = v[approvalStatus];
+        if (!badge) return <Badge className="text-[10px] py-0 px-1.5">{approvalStatus}</Badge>;
+        return <Badge className={`text-[10px] py-0 px-1.5 font-medium border ${badge.className}`}>{badge.label}</Badge>;
     };
 
     const handleApprove = async (itemId: number) => {
@@ -578,6 +779,22 @@ const WorkQueue = () => {
                 </div>
 
                 <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto">
+                    {/* 승인 자동화 거버넌스 정책 셀렉터 */}
+                    <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl border border-border bg-card shadow-2xs text-xs shrink-0">
+                        <Shield className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                        <span className="text-muted-foreground font-medium text-[11px] shrink-0">승인 정책:</span>
+                        <Select value={governanceMode} onValueChange={(val: any) => handleGovernanceModeChange(val)}>
+                            <SelectTrigger className="h-6 text-[11px] bg-transparent border-0 font-bold focus:ring-0 p-0 gap-1 w-auto">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="SMART">⭐ 스마트 자동 승인 (신뢰 채널 / 85점 이상)</SelectItem>
+                                <SelectItem value="MANUAL">🛡️ 전수 수동 승인 (모든 영상 수동 확인)</SelectItem>
+                                <SelectItem value="AUTONOMOUS">⚡ 완전 자율 무인 배포 (등록 즉시 대기열)</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+
                     {/* Browser Window Visibility Switch (채널 육성과 동일한 일괄 제어 UX) */}
                     <div className="flex items-center gap-2 px-3 py-1 rounded-xl border border-border bg-card shadow-2xs text-xs shrink-0">
                         <Switch
@@ -610,9 +827,14 @@ const WorkQueue = () => {
                 </div>
             </div>
 
-            {/* 2. 대기열 상태 통계 요약 카드 (7개 상태 완벽 동기화) */}
+            {/* 2. 대기열 상태 통계 요약 카드 (7개 상태 완벽 동기화 & 활성 탭 하이라이트) */}
             <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2.5 sm:gap-3 w-full">
-                <Card className="border-border bg-card shadow-2xs cursor-pointer hover:border-indigo-400 transition-colors" onClick={() => setActiveTab('all')}>
+                <Card 
+                    className={`border-border bg-card shadow-2xs cursor-pointer hover:border-indigo-400 transition-all ${
+                        activeTab === 'all' ? 'ring-2 ring-indigo-500 border-indigo-500 bg-indigo-50/20 dark:bg-indigo-950/20' : ''
+                    }`} 
+                    onClick={() => setActiveTab('all')}
+                >
                     <CardContent className="p-3 sm:p-3.5 flex items-center justify-between">
                         <div>
                             <p className="text-[10px] sm:text-[11px] font-medium text-muted-foreground">전체</p>
@@ -624,7 +846,12 @@ const WorkQueue = () => {
                     </CardContent>
                 </Card>
 
-                <Card className="border-border bg-card shadow-2xs cursor-pointer hover:border-slate-400 transition-colors" onClick={() => setActiveTab('draft')}>
+                <Card 
+                    className={`border-border bg-card shadow-2xs cursor-pointer hover:border-slate-400 transition-all ${
+                        activeTab === 'draft' ? 'ring-2 ring-slate-500 border-slate-500 bg-slate-50/20 dark:bg-slate-900/20' : ''
+                    }`} 
+                    onClick={() => setActiveTab('draft')}
+                >
                     <CardContent className="p-3 sm:p-3.5 flex items-center justify-between">
                         <div>
                             <p className="text-[10px] sm:text-[11px] font-medium text-muted-foreground">임시 보관</p>
@@ -636,7 +863,12 @@ const WorkQueue = () => {
                     </CardContent>
                 </Card>
 
-                <Card className="border-border bg-card shadow-2xs cursor-pointer hover:border-amber-400 transition-colors" onClick={() => setActiveTab('pending')}>
+                <Card 
+                    className={`border-border bg-card shadow-2xs cursor-pointer hover:border-amber-400 transition-all ${
+                        activeTab === 'pending' ? 'ring-2 ring-amber-500 border-amber-500 bg-amber-50/20 dark:bg-amber-950/20' : ''
+                    }`} 
+                    onClick={() => setActiveTab('pending')}
+                >
                     <CardContent className="p-3.5 flex items-center justify-between">
                         <div>
                             <p className="text-[11px] font-medium text-muted-foreground">승인 대기</p>
@@ -648,7 +880,12 @@ const WorkQueue = () => {
                     </CardContent>
                 </Card>
 
-                <Card className="border-border bg-card shadow-2xs cursor-pointer hover:border-blue-400 transition-colors" onClick={() => setActiveTab('queued')}>
+                <Card 
+                    className={`border-border bg-card shadow-2xs cursor-pointer hover:border-blue-400 transition-all ${
+                        activeTab === 'queued' ? 'ring-2 ring-blue-500 border-blue-500 bg-blue-50/20 dark:bg-blue-950/20' : ''
+                    }`} 
+                    onClick={() => setActiveTab('queued')}
+                >
                     <CardContent className="p-3.5 flex items-center justify-between">
                         <div>
                             <p className="text-[11px] font-medium text-muted-foreground">대기열</p>
@@ -660,7 +897,12 @@ const WorkQueue = () => {
                     </CardContent>
                 </Card>
 
-                <Card className="border-border bg-card shadow-2xs cursor-pointer hover:border-violet-400 transition-colors" onClick={() => setActiveTab('uploading')}>
+                <Card 
+                    className={`border-border bg-card shadow-2xs cursor-pointer hover:border-violet-400 transition-all ${
+                        activeTab === 'uploading' ? 'ring-2 ring-violet-500 border-violet-500 bg-violet-50/20 dark:bg-violet-950/20' : ''
+                    }`} 
+                    onClick={() => setActiveTab('uploading')}
+                >
                     <CardContent className="p-3.5 flex items-center justify-between">
                         <div>
                             <p className="text-[11px] font-medium text-muted-foreground">업로드 중</p>
@@ -672,7 +914,12 @@ const WorkQueue = () => {
                     </CardContent>
                 </Card>
 
-                <Card className="border-border bg-card shadow-2xs cursor-pointer hover:border-emerald-400 transition-colors" onClick={() => setActiveTab('completed')}>
+                <Card 
+                    className={`border-border bg-card shadow-2xs cursor-pointer hover:border-emerald-400 transition-all ${
+                        activeTab === 'completed' ? 'ring-2 ring-emerald-500 border-emerald-500 bg-emerald-50/20 dark:bg-emerald-950/20' : ''
+                    }`} 
+                    onClick={() => setActiveTab('completed')}
+                >
                     <CardContent className="p-3.5 flex items-center justify-between">
                         <div>
                             <p className="text-[11px] font-medium text-muted-foreground">완료</p>
@@ -684,7 +931,12 @@ const WorkQueue = () => {
                     </CardContent>
                 </Card>
 
-                <Card className="border-border bg-card shadow-2xs cursor-pointer hover:border-red-400 transition-colors" onClick={() => setActiveTab('failed_review')}>
+                <Card 
+                    className={`border-border bg-card shadow-2xs cursor-pointer hover:border-red-400 transition-all ${
+                        activeTab === 'failed_review' ? 'ring-2 ring-red-500 border-red-500 bg-red-50/20 dark:bg-red-950/20' : ''
+                    }`} 
+                    onClick={() => setActiveTab('failed_review')}
+                >
                     <CardContent className="p-3.5 flex items-center justify-between">
                         <div>
                             <p className="text-[11px] font-medium text-muted-foreground">실패</p>
@@ -711,6 +963,9 @@ const WorkQueue = () => {
                         <Button size="sm" onClick={handleBatchFinalize} className="h-7 text-xs bg-indigo-600 hover:bg-indigo-700 text-white font-medium">
                             <Rocket className="w-3 h-3 mr-1" /> 일괄 대기열 등록
                         </Button>
+                        <Button size="sm" variant="outline" onClick={handleBatchReset} className="h-7 text-xs border-border hover:bg-muted font-medium" title="선택한 항목들을 승인 대기 상태로 초기화합니다">
+                            <RotateCcw className="w-3 h-3 mr-1" /> 선택 초기화
+                        </Button>
                         <Button size="sm" variant="destructive" onClick={handleBatchDelete} className="h-7 text-xs font-medium">
                             <Trash2 className="w-3 h-3 mr-1" /> 일괄 삭제
                         </Button>
@@ -726,7 +981,13 @@ const WorkQueue = () => {
                 initialData={editingItem}
                 showBrowserWindow={showBrowserWindow}
             />
-            <BulkImportDialog isOpen={showBulkImport} setIsOpen={setShowBulkImport} onSuccess={() => { loadQueueItems(); loadStats(); }} />
+            <BulkImportDialog 
+                isOpen={showBulkImport} 
+                setIsOpen={setShowBulkImport} 
+                onSuccess={() => { loadQueueItems(); loadStats(); }} 
+                channels={channels}
+                showBrowserWindow={showBrowserWindow}
+            />
             {isPixelingOpen && (
                 <PixelingImportDialog isOpen={isPixelingOpen} setIsOpen={setIsPixelingOpen} onSuccess={() => { loadQueueItems(); loadStats(); }} />
             )}
@@ -924,6 +1185,41 @@ const WorkQueue = () => {
                                 </Button>
                             </div>
 
+                            {/* 대량 항목 대응: 전체 접기/펼치기 원클릭 버튼 */}
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setAllExpanded(prev => !prev)}
+                                className="h-7 text-xs px-2.5 border-border gap-1 shrink-0 bg-background hover:bg-muted/60"
+                                title={allExpanded ? "모든 항목 상세 접기" : "모든 항목 상세 펼치기"}
+                            >
+                                {allExpanded ? <ChevronUp className="w-3.5 h-3.5 text-indigo-500" /> : <ChevronDown className="w-3.5 h-3.5 text-indigo-500" />}
+                                <span className="hidden sm:inline font-medium">{allExpanded ? "모두 접기" : "모두 펼치기"}</span>
+                            </Button>
+
+                            {/* 마우스 드래그 다중 선택 안내 배지 */}
+                            <div
+                                className="hidden xl:flex items-center gap-1.5 text-[11px] text-muted-foreground bg-muted/40 border border-border/70 px-2 py-1 rounded-md shrink-0 select-none"
+                                title="목록의 빈 영역이나 카드를 마우스로 드래그하여 여러 영상을 일괄 선택할 수 있습니다 (Shift/Ctrl 키로 추가 선택)"
+                            >
+                                <MousePointer className="w-3 h-3 text-indigo-500" />
+                                <span>드래그 다중 선택</span>
+                            </div>
+
+                            {/* 대량 항목 대응: 페이지 당 표시 건수 셀렉터 */}
+                            <Select value={String(pageSize)} onValueChange={(val) => { setPageSize(Number(val)); setCurrentPage(1); }}>
+                                <SelectTrigger className="h-7 text-xs bg-background shrink-0 w-auto min-w-[76px] whitespace-nowrap px-2 border-border">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="10">10개씩</SelectItem>
+                                    <SelectItem value="25">25개씩</SelectItem>
+                                    <SelectItem value="50">50개씩</SelectItem>
+                                    <SelectItem value="100">100개씩</SelectItem>
+                                    <SelectItem value="-1">전체 보기</SelectItem>
+                                </SelectContent>
+                            </Select>
+
                             {/* 필터 초기화 버튼 */}
                             {(searchQuery || selectedBatch !== 'all' || dateFilter !== 'all' || channelFilter !== 'all' || uploadMethodFilter !== 'all' || sortField !== 'created_at' || sortDir !== 'desc') && (
                                 <Button size="sm" variant="ghost" onClick={clearFilters} className="h-8 text-xs px-2 text-muted-foreground hover:text-foreground shrink-0 whitespace-nowrap">
@@ -935,8 +1231,18 @@ const WorkQueue = () => {
 
                 </div>
 
-                {/* 6. 고밀도 대기열 리스트 뷰 */}
-                <TabsContent value={activeTab} className="mt-3 w-full">
+                {/* 6. 고밀도 대기열 리스트 뷰 (페이지네이션 & 대량 항목 최적화) */}
+                <TabsContent 
+                    value={activeTab} 
+                    className={`mt-3 w-full ${isDragSelecting ? 'select-none' : ''}`}
+                    onMouseDown={handleListMouseDown}
+                    onClickCapture={(e) => {
+                        if (justFinishedDrag.current) {
+                            e.stopPropagation();
+                            e.preventDefault();
+                        }
+                    }}
+                >
                     {filteredAndSortedItems.length === 0 ? (
                         <Card className="border-dashed border-2 border-border w-full">
                             <CardContent className="p-14 text-center">
@@ -949,44 +1255,152 @@ const WorkQueue = () => {
                                 </p>
                             </CardContent>
                         </Card>
-                    ) : (
-                        <div className="space-y-2 w-full">
-                            {filteredAndSortedItems.map((item, idx) => (
-                                <QueueItemCompactCard
-                                    key={item.id}
-                                    index={idx + 1}
-                                    item={item}
-                                    onApprove={handleApprove}
-                                    onReject={handleReject}
-                                    onDelete={handleDelete}
-                                    onReset={handleReset}
-                                    onEdit={(i: any) => { setEditingItem(i); setIsAddDialogOpen(true); }}
-                                    onPlay={(i: any) => { setPlayingItem(i); setIsPlayerOpen(true); }}
-                                    onAttach={handleAttachVideo}
+                    ) : (() => {
+                        const totalCount = filteredAndSortedItems.length;
+                        const effectivePageSize = pageSize === -1 ? totalCount : pageSize;
+                        const totalPages = Math.max(1, Math.ceil(totalCount / effectivePageSize));
+                        const safePage = Math.min(Math.max(1, currentPage), totalPages);
+                        const startIndex = (safePage - 1) * effectivePageSize;
+                        const paginatedItems = pageSize === -1
+                            ? filteredAndSortedItems
+                            : filteredAndSortedItems.slice(startIndex, startIndex + effectivePageSize);
 
-                                    onFinalize={handleFinalize}
-                                    onUpdateUploadMethod={handleUpdateUploadMethod}
-                                    onUpdateChannel={handleUpdateChannel}
-                                    onUpdateItem={handleUpdateItem}
-                                    onRefresh={() => { loadQueueItems(); loadStats(); }}
-                                    channels={channels}
-                                    tiktokChannels={tiktokChannels}
-                                    instagramChannels={instagramChannels}
-                                    officialExports={officialExports}
-                                    isLoadingExports={isLoadingExports}
-                                    onRefreshOfficialExports={loadOfficialExports}
-                                    getStatusBadge={getStatusBadge}
-                                    getApprovalBadge={getApprovalBadge}
-                                    selectedItems={selectedItems}
-                                    toggleItemSelection={toggleItemSelection}
-                                    isUploadingAttach={uploadingItemId === item.id}
-                                    targetItemId={targetItemId}
-                                />
-                            ))}
-                        </div>
-                    )}
+                        return (
+                            <div className="space-y-3 w-full">
+                                <div className="space-y-2 w-full">
+                                    {paginatedItems.map((item, idx) => (
+                                        <div
+                                            key={item.id}
+                                            ref={el => { itemCardRefs.current[item.id] = el; }}
+                                            className="queue-card-container w-full"
+                                        >
+                                            <QueueItemCompactCard
+                                                index={startIndex + idx + 1}
+                                                item={item}
+                                                onApprove={handleApprove}
+                                                onReject={handleReject}
+                                                onDelete={handleDelete}
+                                                onReset={handleReset}
+                                                onEdit={(i: any) => { setEditingItem(i); setIsAddDialogOpen(true); }}
+                                                onPlay={(i: any) => { setPlayingItem(i); setIsPlayerOpen(true); }}
+                                                onAttach={handleAttachVideo}
+                                                onFinalize={handleFinalize}
+                                                onUpdateUploadMethod={handleUpdateUploadMethod}
+                                                onUpdateChannel={handleUpdateChannel}
+                                                onUpdateItem={handleUpdateItem}
+                                                onRefresh={() => { loadQueueItems(); loadStats(); }}
+                                                channels={channels}
+                                                tiktokChannels={tiktokChannels}
+                                                instagramChannels={instagramChannels}
+                                                officialExports={officialExports}
+                                                isLoadingExports={isLoadingExports}
+                                                onRefreshOfficialExports={loadOfficialExports}
+                                                getStatusBadge={getStatusBadge}
+                                                getApprovalBadge={getApprovalBadge}
+                                                selectedItems={selectedItems}
+                                                toggleItemSelection={toggleItemSelection}
+                                                isUploadingAttach={uploadingItemId === item.id}
+                                                targetItemId={targetItemId}
+                                                forceExpanded={allExpanded}
+                                            />
+                                        </div>
+                                    ))}
+                                </div>
+
+                                {/* 하단 페이지네이션 컨트롤러 (대량 영상 관리 필수) */}
+                                {totalCount > 0 && pageSize !== -1 && (
+                                    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 px-2 border-t border-border/70 text-xs text-muted-foreground w-full">
+                                        <div className="text-[11px]">
+                                            전체 <strong className="text-foreground font-bold">{totalCount}</strong>개 항목 중{' '}
+                                            <strong className="text-foreground font-bold">{startIndex + 1}</strong> ~{' '}
+                                            <strong className="text-foreground font-bold">{Math.min(startIndex + effectivePageSize, totalCount)}</strong>개 표시
+                                        </div>
+
+                                        <div className="flex items-center gap-1.5">
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                disabled={safePage <= 1}
+                                                onClick={() => setCurrentPage(1)}
+                                                className="h-7 px-2 text-xs border-border bg-card"
+                                            >
+                                                처음
+                                            </Button>
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                disabled={safePage <= 1}
+                                                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                                className="h-7 px-2.5 text-xs border-border bg-card"
+                                            >
+                                                이전
+                                            </Button>
+                                            <div className="px-3 py-1 rounded bg-muted/60 text-xs font-bold text-foreground border border-border/60">
+                                                {safePage} / {totalPages}
+                                            </div>
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                disabled={safePage >= totalPages}
+                                                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                                className="h-7 px-2.5 text-xs border-border bg-card"
+                                            >
+                                                다음
+                                            </Button>
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                disabled={safePage >= totalPages}
+                                                onClick={() => setCurrentPage(totalPages)}
+                                                className="h-7 px-2 text-xs border-border bg-card"
+                                            >
+                                                마지막
+                                            </Button>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })()}
                 </TabsContent>
             </Tabs>
+
+            {/* 마우스 러버밴드 드래그 다중 선택 박스 오버레이 (Marquee Selection) */}
+            {isDragSelecting && selectionBox && (
+                <div
+                    className="fixed pointer-events-none border-2 border-indigo-500 bg-indigo-500/20 z-50 rounded-lg shadow-sm"
+                    style={{
+                        left: Math.min(selectionBox.startX, selectionBox.currentX),
+                        top: Math.min(selectionBox.startY, selectionBox.currentY),
+                        width: Math.abs(selectionBox.currentX - selectionBox.startX),
+                        height: Math.abs(selectionBox.currentY - selectionBox.startY),
+                    }}
+                />
+            )}
+
+            {/* 7. 플로팅 일괄 작업 바 (스크롤 중에도 항상 즉시 접근 가능) */}
+            {selectedItems.length > 0 && (
+                <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-background/95 dark:bg-card/95 backdrop-blur-md border-2 border-indigo-500/80 shadow-2xl rounded-2xl px-4 py-2.5 flex items-center gap-2.5 animate-in fade-in slide-in-from-bottom-4">
+                    <Badge className="bg-indigo-600 text-white text-xs px-2.5 py-0.5">{selectedItems.length}개 선택됨</Badge>
+                    <div className="h-4 w-px bg-border mx-0.5" />
+                    <Button size="sm" onClick={handleBatchApprove} className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-medium shadow-xs">
+                        <CheckCircle className="w-3.5 h-3.5 mr-1" /> 일괄 승인
+                    </Button>
+                    <Button size="sm" onClick={handleBatchFinalize} className="h-7 text-xs bg-indigo-600 hover:bg-indigo-700 text-white font-medium shadow-xs">
+                        <Rocket className="w-3.5 h-3.5 mr-1" /> 일괄 대기열 등록
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={handleBatchReset} className="h-7 text-xs border-border hover:bg-muted font-medium shadow-xs" title="선택한 항목들을 승인 대기 상태로 초기화합니다">
+                        <RotateCcw className="w-3.5 h-3.5 mr-1" /> 선택 초기화
+                    </Button>
+                    <Button size="sm" variant="destructive" onClick={handleBatchDelete} className="h-7 text-xs font-medium shadow-xs">
+                        <Trash2 className="w-3.5 h-3.5 mr-1" /> 일괄 삭제
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => setSelectedItems([])} className="h-7 text-xs text-muted-foreground hover:text-foreground">
+                        선택 해제
+                    </Button>
+                </div>
+            )}
+
             <input ref={directFileInputRef} type="file" accept="video/*" className="hidden" onChange={handleDirectFileSelected} />
         </div>
     );
@@ -1204,6 +1618,117 @@ const renderChannelNetworkBadge = (ch: any) => {
     );
 };
 
+interface ViralPreviewResult {
+    caption: string;
+    hookOrBody?: string;
+    tags: string[];
+    isCustom: boolean;
+    note: string;
+}
+
+const computeViralPreview = (
+    platform: 'tiktok' | 'instagram' | 'youtube',
+    title: string,
+    desc: string,
+    hashtagsStr: string,
+    customCaption?: string
+): ViralPreviewResult => {
+    const rawTags = (hashtagsStr || '')
+        .split(/[\s,]+/)
+        .map(t => t.trim().replace(/^#+/, ''))
+        .filter(Boolean);
+
+    const tabooMap: Record<string, Set<string>> = {
+        tiktok: new Set(["shorts", "쇼츠", "youtube", "유튜브", "youtubeshorts", "유튜브쇼츠", "sub", "subscribe", "구독", "좋아요댓글구독", "채널"]),
+        instagram: new Set(["shorts", "쇼츠", "youtube", "유튜브", "youtubeshorts", "유튜브쇼츠", "sub", "subscribe", "구독"]),
+        youtube: new Set(["fyp", "foryou", "foryoupage", "틱톡", "틱톡순삭", "tiktok", "reels", "릴스"])
+    };
+    const taboo = tabooMap[platform] || new Set();
+    const sanitizedBase = rawTags.filter(t => !taboo.has(t.toLowerCase())).map(t => `#${t}`);
+
+    const corpus = `${title} ${desc} ${sanitizedBase.join(' ')}`.toLowerCase();
+    const niches: string[] = [];
+    if (/고양이|cat|강아지|dog|반려|pet|puppy|동물|animal/.test(corpus)) niches.push('animal');
+    if (/유머|funny|웃긴|개그|meme|밈|폭소|병맛|코미디/.test(corpus)) niches.push('humor');
+    if (/먹방|요리|food|cook|mukbang|맛집|레시피|recipe|디저트/.test(corpus)) niches.push('food');
+    if (/상식|지식|꿀팁|팁|정보|fact|역사|과학|경제|이슈/.test(corpus)) niches.push('knowledge');
+
+    if (platform === 'tiktok') {
+        if (customCaption && customCaption.trim()) {
+            const userTags = (customCaption.match(/#[A-Za-z0-9가-힣_]+/g) || [])
+                .filter(t => !taboo.has(t.replace('#', '').toLowerCase()));
+            return {
+                caption: customCaption.trim(),
+                tags: userTags,
+                isCustom: true,
+                note: "사용자 맞춤 캡션 직접 사용 중 (유튜브 오염 태그 자동 배제)"
+            };
+        }
+        const rawText = (desc || title || '').trim();
+        const firstLine = rawText.split('\n')[0].replace(/#[A-Za-z0-9가-힣_]+/g, '').trim();
+        let hook = firstLine || title.trim();
+        if (hook.length > 100) hook = hook.slice(0, 97) + '...';
+
+        const nicheTagsMap: Record<string, string[]> = {
+            animal: ['#catsoftiktok', '#댕댕이'],
+            humor: ['#유머스타그램', '#웃긴영상'],
+            food: ['#foodtiktok', '#먹방틱톡'],
+            knowledge: ['#틱톡교실', '#1분지식']
+        };
+        const nicheTags = niches.flatMap(n => nicheTagsMap[n] || []);
+        const combined = Array.from(new Set(['#fyp', '#틱톡순삭', ...nicheTags, ...sanitizedBase, '#foryou'])).slice(0, 5);
+        return {
+            caption: `${hook}\n\n${combined.join(' ')}`,
+            hookOrBody: hook,
+            tags: combined,
+            isCustom: false,
+            note: "✨ 100% 자동 변환: 자막 가림 방지 2줄 훅 캡션 + #fyp #틱톡순삭 바이럴 4~5개 주입"
+        };
+    } else if (platform === 'instagram') {
+        if (customCaption && customCaption.trim()) {
+            const userTags = (customCaption.match(/#[A-Za-z0-9가-힣_]+/g) || [])
+                .filter(t => !taboo.has(t.replace('#', '').toLowerCase()));
+            return {
+                caption: customCaption.trim(),
+                tags: userTags,
+                isCustom: true,
+                note: "사용자 맞춤 캡션 직접 사용 중"
+            };
+        }
+        const rawText = (desc || title || '').trim();
+        const lines = rawText.split('\n').map(l => l.trim()).filter(Boolean);
+        const bodyLines = lines
+            .filter(l => !l.split(/\s+/).every(tok => tok.startsWith('#')))
+            .map(l => l.replace(/(?:\s*#[A-Za-z0-9가-힣_]+)+$/, '').trim())
+            .filter(Boolean);
+        const body = bodyLines.join('\n') || title.trim();
+
+        const nicheTagsMap: Record<string, string[]> = {
+            animal: ['#냥스타그램', '#댕스타그램', '#펫스타그램'],
+            humor: ['#유머', '#오늘의유머', '#웃긴짤'],
+            food: ['#먹스타그램', '#맛스타그램', '#요리스타그램'],
+            knowledge: ['#꿀팁', '#정보공유', '#상식']
+        };
+        const nicheTags = niches.flatMap(n => nicheTagsMap[n] || []);
+        const combined = Array.from(new Set(['#reels', '#reelsinstagram', ...nicheTags, ...sanitizedBase, '#viralreels'])).slice(0, 7);
+        return {
+            caption: `${body}\n.\n.\n${combined.join(' ')}`,
+            hookOrBody: body,
+            tags: combined,
+            isCustom: false,
+            note: "✨ 100% 자동 변환: 릴스 감성 본문 서식 + #reels #reelsinstagram 5~7개 주입"
+        };
+    } else {
+        const combined = Array.from(new Set(['#shorts', ...sanitizedBase])).slice(0, 8);
+        return {
+            caption: `${desc}\n\n${combined.join(' ')}`.trim(),
+            tags: combined,
+            isCustom: false,
+            note: "✨ 유튜브 쇼츠: #shorts 태그 필수 보장 및 타 플랫폼 태그 0% 배제"
+        };
+    }
+};
+
 const QueueItemCompactCard = ({
     index, item, onApprove, onReject, onDelete, onReset, onEdit, onPlay,
     onAttach, onFinalize, onUpdateUploadMethod, onUpdateChannel, onUpdateItem,
@@ -1211,12 +1736,19 @@ const QueueItemCompactCard = ({
     channels, tiktokChannels, instagramChannels,
     officialExports = [], isLoadingExports = false, onRefreshOfficialExports,
     getStatusBadge, getApprovalBadge, selectedItems, toggleItemSelection,
-    isUploadingAttach, targetItemId
+    isUploadingAttach, targetItemId, forceExpanded
 }: any) => {
 
     const { toast } = useToast();
     const isTarget = targetItemId && item.id === targetItemId;
     const [expanded, setExpanded] = useState(isTarget || false);
+
+    useEffect(() => {
+        if (forceExpanded !== null && forceExpanded !== undefined) {
+            setExpanded(forceExpanded);
+        }
+    }, [forceExpanded]);
+
     const [isMuted, setIsMuted] = useState(true);
     const [isPlaying, setIsPlaying] = useState(true);
     const [videoInfo, setVideoInfo] = useState<{ width: number; height: number; duration: number; isVertical: boolean } | null>(null);
@@ -1228,6 +1760,7 @@ const QueueItemCompactCard = ({
     const [editVideoFilePath, setEditVideoFilePath] = useState(item.video_file_path || '');
     const [isUploadingVideo, setIsUploadingVideo] = useState(false);
     const [uploadPercent, setUploadPercent] = useState(0);
+    const [isDraggingOver, setIsDraggingOver] = useState(false);
 
     // --- Content Metadata State ---
     const [editTitle, setEditTitle] = useState(item.title || '');
@@ -1241,7 +1774,7 @@ const QueueItemCompactCard = ({
 
     // --- Target Platforms & Active Sub-Tab ---
     const initialPlatforms = Array.isArray(item.target_platforms) && item.target_platforms.length > 0
-        ? item.target_platforms
+        ? item.target_platforms.filter((p: string) => p !== 'douyin')
         : ['youtube'];
     const [editTargetPlatforms, setEditTargetPlatforms] = useState<string[]>(initialPlatforms);
     const [activePlatformTab, setActivePlatformTab] = useState<'youtube' | 'tiktok' | 'instagram'>(
@@ -1282,6 +1815,9 @@ const QueueItemCompactCard = ({
     const [editTiktokAllowDuet, setEditTiktokAllowDuet] = useState(
         item.platform_configs?.tiktok?.allow_duet !== undefined ? Boolean(item.platform_configs.tiktok.allow_duet) : true
     );
+    const [editTiktokCaption, setEditTiktokCaption] = useState(
+        item.platform_configs?.tiktok?.caption || ''
+    );
 
     // --- Instagram Configs ---
     const [editInstagramAccountId, setEditInstagramAccountId] = useState(
@@ -1302,52 +1838,71 @@ const QueueItemCompactCard = ({
     const [isSaving, setIsSaving] = useState(false);
     const [isFinalizing, setIsFinalizing] = useState(false);
 
+    // 실시간 바이럴 변환 미리보기 (Instant 0ms 계산)
+    const tiktokPreview = useMemo(() => {
+        return computeViralPreview('tiktok', editTitle, editDescription, editHashtags, editTiktokCaption);
+    }, [editTitle, editDescription, editHashtags, editTiktokCaption]);
+
+    const instagramPreview = useMemo(() => {
+        return computeViralPreview('instagram', editTitle, editDescription, editHashtags, editInstagramCaption);
+    }, [editTitle, editDescription, editHashtags, editInstagramCaption]);
+
+    const youtubePreview = useMemo(() => {
+        return computeViralPreview('youtube', editTitle, editDescription, editHashtags);
+    }, [editTitle, editDescription, editHashtags]);
+
+    // 이전 item.id 추적용 Ref (백그라운드 10초 폴링 시 사용자 편집 상태가 리셋되는 치명적 버그 방지)
+    const prevItemIdRef = useRef(item.id);
+
     useEffect(() => {
-        setEditVideoFilePath(item.video_file_path || '');
-        setEditTitle(item.title || '');
-        setEditDescription(item.description || '');
-        setEditHashtags(Array.isArray(item.hashtags) ? item.hashtags.join(' ') : (item.hashtags || ''));
-        setEditTags(Array.isArray(item.tags) ? item.tags.join(', ') : (item.tags || ''));
+        // item의 ID가 실제로 달라졌을 때만 (다른 카드를 클릭/교체했을 때) 전체 상태를 동기화
+        if (prevItemIdRef.current !== item.id) {
+            prevItemIdRef.current = item.id;
+            setEditVideoFilePath(item.video_file_path || '');
+            setEditTitle(item.title || '');
+            setEditDescription(item.description || '');
+            setEditHashtags(Array.isArray(item.hashtags) ? item.hashtags.join(' ') : (item.hashtags || ''));
+            setEditTags(Array.isArray(item.tags) ? item.tags.join(', ') : (item.tags || ''));
 
-        const plats = Array.isArray(item.target_platforms) && item.target_platforms.length > 0
-            ? item.target_platforms
-            : ['youtube'];
-        setEditTargetPlatforms(plats);
-        if (!plats.includes(activePlatformTab)) {
+            const plats = Array.isArray(item.target_platforms) && item.target_platforms.length > 0
+                ? item.target_platforms.filter((p: string) => p !== 'douyin')
+                : ['youtube'];
+            setEditTargetPlatforms(plats);
             setActivePlatformTab(plats[0] as any || 'youtube');
+
+            const ytConf = item.platform_configs?.youtube || {};
+            setEditChannelId(ytConf.channel_id || item.channel_id || '');
+            setEditPrivacy(ytConf.privacy || (item.scheduled_upload_time ? 'scheduled' : 'private'));
+            setEditScheduleTime(
+                item.scheduled_upload_time
+                    ? (item.scheduled_upload_time.includes('T') ? item.scheduled_upload_time : item.scheduled_upload_time.replace(' ', 'T')).slice(0, 16)
+                    : ''
+            );
+            setEditHeadlessMode(
+                ytConf.headless_mode !== undefined ? !ytConf.headless_mode : false
+            );
+            setEditEnableShoppingTag(Boolean(item.enable_shopping_tag));
+            setEditShoppingTagKeyword(item.shopping_tag_keyword || '');
+
+            const ttConf = item.platform_configs?.tiktok || {};
+            setEditTiktokAccountId(ttConf.account_id || '');
+            setEditTiktokPrivacy(ttConf.privacy || 'private');
+            setEditTiktokAllowComments(ttConf.allow_comments !== undefined ? Boolean(ttConf.allow_comments) : true);
+            setEditTiktokAllowDuet(ttConf.allow_duet !== undefined ? Boolean(ttConf.allow_duet) : true);
+            setEditTiktokCaption(ttConf.caption || '');
+
+            const igConf = item.platform_configs?.instagram || {};
+            setEditInstagramAccountId(igConf.account_id || '');
+            setEditInstagramShareToFeed(Boolean(igConf.share_to_feed));
+            setEditInstagramCaption(igConf.caption || '');
+
+            setEditUploadMethod(item.upload_method || 'BROWSER_AUTO');
+            setEditSourceExternalId(item.source_external_id || '');
+            setEditApprovalRequired(Boolean(item.approval_required));
         }
+    }, [item.id]);
 
-        const ytConf = item.platform_configs?.youtube || {};
-        setEditChannelId(ytConf.channel_id || item.channel_id || '');
-        setEditPrivacy(ytConf.privacy || (item.scheduled_upload_time ? 'scheduled' : 'private'));
-        setEditScheduleTime(
-            item.scheduled_upload_time
-                ? (item.scheduled_upload_time.includes('T') ? item.scheduled_upload_time : item.scheduled_upload_time.replace(' ', 'T')).slice(0, 16)
-                : ''
-        );
-        setEditHeadlessMode(
-            ytConf.headless_mode !== undefined ? !ytConf.headless_mode : false
-        );
-        setEditEnableShoppingTag(Boolean(item.enable_shopping_tag));
-        setEditShoppingTagKeyword(item.shopping_tag_keyword || '');
-
-        const ttConf = item.platform_configs?.tiktok || {};
-        setEditTiktokAccountId(ttConf.account_id || '');
-        setEditTiktokPrivacy(ttConf.privacy || 'private');
-        setEditTiktokAllowComments(ttConf.allow_comments !== undefined ? Boolean(ttConf.allow_comments) : true);
-        setEditTiktokAllowDuet(ttConf.allow_duet !== undefined ? Boolean(ttConf.allow_duet) : true);
-
-        const igConf = item.platform_configs?.instagram || {};
-        setEditInstagramAccountId(igConf.account_id || '');
-        setEditInstagramShareToFeed(Boolean(igConf.share_to_feed));
-        setEditInstagramCaption(igConf.caption || '');
-
-        setEditUploadMethod(item.upload_method || 'BROWSER_AUTO');
-        setEditSourceExternalId(item.source_external_id || '');
-        setEditApprovalRequired(Boolean(item.approval_required));
-    }, [item]);
-
-    const initialPlatStr = (Array.isArray(item.target_platforms) && item.target_platforms.length > 0 ? item.target_platforms : ['youtube']).slice().sort().join(',');
+    const initialPlatStr = (Array.isArray(item.target_platforms) && item.target_platforms.length > 0 ? item.target_platforms.filter((p: string) => p !== 'douyin') : ['youtube']).slice().sort().join(',');
     const currentPlatStr = editTargetPlatforms.slice().sort().join(',');
 
     const isDirty = (
@@ -1367,6 +1922,7 @@ const QueueItemCompactCard = ({
         editTiktokPrivacy !== (item.platform_configs?.tiktok?.privacy || 'private') ||
         editTiktokAllowComments !== (item.platform_configs?.tiktok?.allow_comments !== undefined ? Boolean(item.platform_configs.tiktok.allow_comments) : true) ||
         editTiktokAllowDuet !== (item.platform_configs?.tiktok?.allow_duet !== undefined ? Boolean(item.platform_configs.tiktok.allow_duet) : true) ||
+        editTiktokCaption !== (item.platform_configs?.tiktok?.caption || '') ||
         editInstagramAccountId !== (item.platform_configs?.instagram?.account_id || '') ||
         editInstagramShareToFeed !== Boolean(item.platform_configs?.instagram?.share_to_feed) ||
         editInstagramCaption !== (item.platform_configs?.instagram?.caption || '') ||
@@ -1407,6 +1963,7 @@ const QueueItemCompactCard = ({
         setEditTiktokPrivacy(ttConf.privacy || 'private');
         setEditTiktokAllowComments(ttConf.allow_comments !== undefined ? Boolean(ttConf.allow_comments) : true);
         setEditTiktokAllowDuet(ttConf.allow_duet !== undefined ? Boolean(ttConf.allow_duet) : true);
+        setEditTiktokCaption(ttConf.caption || '');
 
         const igConf = item.platform_configs?.instagram || {};
         setEditInstagramAccountId(igConf.account_id || '');
@@ -1447,26 +2004,27 @@ const QueueItemCompactCard = ({
         toast({ title: "공식 저장소 영상 선택", description: filePath.split(/[/\\]/).pop() });
     };
 
-    const handleBrowseVideo = async () => {
+    const handleBrowseVideo = () => {
         if ((window as any).electronAPI?.selectVideoFile) {
-            const r = await (window as any).electronAPI.selectVideoFile();
-            if (r.success && r.path) {
-                setEditVideoFilePath(r.path);
-                if (!editTitle.trim()) {
-                    const fileName = r.path.split(/[/\\]/).pop() || '';
-                    setEditTitle(fileName.replace(/\.[^/.]+$/, '').replace(/_/g, ' '));
+            (window as any).electronAPI.selectVideoFile().then((r: any) => {
+                if (r?.success && r?.path) {
+                    setEditVideoFilePath(r.path);
+                    if (!editTitle.trim()) {
+                        const fileName = r.path.split(/[/\\]/).pop() || '';
+                        setEditTitle(fileName.replace(/\.[^/.]+$/, '').replace(/_/g, ' '));
+                    }
+                    toast({ title: "영상 파일 선택 완료", description: r.path });
                 }
-                toast({ title: "영상 파일 선택 완료", description: r.path });
-                return;
-            }
+            }).catch((err: any) => {
+                console.error("Electron video file selection error:", err);
+            });
+            return;
         }
+        // 웹 브라우저 환경: User Activation 보존을 위해 즉시 동기 실행
         fileInputRef.current?.click();
     };
 
-    const handleFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-
+    const uploadFileDirect = async (file: File) => {
         setIsUploadingVideo(true);
         setUploadPercent(0);
         try {
@@ -1518,8 +2076,72 @@ const QueueItemCompactCard = ({
             toast({ variant: "destructive", title: "업로드 실패", description: err.message || '서버 오류' });
         } finally {
             setIsUploadingVideo(false);
-            if (e.target) e.target.value = '';
         }
+    };
+
+    const handleFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        await uploadFileDirect(file);
+        if (e.target) e.target.value = '';
+    };
+
+    const handleDragOver = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!isDraggingOver) setIsDraggingOver(true);
+    };
+
+    const handleDragLeave = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+        setIsDraggingOver(false);
+    };
+
+    const handleDrop = async (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDraggingOver(false);
+
+        const files = e.dataTransfer.files;
+        if (!files || files.length === 0) return;
+        const file = files[0];
+
+        // 비디오 확장자 검사
+        const validVideoExts = /\.(mp4|mov|webm|mkv|avi|m4v|flv|wmv)$/i;
+        const isVideo = file.type.startsWith('video/') || validVideoExts.test(file.name);
+        if (!isVideo) {
+            toast({
+                variant: "destructive",
+                title: "동영상 파일이 아닙니다",
+                description: "MP4, MOV, WEBM 등 비디오 파일을 끌어다 놓아주세요."
+            });
+            return;
+        }
+
+        // 1) Electron 환경: file.path 존재 시 0초 로컬 파일 직결
+        const electronFilePath = (file as any).path;
+        if (electronFilePath) {
+            setEditVideoFilePath(electronFilePath);
+            if (!editTitle.trim()) {
+                const fileName = file.name.replace(/\.[^/.]+$/, '').replace(/_/g, ' ');
+                setEditTitle(fileName);
+            }
+            toast({
+                title: "🎬 동영상 연결 완료 (드래그앤드롭)",
+                description: file.name
+            });
+            if (typeof onRefresh === 'function') {
+                onRefresh();
+            } else if (typeof onUpdateItem === 'function') {
+                onUpdateItem(item.id, { video_file_path: electronFilePath });
+            }
+            return;
+        }
+
+        // 2) 브라우저(Web) 환경: XHR 업로드 실행
+        await uploadFileDirect(file);
     };
 
     const handleExtractShoppingKeyword = async () => {
@@ -1618,7 +2240,8 @@ const QueueItemCompactCard = ({
                 account_id: editTiktokAccountId,
                 privacy: editTiktokPrivacy,
                 allow_comments: editTiktokAllowComments,
-                allow_duet: editTiktokAllowDuet
+                allow_duet: editTiktokAllowDuet,
+                caption: editTiktokCaption
             },
             instagram: {
                 ...((item.platform_configs || {}).instagram || {}),
@@ -1917,15 +2540,16 @@ const QueueItemCompactCard = ({
                     <div 
                         className="w-12 h-12 rounded-lg bg-muted/80 border border-border shrink-0 overflow-hidden flex items-center justify-center relative group shadow-2xs"
                     >
-                        {item.thumbnail_url ? (
-                            <img src={item.thumbnail_url} alt="" className="w-full h-full object-cover" />
-                        ) : hasVideo ? (
+                        {hasVideo || item.thumbnail_url || item.thumbnail_path ? (
                             <>
-                                <video 
-                                    src={streamUrl} 
-                                    muted 
-                                    preload="metadata" 
-                                    className="w-full h-full object-cover pointer-events-none"
+                                <img 
+                                    src={item.thumbnail_url || getThumbnailUrl(item.video_file_path, item.thumbnail_path)} 
+                                    alt="" 
+                                    loading="lazy"
+                                    className="w-full h-full object-cover" 
+                                    onError={(e) => {
+                                        (e.target as HTMLElement).style.opacity = '0';
+                                    }}
                                 />
                                 <div className="absolute inset-0 bg-black/25 group-hover:bg-black/10 flex items-center justify-center transition-all">
                                     <Play className="w-3.5 h-3.5 text-white drop-shadow-sm" />
@@ -1991,7 +2615,16 @@ const QueueItemCompactCard = ({
                     <div className="hidden sm:flex items-center gap-1.5 shrink-0 ml-auto" onClick={(e) => e.stopPropagation()}>
                         {(item.status === 'DRAFT' || !item.video_file_path) && (
                             <>
-                                <Button size="sm" variant="outline" onClick={() => onAttach(item.id)} disabled={isUploadingAttach} className="h-7 text-xs px-2 border-border">
+                                <Button 
+                                    size="sm" 
+                                    variant="outline" 
+                                    onClick={() => {
+                                        setExpanded(true);
+                                        onAttach(item.id);
+                                    }} 
+                                    disabled={isUploadingAttach} 
+                                    className="h-7 text-xs px-2 border-border"
+                                >
                                     {isUploadingAttach ? <Loader2 className="w-3 h-3 mr-1 animate-spin text-primary" /> : <Paperclip className="w-3 h-3 mr-1" />}
                                     {isUploadingAttach ? '업로드 중...' : '영상 첨부'}
                                 </Button>
@@ -2009,6 +2642,17 @@ const QueueItemCompactCard = ({
                                     <XCircle className="w-3 h-3 mr-1" /> 반려
                                 </Button>
                             </>
+                        )}
+                        {onReset && (item.status === 'COMPLETED' || item.status === 'FAILED' || item.status === 'QUEUED' || item.approval_status === 'APPROVED') && (
+                            <Button 
+                                size="sm" 
+                                variant="outline" 
+                                onClick={() => onReset(item.id)} 
+                                className="h-7 text-xs px-2.5 border-border hover:bg-muted text-muted-foreground hover:text-foreground font-medium"
+                                title="대기열 대기 상태로 초기화하여 재승인/재업로드 가능하도록 되돌립니다"
+                            >
+                                <RotateCcw className="w-3 h-3 mr-1" /> 초기화
+                            </Button>
                         )}
                         <Button 
                             size="sm" 
@@ -2041,7 +2685,16 @@ const QueueItemCompactCard = ({
                 <div className="sm:hidden flex items-center gap-1.5 w-full pt-1.5 border-t border-border/40 justify-end" onClick={(e) => e.stopPropagation()}>
                     {(item.status === 'DRAFT' || !item.video_file_path) && (
                         <>
-                            <Button size="sm" variant="outline" onClick={() => onAttach(item.id)} disabled={isUploadingAttach} className="h-7 text-xs px-2.5 border-border flex-1">
+                            <Button 
+                                size="sm" 
+                                variant="outline" 
+                                onClick={() => {
+                                    setExpanded(true);
+                                    onAttach(item.id);
+                                }} 
+                                disabled={isUploadingAttach} 
+                                className="h-7 text-xs px-2.5 border-border flex-1"
+                            >
                                 {isUploadingAttach ? <Loader2 className="w-3 h-3 mr-1 animate-spin text-primary" /> : <Paperclip className="w-3 h-3 mr-1" />}
                                 {isUploadingAttach ? '업로드 중...' : '영상 첨부'}
                             </Button>
@@ -2060,6 +2713,17 @@ const QueueItemCompactCard = ({
                             </Button>
                         </>
                     )}
+                    {onReset && (item.status === 'COMPLETED' || item.status === 'FAILED' || item.status === 'QUEUED' || item.approval_status === 'APPROVED') && (
+                        <Button 
+                            size="sm" 
+                            variant="outline" 
+                            onClick={() => onReset(item.id)} 
+                            className="h-7 text-xs px-2 border-border flex-1"
+                            title="대기열 대기 상태로 초기화"
+                        >
+                            <RotateCcw className="w-3 h-3 mr-1" /> 초기화
+                        </Button>
+                    )}
                 </div>
 
                 {/* 4. 인라인 원클릭 즉시 편집 스튜디오 (멀티 플랫폼 & 영상 관리 완벽 흡수) */}
@@ -2067,21 +2731,30 @@ const QueueItemCompactCard = ({
                     <div className="mt-3 pt-3 border-t border-border/80 space-y-3 w-full min-w-0" onClick={(e) => e.stopPropagation()}>
                         <div className="flex flex-col md:flex-row items-stretch gap-4 text-xs w-full min-w-0">
                             
-                            {/* [좌측] 📱 9:16 모바일 폰 숏폼 프리뷰어 & 🎬 영상 소스 관리 (폭 220px) */}
-                            <div className="w-full md:w-[220px] shrink-0 flex flex-col p-2.5 rounded-xl border border-border bg-muted/30 space-y-2.5 shadow-xs">
+                            {/* [좌측] 📱 9:16 모바일 폰 숏폼 프리뷰어 & 🎬 영상 통합 드롭존 (폭 320px~340px) */}
+                            <div 
+                                onDragOver={handleDragOver}
+                                onDragLeave={handleDragLeave}
+                                onDrop={handleDrop}
+                                className={`w-full md:w-[320px] lg:w-[340px] shrink-0 flex flex-col p-3 rounded-2xl border transition-all duration-200 space-y-2.5 shadow-xs ${
+                                    isDraggingOver 
+                                        ? 'border-indigo-500 bg-indigo-50/40 dark:bg-indigo-950/40 ring-2 ring-indigo-500/50' 
+                                        : 'border-border bg-muted/30'
+                                }`}
+                            >
                                 <div className="w-full flex items-center justify-between text-[11px] font-bold text-foreground">
-                                    <span className="flex items-center gap-1">
-                                        <Play className="w-3 h-3 text-indigo-500" /> 숏폼 뷰
+                                    <span className="flex items-center gap-1.5">
+                                        <Play className="w-3.5 h-3.5 text-indigo-500" /> 숏폼 뷰 (9:16)
                                     </span>
                                     {hasVideo && (
                                         <Button 
                                             variant="ghost" 
                                             size="sm" 
-                                            className="h-5 text-[9px] px-1 text-indigo-600 dark:text-indigo-400 hover:text-indigo-700" 
+                                            className="h-5 text-[10px] px-1.5 text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 gap-1 font-medium" 
                                             onClick={() => handleOpenInSystem(editVideoFilePath || item.video_file_path)}
                                             title="시스템 기본 플레이어로 열기"
                                         >
-                                            열기 ↗
+                                            <ExternalLink className="w-3 h-3" /> 열기 ↗
                                         </Button>
                                     )}
                                 </div>
@@ -2090,7 +2763,7 @@ const QueueItemCompactCard = ({
                                 {hasVideo || item.thumbnail_url ? (
                                     <div 
                                         onClick={togglePlayPause}
-                                        className="relative w-full aspect-[9/16] max-h-[280px] rounded-lg overflow-hidden bg-black border border-border shadow-md group cursor-pointer flex items-center justify-center mx-auto"
+                                        className="relative w-full aspect-[9/16] min-h-[380px] max-h-[480px] rounded-xl overflow-hidden bg-black border border-border shadow-md group cursor-pointer flex items-center justify-center mx-auto select-none"
                                     >
                                         <video 
                                             ref={videoRef}
@@ -2109,11 +2782,20 @@ const QueueItemCompactCard = ({
                                         )}
 
                                         {/* 재생/정지 오버레이 인디케이터 */}
-                                        {!isPlaying && (
+                                        {!isPlaying && !isDraggingOver && (
                                             <div className="absolute inset-0 bg-black/40 flex items-center justify-center pointer-events-none">
-                                                <div className="w-10 h-10 rounded-full bg-black/60 backdrop-blur-xs flex items-center justify-center text-white">
-                                                    <Play className="w-5 h-5 ml-0.5 fill-white" />
+                                                <div className="w-12 h-12 rounded-full bg-black/60 backdrop-blur-xs flex items-center justify-center text-white shadow-lg">
+                                                    <Play className="w-6 h-6 ml-0.5 fill-white" />
                                                 </div>
+                                            </div>
+                                        )}
+
+                                        {/* 드래그 오버 시 영상 교체 안내 오버레이 */}
+                                        {isDraggingOver && (
+                                            <div className="absolute inset-0 bg-indigo-600/85 backdrop-blur-xs flex flex-col items-center justify-center text-white z-30 p-4 text-center animate-in fade-in duration-150">
+                                                <UploadCloud className="w-12 h-12 mb-2 animate-bounce" />
+                                                <p className="font-bold text-sm">새 동영상 파일 놓기</p>
+                                                <p className="text-[11px] text-indigo-100 mt-1">여기에 놓으면 즉시 이 영상으로 교체됩니다</p>
                                             </div>
                                         )}
 
@@ -2121,15 +2803,15 @@ const QueueItemCompactCard = ({
                                         <button
                                             type="button"
                                             onClick={toggleMute}
-                                            className="absolute bottom-2 right-2 p-1.5 rounded-full bg-black/70 hover:bg-black/90 text-white backdrop-blur-xs transition-all z-10"
+                                            className="absolute bottom-2.5 right-2.5 p-1.5 rounded-full bg-black/70 hover:bg-black/90 text-white backdrop-blur-xs transition-all z-10 shadow"
                                             title={isMuted ? "소리 켜기" : "음소거"}
                                         >
-                                            {isMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5 text-indigo-400" />}
+                                            {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4 text-indigo-400" />}
                                         </button>
 
                                         {/* 상단 숏폼 해상도/길이 배지 */}
                                         {videoInfo && (
-                                            <div className="absolute top-1.5 left-1.5 bg-black/60 backdrop-blur-xs text-[8px] font-mono text-white/90 px-1 py-0.5 rounded">
+                                            <div className="absolute top-2 left-2 bg-black/70 backdrop-blur-xs text-[9px] font-mono text-white/90 px-1.5 py-0.5 rounded shadow-xs">
                                                 {videoInfo.width}×{videoInfo.height} {videoInfo.duration > 0 && `· ${formatDuration(videoInfo.duration)}`}
                                             </div>
                                         )}
@@ -2137,19 +2819,48 @@ const QueueItemCompactCard = ({
                                 ) : (
                                     <div 
                                         onClick={handleBrowseVideo}
-                                        className="w-full aspect-[9/16] max-h-[220px] rounded-lg border-2 border-dashed border-border/80 bg-background/50 flex flex-col items-center justify-center p-3 text-center cursor-pointer hover:border-indigo-400 transition-colors"
+                                        className={`w-full aspect-[9/16] min-h-[380px] max-h-[480px] rounded-xl border-2 border-dashed transition-all duration-200 flex flex-col items-center justify-center p-5 text-center cursor-pointer relative group ${
+                                            isDraggingOver 
+                                                ? 'border-indigo-500 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400' 
+                                                : 'border-border/80 bg-background/50 hover:border-indigo-400 hover:bg-accent/40'
+                                        }`}
                                     >
-                                        <FileVideo className="w-8 h-8 text-muted-foreground/60 mb-1" />
-                                        <p className="text-[11px] font-semibold text-muted-foreground">영상 미첨부</p>
-                                        <p className="text-[9px] text-muted-foreground/70 mt-0.5">아래에서 영상 선택</p>
+                                        <div className="w-16 h-16 rounded-2xl bg-indigo-500/10 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform shadow-xs">
+                                            {isDraggingOver ? (
+                                                <UploadCloud className="w-8 h-8 animate-bounce" />
+                                            ) : (
+                                                <FileVideo className="w-8 h-8" />
+                                            )}
+                                        </div>
+                                        <p className="text-xs font-bold text-foreground mb-1">
+                                            {isDraggingOver ? "✨ 여기에 동영상을 놓아주세요" : "동영상 끌어다 놓기 (Drag & Drop)"}
+                                        </p>
+                                        <p className="text-[11px] text-muted-foreground leading-relaxed max-w-[210px]">
+                                            PC 탐색기에서 비디오 파일을 마우스로 끌어오거나 클릭하여 첨부
+                                        </p>
+                                        <div className="mt-3 px-3 py-1.5 rounded-full bg-background border border-border text-[11px] text-indigo-600 dark:text-indigo-400 font-medium shadow-2xs group-hover:bg-indigo-50 dark:group-hover:bg-indigo-950/40 flex items-center gap-1">
+                                            <FolderOpen className="w-3.5 h-3.5" />
+                                            <span>영상 파일 찾아보기</span>
+                                        </div>
+
+                                        {isUploadingVideo && (
+                                            <div className="absolute inset-0 bg-background/90 backdrop-blur-xs flex flex-col items-center justify-center p-4 z-20">
+                                                <Loader2 className="w-8 h-8 animate-spin text-primary mb-2" />
+                                                <p className="text-xs font-bold text-foreground">영상 업로드 중...</p>
+                                                <p className="text-[10px] text-muted-foreground font-mono mt-1">{uploadPercent}%</p>
+                                                <div className="w-36 bg-muted rounded-full h-1.5 overflow-hidden mt-2">
+                                                    <div className="bg-primary h-full transition-all duration-150" style={{ width: `${uploadPercent}%` }} />
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                 )}
 
-                                {/* 영상 소스 관리 (05_Exports & 로컬 첨부) */}
-                                <div className="pt-2 border-t border-border/60 space-y-1.5 w-full">
+                                {/* 영상 소스 관리 (05_Exports & 통합 컨트롤 허브) */}
+                                <div className="pt-2 border-t border-border/60 space-y-2 w-full">
                                     <div className="flex items-center justify-between">
-                                        <span className="text-[10px] font-bold text-foreground flex items-center gap-1">
-                                            <Film className="w-3 h-3 text-indigo-500" /> 영상 파일 소스
+                                        <span className="text-[11px] font-bold text-foreground flex items-center gap-1.5">
+                                            <Film className="w-3.5 h-3.5 text-indigo-500" /> 영상 파일 소스
                                         </span>
                                         {onRefreshOfficialExports && (
                                             <Button
@@ -2158,10 +2869,10 @@ const QueueItemCompactCard = ({
                                                 size="sm"
                                                 onClick={onRefreshOfficialExports}
                                                 disabled={isLoadingExports}
-                                                className="h-5 text-[9px] px-1 text-muted-foreground hover:text-foreground"
+                                                className="h-5 text-[10px] px-1 text-muted-foreground hover:text-foreground"
                                                 title="05_Exports 폴더 새로고침"
                                             >
-                                                <RefreshCw className={`w-2.5 h-2.5 mr-0.5 ${isLoadingExports ? 'animate-spin' : ''}`} /> 새로고침
+                                                <RefreshCw className={`w-2.5 h-2.5 mr-1 ${isLoadingExports ? 'animate-spin' : ''}`} /> 새로고침
                                             </Button>
                                         )}
                                     </div>
@@ -2171,49 +2882,85 @@ const QueueItemCompactCard = ({
                                         value={editVideoFilePath || ''}
                                         onValueChange={handleSelectOfficialExport}
                                     >
-                                        <SelectTrigger className="h-7 text-[10px] bg-background border-border">
-                                            <SelectValue placeholder={isLoadingExports ? "스캔 중..." : (officialExports.length ? `📁 05_Exports (${officialExports.length}개)` : "05_Exports 폴더 비어있음")} />
+                                        <SelectTrigger className="h-8 text-[11px] bg-background border-border">
+                                            <SelectValue placeholder={isLoadingExports ? "스캔 중..." : (officialExports.length ? `📁 05_Exports (${officialExports.length}개 영상)` : "05_Exports 폴더 비어있음")} />
                                         </SelectTrigger>
                                         <SelectContent className="max-h-52">
                                             {officialExports.map((file: any) => (
                                                 <SelectItem key={file.path} value={file.path}>
-                                                    <div className="flex items-center justify-between gap-2 text-[10px] w-full">
-                                                        <span className="font-medium truncate max-w-[140px]">{file.filename}</span>
-                                                        <span className="text-[9px] text-muted-foreground shrink-0">{file.size_mb}MB</span>
+                                                    <div className="flex items-center justify-between gap-2 text-[11px] w-full">
+                                                        <span className="font-medium truncate max-w-[170px]">{file.filename}</span>
+                                                        <span className="text-[10px] text-muted-foreground shrink-0">{file.size_mb}MB</span>
                                                     </div>
                                                 </SelectItem>
                                             ))}
                                         </SelectContent>
                                     </Select>
 
-                                    {/* 파일 경로 직접 입력 & 찾아보기 */}
-                                    <div className="flex gap-1">
-                                        <Input 
-                                            value={editVideoFilePath}
-                                            onChange={e => setEditVideoFilePath(e.target.value)}
-                                            placeholder="파일 경로..."
-                                            className="h-7 text-[9px] font-mono bg-background border-border flex-1 px-1.5"
-                                        />
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={handleBrowseVideo}
-                                            disabled={isUploadingVideo}
-                                            className="h-7 text-[10px] px-2 shrink-0 border-border"
-                                        >
-                                            {isUploadingVideo ? <Loader2 className="w-3 h-3 animate-spin text-primary" /> : <FolderOpen className="w-3 h-3 text-indigo-500" />}
-                                            <span className="ml-1">{isUploadingVideo ? `${uploadPercent}%` : '찾기'}</span>
-                                        </Button>
-                                        <input ref={fileInputRef} type="file" accept="video/*" className="hidden" onChange={handleFileSelected} />
-                                    </div>
+                                    {/* 파일 연결 상태 툴바 및 직접 찾아보기 */}
+                                    {hasVideo ? (
+                                        <div className="flex items-center gap-1.5 p-1.5 rounded-lg bg-background border border-border">
+                                            <Film className="w-3.5 h-3.5 text-indigo-500 shrink-0 ml-1" />
+                                            <span 
+                                                className="font-mono text-[10px] text-foreground truncate flex-1 cursor-pointer hover:underline" 
+                                                title={`전체 경로: ${editVideoFilePath || item.video_file_path}`}
+                                                onClick={() => copyText(editVideoFilePath || item.video_file_path, '전체 경로가 복사되었습니다')}
+                                            >
+                                                {(editVideoFilePath || item.video_file_path).split(/[/\\]/).pop()}
+                                            </span>
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => copyText(editVideoFilePath || item.video_file_path, '경로 복사됨')}
+                                                className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground shrink-0"
+                                                title="경로 복사"
+                                            >
+                                                <Copy className="w-3 h-3" />
+                                            </Button>
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={handleBrowseVideo}
+                                                disabled={isUploadingVideo}
+                                                className="h-6 px-1.5 text-[10px] shrink-0 border-border"
+                                                title="다른 동영상으로 변경"
+                                            >
+                                                {isUploadingVideo ? <Loader2 className="w-3 h-3 animate-spin text-primary" /> : <FolderOpen className="w-3 h-3 text-indigo-500" />}
+                                                <span className="ml-1">{isUploadingVideo ? `${uploadPercent}%` : '변경'}</span>
+                                            </Button>
+                                        </div>
+                                    ) : (
+                                        <div className="flex gap-1.5">
+                                            <Input 
+                                                value={editVideoFilePath}
+                                                onChange={e => setEditVideoFilePath(e.target.value)}
+                                                placeholder="파일 경로 직접 입력..."
+                                                className="h-8 text-[10px] font-mono bg-background border-border flex-1 px-2"
+                                            />
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={handleBrowseVideo}
+                                                disabled={isUploadingVideo}
+                                                className="h-8 text-[11px] px-2.5 shrink-0 border-border font-medium"
+                                            >
+                                                {isUploadingVideo ? <Loader2 className="w-3 h-3 animate-spin text-primary" /> : <FolderOpen className="w-3.5 h-3.5 text-indigo-500" />}
+                                                <span className="ml-1">{isUploadingVideo ? `${uploadPercent}%` : '찾기'}</span>
+                                            </Button>
+                                        </div>
+                                    )}
+
+                                    <input ref={fileInputRef} type="file" accept="video/*" className="hidden" onChange={handleFileSelected} />
 
                                     {isUploadingVideo && (
                                         <div className="space-y-0.5">
                                             <div className="w-full bg-muted rounded-full h-1 overflow-hidden">
                                                 <div className="bg-primary h-1 rounded-full transition-all duration-150" style={{ width: `${uploadPercent}%` }} />
                                             </div>
-                                            <p className="text-[8px] text-muted-foreground text-right">업로드 중... {uploadPercent}%</p>
+                                            <p className="text-[9px] text-muted-foreground text-right">업로드 중... {uploadPercent}%</p>
                                         </div>
                                     )}
                                 </div>
@@ -2317,21 +3064,6 @@ const QueueItemCompactCard = ({
                                                 </p>
                                             </div>
                                         </div>
-                                    </div>
-
-                                    {/* 파일 경로 박스 */}
-                                    <div className="pt-2 border-t border-border/50">
-                                        <div className="flex items-center justify-between text-[10px] text-muted-foreground mb-1">
-                                            <span>영상 파일 경로</span>
-                                            {hasVideo && (
-                                                <Button variant="ghost" size="sm" className="h-4 text-[9px] px-1" onClick={() => copyText(editVideoFilePath || item.video_file_path, '경로 복사됨')}>
-                                                    <Copy className="w-2.5 h-2.5 mr-0.5" /> 복사
-                                                </Button>
-                                            )}
-                                        </div>
-                                        <p className="font-mono text-[10px] text-muted-foreground break-all bg-background/80 p-1.5 rounded-lg border border-border">
-                                            {editVideoFilePath || item.video_file_path || '미첨부'}
-                                        </p>
                                     </div>
                                 </div>
 
@@ -2455,11 +3187,18 @@ const QueueItemCompactCard = ({
                                                             <SelectValue placeholder={channels.length ? "채널 선택" : "등록된 채널 없음"} />
                                                         </SelectTrigger>
                                                         <SelectContent>
-                                                            {channels.map((ch: any) => (
+                                                             {channels.map((ch: any) => (
                                                                 <SelectItem key={ch.channel_id} value={ch.channel_id}>
                                                                     <div className="flex items-center justify-between gap-2 w-full text-xs">
                                                                         <span className="truncate max-w-[180px]">{ch.channel_name || ch.title} ({ch.subscriber_count?.toLocaleString()}명)</span>
-                                                                        {renderChannelNetworkBadge(ch)}
+                                                                        <div className="flex items-center gap-1 shrink-0">
+                                                                            {ch.auto_approve_default && (
+                                                                                <span className="text-[9px] font-bold text-blue-600 dark:text-blue-400 bg-blue-500/10 px-1 py-0.5 rounded border border-blue-500/20">
+                                                                                    ⭐ 자동승인
+                                                                                </span>
+                                                                            )}
+                                                                            {renderChannelNetworkBadge(ch)}
+                                                                        </div>
                                                                     </div>
                                                                 </SelectItem>
                                                             ))}
@@ -2482,6 +3221,12 @@ const QueueItemCompactCard = ({
                                                                      channels.find((ch: any) => ch.channel_id === editChannelId).proxy_host ? `🌐 ISP 고정 (${channels.find((ch: any) => ch.channel_id === editChannelId).proxy_host})` : `🛡️ 로컬 단독 회선`}
                                                                 </span>
                                                             </div>
+                                                            {channels.find((ch: any) => ch.channel_id === editChannelId)?.auto_approve_default && (
+                                                                <div className="flex items-center justify-between text-[10px] text-blue-600 dark:text-blue-400 font-semibold bg-blue-50/50 dark:bg-blue-950/40 p-1.5 rounded border border-blue-200/60 dark:border-blue-800/40 mt-1">
+                                                                    <span>⭐ 자동 승인 신뢰 채널</span>
+                                                                    <span className="text-[9px] font-normal text-muted-foreground">등록 시 PENDING 검수 없이 대기열로 직결</span>
+                                                                </div>
+                                                            )}
                                                         </div>
                                                     )}
                                                 </div>
@@ -2563,6 +3308,27 @@ const QueueItemCompactCard = ({
                                                         </div>
                                                     )}
                                                 </div>
+
+                                                {/* YouTube Shorts 클린 메타데이터 안내 */}
+                                                <div className="p-2 rounded-lg border border-blue-200/80 dark:border-blue-900/50 bg-blue-50/40 dark:bg-blue-950/20 space-y-1">
+                                                    <div className="flex items-center justify-between">
+                                                        <span className="text-[10px] font-bold text-blue-700 dark:text-blue-300 flex items-center gap-1">
+                                                            <Sparkles className="w-3 h-3 text-blue-500" />
+                                                            🎬 YouTube Shorts 클린 메타데이터
+                                                        </span>
+                                                        <Badge variant="outline" className="text-[9px] py-0 bg-blue-100/60 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border-blue-300 dark:border-blue-800">
+                                                            #shorts 자동 보장
+                                                        </Badge>
+                                                    </div>
+                                                    <p className="text-[9px] text-muted-foreground">{youtubePreview.note}</p>
+                                                    <div className="flex flex-wrap gap-1 pt-0.5">
+                                                        {youtubePreview.tags.map((t, i) => (
+                                                            <span key={i} className="text-[9px] font-medium px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-700 dark:text-blue-300 border border-blue-500/20">
+                                                                {t}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                </div>
                                             </div>
                                         )}
 
@@ -2624,6 +3390,45 @@ const QueueItemCompactCard = ({
                                                         </label>
                                                     </div>
                                                 </div>
+
+                                                {/* 틱톡 맞춤 캡션 입력 */}
+                                                <div className="space-y-1">
+                                                    <div className="flex items-center justify-between">
+                                                        <span className="text-[10px] text-muted-foreground font-semibold">틱톡 맞춤 캡션 (선택)</span>
+                                                        <span className="text-[9px] text-muted-foreground">{editTiktokCaption ? '맞춤 캡션 사용' : '비워두면 100% 자동 바이럴'}</span>
+                                                    </div>
+                                                    <Textarea
+                                                        value={editTiktokCaption}
+                                                        onChange={e => setEditTiktokCaption(e.target.value)}
+                                                        placeholder="비워두면 2줄 훅 캡션과 #fyp #틱톡순삭 태그가 자동 생성됩니다..."
+                                                        rows={2}
+                                                        className="text-xs bg-background border-border"
+                                                    />
+                                                </div>
+
+                                                {/* TikTok 자동 바이럴 변환 실시간 미리보기 배너 */}
+                                                <div className="p-2.5 rounded-lg border border-pink-200/80 dark:border-pink-900/50 bg-pink-50/40 dark:bg-pink-950/20 space-y-1.5">
+                                                    <div className="flex items-center justify-between">
+                                                        <span className="text-[10px] font-bold text-pink-700 dark:text-pink-300 flex items-center gap-1">
+                                                            <Sparkles className="w-3 h-3 text-pink-500" />
+                                                            {tiktokPreview.isCustom ? '🎵 틱톡 업로드 캡션 (수동 지정)' : '✨ 틱톡 전자동 바이럴 최적화 미리보기'}
+                                                        </span>
+                                                        <Badge variant="outline" className="text-[9px] py-0 bg-pink-100/60 dark:bg-pink-950/60 text-pink-700 dark:text-pink-300 border-pink-300 dark:border-pink-800">
+                                                            {tiktokPreview.isCustom ? '사용자 맞춤' : '전자동 바이럴'}
+                                                        </Badge>
+                                                    </div>
+                                                    <p className="text-[9px] text-muted-foreground">{tiktokPreview.note}</p>
+                                                    <div className="p-1.5 rounded bg-background/80 border border-border/60 text-[10px] font-sans text-foreground whitespace-pre-wrap break-all max-h-24 overflow-y-auto">
+                                                        {tiktokPreview.caption}
+                                                    </div>
+                                                    <div className="flex flex-wrap gap-1 pt-0.5">
+                                                        {tiktokPreview.tags.map((t, i) => (
+                                                            <span key={i} className="text-[9px] font-medium px-1.5 py-0.5 rounded bg-pink-500/10 text-pink-700 dark:text-pink-300 border border-pink-500/20">
+                                                                {t}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                </div>
                                             </div>
                                         )}
 
@@ -2679,6 +3484,30 @@ const QueueItemCompactCard = ({
                                                         rows={2}
                                                         className="text-xs bg-background border-border"
                                                     />
+                                                </div>
+
+                                                {/* Instagram 자동 바이럴 변환 실시간 미리보기 배너 */}
+                                                <div className="p-2.5 rounded-lg border border-purple-200/80 dark:border-purple-900/50 bg-purple-50/40 dark:bg-purple-950/20 space-y-1.5">
+                                                    <div className="flex items-center justify-between">
+                                                        <span className="text-[10px] font-bold text-purple-700 dark:text-purple-300 flex items-center gap-1">
+                                                            <Sparkles className="w-3 h-3 text-purple-500" />
+                                                            {instagramPreview.isCustom ? '📸 인스타 업로드 캡션 (수동 지정)' : '✨ 인스타 릴스 전자동 바이럴 최적화 미리보기'}
+                                                        </span>
+                                                        <Badge variant="outline" className="text-[9px] py-0 bg-purple-100/60 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border-purple-300 dark:border-purple-800">
+                                                            {instagramPreview.isCustom ? '사용자 맞춤' : '전자동 바이럴'}
+                                                        </Badge>
+                                                    </div>
+                                                    <p className="text-[9px] text-muted-foreground">{instagramPreview.note}</p>
+                                                    <div className="p-1.5 rounded bg-background/80 border border-border/60 text-[10px] font-sans text-foreground whitespace-pre-wrap break-all max-h-24 overflow-y-auto">
+                                                        {instagramPreview.caption}
+                                                    </div>
+                                                    <div className="flex flex-wrap gap-1 pt-0.5">
+                                                        {instagramPreview.tags.map((t, i) => (
+                                                            <span key={i} className="text-[9px] font-medium px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-700 dark:text-purple-300 border border-purple-500/20">
+                                                                {t}
+                                                            </span>
+                                                        ))}
+                                                    </div>
                                                 </div>
                                             </div>
                                         )}
@@ -3647,13 +4476,17 @@ const AddVideoDialog = ({ isOpen, setIsOpen, onSuccess, initialData, showBrowser
 
                                         <Select
                                             value={form.platform_configs?.youtube?.channel_id || ''}
-                                            onValueChange={v => setForm(prev => ({
-                                                ...prev,
-                                                platform_configs: {
-                                                    ...prev.platform_configs,
-                                                    youtube: { ...(prev.platform_configs?.youtube || {}), channel_id: v }
-                                                }
-                                            }))}
+                                            onValueChange={v => {
+                                                const ch = channels.find((c: any) => c.channel_id === v);
+                                                setForm(prev => ({
+                                                    ...prev,
+                                                    approval_required: ch?.auto_approve_default ? false : prev.approval_required,
+                                                    platform_configs: {
+                                                        ...prev.platform_configs,
+                                                        youtube: { ...(prev.platform_configs?.youtube || {}), channel_id: v }
+                                                    }
+                                                }));
+                                            }}
                                             disabled={channels.length === 0}
                                         >
                                             <SelectTrigger className="h-8 text-xs bg-background border-border">
@@ -3664,14 +4497,21 @@ const AddVideoDialog = ({ isOpen, setIsOpen, onSuccess, initialData, showBrowser
                                                     <SelectItem key={ch.channel_id} value={ch.channel_id}>
                                                         <div className="flex items-center justify-between gap-2 w-full text-xs">
                                                             <span className="truncate max-w-[180px]">{ch.channel_name || ch.title} ({ch.subscriber_count?.toLocaleString()}명)</span>
-                                                            {renderChannelNetworkBadge(ch)}
+                                                            <div className="flex items-center gap-1 shrink-0">
+                                                                {ch.auto_approve_default && (
+                                                                    <span className="text-[9px] font-bold text-blue-600 dark:text-blue-400 bg-blue-500/10 px-1 py-0.5 rounded border border-blue-500/20">
+                                                                        ⭐ 자동승인
+                                                                    </span>
+                                                                )}
+                                                                {renderChannelNetworkBadge(ch)}
+                                                            </div>
                                                         </div>
                                                     </SelectItem>
                                                 ))}
                                             </SelectContent>
                                         </Select>
 
-                                        {/* 선택된 채널의 네트워크 라인 안내 */}
+                                        {/* 선택된 채널의 네트워크 라인 안내 및 자동 승인 신뢰 배지 */}
                                         {selectedYtChannel && (
                                             <div className="text-[10px] bg-background/80 p-2 rounded-lg border border-border/70 space-y-1">
                                                 <div className="flex items-center justify-between text-muted-foreground">
@@ -3688,6 +4528,12 @@ const AddVideoDialog = ({ isOpen, setIsOpen, onSuccess, initialData, showBrowser
                                                          selectedYtChannel.proxy_host ? `🌐 ISP 고정 (${selectedYtChannel.proxy_host})` : `🛡️ 단독 로컬 회선`}
                                                     </span>
                                                 </div>
+                                                {selectedYtChannel.auto_approve_default && (
+                                                    <div className="flex items-center justify-between text-[10px] text-blue-600 dark:text-blue-400 font-semibold bg-blue-50/50 dark:bg-blue-950/40 p-1.5 rounded border border-blue-200/60 dark:border-blue-800/40 mt-1">
+                                                        <span>⭐ 자동 승인 신뢰 채널</span>
+                                                        <span className="text-[9px] font-normal text-muted-foreground">등록 시 PENDING 검수 없이 대기열로 직결</span>
+                                                    </div>
+                                                )}
                                             </div>
                                         )}
 
@@ -3916,15 +4762,35 @@ const AddVideoDialog = ({ isOpen, setIsOpen, onSuccess, initialData, showBrowser
     );
 };
 
-const BulkImportDialog = ({ isOpen, setIsOpen, onSuccess }: { isOpen: boolean; setIsOpen: (v: boolean) => void; onSuccess: () => void }) => {
+const BulkImportDialog = ({ 
+    isOpen, 
+    setIsOpen, 
+    onSuccess, 
+    channels = [], 
+    showBrowserWindow = false 
+}: { 
+    isOpen: boolean; 
+    setIsOpen: (v: boolean) => void; 
+    onSuccess: () => void;
+    channels?: any[];
+    showBrowserWindow?: boolean;
+}) => {
     const { toast } = useToast();
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [parsedRows, setParsedRows] = useState<any[]>([]);
     const [headers, setHeaders] = useState<string[]>([]);
     const [batchId, setBatchId] = useState('');
     const [sendStatus, setSendStatus] = useState<'idle' | 'sending' | 'done'>('idle');
+    const [defaultChannelId, setDefaultChannelId] = useState<string>('');
+    const [approvalPolicy, setApprovalPolicy] = useState<'GOVERNANCE' | 'MANUAL' | 'IMMEDIATE'>('GOVERNANCE');
     const cachedFileBytes = useRef<Uint8Array | null>(null);
     const cachedFileName = useRef<string>('');
+
+    useEffect(() => {
+        if (channels && channels.length > 0 && !defaultChannelId) {
+            setDefaultChannelId(channels[0].channel_id || channels[0].id || '');
+        }
+    }, [channels]);
 
     const parseCSVField = (line: string): string[] => {
         const fields: string[] = [];
@@ -4020,7 +4886,7 @@ const BulkImportDialog = ({ isOpen, setIsOpen, onSuccess }: { isOpen: boolean; s
             };
             if (item.target_platforms.length === 0) item.target_platforms = ['youtube'];
 
-            mapped.push(item)
+            mapped.push(item);
         });
 
         setParsedRows(mapped);
@@ -4074,8 +4940,19 @@ const BulkImportDialog = ({ isOpen, setIsOpen, onSuccess }: { isOpen: boolean; s
                 onSuccess();
                 return;
             }
+
+            const selectedChannel = channels.find((c: any) => String(c.channel_id) === String(defaultChannelId) || String(c.id) === String(defaultChannelId));
+            const isTrustedChannel = Boolean(selectedChannel?.auto_approve_default);
+            const approvalReq = approvalPolicy === 'MANUAL' ? true : (approvalPolicy === 'IMMEDIATE' || isTrustedChannel ? false : false);
+
             const items = parsedRows.map(r => {
-                const platformConfigs: any = {};
+                const platformConfigs: any = {
+                    youtube: {
+                        channel_id: defaultChannelId,
+                        privacy: r.platform_privacy || 'private',
+                        headless_mode: !showBrowserWindow,
+                    }
+                };
                 if (r.platform_privacy) {
                     r.target_platforms?.forEach((p: string) => {
                         platformConfigs[p] = { ...(platformConfigs[p] || {}), privacy: r.platform_privacy };
@@ -4090,8 +4967,10 @@ const BulkImportDialog = ({ isOpen, setIsOpen, onSuccess }: { isOpen: boolean; s
                     source_type: 'BULK_IMPORT',
                     upload_method: r.upload_method || 'BROWSER_AUTO',
                     target_platforms: r.target_platforms || ['youtube'],
-                    platform_configs: Object.keys(platformConfigs).length ? platformConfigs : null,
+                    platform_configs: platformConfigs,
                     scheduled_upload_time: r.scheduled_time || null,
+                    channel_id: defaultChannelId || null,
+                    approval_required: approvalReq,
                 };
             });
             const res = await fetchWithRetry('/api/work-queue/items/bulk/import', {
@@ -4116,11 +4995,74 @@ const BulkImportDialog = ({ isOpen, setIsOpen, onSuccess }: { isOpen: boolean; s
 
     const reset = () => { setParsedRows([]); setHeaders([]); setBatchId(''); setSendStatus('idle'); cachedFileBytes.current = null; cachedFileName.current = ''; if (fileInputRef.current) fileInputRef.current.value = ''; };
 
+    const selectedChannel = channels.find((c: any) => String(c.channel_id) === String(defaultChannelId) || String(c.id) === String(defaultChannelId));
+
     return (
         <Dialog open={isOpen} onOpenChange={(v) => { setIsOpen(v); if (!v) reset(); }}>
             <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-card text-foreground border-border">
-                <DialogHeader><DialogTitle>일괄 등록</DialogTitle><DialogDescription>CSV 또는 Excel 파일로 여러 항목을 한번에 대기열에 등록합니다</DialogDescription></DialogHeader>
+                <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2">
+                        <Upload className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                        쇼츠 일괄 등록 (CSV / Excel)
+                    </DialogTitle>
+                    <DialogDescription>
+                        CSV 또는 Excel 파일로 다수의 영상을 한번에 대기열에 등록하고 일괄 자동 배포합니다.
+                    </DialogDescription>
+                </DialogHeader>
+
                 <div className="space-y-4">
+                    {/* 일괄 적용 채널 및 승인 정책 거버넌스 설정 바 */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 rounded-xl bg-muted/40 border border-border">
+                        <div>
+                            <Label className="text-xs font-bold text-foreground flex items-center gap-1 mb-1.5">
+                                🎬 기본 적용 YouTube 채널
+                            </Label>
+                            <Select value={defaultChannelId} onValueChange={setDefaultChannelId}>
+                                <SelectTrigger className="h-8 text-xs bg-background border-border">
+                                    <SelectValue placeholder={channels.length ? "채널 선택" : "등록된 채널 없음"} />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {channels.map((ch: any) => (
+                                        <SelectItem key={ch.channel_id || ch.id} value={ch.channel_id || ch.id}>
+                                            <div className="flex items-center justify-between gap-2 w-full text-xs">
+                                                <span className="truncate">{ch.channel_name || ch.title || ch.name}</span>
+                                                {ch.auto_approve_default && (
+                                                    <span className="text-[9px] font-bold text-blue-600 dark:text-blue-400 bg-blue-500/10 px-1 py-0.5 rounded">
+                                                        ⭐ 자동승인
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            {selectedChannel?.auto_approve_default && (
+                                <p className="text-[10px] text-blue-600 dark:text-blue-400 mt-1 font-medium">
+                                    ⭐ 자동 승인 신뢰 채널: 등록 즉시 승인 대기 없이 대기열로 직결됩니다.
+                                </p>
+                            )}
+                        </div>
+
+                        <div>
+                            <Label className="text-xs font-bold text-foreground flex items-center gap-1 mb-1.5">
+                                🛡️ 일괄 승인 거버넌스 정책
+                            </Label>
+                            <Select value={approvalPolicy} onValueChange={(v: any) => setApprovalPolicy(v)}>
+                                <SelectTrigger className="h-8 text-xs bg-background border-border">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="GOVERNANCE">⭐ 스마트 자동 승인 (신뢰 채널 / 85점 기준)</SelectItem>
+                                    <SelectItem value="MANUAL">🛡️ 전수 수동 확인 (PENDING 대기)</SelectItem>
+                                    <SelectItem value="IMMEDIATE">⚡ 즉시 대기열 등록 (100% 자동 직결)</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            <p className="text-[10px] text-muted-foreground mt-1">
+                                * 창 표시: <strong className="text-foreground">{showBrowserWindow ? "화면 표시(켜짐)" : "백그라운드 스텔스"}</strong> 설정이 적용됩니다.
+                            </p>
+                        </div>
+                    </div>
+
                     <Card className="border-2 border-dashed border-border hover:border-indigo-300 transition-colors">
                         <CardContent className="p-8 text-center">
                             <input ref={fileInputRef} type="file" accept=".csv,.xlsx,.xls" onChange={handleFileChange} className="hidden" id="bulk-import-file-input" />

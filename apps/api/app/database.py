@@ -96,6 +96,7 @@ else:
             cursor.execute("PRAGMA foreign_keys=ON")
             cursor.execute("PRAGMA journal_mode=WAL")
             cursor.execute("PRAGMA synchronous=NORMAL")
+            cursor.execute("PRAGMA busy_timeout=30000")
             cursor.execute("PRAGMA cache_size=-64000")
             cursor.execute("PRAGMA temp_store=MEMORY")
             try:
@@ -107,6 +108,10 @@ else:
                 cursor.execute("CREATE INDEX IF NOT EXISTS ix_channels_category ON channels(category_id);")
                 cursor.execute("CREATE INDEX IF NOT EXISTS ix_videos_channel_id ON videos(channel_id);")
                 cursor.execute("CREATE INDEX IF NOT EXISTS ix_videos_upload_date ON videos(upload_date DESC);")
+                # [Optimization] WorkQueue high-throughput query indexes
+                cursor.execute("CREATE INDEX IF NOT EXISTS ix_wq_status_sched ON work_queue_items(status, scheduled_upload_time);")
+                cursor.execute("CREATE INDEX IF NOT EXISTS ix_wq_status_approval ON work_queue_items(status, approval_status);")
+                cursor.execute("CREATE INDEX IF NOT EXISTS ix_wq_channel_status ON work_queue_items(channel_id, status);")
                 # Auto-migrate render_engine column for work_queue_items
                 try:
                     cursor.execute("ALTER TABLE work_queue_items ADD COLUMN render_engine VARCHAR DEFAULT 'REMOTION';")
@@ -201,78 +206,84 @@ def create_checkpoint_table():
 
 
 def migrate_source_external_id():
-    """work_queue_items에 source_external_id 컬럼이 없으면 추가 (SQLite/PostgreSQL 대응)"""
+    """work_queue_items에 source_external_id 컬럼 및 신규 거버넌스 컬럼 추가"""
     try:
-        db = SessionLocal()
-        conn = db.connection()
         from sqlalchemy import inspect
         inspector = inspect(engine)
         
-        # 1. work_queue_items.source_external_id
-        columns = [c["name"] for c in inspector.get_columns("work_queue_items")]
-        if "source_external_id" not in columns:
-            dialect = engine.dialect.name
-            if dialect == "sqlite":
+        with engine.begin() as conn:
+            # 1. work_queue_items.source_external_id
+            columns = [c["name"] for c in inspector.get_columns("work_queue_items")]
+            if "source_external_id" not in columns:
                 conn.execute(text("ALTER TABLE work_queue_items ADD COLUMN source_external_id VARCHAR"))
-            else:
-                conn.execute(text("ALTER TABLE work_queue_items ADD COLUMN source_external_id VARCHAR"))
-            db.commit()
-            print("[Migration] Added source_external_id column to work_queue_items")
+                print("[Migration] Added source_external_id column to work_queue_items")
 
-        # 2. profiles.name
-        profile_cols = [c["name"] for c in inspector.get_columns("profiles")]
-        if "name" not in profile_cols:
-            dialect = engine.dialect.name
-            if dialect == "sqlite":
+            # 2. profiles.name
+            profile_cols = [c["name"] for c in inspector.get_columns("profiles")]
+            if "name" not in profile_cols:
                 conn.execute(text("ALTER TABLE profiles ADD COLUMN name VARCHAR"))
-            else:
-                conn.execute(text("ALTER TABLE profiles ADD COLUMN name VARCHAR"))
-            db.commit()
-            print("[Migration] Added name column to profiles")
+                print("[Migration] Added name column to profiles")
 
-        # 3. videos.transcript
-        video_cols = [c["name"] for c in inspector.get_columns("videos")]
-        if "transcript" not in video_cols:
-            conn.execute(text("ALTER TABLE videos ADD COLUMN transcript TEXT"))
-            db.commit()
-            print("[Migration] Added transcript column to videos")
+            # 3. videos.transcript
+            video_cols = [c["name"] for c in inspector.get_columns("videos")]
+            if "transcript" not in video_cols:
+                conn.execute(text("ALTER TABLE videos ADD COLUMN transcript TEXT"))
+                print("[Migration] Added transcript column to videos")
 
-        # 4. videos.review_status
-        if "review_status" not in video_cols:
-            conn.execute(text("ALTER TABLE videos ADD COLUMN review_status VARCHAR DEFAULT 'COLLECTED'"))
-            db.commit()
-            print("[Migration] Added review_status column to videos")
+            # 4. videos.review_status
+            if "review_status" not in video_cols:
+                conn.execute(text("ALTER TABLE videos ADD COLUMN review_status VARCHAR DEFAULT 'COLLECTED'"))
+                print("[Migration] Added review_status column to videos")
 
-        # 5. brand_channels cultivation & warmup columns
-        try:
-            bc_cols = [c["name"] for c in inspector.get_columns("brand_channels")]
-            bc_additions = [
-                ("warmup_last_error", "TEXT"),
-                ("warmup_started_at", "DATETIME"),
-                ("warmup_completed_at", "DATETIME"),
-                ("warmup_total_duration", "INTEGER DEFAULT 0"),
-                ("warmup_error_count", "INTEGER DEFAULT 0"),
-                ("status", "VARCHAR(20) DEFAULT 'ACTIVE'"),
-                ("auth_status", "VARCHAR(20) DEFAULT 'PENDING'"),
-                ("quarantine_reason", "TEXT"),
-                ("quarantine_until", "DATETIME"),
-                ("dedicated_profile_path", "VARCHAR(500)"),
-                ("last_used_ip", "VARCHAR(50)"),
-                ("last_accessed_at", "DATETIME"),
-                ("cultivation_strategy", "VARCHAR(50)"),
-                ("cultivation_day", "INTEGER DEFAULT 0"),
-                ("cultivation_active", "BOOLEAN DEFAULT 0"),
-                ("warmup_config", "TEXT"),
-            ]
-            for col_name, col_def in bc_additions:
-                if col_name not in bc_cols:
-                    conn.execute(text(f"ALTER TABLE brand_channels ADD COLUMN {col_name} {col_def}"))
-                    print(f"[Migration] Added {col_name} column to brand_channels")
-            db.commit()
-        except Exception as bc_err:
-            print(f"[Migration] brand_channels migration skipped: {bc_err}")
+            # 5. brand_channels cultivation & warmup columns
+            try:
+                bc_cols = [c["name"] for c in inspector.get_columns("brand_channels")]
+                bc_additions = [
+                    ("warmup_last_error", "TEXT"),
+                    ("warmup_started_at", "DATETIME"),
+                    ("warmup_completed_at", "DATETIME"),
+                    ("warmup_total_duration", "INTEGER DEFAULT 0"),
+                    ("warmup_error_count", "INTEGER DEFAULT 0"),
+                    ("status", "VARCHAR(20) DEFAULT 'ACTIVE'"),
+                    ("auth_status", "VARCHAR(20) DEFAULT 'PENDING'"),
+                    ("quarantine_reason", "TEXT"),
+                    ("quarantine_until", "DATETIME"),
+                    ("dedicated_profile_path", "VARCHAR(500)"),
+                    ("last_used_ip", "VARCHAR(50)"),
+                    ("last_accessed_at", "DATETIME"),
+                    ("cultivation_strategy", "VARCHAR(50)"),
+                    ("cultivation_day", "INTEGER DEFAULT 0"),
+                    ("cultivation_active", "BOOLEAN DEFAULT 0"),
+                    ("warmup_config", "TEXT"),
+                ]
+                for col_name, col_def in bc_additions:
+                    if col_name not in bc_cols:
+                        conn.execute(text(f"ALTER TABLE brand_channels ADD COLUMN {col_name} {col_def}"))
+                        print(f"[Migration] Added {col_name} column to brand_channels")
+            except Exception as bc_err:
+                print(f"[Migration] brand_channels migration skipped: {bc_err}")
 
-        db.close()
+            # 6. youtube_channels.auto_approve_default
+            try:
+                yt_cols = [c["name"] for c in inspector.get_columns("youtube_channels")]
+                if "auto_approve_default" not in yt_cols:
+                    conn.execute(text("ALTER TABLE youtube_channels ADD COLUMN auto_approve_default BOOLEAN DEFAULT 0"))
+                    print("[Migration] Added auto_approve_default column to youtube_channels")
+            except Exception as yt_err:
+                print(f"[Migration] youtube_channels auto_approve_default skipped: {yt_err}")
+
+            # 7. settings work_queue columns
+            try:
+                settings_cols = [c["name"] for c in inspector.get_columns("settings")]
+                if "work_queue_headless_mode" not in settings_cols:
+                    conn.execute(text("ALTER TABLE settings ADD COLUMN work_queue_headless_mode BOOLEAN DEFAULT 1"))
+                    print("[Migration] Added work_queue_headless_mode column to settings")
+                if "work_queue_governance_mode" not in settings_cols:
+                    conn.execute(text("ALTER TABLE settings ADD COLUMN work_queue_governance_mode VARCHAR(20) DEFAULT 'SMART'"))
+                    print("[Migration] Added work_queue_governance_mode column to settings")
+            except Exception as st_err:
+                print(f"[Migration] settings work_queue migration skipped: {st_err}")
+
         return True
     except Exception as e:
         print(f"[Migration] migration skipped: {e}")

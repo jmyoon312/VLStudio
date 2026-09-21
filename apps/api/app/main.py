@@ -100,28 +100,45 @@ if not any(isinstance(h, (logging.FileHandler, RotatingFileHandler)) for h in se
         rf_handler.setFormatter(rf_formatter)
         server_logger.addHandler(rf_handler)
         
-        # Attach to root logger to capture warnings and errors from all modules (llm_manager, uvicorn, etc.)
+        # Attach to root logger to capture all module logs (native_worker, upload_orchestrator, tiktok, etc.)
         root_logger = logging.getLogger()
+        root_logger.setLevel(logging.INFO)
         root_rf_handler = RotatingFileHandler(
             SERVER_LOG_FILE,
-            maxBytes=5 * 1024 * 1024,
+            maxBytes=10 * 1024 * 1024,
             backupCount=3,
             encoding='utf-8'
         )
-        root_rf_handler.setLevel(logging.WARNING)
+        root_rf_handler.setLevel(logging.INFO)
         root_rf_handler.setFormatter(rf_formatter)
         root_logger.addHandler(root_rf_handler)
+        
+        # Explicitly ensure upload modules log at INFO level
+        for mod_name in ["app.services.native_queue_worker", "app.services.upload_orchestrator", "app.services.browser_session_manager", "app.services.stealth_ops_v2", "TikTokUploader", "app.services.browser_uploader"]:
+            mod_logger = logging.getLogger(mod_name)
+            mod_logger.setLevel(logging.INFO)
+            mod_logger.propagate = True
     except Exception as e:
         print(f"[Logging] Failed to initialize server file logger: {e}")
 
 class StatusBypassFilter(logging.Filter):
-    """Filter out routine GET 200 OK requests from uvicorn.access to prevent log flooding"""
+    """Filter out routine GET 200 OK and 206 Partial Content requests from uvicorn.access to prevent log flooding"""
     def filter(self, record: logging.LogRecord) -> bool:
         msg = record.getMessage()
+        # Silence all streaming 206 Partial Content chunks
+        if '206 Partial Content' in msg or ' 206 ' in msg:
+            return False
+        # Silence routine health checks, streaming, and polling
+        if any(endpoint in msg for endpoint in ('/api/health', '/health', '/api/work-queue/stream', '/api/stream', '/api/work-queue/thumbnail')):
+            return False
         # Silence all routine GET 200 OK requests
         if '"GET ' in msg and (' 200 OK' in msg or ' 200 ' in msg):
             return False
         return True
+
+# Silence uvicorn.access logger to WARNING to eliminate access log flooding
+logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
+logging.getLogger("uvicorn.access").addFilter(StatusBypassFilter())
 
 # [Dependency]
 from app.dependency_manager import DependencyManager
@@ -146,7 +163,7 @@ from app.routers import (
     resource_manager_automation, scout, script_writer, scripts, 
     research, settings, stations, stream, studio, swarm, system, 
     tiktok_channels, tools, upload_rules, video, videos, wisdom,
-    work_queue, youtube_channels, veo_prompt_agent,
+    work_queue, youtube_channels, veo_prompt_agent, social_profiles,
     queue_management, processing_verification, dashboard_reports, 
     health_deployment, ml_ab_search, operations, network,
     douyin_shorts_router, capcut_remote, presets, trend_radar, fsd_mission,
@@ -533,6 +550,7 @@ app.include_router(youtube_channels.router, prefix="/api/youtube", tags=["channe
 app.include_router(tiktok_channels.router, prefix="/api/tiktok-channels", tags=["channels"])
 app.include_router(instagram_channels.router, prefix="/api/instagram-channels", tags=["channels"])
 app.include_router(browser_profiles.router, prefix="/api/browser-profiles", tags=["infra"])
+app.include_router(social_profiles.router, prefix="/api", tags=["social_profiles"])
 app.include_router(work_queue.router, prefix="/api/work-queue", tags=["tasks"])
 app.include_router(upload_rules.router, prefix="/api/upload-rules", tags=["infra"])
 app.include_router(image_gen.router, prefix="/api/image-gen", tags=["creative"])

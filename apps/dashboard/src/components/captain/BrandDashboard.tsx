@@ -122,7 +122,7 @@ export default function BrandDashboard() {
 
     const handleSecureConnect = async (profile: any) => {
         try {
-            await axios.post(`${API_BASE}/resources/profiles/${profile.id}/secure-launch`, { target_url: "https://studio.youtube.com" });
+            await axios.post(`${API_BASE}/resources/profiles/${profile.id}/launch-setup`, { rotate_ip: false, platform: 'youtube' });
             toast({ title: "보안 접속 실행", description: "스텔스 브라우저가 시작됩니다." });
         } catch (error) {
             toast({ variant: "destructive", title: "접속 실패", description: "서버 오류가 발생했습니다." });

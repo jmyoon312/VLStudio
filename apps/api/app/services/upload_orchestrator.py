@@ -8,12 +8,22 @@ from app import models
 # Redis Client (Optional - graceful fallback if not installed/running)
 redis_client = None
 try:
-    import redis as _redis_lib
-    redis_client = _redis_lib.Redis(host='localhost', port=6379, db=0, decode_responses=True, socket_connect_timeout=1)
-except ImportError:
-    pass  # redis not installed - progress publishing disabled
+    import socket
+    # 0.05초 초고속 소켓 테스트로 Redis 포트가 열려있는지 확인 (윈도우 소켓 블로킹 0초 방어)
+    _sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    _sock.settimeout(0.05)
+    _res = _sock.connect_ex(('127.0.0.1', 6379))
+    _sock.close()
+    if _res == 0:
+        import redis as _redis_lib
+        _test_r = _redis_lib.Redis(host='127.0.0.1', port=6379, db=0, decode_responses=True, socket_connect_timeout=0.2, socket_timeout=0.2)
+        _test_r.ping()
+        redis_client = _test_r
+        logging.getLogger(__name__).info("✅ Redis connected for work-queue progress publishing.")
+    else:
+        redis_client = None
 except Exception:
-    pass  # redis not running - progress publishing disabled
+    redis_client = None
 logger = logging.getLogger(__name__)
 
 
@@ -52,14 +62,15 @@ class UploadOrchestrator:
             
             self._publish_progress(queue_item_id, 0, "업로드 시작", task_instance)
             
-            # Anti-Association Shield Configs
+            # Anti-Association Shield Configs (유튜브 전용 쉴드 — 타 플랫폼 전용 업로드 시 불필요한 대기/변조 방지)
+            targets = item.target_platforms or ["youtube"]
             platform_configs = item.platform_configs or {}
             yt_config = platform_configs.get('youtube', {})
             shield_cfg = yt_config.get('anti_association', {})
-            shield_enabled = shield_cfg.get('enabled', False)
+            shield_enabled = shield_cfg.get('enabled', False) if "youtube" in targets else False
             
-            # 3.4 Jitter Jumps
-            if shield_enabled and shield_cfg.get('jitter_jumps', False):
+            # 3.4 Jitter Jumps (대기열 즉시 실행 시에는 지연 대기 없이 즉시 업로드 처리)
+            if task_instance and shield_enabled and shield_cfg.get('jitter_jumps', False):
                 import random
                 import time
                 jitter_secs = random.randint(30, 900)
@@ -206,18 +217,19 @@ class UploadOrchestrator:
                 task_instance.update_state(state='PROGRESS', meta={'current': progress, 'status': message})
             except: pass
             
-        # 2. Publish to Redis (Best Effort)
-        try:
-            data = {
-                "queue_item_id": item_id,
-                "progress": progress,
-                "message": message,
-                "timestamp": datetime.now().isoformat()
-            }
-            redis_client.publish(f"queue:{item_id}:progress", json.dumps(data))
-        except Exception:
-            # Redis down? Just ignore.
-            pass
+        # 2. Publish to Redis (Best Effort - Only if active)
+        if redis_client:
+            try:
+                data = {
+                    "queue_item_id": item_id,
+                    "progress": progress,
+                    "message": message,
+                    "timestamp": datetime.now().isoformat()
+                }
+                redis_client.publish(f"queue:{item_id}:progress", json.dumps(data))
+            except Exception:
+                # Redis down? Just ignore.
+                pass
 
     def _upload_to_youtube(self, item, db, task_instance, base_progress, force_rotation=False):
         self._publish_progress(item.id, base_progress + 10, "YouTube 업로드 준비 중...", task_instance)
@@ -264,30 +276,61 @@ class UploadOrchestrator:
             from app.services.browser_session_manager import session_manager
             
             # Config extraction
-            config = item.platform_configs.get("tiktok", {})
+            config = item.platform_configs.get("tiktok", {}) if item.platform_configs else {}
             account_id = config.get("account_id")
             
             if not account_id:
                 return {"status": "error", "message": "TikTok Account ID not specified"}
                 
-            # Resolve Profile ID
-            channel = db.query(models.TikTokChannel).filter(models.TikTokChannel.id == account_id).first()
-            if not channel or not channel.browser_profile_id:
-                 return {"status": "error", "message": "TikTok Channel not found or not linked to profile"}
+            # Resolve Profile ID: SSOT Profile 모델 우선 조회, 없으면 레거시 TikTokChannel 폴백
+            profile_id = None
+            profile = db.query(models.Profile).filter(models.Profile.id == account_id).first()
+            if profile:
+                profile_id = profile.id
+            else:
+                channel = db.query(models.TikTokChannel).filter(models.TikTokChannel.id == account_id).first()
+                if channel and channel.browser_profile_id:
+                    profile_id = channel.browser_profile_id
+
+            if not profile_id:
+                return {"status": "error", "message": f"TikTok Profile/Channel not found for account_id '{account_id}'"}
             
-            # Use Description as Caption + Hashtags
-            caption = item.description or item.title
-            hashtags = item.hashtags or []
+            # Viral Dispatcher for TikTok: 손 하나 대지 않아도 전자동 최적화 (커스텀 캡션 시 최우선 존중)
+            from app.services.viral_metadata_dispatcher import viral_dispatcher
+            custom_caption = config.get("caption")
+            meta = viral_dispatcher.generate_tiktok_metadata(
+                title=item.title or "",
+                description=item.description or "",
+                base_tags=item.hashtags or [],
+                custom_caption=custom_caption
+            )
+            caption = meta["caption"]
+            hashtags = meta["hashtags"]
+            privacy = config.get("privacy", "PUBLIC").upper()
+            allow_comments = config.get("allow_comments", True)
+            allow_duet = config.get("allow_duet", True)
             
+            # Headless Mode Resolution from DB Settings (창 표시 설정 완벽 연동)
+            settings = db.query(models.Settings).first()
+            global_headless = getattr(settings, 'work_queue_headless_mode', False) if settings else False
+            item_headless = config.get("headless_mode")
+            headless_mode = bool(item_headless) if item_headless is not None else bool(global_headless)
+            
+            logger.info(f"🖥️ [TikTokOrchestrator] Launching TikTok upload: profile={profile_id}, headless={headless_mode} (Global={global_headless}, Item={item_headless})")
+            print(f"🖥️ [TikTokOrchestrator] Launching TikTok upload: profile={profile_id}, headless={headless_mode}")
+
             # Launch Upload
             self._publish_progress(item.id, base_progress + 20, "TikTok 브라우저 실행 중...", task_instance)
             result = session_manager.launch_tiktok_upload(
-                profile_id=channel.browser_profile_id,
+                profile_id=profile_id,
                 db=db,
                 video_path=item.video_file_path,
                 caption=caption,
                 hashtags=hashtags,
-                privacy=config.get("privacy", "PUBLIC").upper()
+                privacy=privacy,
+                allow_comments=allow_comments,
+                allow_duet=allow_duet,
+                headless=headless_mode
             )
             
             return result
@@ -300,34 +343,48 @@ class UploadOrchestrator:
         self._publish_progress(item.id, base_progress + 5, "Instagram 업로드 준비 중...", task_instance)
         try:
             from app.services.browser_session_manager import session_manager
+            from app.services.viral_metadata_dispatcher import viral_dispatcher
              
             # Config extraction
-            config = item.platform_configs.get("instagram", {})
+            config = item.platform_configs.get("instagram", {}) if item.platform_configs else {}
             account_id = config.get("account_id")
             
             if not account_id:
                 return {"status": "error", "message": "Instagram Account ID not specified"}
                 
-            # Resolve Profile ID
-            channel = db.query(models.InstagramChannel).filter(models.InstagramChannel.id == account_id).first()
-            if not channel or not channel.browser_profile_id:
-                 return {"status": "error", "message": "Instagram Channel not found or not linked to profile"}
+            # Resolve Profile ID: SSOT Profile 모델 우선 조회, 없으면 레거시 InstagramChannel 폴백
+            profile_id = None
+            profile = db.query(models.Profile).filter(models.Profile.id == account_id).first()
+            if profile:
+                profile_id = profile.id
+            else:
+                channel = db.query(models.InstagramChannel).filter(models.InstagramChannel.id == account_id).first()
+                if channel and channel.browser_profile_id:
+                    profile_id = channel.browser_profile_id
+
+            if not profile_id:
+                return {"status": "error", "message": f"Instagram Profile/Channel not found for account_id '{account_id}'"}
             
-            # Caption construction
-            caption = config.get("caption") or item.description or item.title
-            
-            # Add hashtags to caption if Instagram usually puts them in caption
-            if item.hashtags:
-                tags_str = ' '.join([f'#{t}' for t in item.hashtags])
-                caption = f"{caption}\n\n{tags_str}"
+            # Viral Dispatcher for Instagram: 릴스 감성 서식 및 전용 해시태그 전자동 주입
+            custom_caption = config.get("caption")
+            share_to_feed = bool(config.get("share_to_feed", False))
+            meta = viral_dispatcher.generate_instagram_metadata(
+                title=item.title or "",
+                description=item.description or "",
+                base_tags=item.hashtags or [],
+                custom_caption=custom_caption,
+                share_to_feed=share_to_feed
+            )
+            caption = meta["full_text"]
             
             # Launch Upload
             self._publish_progress(item.id, base_progress + 20, "Instagram 브라우저 실행 중...", task_instance)
             result = session_manager.launch_instagram_upload(
-                profile_id=channel.browser_profile_id,
+                profile_id=profile_id,
                 db=db,
                 video_path=item.video_file_path,
-                caption=caption
+                caption=caption,
+                share_to_feed=share_to_feed
             )
             
             return result

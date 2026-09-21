@@ -181,6 +181,8 @@ class WorkQueueItemResponse(BaseModel):
     hashtags: Optional[List[str]] = None
     tags: Optional[List[str]] = None
     video_file_path: Optional[str] = None
+    thumbnail_path: Optional[str] = None
+    thumbnail_url: Optional[str] = None
     render_engine: Optional[str] = "REMOTION"
     # Source & Quality
     source_type: Optional[str] = None
@@ -197,7 +199,7 @@ class WorkQueueItemResponse(BaseModel):
     scheduled_upload_time: Optional[datetime] = None  # [NEW]
     # Status
     status: str
-    upload_progress: int
+    upload_progress: Optional[int] = None
     uploaded_urls: Optional[dict] = None
     failure_reason: Optional[str] = None
     # Timestamps
@@ -243,9 +245,21 @@ class ExpertApprovalRequest(BaseModel):
     approved_by: str = "expert"
 
 
+class GovernanceModeRequest(BaseModel):
+    mode: str  # SMART, MANUAL, AUTONOMOUS
+
+
 class KeywordExtractionRequest(BaseModel):
     title: str
     description: str
+
+
+class ViralMetadataPreviewRequest(BaseModel):
+    title: str = ""
+    description: str = ""
+    hashtags: Optional[List[str]] = None
+    tiktok_caption: Optional[str] = None
+    instagram_caption: Optional[str] = None
 
 
 class DraftItemCreate(BaseModel):
@@ -308,6 +322,42 @@ def extract_shopping_keyword_api(
     except Exception as e:
         logger.error(f"Failed to extract shopping keyword: {e}")
         raise HTTPException(500, f"Keyword extraction failed: {str(e)}")
+
+
+@router.post("/preview-viral-metadata")
+def preview_viral_metadata_api(req: ViralMetadataPreviewRequest):
+    """
+    유튜브 쇼츠, 틱톡, 인스타그램 릴스 플랫폼별 메타데이터 자동 변환 실시간 미리보기
+    """
+    try:
+        from app.services.viral_metadata_dispatcher import viral_dispatcher
+        
+        yt_meta = viral_dispatcher.generate_youtube_metadata(
+            title=req.title,
+            description=req.description,
+            base_tags=req.hashtags
+        )
+        tt_meta = viral_dispatcher.generate_tiktok_metadata(
+            title=req.title,
+            description=req.description,
+            base_tags=req.hashtags,
+            custom_caption=req.tiktok_caption
+        )
+        ig_meta = viral_dispatcher.generate_instagram_metadata(
+            title=req.title,
+            description=req.description,
+            base_tags=req.hashtags,
+            custom_caption=req.instagram_caption
+        )
+        
+        return {
+            "youtube": yt_meta,
+            "tiktok": tt_meta,
+            "instagram": ig_meta
+        }
+    except Exception as e:
+        logger.error(f"Failed to generate viral metadata preview: {e}")
+        raise HTTPException(500, f"Preview failed: {str(e)}")
 
 
 from sqlalchemy import or_
@@ -448,6 +498,73 @@ def get_queue_items(
 
 
 
+def evaluate_approval_governance(
+    item_channel_id: Optional[str],
+    platform_configs: Optional[dict],
+    quality_score: Optional[float],
+    approval_required: bool,
+    has_video: bool,
+    scheduled_time: Optional[datetime],
+    db: Session
+) -> tuple[str, str, str]:
+    """
+    지능형 승인 자동화 거버넌스 평가 엔진 (Auto-Approval Governance Engine)
+    반환: (approval_status, queue_status, reason)
+    - approval_status: 'AUTO_APPROVED' | 'PENDING'
+    - queue_status: 'QUEUED' | 'SCHEDULED_UPLOAD' | 'DRAFT'
+    """
+    settings = db.query(models.Settings).first()
+    mode = getattr(settings, 'work_queue_governance_mode', 'SMART') if settings else 'SMART'
+
+    # 1. 영상 파일이 없으면 무조건 DRAFT
+    if not has_video:
+        return ("PENDING", "DRAFT", "영상 미첨부 초안 (DRAFT)")
+
+    # 2. 타겟 채널 ID 탐색
+    channel_id = item_channel_id
+    if not channel_id and platform_configs:
+        channel_id = platform_configs.get("youtube", {}).get("channel_id")
+
+    is_auto = False
+    reason = "수동 승인 검토 대기"
+
+    if mode == "AUTONOMOUS":
+        is_auto = True
+        reason = "⚡ 완전 자율 무인 배포 거버넌스 적용"
+    elif mode == "MANUAL":
+        is_auto = False
+        reason = "🛡️ 전수 수동 승인 거버넌스 적용 (검토 필요)"
+    else:  # SMART (기본값: 채널 신뢰도 또는 AI 85점 이상 기준)
+        # A) 채널 신뢰 기반 자동 승인
+        if channel_id:
+            chan = db.query(models.YouTubeChannel).filter(models.YouTubeChannel.channel_id == channel_id).first()
+            if chan and getattr(chan, 'auto_approve_default', False):
+                is_auto = True
+                reason = f"⭐ 채널({chan.channel_name or channel_id}) 신뢰 기반 자동 승인"
+
+        # B) AI 완성도 / Critic-85 기준 충족
+        if not is_auto and quality_score is not None and quality_score >= 85.0:
+            is_auto = True
+            reason = f"⭐ AI 완성도 기준 충족 (점수: {quality_score:.1f} >= 85점)"
+
+        # C) 사용자가 등록 시 명시적으로 승인 불필요 지정
+        if not is_auto and not approval_required:
+            is_auto = True
+            reason = "⭐ 사용자 직접 자동 승인 등록"
+
+    approval_status = "AUTO_APPROVED" if is_auto else "PENDING"
+    
+    if scheduled_time and scheduled_time > datetime.now():
+        queue_status = "SCHEDULED_UPLOAD"
+    elif is_auto:
+        queue_status = "QUEUED"
+    else:
+        queue_status = "PENDING"
+
+    logger.info(f"🏛️ [Governance Evaluator] Result: approval={approval_status}, status={queue_status}, reason='{reason}' (Mode: {mode})")
+    return approval_status, queue_status, reason
+
+
 # ... imports ...
 from app.services.native_queue_worker import native_worker
 
@@ -458,7 +575,7 @@ def create_queue_item(
     item_data: WorkQueueItemCreate,
     db: Session = Depends(get_db)
 ):
-    """작업 대기열에 항목 추가 (Auto-Approve 지원)"""
+    """작업 대기열에 항목 추가 (지능형 Auto-Approve 거버넌스 지원)"""
     
     # DISCOVERY 타입은 YouTube URL을 직접 경로로 사용 (로컬 파일 없음)
     is_discovery = (item_data.source_type or '').upper() == 'DISCOVERY'
@@ -503,20 +620,16 @@ def create_queue_item(
     # 썸네일 자동 생성
     thumbnail_path = generate_thumbnail_if_missing(safe_file_path) if (has_video and not is_discovery) else None
 
-    # Determine initial status based on approval_required & video existence
-    if not has_video:
-        initial_status = "DRAFT"
-    elif item_data.scheduled_upload_time and item_data.scheduled_upload_time > datetime.now():
-        initial_status = "SCHEDULED_UPLOAD"
-        logger.info(f"📅 Item scheduled for {item_data.scheduled_upload_time}")
-    else:
-        initial_status = "QUEUED"
-    
-    if item_data.approval_required:
-        initial_approval = "PENDING"
-    else:
-        # Auto-Approve
-        initial_approval = "AUTO_APPROVED"
+    # 지능형 승인 자동화 거버넌스 평가
+    initial_approval, initial_status, gov_reason = evaluate_approval_governance(
+        item_channel_id=item_data.platform_configs.get("youtube", {}).get("channel_id") if item_data.platform_configs else None,
+        platform_configs=item_data.platform_configs,
+        quality_score=None,
+        approval_required=item_data.approval_required,
+        has_video=has_video,
+        scheduled_time=item_data.scheduled_upload_time,
+        db=db
+    )
     
     # WorkQueueItem 생성
     queue_item = models.WorkQueueItem(
@@ -557,11 +670,10 @@ def create_queue_item(
         logger.info(f"Applying rule actions to item {queue_item.id}: {actions}")
         rule_engine.apply_actions(queue_item, actions)
         
-        # 승인 상태 재평가 (규칙 엔진이 변경했을 수 있음)
-        # 하지만 Auto-Approve 로직이 우선이라면? 사용자가 명시적으로 체크해제했으면 승인됨.
-        if not item_data.approval_required:
-             if queue_item.approval_status != "REJECTED":
-                 queue_item.approval_status = "AUTO_APPROVED"
+        # 승인 상태 재평가 (거버넌스 엔진 및 규칙 엔진 동기화)
+        if initial_approval == "AUTO_APPROVED":
+            if queue_item.approval_status != "REJECTED":
+                queue_item.approval_status = "AUTO_APPROVED"
 
     db.commit()
     db.refresh(queue_item)
@@ -784,6 +896,17 @@ def bulk_import(
     
     for item_data in data.items:
         video_path = item_data.video_file_path or (item_data.source_metadata.get("video_file_path") if item_data.source_metadata else None)
+        has_video = bool(video_path and os.path.exists(video_path))
+        
+        initial_approval, initial_status, _ = evaluate_approval_governance(
+            item_channel_id=item_data.platform_configs.get("youtube", {}).get("channel_id") if item_data.platform_configs else None,
+            platform_configs=item_data.platform_configs,
+            quality_score=None,
+            approval_required=False,
+            has_video=has_video,
+            scheduled_time=item_data.scheduled_upload_time,
+            db=db
+        )
         
         queue_item = models.WorkQueueItem(
             title=item_data.title,
@@ -799,8 +922,8 @@ def bulk_import(
             source_batch_id=batch_id,
             source_external_id=item_data.source_external_id,
             source_metadata=item_data.source_metadata or {},
-            status="DRAFT" if not video_path else "PENDING",
-            approval_status="PENDING",
+            status=initial_status,
+            approval_status=initial_approval,
             upload_progress=0,
             created_at=datetime.now()
         )
@@ -969,7 +1092,7 @@ def finalize_draft(
     """Finalize: PENDING -> AUTO_APPROVED (if approval_required=False) -> QUEUED (trigger upload)"""
     item = db.query(models.WorkQueueItem).filter(
         models.WorkQueueItem.id == item_id,
-        models.WorkQueueItem.status.in_(["DRAFT", "PENDING"])
+        models.WorkQueueItem.status.in_(["DRAFT", "PENDING", "QUEUED"])
     ).first()
     if not item:
         raise HTTPException(404, "Draft verktding not found")
@@ -977,13 +1100,24 @@ def finalize_draft(
     if not item.video_file_path:
         raise HTTPException(400, "Video file path not attached yet")
 
+    has_video = bool(item.video_file_path and os.path.exists(item.video_file_path))
+    scheduled_time = data.scheduled_upload_time if data else item.scheduled_upload_time
     approval_recomm = (data.approval_required if data else False)
+    
+    initial_approval, initial_status, gov_reason = evaluate_approval_governance(
+        item_channel_id=item.channel_id,
+        platform_configs=item.platform_configs,
+        quality_score=item.quality_score,
+        approval_required=approval_recomm,
+        has_video=has_video,
+        scheduled_time=scheduled_time,
+        db=db
+    )
     item.approval_required = approval_recomm
-    item.approval_status = "PENDING" if approval_recomm else "AUTO_APPROVED"
-    item.status = "QUEUED"
+    item.approval_status = initial_approval
+    item.status = initial_status
     if data and data.scheduled_upload_time:
         item.scheduled_upload_time = data.scheduled_upload_time
-        item.status = "SCHEDULED_UPLOAD"
     if data and data.upload_method:
         item.upload_method = data.upload_method
     if data and data.target_platforms:
@@ -992,9 +1126,8 @@ def finalize_draft(
     db.commit()
     db.refresh(item)
 
-    if item.approval_status == "AUTO_APPROVED":
-        from app.services.native_queue_worker import add_task
-        add_task(item.id)
+    if item.approval_status in ("AUTO_APPROVED", "APPROVED") and item.status == "QUEUED":
+        native_worker.add_task(item.id)
 
     return {
         "item_id": item.id,
@@ -1060,8 +1193,7 @@ def batch_finalize_drafts(
         item.approval_status = "AUTO_APPROVED"
         item.status = "QUEUED"
         item.updated_at = datetime.now()
-        from app.services.native_queue_worker import add_task
-        add_task(item.id)
+        native_worker.add_task(item.id)
         finalized.append({"external_id": ext_id, "item_id": item.id, "status": "finalized"})
 
     db.commit()
@@ -1406,6 +1538,20 @@ def toggle_headless_mode(
     from app.services.browser_uploader import browser_uploader
     browser_uploader.default_headless_mode = headless
     
+    # 기존 브라우저 세션을 안전하게 정리하여 다음 실행 시 새 가시성 모드가 즉시 적용되도록 함
+    try:
+        browser_uploader.session_manager.close_session()
+    except Exception as e:
+        logger.warning(f"Error resetting sessions during headless toggle: {e}")
+
+    # DB 환경설정에 영구 저장 (서버 재시작 후에도 유지)
+    try:
+        settings = db.query(models.Settings).first()
+        if settings:
+            settings.work_queue_headless_mode = headless
+    except Exception as e:
+        logger.warning(f"Failed to persist work_queue_headless_mode in settings: {e}")
+
     items = db.query(models.WorkQueueItem).all()
     
     from sqlalchemy.orm.attributes import flag_modified
@@ -1422,6 +1568,56 @@ def toggle_headless_mode(
     db.commit()
     logger.info(f"🖥️ [Headless Toggle] Browser window visibility updated: headless={headless} (Updated {updated_count} items)")
     return {"success": True, "headless": headless, "updated_items": updated_count}
+
+
+@router.get("/governance-mode")
+def get_governance_mode(db: Session = Depends(get_db)):
+    """작업 대기열 승인 거버넌스 및 브라우저 창 표시 설정 상태 조회"""
+    settings = db.query(models.Settings).first()
+    mode = getattr(settings, 'work_queue_governance_mode', 'SMART') if settings else 'SMART'
+    headless = getattr(settings, 'work_queue_headless_mode', True) if settings else True
+    return {
+        "governance_mode": mode,
+        "headless_mode": headless,
+        "quality_threshold": 85.0
+    }
+
+
+@router.post("/governance-mode")
+def set_governance_mode(
+    req: GovernanceModeRequest,
+    db: Session = Depends(get_db)
+):
+    """작업 대기열 승인 거버넌스 모드 변경 (SMART: 채널/85점 기반 자동승인, MANUAL: 전수 수동, AUTONOMOUS: 완전 자율)"""
+    target_mode = req.mode.upper().strip()
+    valid_modes = ["SMART", "MANUAL", "AUTONOMOUS"]
+    if target_mode not in valid_modes:
+        raise HTTPException(400, f"지원되지 않는 모드입니다. 가능한 모드: {valid_modes}")
+    
+    settings = db.query(models.Settings).first()
+    if not settings:
+        settings = models.Settings()
+        db.add(settings)
+    settings.work_queue_governance_mode = target_mode
+    db.commit()
+    logger.info(f"🏛️ [WorkQueue Governance] Mode switched to: {target_mode}")
+    return {"success": True, "governance_mode": target_mode}
+
+
+@router.patch("/channels/{channel_id}/auto-approve")
+def toggle_channel_auto_approve(
+    channel_id: str,
+    enabled: bool = Query(...),
+    db: Session = Depends(get_db)
+):
+    """채널별 자동 승인 기본값 토글 (신뢰 채널 지정 시 대기열 등록 시 자동 승인)"""
+    chan = db.query(models.YouTubeChannel).filter(models.YouTubeChannel.channel_id == channel_id).first()
+    if not chan:
+        raise HTTPException(404, "YouTube channel not found")
+    chan.auto_approve_default = enabled
+    db.commit()
+    logger.info(f"⭐ [Channel Governance] Channel {channel_id} auto_approve_default set to {enabled}")
+    return {"success": True, "channel_id": channel_id, "auto_approve_default": enabled}
 
 
 # ... (Batch Classes) ...
@@ -1832,6 +2028,7 @@ def stream_video(path: str, request: Request):
             headers={
                 "Accept-Ranges": "bytes",
                 "Content-Length": str(file_size),
+                "Cache-Control": "public, max-age=86400",
             }
         )
 
@@ -1867,6 +2064,7 @@ def stream_video(path: str, request: Request):
                 "Accept-Ranges": "bytes",
                 "Content-Range": f"bytes {start}-{end}/{file_size}",
                 "Content-Length": str(content_length),
+                "Cache-Control": "public, max-age=86400",
             }
         )
     except Exception as e:
@@ -1876,6 +2074,114 @@ def stream_video(path: str, request: Request):
             with open(cleaned_path, "rb") as f:
                 while chunk := f.read(1024 * 512):
                     yield chunk
-        return StreamingResponse(fallback_iter(), media_type=media_type, headers={"Accept-Ranges": "bytes", "Content-Length": str(file_size)})
+        return StreamingResponse(
+            fallback_iter(),
+            media_type=media_type,
+            headers={
+                "Accept-Ranges": "bytes",
+                "Content-Length": str(file_size),
+                "Cache-Control": "public, max-age=86400",
+            }
+        )
+
+
+# === Lightweight Video Thumbnail Generator with Disk Caching ===
+
+@router.get("/thumbnail")
+def get_video_thumbnail(path: Optional[str] = None, item_id: Optional[int] = None, db: Session = Depends(get_db)):
+    """
+    Returns a lightweight JPEG thumbnail for the video.
+    High-performance fast path:
+    1. Checks direct thumbnail_path or sibling {video_base}_thumb.jpg on disk.
+    2. If missing, auto-extracts 0.8s hook frame using FFmpeg and caches to disk.
+    3. Returns FileResponse with Cache-Control: public, max-age=604800, immutable (1 week).
+    """
+    import urllib.parse
+    from fastapi.responses import FileResponse
+    from app.services.browser_uploader import extract_shorts_thumbnail
+
+    video_path = None
+    direct_thumb = None
+
+    if item_id:
+        item = db.query(models.WorkQueueItem).filter(models.WorkQueueItem.id == item_id).first()
+        if item:
+            video_path = item.video_file_path
+            direct_thumb = item.thumbnail_path
+
+    if path and not video_path:
+        cleaned_path = urllib.parse.unquote(path).strip("\"'")
+        cleaned_path = os.path.normpath(cleaned_path)
+        if cleaned_path.lower().endswith(('.jpg', '.jpeg', '.png', '.webp')):
+            direct_thumb = cleaned_path
+        else:
+            video_path = cleaned_path
+
+    # Fast-Path 1: Direct thumbnail file exists
+    if direct_thumb and os.path.exists(direct_thumb) and os.path.getsize(direct_thumb) > 100:
+        return FileResponse(
+            direct_thumb,
+            media_type="image/jpeg",
+            headers={"Cache-Control": "public, max-age=604800, immutable"}
+        )
+
+    if not video_path:
+        raise HTTPException(404, "No video path or item_id provided")
+
+    # Fast-Path 2: Sibling thumbnail already generated
+    base, _ = os.path.splitext(video_path)
+    for ext in ("_thumb.jpg", ".jpg", ".png", ".webp"):
+        cand = f"{base}{ext}"
+        if os.path.exists(cand) and os.path.getsize(cand) > 500:
+            return FileResponse(
+                cand,
+                media_type="image/jpeg",
+                headers={"Cache-Control": "public, max-age=604800, immutable"}
+            )
+
+    # Path normalization & fallback directory search
+    if not os.path.exists(video_path):
+        filename = os.path.basename(video_path)
+        local_app = os.environ.get("LOCALAPPDATA", "")
+        candidate_dirs = [
+            os.path.join(local_app, "ViraLoop Studio", "media", "05_Exports"),
+            os.path.join(local_app, "ViraLoop Studio", "media", "work_queue_uploads"),
+            os.path.join(local_app, "ViraLoop Studio", "media", "07_Downloads"),
+            "c:\\ViraLoopMedia\\VLStudio\\05_Exports",
+            os.getcwd(),
+        ]
+        for cdir in candidate_dirs:
+            cpath = os.path.normpath(os.path.join(cdir, filename))
+            if os.path.exists(cpath):
+                video_path = cpath
+                break
+
+    if not os.path.exists(video_path):
+        raise HTTPException(404, f"Video not found: {video_path}")
+
+    # Re-check sibling with resolved path
+    base, _ = os.path.splitext(video_path)
+    for ext in ("_thumb.jpg", ".jpg", ".png", ".webp"):
+        cand = f"{base}{ext}"
+        if os.path.exists(cand) and os.path.getsize(cand) > 500:
+            return FileResponse(
+                cand,
+                media_type="image/jpeg",
+                headers={"Cache-Control": "public, max-age=604800, immutable"}
+            )
+
+    # On-demand extraction via FFmpeg
+    try:
+        extracted = extract_shorts_thumbnail(video_path)
+        if extracted and os.path.exists(extracted) and os.path.getsize(extracted) > 500:
+            return FileResponse(
+                extracted,
+                media_type="image/jpeg",
+                headers={"Cache-Control": "public, max-age=604800, immutable"}
+            )
+    except Exception as e:
+        logger.warning(f"Failed to auto-extract thumbnail for {video_path}: {e}")
+
+    raise HTTPException(404, "Thumbnail could not be extracted")
 
 

@@ -551,6 +551,10 @@ class Settings(Base):
     visual_node_url = Column(String, default="https://unstalled-eustyle-chet.ngrok-free.dev")
     visual_node_api_key = Column(String, nullable=True)
 
+    # [WorkQueue Governance & Automation]
+    work_queue_headless_mode = Column(Boolean, default=True)
+    work_queue_governance_mode = Column(String(20), default="SMART")  # SMART, MANUAL, AUTONOMOUS
+
 class StrategicBrief(Base):
     """
     [SOVEREIGN INTELLIGENCE] Autonomous Strategic Documents.
@@ -754,6 +758,9 @@ class YouTubeChannel(Base):
     stealth_trust_score = Column(Integer, default=0)    # 0-100 from Sentinel Audit
     last_audit_at = Column(DateTime, nullable=True)
     is_network_isolated = Column(Boolean, default=False) # Phase 1 Success flag
+    
+    # [Governance] Auto-Approval Sovereignty
+    auto_approve_default = Column(Boolean, default=False)
     
     created_at = Column(DateTime, default=datetime.now)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)

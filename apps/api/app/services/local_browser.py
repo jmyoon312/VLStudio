@@ -42,14 +42,21 @@ def main():
     except:
         pass
 
-    url = sys.argv[2]
+    url_arg = sys.argv[2]
+    target_urls = [u.strip() for u in url_arg.split(',') if u.strip()]
+    if not target_urls:
+        target_urls = ["about:blank"]
+    url = target_urls[0]
     proxy_port = sys.argv[3] if len(sys.argv) >= 4 else None
 
     browser_args = [
         "--test-type",
+        "--start-maximized",
+        "--window-position=0,0",
         "--disable-quic",
-        "--disable-ipv6",
-        "--disable-background-networking",
+        # --disable-ipv6: removed (can break DNS resolution in some environments)
+        # --disable-background-networking: REMOVED - this was blocking user-initiated
+        # navigation in new tabs (only Playwright-driven goto() worked, manual URL input failed)
         "--force-webrtc-ip-handling-policy=disable_non_proxied_udp",
         "--disable-webrtc-multiple-routes",
         "--use-fake-ui-for-media-stream",
@@ -174,34 +181,45 @@ def main():
             }""", str(e))
         except Exception as eval_e:
             logger.error(f"Error displaying message: {eval_e}")
-            
-    # Check if credentials were provided
+    # Open additional target URLs in new tabs if specified
+    if len(target_urls) > 1:
+        for extra_u in target_urls[1:]:
+            try:
+                p_extra = ctx.new_page()
+                patch_page(p_extra, cfg, _CursorState())
+                p_extra.goto(extra_u, timeout=30000)
+            except Exception as extra_e:
+                logger.warning(f"Failed to open extra tab for {extra_u}: {extra_e}")
     if len(sys.argv) >= 6:
         email = sys.argv[4]
         password = sys.argv[5]
         
-        logger.info(f"Credentials provided for {email}. Monitoring for Google Login page...")
-        
-        import random
-        def human_type_into(locator, text):
-            try:
-                locator.click()
-                time.sleep(random.uniform(0.3, 0.6))
-                for char in text:
-                    page.keyboard.type(char, delay=random.randint(60, 140))
-                time.sleep(random.uniform(0.4, 0.8))
-            except Exception as ex:
-                logger.warning(f"Fallback typing for {text[:3]}...: {ex}")
-                locator.fill(text)
+        is_google_target = any("google" in u.lower() or "youtube" in u.lower() for u in target_urls)
+        if not is_google_target:
+            logger.info(f"Social platform target detected ({url}). Auto-monitoring for Google skipped.")
+        else:
+            logger.info(f"Credentials provided for {email}. Monitoring for Google Login page...")
+            
+            import random
+            def human_type_into(locator, text):
+                try:
+                    locator.click()
+                    time.sleep(random.uniform(0.3, 0.6))
+                    for char in text:
+                        page.keyboard.type(char, delay=random.randint(60, 140))
+                    time.sleep(random.uniform(0.4, 0.8))
+                except Exception as ex:
+                    logger.warning(f"Fallback typing for {text[:3]}...: {ex}")
+                    locator.fill(text)
 
-        # Wait up to 12s for Google login page redirect
-        is_login_page = False
-        for _ in range(12):
-            curr_url = page.url.lower()
-            if "accounts.google.com" in curr_url or "signin" in curr_url:
-                is_login_page = True
-                break
-            time.sleep(1)
+            # Wait up to 12s for Google login page redirect
+            is_login_page = False
+            for _ in range(12):
+                curr_url = page.url.lower()
+                if "accounts.google.com" in curr_url or "signin" in curr_url:
+                    is_login_page = True
+                    break
+                time.sleep(1)
 
         if is_login_page:
             logger.info("🔐 Google Login page detected. Performing natural human-like auto-login...")
@@ -255,12 +273,24 @@ def main():
                 logger.error(f"Auto-login failed: {login_e}")
 
     logger.info("Browser launched. Keeping open for manual setup...")
-    # 브라우저 창(탭)이 열려있는 동안 대기
+    # 브라우저 창(탭)이 모두 닫힐 때까지 대기 후 정상 종료
     try:
-        while len(ctx.pages) > 0:
-            time.sleep(1)
+        while True:
+            try:
+                active_pages = [p for p in ctx.pages if not p.is_closed()]
+                if not active_pages:
+                    logger.info("All browser pages closed by user. Exiting cleanly.")
+                    break
+            except Exception:
+                break
+            time.sleep(0.5)
     except Exception as e:
         logger.info(f"Context closed or error: {e}")
+    finally:
+        try:
+            ctx.close()
+        except Exception:
+            pass
 
 if __name__ == "__main__":
     main()

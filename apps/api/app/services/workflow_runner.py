@@ -1577,33 +1577,59 @@ class WorkflowRunner:
                         
                     elif platform == 'tiktok':
                         from app.services.browser_session_manager import session_manager
+                        from app.services.viral_metadata_dispatcher import viral_dispatcher
+                        meta = viral_dispatcher.generate_tiktok_metadata(
+                            title=metadata.get('title', ''),
+                            description=metadata.get('description', ''),
+                            base_tags=metadata.get('tags', []),
+                            custom_caption=metadata.get('tiktok_caption')
+                        )
                         result = session_manager.launch_tiktok_upload(
+                            db=db,
                             video_path=video_path,
-                            caption=metadata.get('title', ''),
-                            hashtags=metadata.get('tags', [])
+                            caption=meta['caption'],
+                            hashtags=meta['hashtags']
                         )
                         results['tiktok'] = result
-                        logger.info(f"[OK] TikTok upload initiated")
+                        logger.info(f"[OK] TikTok upload initiated: {result}")
                         
                     elif platform == 'instagram':
-                        username = os.getenv('INSTAGRAM_USERNAME')
-                        password = os.getenv('INSTAGRAM_PASSWORD')
-                        
-                        if not username or not password:
-                            results['instagram'] = {'status': 'failed', 'error': 'Missing credentials'}
-                            continue
-                        
-                        from app.services.instagram_uploader import SafeInstagramUploader
-                        uploader = SafeInstagramUploader(username, password)
-                        uploader.login()
-                        result = uploader.upload_reel_safe(
-                            video_path=video_path,
-                            caption=metadata.get('title', ''),
-                            hashtags=metadata.get('tags', [])
+                        from app.services.browser_session_manager import session_manager
+                        from app.services.viral_metadata_dispatcher import viral_dispatcher
+                        meta = viral_dispatcher.generate_instagram_metadata(
+                            title=metadata.get('title', ''),
+                            description=metadata.get('description', ''),
+                            base_tags=metadata.get('tags', []),
+                            custom_caption=metadata.get('instagram_caption')
                         )
-                        uploader.logout()
-                        results['instagram'] = result
-                        logger.info(f"[OK] Instagram upload success")
+                        result = session_manager.launch_instagram_upload(
+                            db=db,
+                            video_path=video_path,
+                            caption=meta['full_text']
+                        )
+                        if result.get("status") == "success":
+                            results['instagram'] = result
+                            logger.info(f"[OK] Instagram browser upload success")
+                        else:
+                            # 2순위: 환경변수 기반 instagrapi 폴백 (설정된 경우에만)
+                            username = os.getenv('INSTAGRAM_USERNAME')
+                            password = os.getenv('INSTAGRAM_PASSWORD')
+                            if username and password:
+                                try:
+                                    from app.services.instagram_uploader import SafeInstagramUploader
+                                    uploader = SafeInstagramUploader(username, password)
+                                    uploader.login()
+                                    api_res = uploader.upload_reel_safe(
+                                        video_path=video_path,
+                                        caption=metadata.get('title', ''),
+                                        hashtags=metadata.get('tags', [])
+                                    )
+                                    uploader.logout()
+                                    results['instagram'] = api_res
+                                except Exception as fb_err:
+                                    results['instagram'] = result # 브라우저 에러 유지
+                            else:
+                                results['instagram'] = result
                         
                 except Exception as e:
                     logger.error(f"[FAIL] {platform} upload failed: {e}")

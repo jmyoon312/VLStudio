@@ -31,41 +31,43 @@ class TikTokChannelResponse(BaseModel):
 
 @router.get("/", response_model=List[TikTokChannelResponse])
 def get_tiktok_channels(db: Session = Depends(get_db)):
-    return db.query(models.TikTokChannel).all()
+    """
+    [Single Source of Truth] Profile 테이블(browser_profiles)의 TIKTOK 프로필을
+    배포 관리자용 채널 응답으로 변환하여 반환.
+    별도 tiktok_channels 테이블은 레거시 — 신규 계정은 모두 Profile 테이블에 저장됨.
+    """
+    profiles = db.query(models.Profile).filter(
+        models.Profile.profile_type == "TIKTOK"
+    ).order_by(models.Profile.created_at.desc()).all()
 
-@router.post("/", response_model=TikTokChannelResponse)
-def add_tiktok_channel(
-    channel_in: TikTokChannelCreate, 
-    db: Session = Depends(get_db)
-):
-    # Check if profile exists
-    profile = db.query(models.BrowserProfile).filter(models.BrowserProfile.id == channel_in.browser_profile_id).first()
-    if not profile:
-        raise HTTPException(404, "Browser Profile not found")
-        
-    # Check if channel exists
-    existing = db.query(models.TikTokChannel).filter(models.TikTokChannel.id == channel_in.id).first()
-    if existing:
-        raise HTTPException(400, "Channel already exists")
-
-    channel = models.TikTokChannel(
-        id=channel_in.id,
-        browser_profile_id=channel_in.browser_profile_id,
-        nickname=channel_in.nickname,
-        status="ACTIVE"
-    )
-    
-    db.add(channel)
-    db.commit()
-    db.refresh(channel)
-    return channel
+    result = []
+    for p in profiles:
+        result.append(TikTokChannelResponse(
+            id=p.id,
+            browser_profile_id=p.id,
+            nickname=p.name or p.email or p.id,
+            status=p.status or "ACTIVE",
+            follower_count=0,
+            created_at=p.created_at or datetime.now()
+        ))
+    return result
 
 @router.delete("/{channel_id}")
 def delete_tiktok_channel(channel_id: str, db: Session = Depends(get_db)):
+    """
+    Profile 테이블 기반 삭제 (소셜 계정 매니저와 동기화).
+    레거시 TikTokChannel 테이블에도 동일 ID가 있으면 함께 정리.
+    """
+    profile = db.query(models.Profile).filter(models.Profile.id == channel_id).first()
+    if profile:
+        db.delete(profile)
+        db.commit()
+        return {"message": "Channel deleted", "source": "profile"}
+
+    # 레거시 tiktok_channels 테이블 폴백
     channel = db.query(models.TikTokChannel).filter(models.TikTokChannel.id == channel_id).first()
     if not channel:
         raise HTTPException(404, "Channel not found")
-    
     db.delete(channel)
     db.commit()
-    return {"message": "Channel deleted"}
+    return {"message": "Channel deleted", "source": "legacy"}

@@ -32,6 +32,7 @@ class BrowserSessionManager:
 
     _instance = None
     _sessions: dict = {}  # profile_id -> Page
+    _session_headless: dict = {}  # profile_id -> bool (headless mode tracking)
     _active_channel_id: Optional[str] = None
     _active_profile_id: Optional[str] = None
     _session_lock = threading.Lock()
@@ -60,6 +61,7 @@ class BrowserSessionManager:
                 for k in keys:
                     self._close_single_session_locked(k)
                 self._sessions.clear()
+                self._session_headless.clear()
                 return
 
             keys_to_close = []
@@ -93,6 +95,7 @@ class BrowserSessionManager:
 
     def _close_single_session_locked(self, key: str):
         page = self._sessions.pop(key, None)
+        self._session_headless.pop(key, None)
         if page:
             try:
                 if not page.is_closed():
@@ -290,12 +293,22 @@ class BrowserSessionManager:
                 except Exception:
                     is_dead = True
 
+                if not is_dead:
+                    # [Headless Mode Sync] Check if existing session's headless mode matches the requested mode
+                    cached_headless = self._session_headless.get(profile_id)
+                    if cached_headless is not None and cached_headless != headless:
+                        logger.info(f"🔄 [SessionManager] Headless mode mismatch for profile {profile_id} (cached={cached_headless}, requested={headless}). Recreating session.")
+                        self._close_single_session_locked(profile_id)
+                        existing_page = None
+                        is_dead = True
+
                 if is_dead:
                     logger.info(f"🧹 [SessionManager] Stale/closed page detected for profile {profile_id}. Discarding.")
                     self._sessions.pop(profile_id, None)
+                    self._session_headless.pop(profile_id, None)
                     page = None
                 else:
-                    logger.info(f"[TURBO] [Context Reuse] Reusing healthy browser session for profile {profile_id}")
+                    logger.info(f"[TURBO] [Context Reuse] Reusing healthy browser session for profile {profile_id} (headless={headless})")
                     page = existing_page
 
         # 3. 브라우저 세션 생성 (필요 시)
@@ -312,6 +325,7 @@ class BrowserSessionManager:
 
             with self._session_lock:
                 self._sessions[profile_id] = page
+                self._session_headless[profile_id] = headless
 
         # 4. 목표 URL 안전 이동 (네비게이션 중 창 종료 시 자가 치유 재시도)
         if target_url:
@@ -324,9 +338,11 @@ class BrowserSessionManager:
                     logger.info("Target page/browser was closed during initial goto. Recreating fresh browser context...")
                     with self._session_lock:
                         self._sessions.pop(profile_id, None)
+                        self._session_headless.pop(profile_id, None)
                     page = self._create_browser(profile_id, engine_mode=engine_mode, headless=headless)
                     with self._session_lock:
                         self._sessions[profile_id] = page
+                        self._session_headless[profile_id] = headless
                     page.goto(target_url, wait_until="domcontentloaded", timeout=45000)
                 else:
                     try:
@@ -1046,24 +1062,110 @@ class BrowserSessionManager:
             if str(e) == "AUTH_DROPPED": return "AUTH_DROPPED"
             return False
 
-    def launch_tiktok_upload(self, profile_id: str, db: Session, video_path: str, caption: str, hashtags: list, privacy: str) -> dict:
-        logger.info(f"Launching TikTok Upload for profile {profile_id}")
-        page = self._create_browser(profile_id=profile_id, engine_mode="standard", headless=False)
+    def launch_tiktok_upload(
+        self,
+        profile_id: Optional[str] = None,
+        db: Optional[Session] = None,
+        video_path: str = "",
+        caption: str = "",
+        hashtags: Optional[list] = None,
+        privacy: str = "PUBLIC",
+        allow_comments: bool = True,
+        allow_duet: bool = True,
+        headless: bool = False
+    ) -> dict:
+        """
+        TikTok 스텔스 브라우저 업로드 실행.
+        profile_id 누락 시 DB에서 활성 TIKTOK 프로필 자동 폴백 지원.
+        """
+        # 프로필 ID 폴백
+        target_profile_id = profile_id
+        if not target_profile_id:
+            try:
+                from app.database import SessionLocal
+                from app.models import Profile
+                db_sess = db or SessionLocal()
+                p = db_sess.query(Profile).filter(Profile.profile_type == "TIKTOK", Profile.status == "ACTIVE").first()
+                if not p:
+                    p = db_sess.query(Profile).filter(Profile.profile_type == "TIKTOK").first()
+                if p:
+                    target_profile_id = p.id
+                if not db and db_sess:
+                    db_sess.close()
+            except Exception as e:
+                logger.warning(f"Failed to resolve fallback TikTok profile: {e}")
+
+        if not target_profile_id:
+            return {"status": "error", "message": "No TikTok Profile found to execute upload"}
+
+        msg = f"🖥️ [SessionManager] Launching TikTok Upload for profile {target_profile_id} (headless={headless})"
+        print(msg)
+        logger.info(msg)
+        page = self._create_browser(profile_id=target_profile_id, engine_mode="standard", headless=headless)
         try:
             from app.services.tiktok_uploader import tiktok_uploader
-            return tiktok_uploader.upload_video(page, video_path, caption, hashtags, privacy)
+            return tiktok_uploader.upload_video(
+                page=page,
+                video_path=video_path,
+                caption=caption,
+                hashtags=hashtags or [],
+                privacy=privacy,
+                allow_comments=allow_comments,
+                allow_duet=allow_duet
+            )
         finally:
-            if page and page.context:
-                page.context.close()
+            if page and getattr(page, 'context', None):
+                try:
+                    page.context.close()
+                except Exception:
+                    pass
 
-    def launch_instagram_upload(self, profile_id: str, db: Session, video_path: str, caption: str) -> dict:
-        logger.info(f"Launching Instagram Upload for profile {profile_id}")
-        page = self._create_browser(profile_id=profile_id, engine_mode="standard", headless=False)
+    def launch_instagram_upload(
+        self,
+        profile_id: Optional[str] = None,
+        db: Optional[Session] = None,
+        video_path: str = "",
+        caption: str = "",
+        share_to_feed: bool = False
+    ) -> dict:
+        """
+        Instagram Reels 스텔스 브라우저 업로드 실행.
+        profile_id 누락 시 DB에서 활성 INSTAGRAM 프로필 자동 폴백 지원.
+        """
+        target_profile_id = profile_id
+        if not target_profile_id:
+            try:
+                from app.database import SessionLocal
+                from app.models import Profile
+                db_sess = db or SessionLocal()
+                p = db_sess.query(Profile).filter(Profile.profile_type == "INSTAGRAM", Profile.status == "ACTIVE").first()
+                if not p:
+                    p = db_sess.query(Profile).filter(Profile.profile_type == "INSTAGRAM").first()
+                if p:
+                    target_profile_id = p.id
+                if not db and db_sess:
+                    db_sess.close()
+            except Exception as e:
+                logger.warning(f"Failed to resolve fallback Instagram profile: {e}")
+
+        if not target_profile_id:
+            return {"status": "error", "message": "No Instagram Profile found to execute upload"}
+
+        logger.info(f"Launching Instagram Upload for profile {target_profile_id}")
+        page = self._create_browser(profile_id=target_profile_id, engine_mode="standard", headless=False)
         try:
             from app.services.instagram_browser_uploader import instagram_browser_uploader
-            return instagram_browser_uploader.upload_reel(page, video_path, caption)
+            return instagram_browser_uploader.upload_reel(
+                page=page,
+                video_path=video_path,
+                caption=caption,
+                share_to_feed=share_to_feed
+            )
         finally:
-            if page and page.context:
-                page.context.close()
+            if page and getattr(page, 'context', None):
+                try:
+                    page.context.close()
+                except Exception:
+                    pass
 
 session_manager = BrowserSessionManager()

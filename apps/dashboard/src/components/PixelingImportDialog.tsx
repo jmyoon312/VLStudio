@@ -48,7 +48,10 @@ interface ScheduleLocal extends ScheduleCfg {
     privacy: string;
     tiktokAccountId?: string;
     tiktokPrivacy?: string;
+    tiktokAllowComments?: boolean;
+    tiktokAllowDuet?: boolean;
     instagramAccountId?: string;
+    instagramShareToFeed?: boolean;
 }
 
 interface StoredPreset {
@@ -60,7 +63,10 @@ interface StoredPreset {
     privacy?: string;
     tiktokAccountId?: string;
     tiktokPrivacy?: string;
+    tiktokAllowComments?: boolean;
+    tiktokAllowDuet?: boolean;
     instagramAccountId?: string;
+    instagramShareToFeed?: boolean;
 }
 
 const PRESET_STORAGE_KEY = 'vl_pixeling_channel_presets_v5';
@@ -283,6 +289,9 @@ export const PixelingImportDialog = ({ isOpen, setIsOpen, onSuccess }: Props) =>
     const [schedOpen, setSchedOpen] = useState(true);
     const [progress, setProgress] = useState<{ label: string; done: number; total: number } | null>(null);
     const [registering, setRegistering] = useState(false);
+    const [registerProgress, setRegisterProgress] = useState<{ current: number; total: number; stage: string } | null>(null);
+    const [justCompletedAll, setJustCompletedAll] = useState(false);
+    const autoCloseTimerRef = useRef<NodeJS.Timeout | null>(null);
     const [sentKeys, setSentKeys] = useState<Record<string, boolean>>({});
     const [sendingKey, setSendingKey] = useState('');
 
@@ -330,6 +339,12 @@ export const PixelingImportDialog = ({ isOpen, setIsOpen, onSuccess }: Props) =>
     const hasAnalyzedRef = useRef(false);
     useEffect(() => {
         if (!isOpen) {
+            if (autoCloseTimerRef.current) {
+                clearTimeout(autoCloseTimerRef.current);
+                autoCloseTimerRef.current = null;
+            }
+            setJustCompletedAll(false);
+            setRegisterProgress(null);
             hasAnalyzedRef.current = false;
             return;
         }
@@ -348,6 +363,12 @@ export const PixelingImportDialog = ({ isOpen, setIsOpen, onSuccess }: Props) =>
     }, [isOpen]);
 
     const reset = () => {
+        if (autoCloseTimerRef.current) {
+            clearTimeout(autoCloseTimerRef.current);
+            autoCloseTimerRef.current = null;
+        }
+        setJustCompletedAll(false);
+        setRegisterProgress(null);
         setMetaText(''); setParsed(null); setPool({}); setAttachments({});
         setHidden({}); setOrder({}); setSchedules({}); setSearch('');
         setLangFilter('__all'); setSchedOpen(true); setProgress(null);
@@ -410,7 +431,10 @@ export const PixelingImportDialog = ({ isOpen, setIsOpen, onSuccess }: Props) =>
             privacy: saved.privacy || 'private',
             tiktokAccountId: saved.tiktokAccountId || (tiktokChannels[0]?.id || ''),
             tiktokPrivacy: saved.tiktokPrivacy || 'SELF_ONLY',
+            tiktokAllowComments: saved.tiktokAllowComments ?? true,
+            tiktokAllowDuet: saved.tiktokAllowDuet ?? true,
             instagramAccountId: saved.instagramAccountId || (instagramChannels[0]?.id || ''),
+            instagramShareToFeed: saved.instagramShareToFeed ?? false,
         };
         return base;
     }, [schedules, channelList, tiktokChannels, instagramChannels]);
@@ -428,7 +452,10 @@ export const PixelingImportDialog = ({ isOpen, setIsOpen, onSuccess }: Props) =>
                 privacy: next.privacy,
                 tiktokAccountId: next.tiktokAccountId,
                 tiktokPrivacy: next.tiktokPrivacy,
+                tiktokAllowComments: next.tiktokAllowComments,
+                tiktokAllowDuet: next.tiktokAllowDuet,
                 instagramAccountId: next.instagramAccountId,
+                instagramShareToFeed: next.instagramShareToFeed,
             });
             return { ...prev, [lang]: next };
         });
@@ -635,24 +662,28 @@ export const PixelingImportDialog = ({ isOpen, setIsOpen, onSuccess }: Props) =>
             scheduledTimeStr = `${when.getFullYear()}-${pad(when.getMonth() + 1)}-${pad(when.getDate())}T${pad(when.getHours())}:${pad(when.getMinutes())}:00`;
         }
 
+        const isBrowserVisible = typeof window !== 'undefined'
+            ? localStorage.getItem('vl_work_queue_browser_visible') === 'true'
+            : false;
+
         const platformConfigs: any = {
             youtube: {
                 channel_id: sched.channelId || '',
                 privacy: sched.privacy || 'private',
                 category: '22',
                 made_for_kids: false,
-                headless_mode: true
+                headless_mode: !isBrowserVisible
             },
             tiktok: {
                 account_id: sched.tiktokAccountId || '',
                 privacy: sched.tiktokPrivacy || 'SELF_ONLY',
-                allow_comments: true,
-                allow_duet: true
+                allow_comments: sched.tiktokAllowComments !== undefined ? sched.tiktokAllowComments : true,
+                allow_duet: sched.tiktokAllowDuet !== undefined ? sched.tiktokAllowDuet : true
             },
             instagram: {
                 account_id: sched.instagramAccountId || '',
                 caption: fullDesc,
-                share_to_feed: false
+                share_to_feed: sched.instagramShareToFeed !== undefined ? sched.instagramShareToFeed : false
             }
         };
 
@@ -770,8 +801,22 @@ export const PixelingImportDialog = ({ isOpen, setIsOpen, onSuccess }: Props) =>
             }
 
             await sendPayloadToQueue(payload);
-            setSentKeys(prev => ({ ...prev, [payload.key]: true }));
+            const nextSent = { ...sentKeys, [payload.key]: true };
+            setSentKeys(nextSent);
             toast({ title: `[${lang}] 대기열 등록 완료`, description: payload.title });
+            onSuccess?.();
+
+            // 개별 등록으로 모든 항목이 전송 완료되었는지 검사
+            let remaining = 0;
+            langs.forEach(l => {
+                getOrder(l).forEach(idx => {
+                    const key = vkey(idx, l);
+                    if (!hidden[key] && !nextSent[key]) remaining++;
+                });
+            });
+            if (remaining === 0) {
+                setJustCompletedAll(true);
+            }
         } catch (e: any) {
             console.error("Register single error:", e);
             toast({ variant: "destructive", title: "등록 실패", description: e?.message || "서버 오류" });
@@ -783,6 +828,7 @@ export const PixelingImportDialog = ({ isOpen, setIsOpen, onSuccess }: Props) =>
     const handleRegisterAll = async () => {
         if (!parsed?.sources?.length) return;
         setRegistering(true);
+        setJustCompletedAll(false);
 
         try {
             // 1. 필요한 모든 미업로드 영상을 먼저 서버로 업로드
@@ -800,7 +846,14 @@ export const PixelingImportDialog = ({ isOpen, setIsOpen, onSuccess }: Props) =>
                 });
             });
 
+            let vidIndex = 0;
             for (const v of neededVideos) {
+                vidIndex++;
+                setRegisterProgress({
+                    current: vidIndex,
+                    total: neededVideos.length,
+                    stage: '영상 서버 전송 중'
+                });
                 await ensureVideoUploaded(v);
             }
 
@@ -821,6 +874,7 @@ export const PixelingImportDialog = ({ isOpen, setIsOpen, onSuccess }: Props) =>
             if (itemsToRegister.length === 0) {
                 toast({ title: "등록할 대상이 없습니다" });
                 setRegistering(false);
+                setRegisterProgress(null);
                 return;
             }
 
@@ -828,7 +882,14 @@ export const PixelingImportDialog = ({ isOpen, setIsOpen, onSuccess }: Props) =>
             let failCount = 0;
             let lastError = '';
 
+            let itemIndex = 0;
             for (const item of itemsToRegister) {
+                itemIndex++;
+                setRegisterProgress({
+                    current: itemIndex,
+                    total: itemsToRegister.length,
+                    stage: '대기열 등록 중'
+                });
                 try {
                     await sendPayloadToQueue(item);
                     setSentKeys(prev => ({ ...prev, [item.key]: true }));
@@ -845,6 +906,15 @@ export const PixelingImportDialog = ({ isOpen, setIsOpen, onSuccess }: Props) =>
                     description: `총 ${successCount}개의 항목이 자동화 대기열로 등록되었습니다.${failCount > 0 ? ` (${failCount}개 실패: ${lastError})` : ''}`
                 });
                 onSuccess?.();
+
+                // 모든 항목이 성공적으로 등록된 경우 부드러운 자동 닫기 및 완료 모드 전환
+                if (failCount === 0) {
+                    setJustCompletedAll(true);
+                    if (autoCloseTimerRef.current) clearTimeout(autoCloseTimerRef.current);
+                    autoCloseTimerRef.current = setTimeout(() => {
+                        setIsOpen(false);
+                    }, 1500);
+                }
             } else if (failCount > 0) {
                 toast({
                     variant: "destructive",
@@ -861,6 +931,7 @@ export const PixelingImportDialog = ({ isOpen, setIsOpen, onSuccess }: Props) =>
             });
         } finally {
             setRegistering(false);
+            setRegisterProgress(null);
         }
     };
 
@@ -874,6 +945,33 @@ export const PixelingImportDialog = ({ isOpen, setIsOpen, onSuccess }: Props) =>
         });
         return count;
     }, [langs, getOrder, hidden, sentKeys]);
+
+    const totalItemCount = useMemo(() => {
+        let count = 0;
+        langs.forEach(lang => {
+            getOrder(lang).forEach(srcIdx => {
+                const k = vkey(srcIdx, lang);
+                if (!hidden[k]) count++;
+            });
+        });
+        return count;
+    }, [langs, getOrder, hidden]);
+
+    const sentCount = useMemo(() => {
+        return Object.keys(sentKeys).length;
+    }, [sentKeys]);
+
+    const isAllSent = useMemo(() => {
+        return totalItemCount > 0 && registerCount === 0 && sentCount > 0;
+    }, [totalItemCount, registerCount, sentCount]);
+
+    const handleCompleteClose = () => {
+        if (autoCloseTimerRef.current) {
+            clearTimeout(autoCloseTimerRef.current);
+            autoCloseTimerRef.current = null;
+        }
+        setIsOpen(false);
+    };
 
     const matchedCount = useMemo(() => Object.keys(attachments).length, [attachments]);
     const poolList = Object.values(pool);
@@ -910,15 +1008,38 @@ export const PixelingImportDialog = ({ isOpen, setIsOpen, onSuccess }: Props) =>
                             </DialogDescription>
                         </div>
                         {parsed && (
-                            <Badge variant="outline" className="text-xs font-semibold">
-                                등록 대상 {registerCount}개
-                            </Badge>
+                            isAllSent ? (
+                                <Badge className="text-xs font-semibold bg-emerald-600 text-white gap-1 animate-in fade-in">
+                                    <Check className="w-3 h-3" /> 전체 등록 완료 ({sentCount}개)
+                                </Badge>
+                            ) : (
+                                <Badge variant="outline" className="text-xs font-semibold">
+                                    등록 대상 {registerCount}개
+                                </Badge>
+                            )
                         )}
                     </div>
                 </DialogHeader>
 
                 {/* 본문 스크롤 영역 */}
                 <div className="flex-1 overflow-y-auto px-5 py-3 space-y-3.5">
+                    {/* 전체 완료 성공 배너 */}
+                    {justCompletedAll && (
+                        <div className="p-3 bg-emerald-500/15 border border-emerald-500/30 rounded-xl flex items-center justify-between gap-3 animate-in fade-in slide-in-from-top-2 shrink-0">
+                            <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-300 text-xs font-medium">
+                                <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                                <span><b>전체 {sentCount}개 영상 대기열 등록 완료!</b> 1.5초 후 자동으로 창이 닫힙니다.</span>
+                            </div>
+                            <Button 
+                                size="sm" 
+                                variant="outline" 
+                                onClick={handleCompleteClose}
+                                className="h-6 text-xs px-2 border-emerald-500/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/20"
+                            >
+                                지금 닫기
+                            </Button>
+                        </div>
+                    )}
                     {/* 헤더 상태바 (스크린샷 일치) */}
                     {parsed && (
                         <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
@@ -1106,16 +1227,29 @@ export const PixelingImportDialog = ({ isOpen, setIsOpen, onSuccess }: Props) =>
                                                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-0.5">
                                                                 {(cfg.targetPlatforms || []).includes('youtube') && (
                                                                     <div>
-                                                                        <Label className="text-[9px] text-muted-foreground">YouTube 채널 *</Label>
+                                                                        <div className="flex items-center justify-between">
+                                                                            <Label className="text-[9px] text-muted-foreground">YouTube 채널 *</Label>
+                                                                            {channelList.find(c => c.channel_id === cfg.channelId)?.auto_approve_default && (
+                                                                                <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-semibold">⭐ 자동 승인</span>
+                                                                            )}
+                                                                        </div>
                                                                         <Select
                                                                             value={cfg.channelId}
-                                                                            onValueChange={v => updateSched(lang, { channelId: v })}
+                                                                            onValueChange={v => {
+                                                                                const sel = channelList.find(c => c.channel_id === v);
+                                                                                const autoApprove = sel?.auto_approve_default;
+                                                                                updateSched(lang, {
+                                                                                    channelId: v,
+                                                                                    ...(autoApprove !== undefined ? { approvalRequired: !autoApprove } : {})
+                                                                                });
+                                                                            }}
                                                                         >
                                                                             <SelectTrigger className="h-6 text-xs bg-background"><SelectValue placeholder="채널 선택" /></SelectTrigger>
                                                                             <SelectContent>
                                                                                 {channelList.map(c => (
                                                                                     <SelectItem key={c.channel_id} value={c.channel_id}>
                                                                                         {c.channel_name || c.title} ({c.subscriber_count?.toLocaleString()}명)
+                                                                                        {c.auto_approve_default ? ' ⭐' : ''}
                                                                                     </SelectItem>
                                                                                 ))}
                                                                             </SelectContent>
@@ -1124,7 +1258,7 @@ export const PixelingImportDialog = ({ isOpen, setIsOpen, onSuccess }: Props) =>
                                                                 )}
 
                                                                 {(cfg.targetPlatforms || []).includes('tiktok') && (
-                                                                    <div>
+                                                                    <div className="space-y-1">
                                                                         <Label className="text-[9px] text-muted-foreground">TikTok 계정</Label>
                                                                         <Select
                                                                             value={cfg.tiktokAccountId}
@@ -1135,11 +1269,27 @@ export const PixelingImportDialog = ({ isOpen, setIsOpen, onSuccess }: Props) =>
                                                                                 {tiktokChannels.map(c => <SelectItem key={c.id} value={c.id}>{c.nickname || c.id}</SelectItem>)}
                                                                             </SelectContent>
                                                                         </Select>
+                                                                        <div className="flex items-center gap-2 pt-0.5">
+                                                                            <label className="flex items-center gap-1 text-[10px] text-muted-foreground cursor-pointer">
+                                                                                <Checkbox
+                                                                                    checked={cfg.tiktokAllowComments !== false}
+                                                                                    onCheckedChange={v => updateSched(lang, { tiktokAllowComments: !!v })}
+                                                                                />
+                                                                                <span>댓글</span>
+                                                                            </label>
+                                                                            <label className="flex items-center gap-1 text-[10px] text-muted-foreground cursor-pointer">
+                                                                                <Checkbox
+                                                                                    checked={cfg.tiktokAllowDuet !== false}
+                                                                                    onCheckedChange={v => updateSched(lang, { tiktokAllowDuet: !!v })}
+                                                                                />
+                                                                                <span>듀엣</span>
+                                                                            </label>
+                                                                        </div>
                                                                     </div>
                                                                 )}
 
                                                                 {(cfg.targetPlatforms || []).includes('instagram') && (
-                                                                    <div>
+                                                                    <div className="space-y-1">
                                                                         <Label className="text-[9px] text-muted-foreground">Instagram 계정</Label>
                                                                         <Select
                                                                             value={cfg.instagramAccountId}
@@ -1150,6 +1300,15 @@ export const PixelingImportDialog = ({ isOpen, setIsOpen, onSuccess }: Props) =>
                                                                                 {instagramChannels.map(c => <SelectItem key={c.id} value={c.id}>{c.nickname || c.id}</SelectItem>)}
                                                                             </SelectContent>
                                                                         </Select>
+                                                                        <div className="pt-0.5">
+                                                                            <label className="flex items-center gap-1 text-[10px] text-muted-foreground cursor-pointer">
+                                                                                <Checkbox
+                                                                                    checked={cfg.instagramShareToFeed === true}
+                                                                                    onCheckedChange={v => updateSched(lang, { instagramShareToFeed: !!v })}
+                                                                                />
+                                                                                <span>피드 동시 게시</span>
+                                                                            </label>
+                                                                        </div>
                                                                     </div>
                                                                 )}
                                                             </div>
@@ -1437,20 +1596,51 @@ export const PixelingImportDialog = ({ isOpen, setIsOpen, onSuccess }: Props) =>
                 {/* 하단 고정 일괄 등록 바 */}
                 {parsed && (
                     <div className="px-5 py-2.5 border-t border-border/80 bg-card flex flex-wrap items-center justify-between gap-3 shrink-0">
-                        <span className="text-xs text-muted-foreground">
-                            등록 대상 <b className="text-foreground">{registerCount}개</b> · 영상 첨부 <b className="text-emerald-600 dark:text-emerald-400">{matchedCount}개</b>
-                        </span>
                         <div className="flex items-center gap-2">
-                            <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => setIsOpen(false)}>취소</Button>
-                            <Button
-                                size="sm"
-                                onClick={handleRegisterAll}
-                                disabled={registering || registerCount === 0}
-                                className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold shadow-xs px-3.5 h-7 text-xs"
+                            {isAllSent ? (
+                                <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-md border border-emerald-500/20 animate-in fade-in">
+                                    <CheckCircle2 className="w-3.5 h-3.5" />
+                                    <span>모든 항목({sentCount}개) 대기열 등록 완료</span>
+                                </span>
+                            ) : (
+                                <span className="text-xs text-muted-foreground">
+                                    등록 대상 <b className="text-foreground">{registerCount}개</b> · 영상 첨부 <b className="text-emerald-600 dark:text-emerald-400">{matchedCount}개</b>
+                                </span>
+                            )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <Button 
+                                variant="outline" 
+                                size="sm" 
+                                className="h-7 text-xs" 
+                                onClick={handleCompleteClose}
                             >
-                                {registering ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Rocket className="w-3.5 h-3.5 mr-1.5" />}
-                                {registering ? '보내는 중...' : `전체 대기열로 보내기 (${registerCount})`}
+                                {isAllSent ? '닫기' : '취소'}
                             </Button>
+                            {isAllSent ? (
+                                <Button
+                                    size="sm"
+                                    onClick={handleCompleteClose}
+                                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-xs px-3.5 h-7 text-xs gap-1.5 animate-in fade-in"
+                                >
+                                    <Check className="w-3.5 h-3.5" />
+                                    <span>등록 완료 (창 닫기)</span>
+                                </Button>
+                            ) : (
+                                <Button
+                                    size="sm"
+                                    onClick={handleRegisterAll}
+                                    disabled={registering || registerCount === 0}
+                                    className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold shadow-xs px-3.5 h-7 text-xs"
+                                >
+                                    {registering ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Rocket className="w-3.5 h-3.5 mr-1.5" />}
+                                    {registerProgress
+                                        ? `${registerProgress.stage} (${registerProgress.current}/${registerProgress.total})`
+                                        : registering
+                                            ? '보내는 중...'
+                                            : `전체 대기열로 보내기 (${registerCount})`}
+                                </Button>
+                            )}
                         </div>
                     </div>
                 )}

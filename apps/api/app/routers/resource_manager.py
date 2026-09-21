@@ -452,6 +452,8 @@ class LaunchSetupRequest(BaseModel):
     rotate_ip: bool = False
     skip_browser: bool = False
     target_channel_id: Optional[str] = None
+    platform: Optional[str] = None # 'tiktok', 'instagram', 'youtube', 'all'
+    target_url: Optional[str] = None
 
 @router.post("/profiles/{profile_id}/launch-setup")
 async def launch_setup(
@@ -465,8 +467,19 @@ async def launch_setup(
         rotate_ip_flag = payload.rotate_ip
         skip_browser = payload.skip_browser
         target_channel_id = payload.target_channel_id
+        target_url = payload.target_url
 
-        print(f"DEBUG: launch_setup called for {profile_id}, rotate_ip: {rotate_ip_flag}, skip_browser: {skip_browser}, target_channel: {target_channel_id}")
+        if not target_url and payload.platform:
+            if payload.platform == 'tiktok':
+                target_url = "https://www.tiktok.com/creator-center"
+            elif payload.platform == 'instagram':
+                target_url = "https://www.instagram.com/"
+            elif payload.platform == 'youtube':
+                target_url = "https://studio.youtube.com/"
+            elif payload.platform == 'all':
+                target_url = "https://studio.youtube.com/,https://www.tiktok.com/creator-center,https://www.instagram.com/"
+
+        print(f"DEBUG: launch_setup called for {profile_id}, rotate_ip: {rotate_ip_flag}, skip_browser: {skip_browser}, target_channel: {target_channel_id}, target_url: {target_url}")
         
         profile = db.query(Profile).filter(Profile.id == profile_id).first()
         email = profile.email if profile else None
@@ -497,7 +510,7 @@ async def launch_setup(
             skip_proxy = False
             engine_mode = "cloakbrowser"
 
-        logger.info(f"🌐 Launching browser ({engine_mode}) for profile {profile_id}")
+        logger.info(f"🌐 Launching browser ({engine_mode}) for profile {profile_id} (URL: {target_url or 'default'})")
         
         if engine_mode == "cloakbrowser":
             success = stealth_ops.launch_for_setup(
@@ -507,7 +520,8 @@ async def launch_setup(
                 target_channel_id=target_channel_id, 
                 skip_proxy_check=skip_proxy, 
                 db=db,
-                rotate_ip_on_close=False
+                rotate_ip_on_close=False,
+                target_url=target_url
             )
             if success:
                 logger.info(f"✅ CloakBrowser launched successfully for profile {profile_id}")

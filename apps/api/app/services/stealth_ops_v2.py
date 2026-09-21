@@ -82,27 +82,65 @@ class PatchrightStealth:
 
         if not profile_dir:
             profile_dir = get_profile_path(profile_id)
+
+        # ── Windows: 프로필 디렉토리 잠금(Lock) 및 좀비 프로세스 자동 해제 ──
+        if profile_dir and os.path.exists(profile_dir):
+            try:
+                import psutil
+                profile_base = os.path.basename(profile_dir).lower()
+                clean_dir = profile_dir.lower().replace('\\', '/')
+                current_pid = os.getpid()
+                parent_pid = os.getppid() if hasattr(os, 'getppid') else None
+                for p in psutil.process_iter(['pid', 'name', 'cmdline']):
+                    try:
+                        if p.pid == current_pid or p.pid == parent_pid:
+                            continue
+                        proc_name = (p.info.get('name') or '').lower()
+                        # Only target Chrome browser processes, NEVER Python or other services
+                        if 'chrome' in proc_name:
+                            cmd_str = ' '.join(p.info.get('cmdline') or []).lower().replace('\\', '/')
+                            if clean_dir in cmd_str or profile_base in cmd_str:
+                                logger.info(f"[Stealth Shield] Killing zombie Chrome process {p.pid}")
+                                p.kill()
+                    except Exception:
+                        pass
+                
+                # Chromium 싱글톤 락 파일 제거 (충돌 방지)
+                for lock_name in ["lockfile", "SingletonLock", "SingletonCookie", "SingletonSocket"]:
+                    lf = os.path.join(profile_dir, lock_name)
+                    if os.path.exists(lf):
+                        try:
+                            os.remove(lf)
+                            logger.info(f"🔓 [Stealth Shield] Removed lingering lockfile: {lock_name}")
+                        except Exception:
+                            pass
+            except Exception as clean_err:
+                logger.warning(f"Profile cleanup attempt skipped: {clean_err}")
                 
         if not proxy_config and proxy_port:
             proxy_config = {"server": f"http://127.0.0.1:{proxy_port}"}
             
         browser_args = [
             "--test-type",
+            "--start-maximized",
+            "--window-position=0,0",
             "--disable-quic",
-            "--disable-ipv6",
-            "--disable-background-networking",
             "--force-webrtc-ip-handling-policy=disable_non_proxied_udp",
             "--disable-webrtc-multiple-routes",
             "--use-fake-ui-for-media-stream",
             "--hide-crash-restore-bubble",
         ]
         
-        logger.info(f"Launching Patchright context for profile {profile_id} (Headless: {headless}, Proxy: {proxy_config})")
+        msg_launch = f"🖥️ [StealthOps] Launching browser window: profile={profile_id}, headless={headless}, proxy={proxy_config}"
+        print(msg_launch)
+        logger.info(msg_launch)
+
         self.context = launch_persistent_context(
             user_data_dir=profile_dir,
             headless=headless,
             proxy=proxy_config,
             args=browser_args,
+            no_viewport=True,
         )
         
         from cloakbrowser.human import patch_page, resolve_config, _CursorState
@@ -115,6 +153,16 @@ class PatchrightStealth:
         cfg = resolve_config('default')
         cursor = _CursorState()
         patch_page(page, cfg, cursor)
+
+        # 화면 최상단 포커스 활성화
+        try:
+            page.bring_to_front()
+            logger.info("🖥️ [StealthOps] Page brought to front successfully.")
+        except Exception as e:
+            logger.warning(f"🖥️ [StealthOps] bring_to_front warning: {e}")
+
+        print(f"✅ [StealthOps] Browser page ready (headless={headless}, url={page.url})")
+        logger.info(f"✅ [StealthOps] Browser page ready (headless={headless}, url={page.url})")
         return page
 
     def close(self):
@@ -126,13 +174,13 @@ class PatchrightStealth:
                 logger.error(f"Failed to close context: {e}")
             self.context = None
 
-    def launch_for_setup(self, profile_id: str, email: str = None, password: str = None, target_channel_id: str = None, skip_proxy_check: bool = False, db=None, rotate_ip_on_close: bool = False, **kwargs):
+    def launch_for_setup(self, profile_id: str, email: str = None, password: str = None, target_channel_id: str = None, skip_proxy_check: bool = False, db=None, rotate_ip_on_close: bool = False, target_url: str = None, **kwargs):
         """
         수동 설정(마법사) 모드 전용.
         API 응답 사이클과 분리하기 위해 subprocess를 사용하여 독립적인 로컬 브라우저 창을 띄웁니다.
         """
         try:
-            logger.info(f"🛰️ [SAIF-PRO] Launching Patchright engine for YouTube Studio Setup: {profile_id}")
+            logger.info(f"🛰️ [SAIF-PRO] Launching Patchright engine for Setup: {profile_id}")
             
             # Fetch profile from DB to get the correct folder_path
             profile_dir = None
@@ -169,20 +217,35 @@ class PatchrightStealth:
             import sys
             
             # Use the venv python if running in a virtual environment
-            venv_python = os.path.join(os.path.dirname(sys.executable), "python.exe")
-            if not os.path.exists(venv_python):
-                venv_python = sys.executable
+            from app.utils.python_env import get_venv_python
+            venv_python = get_venv_python()
 
-            url = "https://studio.youtube.com/"
-            if target_channel_id:
+            url = target_url or "https://studio.youtube.com/"
+            if not target_url and target_channel_id:
                 url += f"channel/{target_channel_id}"
                 
             cmd = [venv_python, script_path, profile_dir, url, proxy_str]
             if email and password:
                 cmd.extend([email, password])
                 
+            # Windows: Zombie process cleanup on the profile directory before setup launch
+            if profile_dir:
+                try:
+                    import psutil
+                    profile_base = os.path.basename(profile_dir).lower()
+                    clean_dir = profile_dir.lower().replace('\\', '/')
+                    for p in psutil.process_iter(['pid', 'name', 'cmdline']):
+                        try:
+                            cmd_str = ' '.join(p.info.get('cmdline') or []).lower().replace('\\', '/')
+                            if (clean_dir in cmd_str or profile_base in cmd_str) and p.pid != os.getpid():
+                                p.kill()
+                        except Exception:
+                            pass
+                except Exception as clean_err:
+                    logger.warning(f"Profile cleanup attempt skipped: {clean_err}")
+
             logger.info(f"Executing native CloakBrowser via patchright... Command: {cmd}")
-            # CREATE_NO_WINDOW = 0x08000000
+            # 0x08000000 (CREATE_NO_WINDOW): Suppress black cmd console so only Chromium GUI appears
             process = subprocess.Popen(
                 cmd,
                 creationflags=0x08000000 if os.name == 'nt' else 0
