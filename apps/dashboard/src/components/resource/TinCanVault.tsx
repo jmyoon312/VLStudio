@@ -137,6 +137,14 @@ const TinCanVault = ({ mode = 'vault' }: TinCanVaultProps) => {
         queryFn: async () => (await axios.get(`${API_BASE}/youtube/all`)).data
     });
 
+    // Real-time OAuth Status for the profile currently being edited
+    const { data: editOAuthStatus } = useQuery({
+        queryKey: ['oauth-status', editProfile?.id],
+        queryFn: async () => (await axios.get(`${API_BASE}/oauth2/status/${editProfile.id}`)).data,
+        enabled: !!editProfile?.id,
+        refetchInterval: editProfile && !editProfile.has_oauth2_token ? 3000 : false,
+    });
+
     const activeOps = profiles?.filter((p: any) => p.status !== 'QUARANTINED' && p.usage_type !== 'DEEP_RESEARCH') || [];
     const quarantinedOps = profiles?.filter((p: any) => p.status === 'QUARANTINED' && p.usage_type !== 'DEEP_RESEARCH') || [];
 
@@ -1403,7 +1411,7 @@ const TinCanVault = ({ mode = 'vault' }: TinCanVaultProps) => {
                             <div className="pt-4 border-t border-border mt-2">
                                 {(() => {
                                     const hasKey = Boolean(editProfile.has_client_secret || editProfile.google_project_id);
-                                    const hasAuth = Boolean(editProfile.has_oauth2_token);
+                                    const hasAuth = Boolean(editProfile.has_oauth2_token || editOAuthStatus?.authenticated);
                                     return (
                                         <>
                                             <div className="flex items-center justify-between mb-3">
