@@ -4,16 +4,19 @@ Handles Google OAuth2 authentication flow for YouTube API access
 """
 
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, HTMLResponse
 from sqlalchemy.orm import Session
+import os
 import json
 import logging
+import subprocess
+import webbrowser
 from google_auth_oauthlib.flow import Flow
 from google.oauth2.credentials import Credentials
+from urllib.parse import urlencode
 
 from app.database import get_db
 from app.models import Profile
-from urllib.parse import urlencode
 
 logger = logging.getLogger(__name__)
 
@@ -23,29 +26,68 @@ router = APIRouter()
 SCOPES = [
     'https://www.googleapis.com/auth/youtube.readonly',
     'https://www.googleapis.com/auth/yt-analytics.readonly',
-    'https://www.googleapis.com/auth/yt-analytics-monetary.readonly'
+    'https://www.googleapis.com/auth/yt-analytics-monetary.readonly',
+    'https://www.googleapis.com/auth/youtube.upload',
+    'https://www.googleapis.com/auth/youtube.force-ssl',
+    'https://www.googleapis.com/auth/userinfo.email',
+    'https://www.googleapis.com/auth/userinfo.profile',
+    'openid'
 ]
 
-def _get_redirect_uri(request_url: str) -> str:
+REDIRECT_URI = "http://127.0.0.1:8000/api/oauth2/callback"
+
+
+def _get_redirect_uri(request_url: str = None) -> str:
+    if not request_url:
+        return REDIRECT_URI
     from urllib.parse import urlparse
     parsed = urlparse(request_url)
-    scheme = parsed.scheme or "https"
+    scheme = parsed.scheme or "http"
     host = parsed.netloc or "127.0.0.1:8000"
     return f"{scheme}://{host}/api/oauth2/callback"
+
+
+def _launch_browser_for_oauth(profile: Profile, auth_url: str) -> bool:
+    """
+    Google OAuth 승인 창을 사용자 데스크톱 브라우저로 안전하게 띄움
+    """
+    import subprocess
+    import webbrowser
+
+    # 1. 시스템 기본 브라우저로 열기 (스텔스 세션/로그인된 브라우저와 충돌 방지)
+    try:
+        opened = webbrowser.open(auth_url)
+        if opened:
+            logger.info("🌍 System default browser opened for OAuth")
+            return True
+    except Exception as wb_err:
+        logger.warning(f"webbrowser.open failed: {wb_err}")
+
+    # 2. Chrome 직접 실행 시도
+    chrome_candidates = [
+        r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+        r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
+        os.path.expandvars(r"%LOCALAPPDATA%\Google\Chrome\Application\chrome.exe"),
+        os.path.expandvars(r"%USERPROFILE%\.cloakbrowser\chromium-146.0.7680.177.5\chrome.exe")
+    ]
+    chrome_path = next((p for p in chrome_candidates if os.path.exists(p)), None)
+
+    if chrome_path:
+        try:
+            subprocess.Popen([chrome_path, "--new-window", auth_url])
+            logger.info(f"🌐 Chrome binary launched for OAuth: {chrome_path}")
+            return True
+        except Exception as cp_err:
+            logger.warning(f"Chrome launch failed: {cp_err}")
+
+    return False
 
 
 @router.get("/oauth2/authorize/{profile_id}")
 async def start_oauth2_flow(profile_id: str, db: Session = Depends(get_db)):
     """
     Start OAuth2 authentication flow
-    
-    Args:
-        profile_id: Profile ID to authenticate
-        
-    Returns:
-        Redirect to Google OAuth2 consent screen
     """
-    # Get profile
     profile = db.query(Profile).filter(Profile.id == profile_id).first()
     
     if not profile:
@@ -55,25 +97,21 @@ async def start_oauth2_flow(profile_id: str, db: Session = Depends(get_db)):
         raise HTTPException(400, "No client_secret.json uploaded for this profile")
     
     try:
-        # Parse client secret
         client_config = json.loads(profile.client_secret_json)
         
-        # Create OAuth2 flow
         flow = Flow.from_client_config(
             client_config,
             scopes=SCOPES,
             redirect_uri=REDIRECT_URI
         )
         
-        # [PRO] Use state to track profile_id through the flow
         state_data = json.dumps({"profile_id": profile_id})
         
-        # Generate authorization URL
         authorization_url, state = flow.authorization_url(
-            access_type='offline',  # Request refresh token
+            access_type='offline',
             include_granted_scopes='true',
-            prompt='consent',  # Force consent screen to get refresh token
-            state=state_data   # Pass profile_id in state
+            prompt='consent',
+            state=state_data
         )
         
         logger.info(f"Starting OAuth2 flow for profile {profile_id}")
@@ -86,117 +124,147 @@ async def start_oauth2_flow(profile_id: str, db: Session = Depends(get_db)):
         raise HTTPException(500, f"Failed to start OAuth2 flow: {str(e)}")
 
 
-@router.get("/oauth2/callback")
+@router.get("/oauth2/callback", response_class=HTMLResponse)
 async def oauth2_callback(code: str, state: str = None, db: Session = Depends(get_db)):
     """
     OAuth2 callback endpoint
-    
-    Args:
-        code: Authorization code from Google
-        state: State parameter (optional)
-        
-    Returns:
-        Success message with profile info
     """
     try:
-        # [PRO] Identify profile from state parameter
         profile_id = None
         if state:
             try:
                 state_json = json.loads(state)
                 profile_id = state_json.get("profile_id")
-            except:
+            except Exception:
                 pass
         
         if profile_id:
             profile = db.query(Profile).filter(Profile.id == profile_id).first()
         else:
-            # Fallback (Legacy)
             profile = db.query(Profile).filter(
                 Profile.client_secret_json.isnot(None),
                 Profile.refresh_token.is_(None)
             ).first()
         
         if not profile:
-            raise HTTPException(400, "Waiting profile not found. Please try again.")
+            return HTMLResponse(content="""
+            <div style="font-family: sans-serif; text-align: center; padding: 50px;">
+                <h2 style="color: #ef4444;">❌ 인증 대기 중인 프로필을 찾을 수 없습니다.</h2>
+                <p>ViraLoop Studio에서 다시 인증을 시도해 주세요.</p>
+            </div>
+            """, status_code=400)
         
-        # Parse client secret
         client_config = json.loads(profile.client_secret_json)
         
-        # Create flow
         flow = Flow.from_client_config(
             client_config,
             scopes=SCOPES,
             redirect_uri=REDIRECT_URI
         )
         
-        # Exchange authorization code for tokens
         flow.fetch_token(code=code)
-        
-        # Get credentials
         credentials = flow.credentials
         
-        # Save tokens to database
         profile.access_token = credentials.token
         profile.refresh_token = credentials.refresh_token
         profile.token_expiry = credentials.expiry
         
         db.commit()
         
-        logger.info(f"OAuth2 authentication successful for profile {profile.id}")
+        logger.info(f"OAuth2 authentication successful for profile {profile.id} ({profile.email})")
         
-        return {
-            "status": "success",
-            "message": "OAuth2 authentication completed",
-            "profile_id": profile.id,
-            "email": profile.email,
-            "has_access_token": bool(profile.access_token),
-            "has_refresh_token": bool(profile.refresh_token)
-        }
+        email_display = profile.email or "Google Account"
+        return HTMLResponse(content=f"""
+        <!DOCTYPE html>
+        <html lang="ko">
+        <head>
+            <meta charset="utf-8">
+            <title>ViraLoop Studio - Google API 인증 완료</title>
+            <style>
+                body {{
+                    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+                    background: #0f172a;
+                    color: #f8fafc;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    min-height: 100vh;
+                    margin: 0;
+                }}
+                .card {{
+                    background: #1e293b;
+                    border: 1px solid #334155;
+                    border-radius: 16px;
+                    padding: 40px;
+                    text-align: center;
+                    max-width: 480px;
+                    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+                }}
+                .icon {{ font-size: 52px; margin-bottom: 16px; }}
+                h1 {{ font-size: 22px; margin: 0 0 12px 0; color: #10b981; font-weight: 800; }}
+                p {{ font-size: 14px; color: #94a3b8; line-height: 1.6; margin: 0 0 24px 0; }}
+                .email {{ color: #818cf8; font-weight: bold; background: #312e81; padding: 4px 8px; border-radius: 6px; }}
+                .btn {{
+                    background: #6366f1;
+                    color: white;
+                    border: none;
+                    padding: 12px 28px;
+                    border-radius: 8px;
+                    font-weight: bold;
+                    cursor: pointer;
+                    font-size: 14px;
+                    transition: background 0.2s;
+                }}
+                .btn:hover {{ background: #4f46e5; }}
+            </style>
+        </head>
+        <body>
+            <div class="card">
+                <div class="icon">🎉</div>
+                <h1>Google API 연동 승인 완료!</h1>
+                <p>계정(<span class="email">{email_display}</span>)에 YouTube API 권한이 정상 등록되었습니다.<br><br>이제 이 창을 닫고 <strong>ViraLoop Studio</strong>로 돌아가서 계속 진행하세요.</p>
+                <button class="btn" onclick="window.close()">이 창 닫기</button>
+            </div>
+        </body>
+        </html>
+        """)
         
     except Exception as e:
-        logger.error(f"OAuth2 callback error: {e}")
-        raise HTTPException(500, f"Authentication failed: {str(e)}")
+        logger.error(f"OAuth2 callback error: {e}", exc_info=True)
+        return HTMLResponse(content=f"""
+        <div style="font-family: sans-serif; text-align: center; padding: 50px; background: #0f172a; color: white; min-height: 100vh;">
+            <h2 style="color: #ef4444;">❌ Google API 인증 실패</h2>
+            <p style="color: #94a3b8;">오류 내용: {str(e)}</p>
+            <p style="color: #94a3b8;">테스트 사용자(Test Users) 등록 여부 및 client_secret.json 상태를 확인해 주세요.</p>
+        </div>
+        """, status_code=500)
 
 
 @router.post("/oauth2/authenticate/{profile_id}")
 async def start_oauth2_with_profile(profile_id: str, db: Session = Depends(get_db)):
     """
     Start OAuth2 authentication using profile's isolated Chrome profile
-    
-    Args:
-        profile_id: Profile ID to authenticate
-        
-    Returns:
-        Status message
     """
-    # Get profile
     profile = db.query(Profile).filter(Profile.id == profile_id).first()
     
     if not profile:
         raise HTTPException(404, "Profile not found")
     
     if not profile.client_secret_json:
-        raise HTTPException(400, "No client_secret.json uploaded for this profile")
-    
-    if not profile.folder_path:
-        raise HTTPException(400, "No Chrome profile path configured")
+        raise HTTPException(400, "해당 프로필에 등록된 client_secret.json 파일이 없습니다. 키 업로드를 먼저 진행해주세요.")
     
     try:
-        # Parse client secret
         client_config = json.loads(profile.client_secret_json)
         
-        # Extract OAuth2 config
         if 'installed' in client_config:
             oauth_config = client_config['installed']
         elif 'web' in client_config:
             oauth_config = client_config['web']
         else:
-            raise HTTPException(400, "Invalid client_secret.json format")
+            raise HTTPException(400, "올바르지 않은 client_secret.json 형식입니다. (installed 또는 web 필요)")
         
         client_id = oauth_config['client_id']
         
-        # [PRO] Use state to track profile_id through the flow
         state_data = json.dumps({"profile_id": profile_id})
         
         auth_params = {
@@ -211,48 +279,31 @@ async def start_oauth2_with_profile(profile_id: str, db: Session = Depends(get_d
         
         auth_url = f"https://accounts.google.com/o/oauth2/v2/auth?{urlencode(auth_params)}"
         
-        # Launch Chrome with profile's isolated profile
-        import subprocess
-        chrome_path = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
-        chrome_args = [
-            chrome_path,
-            f"--user-data-dir={profile.folder_path}",
-            "--no-first-run",
-            "--no-default-browser-check",
-            "--new-window",
-            # [FIX] Chrome uses commas for bypass list separation. 
-            # 127.0.0.1 is more reliable than 'localhost' for proxy bypass literals.
-            "--proxy-bypass-list=127.0.0.1,localhost,<-loopback>,<local>",
-            auth_url
-        ]
+        # Launch browser safely (or let frontend open it)
+        _launch_browser_for_oauth(profile, auth_url)
         
-        subprocess.Popen(chrome_args)
-        
-        logger.info(f"Started OAuth2 flow for profile {profile_id} with isolated Chrome profile")
+        logger.info(f"Started OAuth2 flow for profile {profile_id}")
         
         return {
             "status": "started",
-            "message": "OAuth2 authentication started in isolated Chrome profile",
-            "profile_id": profile_id
+            "message": "OAuth2 authentication started in browser",
+            "profile_id": profile_id,
+            "auth_url": auth_url
         }
         
     except json.JSONDecodeError:
-        raise HTTPException(400, "Invalid client_secret.json format")
+        raise HTTPException(400, "client_secret.json 파일의 JSON 형식이 올바르지 않습니다.")
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Failed to start OAuth2 flow: {e}")
-        raise HTTPException(500, f"Failed to start OAuth2 flow: {str(e)}")
+        logger.error(f"Failed to start OAuth2 flow: {e}", exc_info=True)
+        raise HTTPException(500, f"OAuth2 인증 시작 실패: {str(e)}")
 
 
 @router.get("/oauth2/status/{profile_id}")
 async def check_oauth2_status(profile_id: str, db: Session = Depends(get_db)):
     """
     Check OAuth2 authentication status
-    
-    Args:
-        profile_id: Profile ID to check
-        
-    Returns:
-        Authentication status
     """
     profile = db.query(Profile).filter(Profile.id == profile_id).first()
     

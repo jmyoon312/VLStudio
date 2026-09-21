@@ -520,10 +520,14 @@ const TinCanVault = ({ mode = 'vault' }: TinCanVaultProps) => {
 
     const handleEditAuth = async (profileId: string) => {
         try {
-            await axios.post(`${API_BASE}/oauth2/authenticate/${profileId}`);
-            toast({ title: "인증 브라우저 실행", description: "로그인된 창이 열립니다. 권한을 승인해주세요." });
-        } catch (e) {
-            toast({ variant: "destructive", title: "실행 실패", description: "격리 브라우저를 띄울 수 없습니다." });
+            const res = await axios.post(`${API_BASE}/oauth2/authenticate/${profileId}`);
+            if (res.data?.auth_url && typeof window !== 'undefined') {
+                window.open(res.data.auth_url, '_blank');
+            }
+            toast({ title: "Google 인증 창 열림", description: "브라우저에서 권한 승인을 완료한 후 창을 닫아주세요." });
+        } catch (e: any) {
+            const msg = e.response?.data?.detail || "인증 브라우저를 띄울 수 없습니다.";
+            toast({ variant: "destructive", title: "실행 실패", description: msg });
         }
     };
 
