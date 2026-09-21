@@ -9,11 +9,12 @@ from sqlalchemy.orm import Session
 import os
 import json
 import logging
+import os
 import subprocess
-import webbrowser
+from pydantic import BaseModel
+from urllib.parse import urlencode, urlparse, parse_qs
 from google_auth_oauthlib.flow import Flow
 from google.oauth2.credentials import Credentials
-from urllib.parse import urlencode
 
 from app.database import get_db
 from app.models import Profile
@@ -230,6 +231,78 @@ async def oauth2_callback(code: str, state: str = None, db: Session = Depends(ge
             <p style="color: #94a3b8;">테스트 사용자(Test Users) 등록 여부 및 client_secret.json 상태를 확인해 주세요.</p>
         </div>
         """, status_code=500)
+
+
+class ManualCallbackRequest(BaseModel):
+    profile_id: str
+    code_or_url: str
+
+
+@router.post("/oauth2/manual-callback")
+async def manual_oauth2_callback(req: ManualCallbackRequest, db: Session = Depends(get_db)):
+    """
+    [Plan B 안전망]
+    브라우저 자동 리다이렉트가 차단되거나 지연될 경우,
+    브라우저 주소창의 최종 콜백 URL 또는 code 값을 복사하여 수동으로 즉시 인증을 완료하는 엔드포인트.
+    """
+    try:
+        profile = db.query(Profile).filter(Profile.id == req.profile_id).first()
+        if not profile:
+            raise HTTPException(404, "프로필을 찾을 수 없습니다.")
+
+        if not profile.client_secret_json:
+            raise HTTPException(400, "해당 프로필에 등록된 client_secret.json 파일이 없습니다.")
+
+        raw_input = req.code_or_url.strip()
+        code = None
+
+        # 1. URL 형태인 경우 파싱 (e.g. http://127.0.0.1:8000/api/oauth2/callback?code=4/0A...)
+        if "code=" in raw_input:
+            parsed = urlparse(raw_input)
+            qs = parse_qs(parsed.query)
+            if "code" in qs:
+                code = qs["code"][0]
+            else:
+                import re
+                m = re.search(r"code=([^&]+)", raw_input)
+                if m:
+                    code = m.group(1)
+        else:
+            code = raw_input
+
+        if not code:
+            raise HTTPException(400, "유효한 인증 코드(code)를 찾을 수 없습니다. 주소창의 전체 URL이나 코드를 확인해주세요.")
+
+        client_config = json.loads(profile.client_secret_json)
+        flow = Flow.from_client_config(
+            client_config,
+            scopes=SCOPES,
+            redirect_uri=REDIRECT_URI
+        )
+
+        flow.fetch_token(code=code)
+        credentials = flow.credentials
+
+        profile.access_token = credentials.token
+        profile.refresh_token = credentials.refresh_token
+        profile.token_expiry = credentials.expiry
+
+        db.commit()
+
+        logger.info(f"Manual OAuth2 authentication successful for profile {profile.id} ({profile.email})")
+
+        return {
+            "success": True,
+            "message": f"Google API 연동 승인 완료 ({profile.email})",
+            "email": profile.email,
+            "has_access_token": bool(profile.access_token),
+            "has_refresh_token": bool(profile.refresh_token)
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Manual OAuth2 callback error: {e}", exc_info=True)
+        raise HTTPException(400, f"인증 코드 교환 실패: {str(e)} (코드가 만료되었거나 이미 사용되었을 수 있습니다.)")
 
 
 @router.post("/oauth2/authenticate/{profile_id}")

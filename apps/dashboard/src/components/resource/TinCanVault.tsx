@@ -72,6 +72,9 @@ const TinCanVault = ({ mode = 'vault' }: TinCanVaultProps) => {
 
     const [draftData, setDraftData] = useState<any>(null); // For Resuming Draft
     const [editProfile, setEditProfile] = useState<any>(null); // For Edit Dialog
+    const [showEditManualCode, setShowEditManualCode] = useState(false);
+    const [editManualCodeVal, setEditManualCodeVal] = useState('');
+    const [isSubmittingEditManualCode, setIsSubmittingEditManualCode] = useState(false);
     const [deleteId, setDeleteId] = useState<string | null>(null); // For Delete Alert
     const [quarantineTarget, setQuarantineTarget] = useState<any>(null); // For Quarantine Dialog
     const [quarantineReason, setQuarantineReason] = useState("");
@@ -534,6 +537,35 @@ const TinCanVault = ({ mode = 'vault' }: TinCanVaultProps) => {
         } catch (e: any) {
             const msg = e.response?.data?.detail || "격리 스텔스 브라우저를 띄울 수 없습니다.";
             toast({ variant: "destructive", title: "실행 실패", description: msg });
+        }
+    };
+
+    const handleEditManualCodeSubmit = async (profileId: string) => {
+        if (!profileId || !editManualCodeVal.trim()) return;
+        setIsSubmittingEditManualCode(true);
+        try {
+            const res = await axios.post(`${API_BASE}/oauth2/manual-callback`, {
+                profile_id: profileId,
+                code_or_url: editManualCodeVal.trim()
+            });
+            if (res.data?.success) {
+                toast({
+                    title: "🎉 연동 승인 완료!",
+                    description: res.data.message || "YouTube API 권한이 정상 등록되었습니다."
+                });
+                setShowEditManualCode(false);
+                setEditManualCodeVal('');
+                setEditProfile((prev: any) => prev ? ({ ...prev, has_oauth2_token: true, refresh_token: 'valid' }) : null);
+                queryClient.invalidateQueries({ queryKey: ['profiles'] });
+            }
+        } catch (err: any) {
+            toast({
+                variant: "destructive",
+                title: "수동 연동 실패",
+                description: err.response?.data?.detail || err.message || "인증 코드가 올바르지 않거나 만료되었습니다."
+            });
+        } finally {
+            setIsSubmittingEditManualCode(false);
         }
     };
 
@@ -1445,8 +1477,51 @@ const TinCanVault = ({ mode = 'vault' }: TinCanVaultProps) => {
                                                     >
                                                         <Lock className="w-3.5 h-3.5 mr-1.5" />
                                                         {hasAuth ? "API 권한 재승인 (격리 접속)" : "API 권한 승인 (격리 접속)"}
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        onClick={() => setShowEditManualCode(prev => !prev)}
+                                                        className="h-8 text-xs font-semibold bg-card text-muted-foreground hover:text-foreground"
+                                                        title="브라우저가 자동 이동하지 않을 때 주소창 URL 또는 코드를 직접 입력합니다."
+                                                    >
+                                                        🔗 수동 코드 입력
                                                     </Button>
                                                 </div>
+
+                                                {showEditManualCode && (
+                                                    <div className="p-3 bg-card border border-border rounded-lg space-y-2 animate-in fade-in">
+                                                        <div className="flex items-center justify-between">
+                                                            <span className="text-[11px] font-bold text-foreground">💡 주소창 URL 또는 code 직접 입력 (Plan B)</span>
+                                                            <button 
+                                                                type="button" 
+                                                                onClick={() => setShowEditManualCode(false)}
+                                                                className="text-[10px] text-muted-foreground hover:text-foreground underline"
+                                                            >
+                                                                닫기
+                                                            </button>
+                                                        </div>
+                                                        <p className="text-[10px] text-muted-foreground leading-relaxed">
+                                                            구글 승인 후 브라우저 주소창의 전체 URL(<code className="bg-muted px-1 py-0.5 rounded">http://127.0.0.1:8000/api/oauth2/callback?code=...</code>) 또는 <code className="bg-muted px-1 py-0.5 rounded">code=</code> 값을 붙여넣으세요.
+                                                        </p>
+                                                        <div className="flex gap-2">
+                                                            <input
+                                                                type="text"
+                                                                value={editManualCodeVal}
+                                                                onChange={(e) => setEditManualCodeVal(e.target.value)}
+                                                                placeholder="주소창 URL 또는 4/0Acv... 코드 붙여넣기"
+                                                                className="flex-1 h-8 px-2.5 text-xs bg-background border border-border rounded-md text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                                                            />
+                                                            <Button
+                                                                size="sm"
+                                                                onClick={() => handleEditManualCodeSubmit(editProfile.id)}
+                                                                disabled={isSubmittingEditManualCode || !editManualCodeVal.trim()}
+                                                                className="h-8 px-3 text-xs font-bold bg-primary hover:bg-primary/90 text-primary-foreground shrink-0"
+                                                            >
+                                                                {isSubmittingEditManualCode ? <RefreshCw className="w-3 h-3 animate-spin" /> : "연동 완료"}
+                                                            </Button>
+                                                        </div>
+                                                    </div>
+                                                )}
 
                                                 <p className="text-[11px] text-muted-foreground leading-relaxed">
                                                     ※ [API 권한 승인]을 누르면 열리는 스텔스 브라우저 창에서 항목을 체크한 후, <strong>화면 맨 아래의 [계속] 버튼</strong>을 눌러야 최종 승인이 완료됩니다.

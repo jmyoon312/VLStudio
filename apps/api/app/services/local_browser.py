@@ -144,13 +144,13 @@ def main():
                 # Do NOT set proxy dict to avoid conflicts with the extension
                 proxy = None 
             else:
-                proxy = {"server": proxy_port, "bypass": "127.0.0.1,localhost,<-loopback>"}
+                proxy = {"server": proxy_port, "bypass": "127.0.0.1,localhost,<local>"}
         elif str(proxy_port) == '1080':
-            proxy = {"server": f"socks5://127.0.0.1:{proxy_port}", "bypass": "127.0.0.1,localhost,<-loopback>"}
+            proxy = {"server": f"socks5://127.0.0.1:{proxy_port}", "bypass": "127.0.0.1,localhost,<local>"}
         else:
-            proxy = {"server": f"socks5://127.0.0.1:{proxy_port}", "bypass": "127.0.0.1,localhost,<-loopback>"}
+            proxy = {"server": f"socks5://127.0.0.1:{proxy_port}", "bypass": "127.0.0.1,localhost,<local>"}
 
-    browser_args.append("--proxy-bypass-list=127.0.0.1,localhost,<-loopback>,<local>")
+    browser_args.append("--proxy-bypass-list=127.0.0.1;localhost;<local>")
 
     # Ensure Windows user downloads directory
     user_downloads = os.path.join(os.path.expanduser("~"), "Downloads")

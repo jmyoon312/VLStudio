@@ -74,6 +74,9 @@ const TinCanWizard: React.FC<TinCanWizardProps> = ({ isOpen, onClose, onComplete
     // Auth State
     const [isAuthorized, setIsAuthorized] = useState(false);
     const [authChecking, setAuthChecking] = useState(false);
+    const [showManualCodeInput, setShowManualCodeInput] = useState(false);
+    const [manualCodeOrUrl, setManualCodeOrUrl] = useState('');
+    const [isSubmittingManualCode, setIsSubmittingManualCode] = useState(false);
 
     // UI State
     const [isLoading, setIsLoading] = useState(false);
@@ -470,6 +473,34 @@ const TinCanWizard: React.FC<TinCanWizardProps> = ({ isOpen, onClose, onComplete
             }
         } finally {
             setAuthChecking(false);
+        }
+    };
+
+    const handleManualCodeSubmit = async () => {
+        if (!draftId || !manualCodeOrUrl.trim()) return;
+        setIsSubmittingManualCode(true);
+        try {
+            const res = await axios.post(`${API_BASE}/oauth2/manual-callback`, {
+                profile_id: draftId,
+                code_or_url: manualCodeOrUrl.trim()
+            });
+            if (res.data?.success) {
+                setIsAuthorized(true);
+                setShowManualCodeInput(false);
+                setManualCodeOrUrl('');
+                toast({
+                    title: "🎉 연동 승인 완료!",
+                    description: res.data.message || "YouTube API 권한이 정상적으로 등록되었습니다."
+                });
+            }
+        } catch (err: any) {
+            toast({
+                variant: "destructive",
+                title: "수동 연동 실패",
+                description: err.response?.data?.detail || err.message || "인증 코드(또는 주소)를 확인해주세요."
+            });
+        } finally {
+            setIsSubmittingManualCode(false);
         }
     };
 
@@ -1299,16 +1330,53 @@ const TinCanWizard: React.FC<TinCanWizardProps> = ({ isOpen, onClose, onComplete
                                                 </Button>
                                             </div>
 
-                                            <div className="flex items-center justify-center gap-4 text-xs text-slate-600 mt-2">
-                                                <button
-                                                    onClick={() => window.open(`${API_BASE}/oauth2/authorize/${draftId}`, '_blank')}
-                                                    className="hover:text-blue-600 underline"
-                                                >
-                                                    수동 브라우저 인증 (비권장)
-                                                </button>
-                                                <span>|</span>
-                                                <span>지정된 Chrome 프로필로 자동 접속됩니다</span>
-                                            </div>
+                                            {!showManualCodeInput ? (
+                                                <div className="flex flex-col items-center gap-1.5 mt-2">
+                                                    <div className="text-xs text-muted-foreground">
+                                                        <span>💡 격리 브라우저에서 [모두 선택] 후 [계속]을 누르면 자동 연동됩니다.</span>
+                                                    </div>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setShowManualCodeInput(true)}
+                                                        className="text-xs text-primary hover:underline font-semibold flex items-center gap-1 mt-1"
+                                                    >
+                                                        <span>🔗 브라우저가 자동 이동하지 않나요? 주소창 URL / 인증코드 직접 붙여넣기 (보조 수단)</span>
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <div className="mt-3 p-3.5 bg-muted/60 border border-border rounded-xl text-left space-y-2.5 animate-in fade-in">
+                                                    <div className="flex items-center justify-between">
+                                                        <span className="text-xs font-bold text-foreground">💡 주소창 URL 또는 인증 코드(code) 직접 입력</span>
+                                                        <button 
+                                                            type="button" 
+                                                            onClick={() => setShowManualCodeInput(false)}
+                                                            className="text-[11px] text-muted-foreground hover:text-foreground underline"
+                                                        >
+                                                            닫기
+                                                        </button>
+                                                    </div>
+                                                    <p className="text-[11px] text-muted-foreground leading-relaxed">
+                                                        구글 승인 후 브라우저 주소창에 나타난 전체 주소(예: <code className="bg-background px-1 py-0.5 rounded text-[10px]">http://127.0.0.1:8000/api/oauth2/callback?code=...</code>) 또는 <code className="bg-background px-1 py-0.5 rounded text-[10px]">code=</code> 뒷부분 코드를 복사하여 아래에 붙여넣으세요.
+                                                    </p>
+                                                    <div className="flex gap-2">
+                                                        <input
+                                                            type="text"
+                                                            value={manualCodeOrUrl}
+                                                            onChange={(e) => setManualCodeOrUrl(e.target.value)}
+                                                            placeholder="주소창 URL 또는 4/0Acv... 인증 코드 붙여넣기"
+                                                            className="flex-1 h-9 px-3 text-xs bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                                                        />
+                                                        <Button
+                                                            size="sm"
+                                                            onClick={handleManualCodeSubmit}
+                                                            disabled={isSubmittingManualCode || !manualCodeOrUrl.trim()}
+                                                            className="h-9 px-4 text-xs font-bold bg-primary hover:bg-primary/90 text-primary-foreground shrink-0"
+                                                        >
+                                                            {isSubmittingManualCode ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : "연동 완료"}
+                                                        </Button>
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
                                     ) : (
                                         <div className="pt-4 animate-in zoom-in-90 duration-300">
