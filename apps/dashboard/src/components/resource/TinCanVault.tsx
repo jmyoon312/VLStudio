@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Plus, Clock, ShieldCheck, Mail, Pencil, Trash2, AlertCircle, Settings, RefreshCw, FileJson, Lock, Sparkles, Loader2, Eye, EyeOff, Flame, RotateCcw } from 'lucide-react';
+import { Plus, Clock, ShieldCheck, Mail, Pencil, Trash2, AlertCircle, Settings, RefreshCw, FileJson, Lock, Sparkles, Loader2, Eye, EyeOff, Flame, RotateCcw, CheckCircle2 } from 'lucide-react';
 import { useToast } from "@/components/ui/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
@@ -505,10 +505,16 @@ const TinCanVault = ({ mode = 'vault' }: TinCanVaultProps) => {
 
         setEditUploading(true);
         try {
-            await axios.post(`${API_BASE}/resources/profiles/${profileId}/upload-key`, formData, {
+            const res = await axios.post(`${API_BASE}/resources/profiles/${profileId}/upload-key`, formData, {
                 headers: { 'Content-Type': 'multipart/form-data' }
             });
-            toast({ title: "업로드 성공", description: "API 키 파일이 성공적으로 저장되었습니다." });
+            setEditProfile((prev: any) => prev ? ({
+                ...prev,
+                has_client_secret: true,
+                google_project_id: res.data?.project_id || prev.google_project_id
+            }) : null);
+            queryClient.invalidateQueries({ queryKey: ['profiles'] });
+            toast({ title: "🎉 키 업로드 성공", description: "OAuth2 클라이언트 키가 정상 저장되었습니다. 이제 [API 권한 승인]을 진행하세요." });
         } catch (e: any) {
             console.error("Upload Error:", e);
             toast({ variant: "destructive", title: "업로드 실패", description: e.response?.data?.detail || "파일 저장에 실패했습니다." });
@@ -1327,13 +1333,19 @@ const TinCanVault = ({ mode = 'vault' }: TinCanVaultProps) => {
                                         placeholder="설정된 비밀번호 없음"
                                     />
                                 </div>
-                                <div className="space-y-2">
-                                    <Label>복구 이메일</Label>
+                                <div className="space-y-1.5">
+                                    <div className="flex items-center justify-between">
+                                        <Label>복구 이메일</Label>
+                                        <span className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold">구글 실제 등록 필수</span>
+                                    </div>
                                     <Input
                                         value={editProfile.recovery_email || ''}
                                         onChange={e => setEditProfile({ ...editProfile, recovery_email: e.target.value })}
                                         placeholder="recovery@email.com"
                                     />
+                                    <p className="text-[10.5px] text-muted-foreground leading-tight">
+                                        💡 Google 계정 보안 설정에 등록된 복구 이메일이어야 프록시 접속 시 본인 확인 챌린지를 안전하게 통과할 수 있습니다.
+                                    </p>
                                 </div>
                             </div>
 
@@ -1356,45 +1368,84 @@ const TinCanVault = ({ mode = 'vault' }: TinCanVaultProps) => {
                                 </div>
                             </div>
                             
-                            <div className="pt-4 border-t border-slate-100 mt-2">
-                                <Label className="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2">
-                                    <ShieldCheck className="w-4 h-4 text-indigo-600" />
-                                    YouTube API 인증 설정
-                                </Label>
-                                <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 space-y-4">
-                                    <div className="flex flex-col gap-2">
-                                        <div className="flex items-center gap-2">
-                                            <input
-                                                type="file"
-                                                accept=".json"
-                                                ref={editFileInputRef}
-                                                className="hidden"
-                                                onChange={(e) => handleEditFileUpload(e, editProfile.id)}
-                                            />
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={() => editFileInputRef.current?.click()}
-                                                disabled={editUploading}
-                                                className="bg-white"
-                                            >
-                                                {editUploading ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <FileJson className="w-4 h-4 mr-2 text-indigo-600" />}
-                                                키 업로드
-                                            </Button>
-                                            
-                                            <Button
-                                                size="sm"
-                                                onClick={() => handleEditAuth(editProfile.id)}
-                                                className="bg-blue-600 hover:bg-blue-700"
-                                            >
-                                                <Lock className="w-4 h-4 mr-2" />
-                                                API 권한 승인 (격리 접속)
-                                            </Button>
+                            <div className="pt-4 border-t border-border mt-2">
+                                <div className="flex items-center justify-between mb-3">
+                                    <Label className="text-sm font-bold text-foreground flex items-center gap-2">
+                                        <ShieldCheck className="w-4 h-4 text-primary" />
+                                        YouTube API 인증 설정
+                                    </Label>
+                                    {editProfile.has_oauth2_token ? (
+                                        <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 text-[11px] gap-1 py-0.5 font-bold">
+                                            <CheckCircle2 className="w-3.5 h-3.5" /> API 승인 완료
+                                        </Badge>
+                                    ) : editProfile.has_client_secret ? (
+                                        <Badge className="bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/30 text-[11px] gap-1 py-0.5 font-bold">
+                                            <CheckCircle2 className="w-3.5 h-3.5" /> 키 등록됨 (승인 대기)
+                                        </Badge>
+                                    ) : (
+                                        <Badge variant="outline" className="text-muted-foreground text-[11px]">
+                                            키 미등록
+                                        </Badge>
+                                    )}
+                                </div>
+
+                                <div className="bg-muted/40 border border-border rounded-xl p-3.5 space-y-3">
+                                    {/* Key & Auth Status Card */}
+                                    <div className="flex items-center justify-between p-2.5 rounded-lg bg-card border border-border text-xs">
+                                        <div className="flex items-center gap-2.5">
+                                            <FileJson className={`w-4 h-4 shrink-0 ${editProfile.has_client_secret ? 'text-emerald-500' : 'text-muted-foreground'}`} />
+                                            <div>
+                                                <div className="font-semibold text-foreground">
+                                                    {editProfile.has_client_secret ? "OAuth2 클라이언트 키 등록 완료" : "OAuth2 클라이언트 키 미등록"}
+                                                </div>
+                                                <div className="text-[11px] text-muted-foreground">
+                                                    {editProfile.google_project_id 
+                                                        ? `프로젝트 ID: ${editProfile.google_project_id}` 
+                                                        : editProfile.has_client_secret 
+                                                            ? "client_secret.json 파일이 안전하게 보관되어 있습니다." 
+                                                            : "Google Cloud 콘솔에서 다운로드한 client_secret.json을 업로드하세요."}
+                                                </div>
+                                            </div>
                                         </div>
-                                        <p className="text-[11px] text-slate-500">
-                                            ※ JSON 키를 업로드한 후, 권한 승인 버튼을 눌러 스텔스 브라우저에서 인증을 완료하세요.
-                                        </p>
+                                        {editProfile.has_client_secret && (
+                                            <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1 shrink-0">
+                                                <CheckCircle2 className="w-3.5 h-3.5" /> 보관됨
+                                            </span>
+                                        )}
                                     </div>
+
+                                    <div className="flex items-center gap-2">
+                                        <input
+                                            type="file"
+                                            accept=".json"
+                                            ref={editFileInputRef}
+                                            className="hidden"
+                                            onChange={(e) => handleEditFileUpload(e, editProfile.id)}
+                                        />
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => editFileInputRef.current?.click()}
+                                            disabled={editUploading}
+                                            className="h-8 text-xs font-semibold bg-card"
+                                        >
+                                            {editUploading ? <RefreshCw className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <FileJson className="w-3.5 h-3.5 mr-1.5 text-primary" />}
+                                            {editProfile.has_client_secret ? "키 재업로드" : "키 업로드"}
+                                        </Button>
+                                        
+                                        <Button
+                                            size="sm"
+                                            onClick={() => handleEditAuth(editProfile.id)}
+                                            className={`h-8 text-xs font-semibold ${editProfile.has_oauth2_token ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : 'bg-primary hover:bg-primary/90 text-primary-foreground'}`}
+                                        >
+                                            <Lock className="w-3.5 h-3.5 mr-1.5" />
+                                            {editProfile.has_oauth2_token ? "API 권한 재승인 (격리 접속)" : "API 권한 승인 (격리 접속)"}
+                                        </Button>
+                                    </div>
+
+                                    <p className="text-[11px] text-muted-foreground leading-relaxed">
+                                        ※ [API 권한 승인]을 누르면 열리는 스텔스 브라우저 창에서 항목을 체크한 후, <strong>화면 맨 아래의 [계속] 버튼</strong>을 눌러야 최종 승인이 완료됩니다.
+                                    </p>
                                 </div>
                             </div>
                         </div>

@@ -86,6 +86,15 @@ class Profile(Base):
     proxy_username = Column(String, nullable=True)
     proxy_password = Column(String, nullable=True)
     bound_device_serial = Column(String, nullable=True) # [Multi-Device] Paired USB Phone Serial
+
+    @property
+    def has_client_secret(self) -> bool:
+        return bool(self.client_secret_json)
+
+    @property
+    def has_oauth2_token(self) -> bool:
+        return bool(self.refresh_token)
+
 class WorkerAccount(Base):
     __tablename__ = "worker_accounts"
 

@@ -835,6 +835,12 @@ class ProfileBase(BaseModel):
     seed_history_count: Optional[int] = 0
     last_warmed_at: Optional[datetime] = None
     
+    # [NEW] OAuth2 Authentication Status
+    has_client_secret: Optional[bool] = False
+    has_oauth2_token: Optional[bool] = False
+    google_project_id: Optional[str] = None
+    google_project_name: Optional[str] = None
+
     class Config:
         from_attributes = True
 
