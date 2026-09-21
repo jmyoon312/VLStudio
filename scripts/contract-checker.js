@@ -270,10 +270,31 @@ if (fs.existsSync(tsConfigPath)) {
     }
 }
 
+// 9. [Zero Normal Browser Leakage Gate] Verify Zero Normal Browser Open in Profile Auth & Wizard Flow
+console.log('🔒 [Contract-Checker] Validating Zero Normal Browser Leakage in Account Auth Modules...');
+const oauthRouterPy = path.join(rootDir, 'apps', 'api', 'app', 'routers', 'oauth2_auth.py');
+if (fs.existsSync(oauthRouterPy)) {
+    const oauthContent = fs.readFileSync(oauthRouterPy, 'utf-8');
+    if (oauthContent.includes('webbrowser.open(')) {
+        console.error('❌ [Contract-Checker] VIOLATION (Zero Normal Browser Leakage Law): webbrowser.open() found in oauth2_auth.py! Account auth must strictly use isolated CloakBrowser.');
+        hasErrors = true;
+    }
+}
+
+const tinCanVaultTsx = path.join(rootDir, 'apps', 'dashboard', 'src', 'components', 'resource', 'TinCanVault.tsx');
+if (fs.existsSync(tinCanVaultTsx)) {
+    const vaultContent = fs.readFileSync(tinCanVaultTsx, 'utf-8');
+    const handleEditAuthMatch = vaultContent.match(/handleEditAuth[\s\S]*?^    \};/m);
+    if (handleEditAuthMatch && handleEditAuthMatch[0].includes('window.open(')) {
+        console.error('❌ [Contract-Checker] VIOLATION (Zero Normal Browser Leakage Law): window.open() found in TinCanVault.tsx handleEditAuth! Account auth must strictly use isolated CloakBrowser.');
+        hasErrors = true;
+    }
+}
+
 if (hasErrors) {
     console.error('❌ [Contract-Checker] Integrity check FAILED.');
     process.exit(1);
 } else {
-    console.log('✅ [Contract-Checker] All 3-Tier Layer Contracts, Zero-Hardcoding & UI/UX Theme Rules PASSED (100% Integrity)');
+    console.log('✅ [Contract-Checker] All 3-Tier Layer Contracts, Zero-Hardcoding, UI/UX Theme & Zero Normal Browser Leakage Rules PASSED (100% Integrity)');
     process.exit(0);
 }
