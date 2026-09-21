@@ -216,7 +216,8 @@ async def oauth2_callback(code: str, state: str = None, db: Session = Depends(ge
                 <div class="icon">🎉</div>
                 <h1>Google API 연동 승인 완료!</h1>
                 <p>계정(<span class="email">{email_display}</span>)에 YouTube API 권한이 정상 등록되었습니다.<br><br>이제 이 창을 닫고 <strong>ViraLoop Studio</strong>로 돌아가서 계속 진행하세요.</p>
-                <button class="btn" onclick="window.close()">이 창 닫기</button>
+                <button class="btn" onclick="window.close(); try { window.open('','_self').close(); } catch(e){}">이 창 닫기 (또는 Ctrl+W)</button>
+                <div style="font-size: 12px; color: #64748b; margin-top: 14px;">※ 브라우저 보안 정책상 버튼으로 닫히지 않을 경우, 키보드의 <strong>Ctrl + W</strong> 또는 우측 상단 <strong>X</strong> 버튼을 눌러 직접 닫아주세요.</div>
             </div>
         </body>
         </html>
