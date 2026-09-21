@@ -520,13 +520,13 @@ const TinCanVault = ({ mode = 'vault' }: TinCanVaultProps) => {
 
     const handleEditAuth = async (profileId: string) => {
         try {
-            const res = await axios.post(`${API_BASE}/oauth2/authenticate/${profileId}`);
-            if (res.data?.auth_url && typeof window !== 'undefined') {
-                window.open(res.data.auth_url, '_blank');
-            }
-            toast({ title: "Google 인증 창 열림", description: "브라우저에서 권한 승인을 완료한 후 창을 닫아주세요." });
+            await axios.post(`${API_BASE}/oauth2/authenticate/${profileId}`);
+            toast({ 
+                title: "🛡️ 격리 스텔스 브라우저 실행", 
+                description: "해당 계정의 독립 보안 브라우저가 실행되었습니다. 열린 창에서 권한 승인을 완료해주세요." 
+            });
         } catch (e: any) {
-            const msg = e.response?.data?.detail || "인증 브라우저를 띄울 수 없습니다.";
+            const msg = e.response?.data?.detail || "격리 스텔스 브라우저를 띄울 수 없습니다.";
             toast({ variant: "destructive", title: "실행 실패", description: msg });
         }
     };

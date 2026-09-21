@@ -47,40 +47,32 @@ def _get_redirect_uri(request_url: str = None) -> str:
     return f"{scheme}://{host}/api/oauth2/callback"
 
 
-def _launch_browser_for_oauth(profile: Profile, auth_url: str) -> bool:
+def _launch_browser_for_oauth(profile: Profile, auth_url: str, db: Session) -> bool:
     """
-    Google OAuth 승인 창을 사용자 데스크톱 브라우저로 안전하게 띄움
+    [핵심 보안 원칙]
+    해당 계정의 격리된 스텔스 브라우저(CloakBrowser) 환경으로 구글 OAuth 승인 창 실행.
+    일반 브라우저가 뜨지 않도록 프로필의 독립 폴더와 바인딩된 프록시 환경에서 완벽 격리 구동.
     """
-    import subprocess
-    import webbrowser
-
-    # 1. 시스템 기본 브라우저로 열기 (스텔스 세션/로그인된 브라우저와 충돌 방지)
     try:
-        opened = webbrowser.open(auth_url)
-        if opened:
-            logger.info("🌍 System default browser opened for OAuth")
+        from app.services.stealth_ops_v2 import stealth_ops
+        logger.info(f"🛡️ [OAuth-Stealth] Launching isolated CloakBrowser for profile {profile.id} ({profile.email})")
+        success = stealth_ops.launch_for_setup(
+            profile_id=profile.id,
+            email=profile.email,
+            password=profile.password,
+            skip_proxy_check=False,  # 프로필에 설정된 프록시/LTE 네트워크 환경 100% 유지
+            db=db,
+            target_url=auth_url
+        )
+        if success:
+            logger.info(f"✅ Isolated CloakBrowser successfully opened with OAuth URL for {profile.id}")
             return True
-    except Exception as wb_err:
-        logger.warning(f"webbrowser.open failed: {wb_err}")
-
-    # 2. Chrome 직접 실행 시도
-    chrome_candidates = [
-        r"C:\Program Files\Google\Chrome\Application\chrome.exe",
-        r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
-        os.path.expandvars(r"%LOCALAPPDATA%\Google\Chrome\Application\chrome.exe"),
-        os.path.expandvars(r"%USERPROFILE%\.cloakbrowser\chromium-146.0.7680.177.5\chrome.exe")
-    ]
-    chrome_path = next((p for p in chrome_candidates if os.path.exists(p)), None)
-
-    if chrome_path:
-        try:
-            subprocess.Popen([chrome_path, "--new-window", auth_url])
-            logger.info(f"🌐 Chrome binary launched for OAuth: {chrome_path}")
-            return True
-        except Exception as cp_err:
-            logger.warning(f"Chrome launch failed: {cp_err}")
-
-    return False
+        else:
+            logger.error(f"❌ Failed to launch isolated CloakBrowser for profile {profile.id}")
+            return False
+    except Exception as e:
+        logger.error(f"❌ Error launching isolated CloakBrowser for OAuth: {e}", exc_info=True)
+        return False
 
 
 @router.get("/oauth2/authorize/{profile_id}")
@@ -279,16 +271,17 @@ async def start_oauth2_with_profile(profile_id: str, db: Session = Depends(get_d
         
         auth_url = f"https://accounts.google.com/o/oauth2/v2/auth?{urlencode(auth_params)}"
         
-        # Launch browser safely (or let frontend open it)
-        _launch_browser_for_oauth(profile, auth_url)
+        # Launch isolated stealth browser (strictly CloakBrowser with bound proxy)
+        success = _launch_browser_for_oauth(profile, auth_url, db)
+        if not success:
+            raise HTTPException(500, "해당 계정의 격리 스텔스 브라우저(CloakBrowser) 구동에 실패했습니다. 프로필 상태 및 네트워크 설정을 확인해주세요.")
         
-        logger.info(f"Started OAuth2 flow for profile {profile_id}")
+        logger.info(f"Started OAuth2 flow for profile {profile_id} strictly in isolated stealth browser")
         
         return {
             "status": "started",
-            "message": "OAuth2 authentication started in browser",
-            "profile_id": profile_id,
-            "auth_url": auth_url
+            "message": "OAuth2 authentication started strictly in isolated stealth browser",
+            "profile_id": profile_id
         }
         
     except json.JSONDecodeError:
