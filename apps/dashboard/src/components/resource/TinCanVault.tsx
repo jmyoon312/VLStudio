@@ -1477,6 +1477,7 @@ const TinCanVault = ({ mode = 'vault' }: TinCanVaultProps) => {
                                                     >
                                                         <Lock className="w-3.5 h-3.5 mr-1.5" />
                                                         {hasAuth ? "API 권한 재승인 (격리 접속)" : "API 권한 승인 (격리 접속)"}
+                                                    </Button>
                                                     <Button
                                                         variant="outline"
                                                         size="sm"
