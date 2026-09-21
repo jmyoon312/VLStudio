@@ -21,6 +21,7 @@ import { useModalVisibility } from '@/features/flow2capcut/hooks/useModalVisibil
 import { WarmupButton } from './CaptainQuarters';
 import { CultivationWizard } from './CultivationWizard';
 import WarmupLogViewer from './WarmupLogViewer';
+import { RecoveryEmailGuideModal } from './RecoveryEmailGuideModal';
 
 // API Base
 const API_BASE = typeof window !== 'undefined' && window.location.protocol === 'file:' ? 'http://127.0.0.1:8000/api' : '/api';
@@ -80,6 +81,7 @@ const TinCanVault = ({ mode = 'vault' }: TinCanVaultProps) => {
     const [quarantineReason, setQuarantineReason] = useState("");
     const [quickNetworkProfile, setQuickNetworkProfile] = useState<any>(null); // For Quick Network Dialog
     const [syncingId, setSyncingId] = useState<string | null>(null);
+    const [showRecoveryGuide, setShowRecoveryGuide] = useState(false);
 
     // [New] Seed Warmup & Brand Channel Creation States
     const [seedWarmingId, setSeedWarmingId] = useState<string | null>(null);
@@ -922,6 +924,14 @@ const TinCanVault = ({ mode = 'vault' }: TinCanVaultProps) => {
                             </Label>
                         </div>
 
+                        <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => setShowRecoveryGuide(true)} 
+                            className="h-8 text-xs font-bold gap-1.5 text-emerald-600 dark:text-emerald-400 border-emerald-300 dark:border-emerald-800 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 bg-card"
+                        >
+                            <Mail className="w-3.5 h-3.5" /> 복구 이메일 가이드
+                        </Button>
                         <Button onClick={() => { setDraftData(null); setIsWizardOpen(true); }} className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold h-8 text-xs shadow-2xs">
                             <Plus className="w-3.5 h-3.5 mr-1.5" /> 새 계정 등록
                         </Button>
@@ -1376,7 +1386,16 @@ const TinCanVault = ({ mode = 'vault' }: TinCanVaultProps) => {
                                 <div className="space-y-1.5">
                                     <div className="flex items-center justify-between">
                                         <Label>복구 이메일</Label>
-                                        <span className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold">구글 실제 등록 필수</span>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold">구글 실제 등록 필수</span>
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowRecoveryGuide(true)}
+                                                className="text-[10px] text-primary hover:underline font-bold flex items-center gap-0.5 cursor-pointer"
+                                            >
+                                                📖 등록 가이드
+                                            </button>
+                                        </div>
                                     </div>
                                     <Input
                                         value={editProfile.recovery_email || ''}
@@ -1779,6 +1798,13 @@ const TinCanVault = ({ mode = 'vault' }: TinCanVaultProps) => {
                 open={logViewerOpen}
                 onOpenChange={setLogViewerOpen}
                 channelId={selectedChannelForLogs}
+            />
+
+            <RecoveryEmailGuideModal
+                open={showRecoveryGuide}
+                onOpenChange={setShowRecoveryGuide}
+                currentEmail={editProfile?.email}
+                currentRecoveryEmail={editProfile?.recovery_email}
             />
         </div>
     );

@@ -201,13 +201,13 @@ async def launch_social_browser(
     if not target_url:
         plat = (profile.profile_type or "").upper()
         if plat == "TIKTOK":
-            target_url = "https://www.tiktok.com/creator-center"
+            target_url = "https://www.tiktok.com/tiktokstudio"
         elif plat == "INSTAGRAM":
             target_url = "https://www.instagram.com/"
         elif plat == "DOUYIN":
             target_url = "https://creator.douyin.com/"
         else:
-            target_url = "https://www.tiktok.com/creator-center"
+            target_url = "https://www.tiktok.com/tiktokstudio"
 
     # ─── LTE 플랫폼 충돌 인터락 ───────────────────────────────────────────────
     # 같은 폰(bound_device_serial)에서 DIRECT_LTE 모드로 운영 중,

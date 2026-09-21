@@ -5,9 +5,10 @@ import { useModalVisibility } from '@/features/flow2capcut/hooks/useModalVisibil
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Check, ChevronRight, ShieldCheck, AlertTriangle, Smartphone, Loader2, Wifi, RefreshCw, Upload, FileJson, Sparkles, ChevronLeft, ExternalLink, Copy, Lock, Activity, Battery, CheckCircle2, XCircle, Server, Radio, KeyRound } from 'lucide-react';
+import { Check, ChevronRight, ShieldCheck, AlertTriangle, Smartphone, Loader2, Wifi, RefreshCw, Upload, FileJson, Sparkles, ChevronLeft, ExternalLink, Copy, Lock, Activity, Battery, CheckCircle2, XCircle, Server, Radio, KeyRound, Mail } from 'lucide-react';
 import GoogleAuthGuide from '../GoogleAuthGuide';
 import GoogleApiIssuanceGuide from './GoogleApiIssuanceGuide';
+import { RecoveryEmailGuideModal } from './RecoveryEmailGuideModal';
 import { useToast } from "@/components/ui/use-toast";
 import axios from 'axios';
 import AIModelSelector from '../shared/AIModelSelector';
@@ -82,6 +83,7 @@ const TinCanWizard: React.FC<TinCanWizardProps> = ({ isOpen, onClose, onComplete
     const [isLoading, setIsLoading] = useState(false);
     const [showGuideModal, setShowGuideModal] = useState(false);
     const [showApiGuideModal, setShowApiGuideModal] = useState(false);
+    const [showRecoveryGuideModal, setShowRecoveryGuideModal] = useState(false);
 
     // [Resume Logic] Hydrate from initialData
     useEffect(() => {
@@ -632,6 +634,15 @@ const TinCanWizard: React.FC<TinCanWizardProps> = ({ isOpen, onClose, onComplete
                                 <Button 
                                     variant="outline" 
                                     size="sm" 
+                                    onClick={() => setShowRecoveryGuideModal(true)}
+                                    className="text-xs gap-1.5 text-emerald-600 dark:text-emerald-400 border-emerald-300 dark:border-emerald-800 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 font-bold"
+                                >
+                                    <Mail className="w-3.5 h-3.5" />
+                                    📧 복구 이메일 가이드
+                                </Button>
+                                <Button 
+                                    variant="outline" 
+                                    size="sm" 
                                     onClick={() => setShowApiGuideModal(true)}
                                     className="text-xs gap-1.5 text-indigo-600 dark:text-indigo-400 border-indigo-300 dark:border-indigo-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 font-bold"
                                 >
@@ -729,9 +740,32 @@ const TinCanWizard: React.FC<TinCanWizardProps> = ({ isOpen, onClose, onComplete
                                     <div className="space-y-1.5">
                                         <div className="flex items-center justify-between">
                                             <Label>복구 이메일 (보안/인증용)</Label>
-                                            <span className="text-[11px] text-amber-600 dark:text-amber-400 font-semibold">구글 실제 등록 권장</span>
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-[11px] text-amber-600 dark:text-amber-400 font-semibold">구글 실제 등록 권장</span>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setShowRecoveryGuideModal(true)}
+                                                    className="text-[11px] text-primary hover:underline font-bold flex items-center gap-0.5 cursor-pointer"
+                                                >
+                                                    📖 등록 가이드
+                                                </button>
+                                            </div>
                                         </div>
                                         <Input placeholder="recovery@gmail.com" value={recoveryEmail} onChange={e => setRecoveryEmail(e.target.value)} />
+                                        {email && !recoveryEmail && (
+                                            <div className="flex items-center justify-between pt-0.5 text-[11px]">
+                                                <span className="text-muted-foreground">
+                                                    추천: <code className="bg-muted px-1 py-0.5 rounded font-mono text-[10px] text-primary">rec.{email.split('@')[0].replace(/[^a-zA-Z0-9]/g, '')}@gogloo.gleeze.com</code>
+                                                </span>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setRecoveryEmail(`rec.${email.split('@')[0].replace(/[^a-zA-Z0-9]/g, '')}@gogloo.gleeze.com`)}
+                                                    className="text-emerald-600 dark:text-emerald-400 font-bold hover:underline cursor-pointer"
+                                                >
+                                                    자동 입력
+                                                </button>
+                                            </div>
+                                        )}
                                         <p className="text-[11px] text-muted-foreground leading-relaxed">
                                             💡 실제 Google 계정 보안 설정(myaccount.google.com)에 등록된 복구 이메일이어야 프록시 접속 시 본인 확인 챌린지를 안전하게 통과할 수 있습니다.
                                         </p>
@@ -1513,6 +1547,14 @@ const TinCanWizard: React.FC<TinCanWizardProps> = ({ isOpen, onClose, onComplete
             <GoogleApiIssuanceGuide
                 open={showApiGuideModal}
                 onOpenChange={setShowApiGuideModal}
+            />
+
+            {/* Google Recovery Email & Anti-Clustering Guide Modal */}
+            <RecoveryEmailGuideModal
+                open={showRecoveryGuideModal}
+                onOpenChange={setShowRecoveryGuideModal}
+                currentEmail={email}
+                currentRecoveryEmail={recoveryEmail}
             />
 
 
