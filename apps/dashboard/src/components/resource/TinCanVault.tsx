@@ -1369,84 +1369,92 @@ const TinCanVault = ({ mode = 'vault' }: TinCanVaultProps) => {
                             </div>
                             
                             <div className="pt-4 border-t border-border mt-2">
-                                <div className="flex items-center justify-between mb-3">
-                                    <Label className="text-sm font-bold text-foreground flex items-center gap-2">
-                                        <ShieldCheck className="w-4 h-4 text-primary" />
-                                        YouTube API 인증 설정
-                                    </Label>
-                                    {editProfile.has_oauth2_token ? (
-                                        <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 text-[11px] gap-1 py-0.5 font-bold">
-                                            <CheckCircle2 className="w-3.5 h-3.5" /> API 승인 완료
-                                        </Badge>
-                                    ) : editProfile.has_client_secret ? (
-                                        <Badge className="bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/30 text-[11px] gap-1 py-0.5 font-bold">
-                                            <CheckCircle2 className="w-3.5 h-3.5" /> 키 등록됨 (승인 대기)
-                                        </Badge>
-                                    ) : (
-                                        <Badge variant="outline" className="text-muted-foreground text-[11px]">
-                                            키 미등록
-                                        </Badge>
-                                    )}
-                                </div>
-
-                                <div className="bg-muted/40 border border-border rounded-xl p-3.5 space-y-3">
-                                    {/* Key & Auth Status Card */}
-                                    <div className="flex items-center justify-between p-2.5 rounded-lg bg-card border border-border text-xs">
-                                        <div className="flex items-center gap-2.5">
-                                            <FileJson className={`w-4 h-4 shrink-0 ${editProfile.has_client_secret ? 'text-emerald-500' : 'text-muted-foreground'}`} />
-                                            <div>
-                                                <div className="font-semibold text-foreground">
-                                                    {editProfile.has_client_secret ? "OAuth2 클라이언트 키 등록 완료" : "OAuth2 클라이언트 키 미등록"}
-                                                </div>
-                                                <div className="text-[11px] text-muted-foreground">
-                                                    {editProfile.google_project_id 
-                                                        ? `프로젝트 ID: ${editProfile.google_project_id}` 
-                                                        : editProfile.has_client_secret 
-                                                            ? "client_secret.json 파일이 안전하게 보관되어 있습니다." 
-                                                            : "Google Cloud 콘솔에서 다운로드한 client_secret.json을 업로드하세요."}
-                                                </div>
+                                {(() => {
+                                    const hasKey = Boolean(editProfile.has_client_secret || editProfile.google_project_id);
+                                    const hasAuth = Boolean(editProfile.has_oauth2_token);
+                                    return (
+                                        <>
+                                            <div className="flex items-center justify-between mb-3">
+                                                <Label className="text-sm font-bold text-foreground flex items-center gap-2">
+                                                    <ShieldCheck className="w-4 h-4 text-primary" />
+                                                    YouTube API 인증 설정
+                                                </Label>
+                                                {hasAuth ? (
+                                                    <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 text-[11px] gap-1 py-0.5 font-bold">
+                                                        <CheckCircle2 className="w-3.5 h-3.5" /> API 승인 완료
+                                                    </Badge>
+                                                ) : hasKey ? (
+                                                    <Badge className="bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/30 text-[11px] gap-1 py-0.5 font-bold">
+                                                        <CheckCircle2 className="w-3.5 h-3.5" /> 키 등록됨 (승인 대기)
+                                                    </Badge>
+                                                ) : (
+                                                    <Badge variant="outline" className="text-muted-foreground text-[11px]">
+                                                        키 미등록
+                                                    </Badge>
+                                                )}
                                             </div>
-                                        </div>
-                                        {editProfile.has_client_secret && (
-                                            <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1 shrink-0">
-                                                <CheckCircle2 className="w-3.5 h-3.5" /> 보관됨
-                                            </span>
-                                        )}
-                                    </div>
 
-                                    <div className="flex items-center gap-2">
-                                        <input
-                                            type="file"
-                                            accept=".json"
-                                            ref={editFileInputRef}
-                                            className="hidden"
-                                            onChange={(e) => handleEditFileUpload(e, editProfile.id)}
-                                        />
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => editFileInputRef.current?.click()}
-                                            disabled={editUploading}
-                                            className="h-8 text-xs font-semibold bg-card"
-                                        >
-                                            {editUploading ? <RefreshCw className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <FileJson className="w-3.5 h-3.5 mr-1.5 text-primary" />}
-                                            {editProfile.has_client_secret ? "키 재업로드" : "키 업로드"}
-                                        </Button>
-                                        
-                                        <Button
-                                            size="sm"
-                                            onClick={() => handleEditAuth(editProfile.id)}
-                                            className={`h-8 text-xs font-semibold ${editProfile.has_oauth2_token ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : 'bg-primary hover:bg-primary/90 text-primary-foreground'}`}
-                                        >
-                                            <Lock className="w-3.5 h-3.5 mr-1.5" />
-                                            {editProfile.has_oauth2_token ? "API 권한 재승인 (격리 접속)" : "API 권한 승인 (격리 접속)"}
-                                        </Button>
-                                    </div>
+                                            <div className="bg-muted/40 border border-border rounded-xl p-3.5 space-y-3">
+                                                {/* Key & Auth Status Card */}
+                                                <div className="flex items-center justify-between p-2.5 rounded-lg bg-card border border-border text-xs">
+                                                    <div className="flex items-center gap-2.5">
+                                                        <FileJson className={`w-4 h-4 shrink-0 ${hasKey ? 'text-emerald-500' : 'text-muted-foreground'}`} />
+                                                        <div>
+                                                            <div className="font-semibold text-foreground">
+                                                                {hasKey ? "OAuth2 클라이언트 키 등록 완료" : "OAuth2 클라이언트 키 미등록"}
+                                                            </div>
+                                                            <div className="text-[11px] text-muted-foreground">
+                                                                {editProfile.google_project_id 
+                                                                    ? `프로젝트 ID: ${editProfile.google_project_id}` 
+                                                                    : hasKey 
+                                                                        ? "client_secret.json 파일이 안전하게 보관되어 있습니다." 
+                                                                        : "Google Cloud 콘솔에서 다운로드한 client_secret.json을 업로드하세요."}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    {hasKey && (
+                                                        <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1 shrink-0">
+                                                            <CheckCircle2 className="w-3.5 h-3.5" /> 보관됨
+                                                        </span>
+                                                    )}
+                                                </div>
 
-                                    <p className="text-[11px] text-muted-foreground leading-relaxed">
-                                        ※ [API 권한 승인]을 누르면 열리는 스텔스 브라우저 창에서 항목을 체크한 후, <strong>화면 맨 아래의 [계속] 버튼</strong>을 눌러야 최종 승인이 완료됩니다.
-                                    </p>
-                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <input
+                                                        type="file"
+                                                        accept=".json"
+                                                        ref={editFileInputRef}
+                                                        className="hidden"
+                                                        onChange={(e) => handleEditFileUpload(e, editProfile.id)}
+                                                    />
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        onClick={() => editFileInputRef.current?.click()}
+                                                        disabled={editUploading}
+                                                        className="h-8 text-xs font-semibold bg-card"
+                                                    >
+                                                        {editUploading ? <RefreshCw className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <FileJson className="w-3.5 h-3.5 mr-1.5 text-primary" />}
+                                                        {hasKey ? "키 재업로드" : "키 업로드"}
+                                                    </Button>
+                                                    
+                                                    <Button
+                                                        size="sm"
+                                                        onClick={() => handleEditAuth(editProfile.id)}
+                                                        className={`h-8 text-xs font-semibold ${hasAuth ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : 'bg-primary hover:bg-primary/90 text-primary-foreground'}`}
+                                                    >
+                                                        <Lock className="w-3.5 h-3.5 mr-1.5" />
+                                                        {hasAuth ? "API 권한 재승인 (격리 접속)" : "API 권한 승인 (격리 접속)"}
+                                                    </Button>
+                                                </div>
+
+                                                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                                                    ※ [API 권한 승인]을 누르면 열리는 스텔스 브라우저 창에서 항목을 체크한 후, <strong>화면 맨 아래의 [계속] 버튼</strong>을 눌러야 최종 승인이 완료됩니다.
+                                                </p>
+                                            </div>
+                                        </>
+                                    );
+                                })()}
                             </div>
                         </div>
                     )}
