@@ -150,19 +150,90 @@ def main():
         else:
             proxy = {"server": f"socks5://127.0.0.1:{proxy_port}"}
 
-    logger.info(f"Launching CloakBrowser at '{profile_dir}' -> {url} (Proxy: {proxy}, Ext: {proxy_ext_dir})")
+    # Ensure Windows user downloads directory
+    user_downloads = os.path.join(os.path.expanduser("~"), "Downloads")
+    os.makedirs(user_downloads, exist_ok=True)
+
+    # Pre-configure profile Preferences so Chromium native engine points downloads to user Downloads folder
+    try:
+        import json
+        for pref_sub in ["Default", ""]:
+            target_pref_dir = os.path.join(profile_dir, pref_sub) if pref_sub else profile_dir
+            pref_file = os.path.join(target_pref_dir, "Preferences")
+            if os.path.exists(target_pref_dir):
+                pref_data = {}
+                if os.path.exists(pref_file):
+                    try:
+                        with open(pref_file, "r", encoding="utf-8") as pf:
+                            pref_data = json.load(pf)
+                    except Exception:
+                        pref_data = {}
+                if "download" not in pref_data or not isinstance(pref_data["download"], dict):
+                    pref_data["download"] = {}
+                pref_data["download"]["default_directory"] = user_downloads
+                pref_data["download"]["prompt_for_download"] = False
+                pref_data["download"]["directory_upgrade"] = True
+                if "savefile" not in pref_data or not isinstance(pref_data["savefile"], dict):
+                    pref_data["savefile"] = {}
+                pref_data["savefile"]["default_directory"] = user_downloads
+                with open(pref_file, "w", encoding="utf-8") as pf:
+                    json.dump(pref_data, pf, indent=2)
+    except Exception as pref_e:
+        logger.warning(f"Could not inject download preferences: {pref_e}")
+
+    logger.info(f"Launching CloakBrowser at '{profile_dir}' -> {url} (Proxy: {proxy}, Ext: {proxy_ext_dir}, Downloads: {user_downloads})")
 
     ctx = launch_persistent_context(
         user_data_dir=profile_dir,
         headless=False,
         proxy=proxy,
         args=browser_args,
+        downloads_path=user_downloads,
+        accept_downloads=True,
     )
+
+    # Robust Download & Explorer auto-open handler
+    def attach_download_handler(target_page):
+        try:
+            def on_download(download):
+                try:
+                    sug_name = download.suggested_filename or ""
+                    # UUID 형태(36글자 hex-dash)이거나 확장자가 없으면 client_secret.json으로 정규화
+                    if (len(sug_name) == 36 and '-' in sug_name) or not os.path.splitext(sug_name)[1]:
+                        target_name = "client_secret.json"
+                    else:
+                        target_name = sug_name
+                    
+                    target_path = os.path.join(user_downloads, target_name)
+                    download.save_as(target_path)
+                    logger.info(f"💾 [Auto-Download] File cleanly saved to user Downloads: {target_path}")
+
+                    # Windows 탐색기 열고 해당 파일 자동 하이라이트(선택)
+                    try:
+                        import subprocess
+                        subprocess.Popen(f'explorer.exe /select,"{target_path}"', shell=True)
+                        logger.info(f"📂 [Auto-Download] Explorer opened & file highlighted: {target_path}")
+                    except Exception as exp_err:
+                        logger.warning(f"Failed to open explorer: {exp_err}")
+                except Exception as dl_err:
+                    logger.error(f"Download save error: {dl_err}")
+
+            target_page.on("download", on_download)
+        except Exception as attach_err:
+            logger.warning(f"Failed to attach download listener: {attach_err}")
+
+    # Listen on context for any newly opened tabs/popups
+    try:
+        ctx.on("page", lambda new_p: attach_download_handler(new_p))
+    except Exception:
+        pass
 
     if len(ctx.pages) > 0:
         page = ctx.pages[0]
     else:
         page = ctx.new_page()
+
+    attach_download_handler(page)
         
     from cloakbrowser.human import patch_page, resolve_config, _CursorState
     cfg = resolve_config()
