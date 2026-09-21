@@ -58,8 +58,8 @@ def _launch_browser_for_oauth(profile: Profile, auth_url: str, db: Session) -> b
         logger.info(f"🛡️ [OAuth-Stealth] Launching isolated CloakBrowser for profile {profile.id} ({profile.email})")
         success = stealth_ops.launch_for_setup(
             profile_id=profile.id,
-            email=profile.email,
-            password=profile.password,
+            email=None,     # OAuth 승인 창은 로그인 창이 아니므로 자격증명 자동입력 루프를 타지 않도록 None 전달 (DOM 프리징 방지)
+            password=None,
             skip_proxy_check=False,  # 프로필에 설정된 프록시/LTE 네트워크 환경 100% 유지
             db=db,
             target_url=auth_url

@@ -289,6 +289,11 @@ def main():
             is_login_page = False
             for _ in range(12):
                 curr_url = page.url.lower()
+                # If this is an OAuth consent/authorization screen, NEVER treat as a login page
+                if any(k in curr_url for k in ["/oauth", "consentsummary", "oauth2", "/auth?"]):
+                    logger.info("🛡️ OAuth authorization/consent screen detected. Skipping auto-login.")
+                    is_login_page = False
+                    break
                 if "accounts.google.com" in curr_url or "signin" in curr_url:
                     is_login_page = True
                     break
