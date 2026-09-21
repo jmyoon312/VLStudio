@@ -5,8 +5,9 @@ import { useModalVisibility } from '@/features/flow2capcut/hooks/useModalVisibil
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Check, ChevronRight, ShieldCheck, AlertTriangle, Smartphone, Loader2, Wifi, RefreshCw, Upload, FileJson, Sparkles, ChevronLeft, ExternalLink, Copy, Lock, Activity, Battery, CheckCircle2, XCircle, Server, Radio } from 'lucide-react';
+import { Check, ChevronRight, ShieldCheck, AlertTriangle, Smartphone, Loader2, Wifi, RefreshCw, Upload, FileJson, Sparkles, ChevronLeft, ExternalLink, Copy, Lock, Activity, Battery, CheckCircle2, XCircle, Server, Radio, KeyRound } from 'lucide-react';
 import GoogleAuthGuide from '../GoogleAuthGuide';
+import GoogleApiIssuanceGuide from './GoogleApiIssuanceGuide';
 import { useToast } from "@/components/ui/use-toast";
 import axios from 'axios';
 import AIModelSelector from '../shared/AIModelSelector';
@@ -77,6 +78,7 @@ const TinCanWizard: React.FC<TinCanWizardProps> = ({ isOpen, onClose, onComplete
     // UI State
     const [isLoading, setIsLoading] = useState(false);
     const [showGuideModal, setShowGuideModal] = useState(false);
+    const [showApiGuideModal, setShowApiGuideModal] = useState(false);
 
     // [Resume Logic] Hydrate from initialData
     useEffect(() => {
@@ -595,14 +597,25 @@ const TinCanWizard: React.FC<TinCanWizardProps> = ({ isOpen, onClose, onComplete
                                     모바일 생성 계정을 PC로 안전하게 이관하고 설정을 완료합니다.
                                 </DialogDescription>
                             </div>
-                            <Button 
-                                variant="outline" 
-                                size="sm" 
-                                onClick={() => setShowGuideModal(true)}
-                                className="text-xs gap-1.5 text-indigo-600 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/50"
-                            >
-                                📖 설정 & 검토 가이드
-                            </Button>
+                            <div className="flex items-center gap-2">
+                                <Button 
+                                    variant="outline" 
+                                    size="sm" 
+                                    onClick={() => setShowApiGuideModal(true)}
+                                    className="text-xs gap-1.5 text-indigo-600 dark:text-indigo-400 border-indigo-300 dark:border-indigo-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 font-bold"
+                                >
+                                    <KeyRound className="w-3.5 h-3.5" />
+                                    🔑 구글 API 키 발급 가이드
+                                </Button>
+                                <Button 
+                                    variant="outline" 
+                                    size="sm" 
+                                    onClick={() => setShowGuideModal(true)}
+                                    className="text-xs gap-1.5 text-muted-foreground border-border hover:bg-muted"
+                                >
+                                    🛡️ 보안 가이드
+                                </Button>
+                            </div>
                         </div>
                     </DialogHeader>
 
@@ -1106,28 +1119,81 @@ const TinCanWizard: React.FC<TinCanWizardProps> = ({ isOpen, onClose, onComplete
                         )}
 
                         {step === 5 && (
-                            <div className="space-y-6 animate-in fade-in zoom-in-95 duration-200 text-center">
-                                <div className="bg-white border border-indigo-100 rounded-xl p-8 shadow-sm space-y-6">
-                                    <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg text-sm text-blue-800">
-                                        <div className="font-bold mb-1">ℹ️ 선택 사항</div>
-                                        <p className="text-xs">
-                                            브라우저 자동화만 사용하는 경우 건너뛰기 가능합니다.<br />
-                                            API 기반 권한 검증이 필요한 경우에만 업로드하세요.
-                                        </p>
-                                    </div>
-
-                                    <div className="text-center space-y-2">
-                                        <div className="w-16 h-16 bg-indigo-50 rounded-full flex items-center justify-center mx-auto mb-2">
-                                            <FileJson className="w-8 h-8 text-indigo-600" />
+                            <div className="space-y-4 animate-in fade-in zoom-in-95 duration-200">
+                                <div className="bg-card border border-border rounded-xl p-6 shadow-sm space-y-5 text-card-foreground">
+                                    {/* 안내 배너 */}
+                                    <div className="bg-blue-500/10 border border-blue-500/20 p-3.5 rounded-xl text-xs text-blue-900 dark:text-blue-200 flex items-start gap-2.5 text-left">
+                                        <div className="p-1 rounded-md bg-blue-500/20 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5">
+                                            <Sparkles className="w-3.5 h-3.5" />
                                         </div>
-                                        <h3 className="text-xl font-bold text-slate-800">YouTube API 인증 키 등록</h3>
-                                        <p className="text-slate-500 text-sm max-w-md mx-auto">
-                                            Google Cloud Console에서 발급받은 <code className="bg-slate-100 px-1 rounded">client_secret.json</code> 파일을 업로드하세요.
-                                        </p>
+                                        <div>
+                                            <div className="font-bold mb-0.5">YouTube API 인증 키(client_secret.json) 등록 안내</div>
+                                            <p className="text-[11px] text-muted-foreground leading-relaxed">
+                                                브라우저 자동 업로드 외에 초고속 공식 API 업로드 및 분석 지표 수집을 위해 사용됩니다. (선택 사항이며, 필요 시 건너뛰고 나중에 등록할 수 있습니다.)
+                                            </p>
+                                        </div>
                                     </div>
 
-                                    <div className="flex flex-col gap-3">
-                                        <div className="flex justify-center gap-3">
+                                    {/* 5단계 발급 요약 카드 & 가이드 열기 버튼 */}
+                                    <div className="p-4 rounded-xl bg-indigo-50/60 dark:bg-indigo-950/20 border border-indigo-200/80 dark:border-indigo-900/40 text-left space-y-3">
+                                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                            <div className="flex items-center gap-2">
+                                                <span className="bg-indigo-600 text-white font-bold px-2 py-0.5 rounded text-[10px]">
+                                                    따라하기 가이드
+                                                </span>
+                                                <span className="text-xs font-bold text-indigo-950 dark:text-indigo-200">
+                                                    Google Cloud Console 5단계 발급 요약
+                                                </span>
+                                            </div>
+                                            <Button
+                                                type="button"
+                                                size="sm"
+                                                variant="outline"
+                                                onClick={() => setShowApiGuideModal(true)}
+                                                className="h-7 text-xs font-bold gap-1.5 text-indigo-600 dark:text-indigo-400 border-indigo-300 dark:border-indigo-800 bg-background hover:bg-indigo-50 dark:hover:bg-indigo-950/50 shadow-2xs"
+                                            >
+                                                <KeyRound className="w-3.5 h-3.5" />
+                                                발급 상세 가이드 열기 <ExternalLink className="w-3 h-3" />
+                                            </Button>
+                                        </div>
+
+                                        <div className="grid grid-cols-1 sm:grid-cols-5 gap-2 text-[11px]">
+                                            <div className="p-2 rounded-lg bg-background/80 border border-border flex flex-col justify-between">
+                                                <span className="font-bold text-indigo-600 dark:text-indigo-400">1. 프로젝트 생성</span>
+                                                <span className="text-muted-foreground text-[10px] truncate">viraloop-studio-01</span>
+                                            </div>
+                                            <div className="p-2 rounded-lg bg-background/80 border border-border flex flex-col justify-between">
+                                                <span className="font-bold text-indigo-600 dark:text-indigo-400">2. API 사용 설정</span>
+                                                <span className="text-muted-foreground text-[10px] truncate">YouTube Data v3</span>
+                                            </div>
+                                            <div className="p-2 rounded-lg bg-background/80 border border-border flex flex-col justify-between">
+                                                <span className="font-bold text-indigo-600 dark:text-indigo-400">3. OAuth 동의 화면</span>
+                                                <span className="text-muted-foreground text-[10px] truncate">외부(External) 선택</span>
+                                            </div>
+                                            <div className="p-2 rounded-lg bg-rose-500/10 border border-rose-500/20 flex flex-col justify-between">
+                                                <span className="font-bold text-rose-600 dark:text-rose-400">4. 테스트 사용자 ⭐</span>
+                                                <span className="text-rose-700 dark:text-rose-300 text-[10px] truncate">본인 Gmail 필수 등록</span>
+                                            </div>
+                                            <div className="p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex flex-col justify-between">
+                                                <span className="font-bold text-emerald-600 dark:text-emerald-400">5. JSON 다운로드</span>
+                                                <span className="text-emerald-700 dark:text-emerald-300 text-[10px] truncate">데스크톱 앱 선택</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* 업로드 액션 영역 */}
+                                    <div className="text-center space-y-3 pt-1">
+                                        <div className="w-14 h-14 bg-indigo-500/10 rounded-full flex items-center justify-center mx-auto mb-1">
+                                            <FileJson className="w-7 h-7 text-indigo-600 dark:text-indigo-400" />
+                                        </div>
+                                        <div>
+                                            <h3 className="text-base font-bold text-foreground">client_secret.json 파일 업로드</h3>
+                                            <p className="text-muted-foreground text-xs max-w-md mx-auto mt-0.5">
+                                                Google Cloud Console에서 다운로드받은 <code className="bg-muted px-1.5 py-0.5 rounded text-foreground font-mono">client_secret.json</code> 파일을 아래 버튼을 눌러 등록하세요.
+                                            </p>
+                                        </div>
+
+                                        <div className="flex flex-col gap-2.5 max-w-md mx-auto pt-2">
                                             <input
                                                 type="file"
                                                 accept=".json"
@@ -1138,38 +1204,38 @@ const TinCanWizard: React.FC<TinCanWizardProps> = ({ isOpen, onClose, onComplete
                                             <Button
                                                 type="button"
                                                 onClick={() => fileInputRef.current?.click()}
-                                                className="h-16 px-8 text-base sm:text-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold gap-3 shadow-lg hover:shadow-xl transition-all hover:scale-[1.02] rounded-xl"
+                                                className="h-14 px-8 text-base bg-indigo-600 hover:bg-indigo-700 text-white font-bold gap-3 shadow-lg hover:shadow-xl transition-all hover:scale-[1.01] rounded-xl"
                                                 disabled={isLoading}
                                             >
-                                                {isLoading ? <Loader2 className="w-6 h-6 animate-spin text-white" /> : <Upload className="w-6 h-6 text-white" />}
-                                                <span>client_secret.json 업로드</span>
+                                                {isLoading ? <Loader2 className="w-5 h-5 animate-spin text-white" /> : <Upload className="w-5 h-5 text-white" />}
+                                                <span>client_secret.json 파일 선택 및 업로드</span>
+                                            </Button>
+
+                                            <Button
+                                                variant="ghost"
+                                                onClick={async () => {
+                                                    try {
+                                                        await axios.put(`${API_BASE}/resources/profiles/${draftId}`, {
+                                                            status: 'ACTIVE'
+                                                        });
+                                                        toast({
+                                                            title: "등록 완료",
+                                                            description: "계정이 등록되었습니다. API 인증은 나중에 설정할 수 있습니다."
+                                                        });
+                                                        handleFinishAndClose();
+                                                    } catch (error: any) {
+                                                        toast({
+                                                            variant: "destructive",
+                                                            title: "등록 실패",
+                                                            description: error.response?.data?.detail || "상태 업데이트에 실패했습니다."
+                                                        });
+                                                    }
+                                                }}
+                                                className="w-full text-xs text-muted-foreground hover:text-foreground"
+                                            >
+                                                건너뛰기 (브라우저 스텔스 자동화만 사용)
                                             </Button>
                                         </div>
-
-                                        <Button
-                                            variant="outline"
-                                            onClick={async () => {
-                                                try {
-                                                    await axios.put(`${API_BASE}/resources/profiles/${draftId}`, {
-                                                        status: 'ACTIVE'
-                                                    });
-                                                    toast({
-                                                        title: "등록 완료",
-                                                        description: "계정이 등록되었습니다. API 인증은 나중에 설정할 수 있습니다."
-                                                    });
-                                                    handleFinishAndClose();
-                                                } catch (error: any) {
-                                                    toast({
-                                                        variant: "destructive",
-                                                        title: "등록 실패",
-                                                        description: error.response?.data?.detail || "상태 업데이트에 실패했습니다."
-                                                    });
-                                                }
-                                            }}
-                                            className="w-full"
-                                        >
-                                            건너뛰기 (브라우저 자동화만 사용)
-                                        </Button>
                                     </div>
                                 </div>
                             </div>
@@ -1265,35 +1331,59 @@ const TinCanWizard: React.FC<TinCanWizardProps> = ({ isOpen, onClose, onComplete
 
                             <div className="space-y-4 text-xs py-2">
                                 {/* Engine Section */}
-                                <div className="p-3.5 bg-indigo-50/60 border border-indigo-100 rounded-xl space-y-1.5">
-                                    <h4 className="font-bold text-indigo-900 flex items-center gap-1.5">
+                                <div className="p-3.5 bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-200/60 dark:border-indigo-800/50 rounded-xl space-y-1.5">
+                                    <h4 className="font-bold text-indigo-900 dark:text-indigo-300 flex items-center gap-1.5">
                                         <span>🛡️</span> 1. 안티디텍트 브라우저 엔진 차이
                                     </h4>
-                                    <ul className="list-disc list-inside space-y-1 text-slate-600 pl-1 text-[11px]">
+                                    <ul className="list-disc list-inside space-y-1 text-muted-foreground pl-1 text-[11px]">
                                         <li><strong>CloakBrowser (권장)</strong>: ViraLoop 자체 내장형 Electron/CDP 파이프라인. 외부 프로그램 설치 없이 백그라운드 속도 및 스텔스 성능이 가장 우수합니다.</li>
                                         <li><strong>iXBrowser</strong>: 데스크톱 전용 iXBrowser 프로그램의 API를 바인딩하여 프로필을 제어하는 방식입니다.</li>
                                     </ul>
                                 </div>
 
                                 {/* Fingerprint Section */}
-                                <div className="p-3.5 bg-emerald-50/60 border border-emerald-100 rounded-xl space-y-1.5">
-                                    <h4 className="font-bold text-emerald-900 flex items-center gap-1.5">
+                                <div className="p-3.5 bg-emerald-50/60 dark:bg-emerald-950/30 border border-emerald-200/60 dark:border-emerald-800/50 rounded-xl space-y-1.5">
+                                    <h4 className="font-bold text-emerald-900 dark:text-emerald-300 flex items-center gap-1.5">
                                         <span>🔒</span> 2. Auto-Noise (자동 핑거프린팅)
                                     </h4>
-                                    <p className="text-slate-600 leading-relaxed text-[11px]">
+                                    <p className="text-muted-foreground leading-relaxed text-[11px]">
                                         OS 버전, Canvas, WebGL 식별자, Audio Context 노이즈는 브라우저 생성 시 **엔진에서 최적의 무작위 변조 스펙을 자동으로 할당**합니다. 사용자가 일일이 RAM/CPU를 수동 설정할 필요 없이 구글 보안 통과율이 가장 높은 값으로 조합됩니다.
                                     </p>
                                 </div>
 
                                 {/* Network Section */}
-                                <div className="p-3.5 bg-purple-50/60 border border-purple-100 rounded-xl space-y-1.5">
-                                    <h4 className="font-bold text-purple-900 flex items-center gap-1.5">
+                                <div className="p-3.5 bg-purple-50/60 dark:bg-purple-950/30 border border-purple-200/60 dark:border-purple-800/50 rounded-xl space-y-1.5">
+                                    <h4 className="font-bold text-purple-900 dark:text-purple-300 flex items-center gap-1.5">
                                         <span>📱</span> 3. 네트워크 격리 & IP 소프트 교체
                                     </h4>
-                                    <ul className="list-disc list-inside space-y-1 text-slate-600 pl-1 text-[11px]">
+                                    <ul className="list-disc list-inside space-y-1 text-muted-foreground pl-1 text-[11px]">
                                         <li><strong>DIRECT_LTE (EveryProxy)</strong>: 스마트폰 EveryProxy(127.0.0.1:1080)를 사용하는 공유망 모드입니다. 스텔스 브라우저 실행 시 **소프트 IP 교체(Soft Rotation)**를 통해 새로운 clean LTE 공인 IP를 먼저 할당받아 연결합니다.</li>
                                         <li><strong>ISP_PROXY</strong>: 고정 IP이므로 IP 변동 없이 할당된 전용 IP 주소로 고정 구동됩니다.</li>
                                     </ul>
+                                </div>
+
+                                {/* Google API Section */}
+                                <div className="p-3.5 bg-amber-50/60 dark:bg-amber-950/30 border border-amber-200/60 dark:border-amber-800/50 rounded-xl space-y-2">
+                                    <div className="flex items-center justify-between">
+                                        <h4 className="font-bold text-amber-900 dark:text-amber-300 flex items-center gap-1.5">
+                                            <span>🔑</span> 4. Google Cloud API 키 & client_secret.json
+                                        </h4>
+                                        <Button
+                                            type="button"
+                                            size="sm"
+                                            onClick={() => {
+                                                setShowGuideModal(false);
+                                                setShowApiGuideModal(true);
+                                            }}
+                                            className="h-7 px-2.5 text-[11px] bg-amber-600 hover:bg-amber-700 text-white font-semibold flex items-center gap-1 shadow-xs"
+                                        >
+                                            <KeyRound className="w-3.5 h-3.5" />
+                                            발급 따라하기 가이드
+                                        </Button>
+                                    </div>
+                                    <p className="text-muted-foreground leading-relaxed text-[11px]">
+                                        초보자도 5분 안에 따라할 수 있는 단계별 상세 매뉴얼(프로젝트 생성 ➔ YouTube Data API 활성화 ➔ OAuth 동의 화면 및 테스트 사용자 등록 ➔ 데스크톱 클라이언트 JSON 발급)을 지원합니다.
+                                    </p>
                                 </div>
                             </div>
 
@@ -1325,6 +1415,12 @@ const TinCanWizard: React.FC<TinCanWizardProps> = ({ isOpen, onClose, onComplete
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            {/* Google API Issuance Step-by-Step Guide Modal */}
+            <GoogleApiIssuanceGuide
+                open={showApiGuideModal}
+                onOpenChange={setShowApiGuideModal}
+            />
 
 
 
