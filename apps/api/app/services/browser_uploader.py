@@ -108,6 +108,15 @@ class BrowserUploader:
             # If the user explicitly set the global toggle to "창 표시: 켜짐" (default_headless_mode == False),
             # global visibility takes absolute precedence over any item-level stale configs!
             global_headless = getattr(self, 'default_headless_mode', None)
+            if global_headless is None:
+                try:
+                    from app.models import Settings
+                    settings = db.query(Settings).first()
+                    if settings and hasattr(settings, 'work_queue_headless_mode'):
+                        global_headless = settings.work_queue_headless_mode
+                except Exception:
+                    pass
+
             if global_headless is False:
                 headless_mode = False
             else:
@@ -115,7 +124,7 @@ class BrowserUploader:
                 if item_headless is not None:
                     headless_mode = bool(item_headless)
                 else:
-                    headless_mode = bool(global_headless) if global_headless is not None else True
+                    headless_mode = bool(global_headless) if global_headless is not None else False
             logger.info(f"🛡️ IP Rotation Policy: {'ROTATE' if rotate_decision else 'STICKY'} (Force={force_ip_rotation}) | Headless={headless_mode} (Global={global_headless}, Item={item_headless})")
 
             # [Direct Studio Launch]

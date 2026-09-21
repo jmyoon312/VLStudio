@@ -83,7 +83,7 @@ class PatchrightStealth:
         if not profile_dir:
             profile_dir = get_profile_path(profile_id)
 
-        # ── Windows: 프로필 디렉토리 잠금(Lock) 및 좀비 프로세스 자동 해제 ──
+        # ── Windows: 프로필 디렉토리 잠금(Lock) 및 좀비 프로세스 자동 해제 (초고속 검사) ──
         if profile_dir and os.path.exists(profile_dir):
             try:
                 import psutil
@@ -91,14 +91,16 @@ class PatchrightStealth:
                 clean_dir = profile_dir.lower().replace('\\', '/')
                 current_pid = os.getpid()
                 parent_pid = os.getppid() if hasattr(os, 'getppid') else None
-                for p in psutil.process_iter(['pid', 'name', 'cmdline']):
+                # 최적화: cmdline 파싱 비용을 줄이기 위해 name 먼저 필터링
+                for p in psutil.process_iter(['pid', 'name']):
                     try:
                         if p.pid == current_pid or p.pid == parent_pid:
                             continue
                         proc_name = (p.info.get('name') or '').lower()
                         # Only target Chrome browser processes, NEVER Python or other services
                         if 'chrome' in proc_name:
-                            cmd_str = ' '.join(p.info.get('cmdline') or []).lower().replace('\\', '/')
+                            cmd_list = p.cmdline() or []
+                            cmd_str = ' '.join(cmd_list).lower().replace('\\', '/')
                             if clean_dir in cmd_str or profile_base in cmd_str:
                                 logger.info(f"[Stealth Shield] Killing zombie Chrome process {p.pid}")
                                 p.kill()
@@ -132,7 +134,14 @@ class PatchrightStealth:
         ]
         
         msg_launch = f"🖥️ [StealthOps] Launching browser window: profile={profile_id}, headless={headless}, proxy={proxy_config}"
-        print(msg_launch)
+        try:
+            print(msg_launch)
+        except Exception:
+            try:
+                sys.stdout.buffer.write((msg_launch + "\n").encode('utf-8', errors='replace'))
+                sys.stdout.flush()
+            except Exception:
+                pass
         logger.info(msg_launch)
 
         self.context = launch_persistent_context(
@@ -161,8 +170,16 @@ class PatchrightStealth:
         except Exception as e:
             logger.warning(f"🖥️ [StealthOps] bring_to_front warning: {e}")
 
-        print(f"✅ [StealthOps] Browser page ready (headless={headless}, url={page.url})")
-        logger.info(f"✅ [StealthOps] Browser page ready (headless={headless}, url={page.url})")
+        msg_ready = f"✅ [StealthOps] Browser page ready (headless={headless}, url={page.url})"
+        try:
+            print(msg_ready)
+        except Exception:
+            try:
+                sys.stdout.buffer.write((msg_ready + "\n").encode('utf-8', errors='replace'))
+                sys.stdout.flush()
+            except Exception:
+                pass
+        logger.info(msg_ready)
         return page
 
     def close(self):

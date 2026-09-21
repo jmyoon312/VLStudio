@@ -258,10 +258,10 @@ class TikTokUploader:
                     }
                 }
             }
-            // B. 다이얼로그 내부의 X 닫기 아이콘 버튼(텍스트 없는 SVG 버튼) 직접 클릭
-            const dialogs = Array.from(document.querySelectorAll('[role="dialog"], [class*="modal"], [class*="dialog"], .tiktok-modal'));
+            // B. 다이얼로그 내부의 X 닫기 아이콘 버튼(span, button, div, SVG 버튼) 직접 클릭
+            const dialogs = Array.from(document.querySelectorAll('[role="dialog"], [class*="modal"], [class*="semi-modal"], .tiktok-modal'));
             for (const dlg of dialogs) {
-                const closeBtns = dlg.querySelectorAll('button[aria-label*="close" i], button[aria-label*="닫기" i], button[class*="close" i], svg[data-e2e*="close"]');
+                const closeBtns = dlg.querySelectorAll('.semi-modal-close, [class*="close"], [aria-label*="close" i], [aria-label*="닫기" i], svg.semi-icon-close, svg[data-e2e*="close"]');
                 for (const cb of closeBtns) {
                     const t = (cb.innerText || cb.textContent || '').trim();
                     if (!t || ['x', '✕', '✖', '닫기', 'close'].includes(t.toLowerCase())) {
@@ -480,6 +480,63 @@ class TikTokUploader:
         }
         target_keywords = keywords_map.get(privacy_upper, keywords_map["PUBLIC"])
         contexts = [c for c in [target, page] if c]
+
+        # ── 0단계: 전용 JS DOM 드롭다운 트리거 및 옵션 원스톱 탐색 ──
+        logger.info(f"🔎 [TikTok] Step 0: Dedicated JS privacy selector for '{privacy_upper}'...")
+        js_open_and_select_privacy = """
+        (keywords) => {
+            // 1. "이 게시물을 볼 수 있는 사람" 레이블 또는 컨테이너 탐색
+            const allEls = Array.from(document.querySelectorAll('*'));
+            const labelEl = allEls.find(e => {
+                const t = (e.innerText || e.textContent || '').trim();
+                return t === '이 게시물을 볼 수 있는 사람' || t.includes('이 게시물을 볼 수 있는') || t.includes('Who can watch');
+            });
+            if (labelEl) {
+                const parent = labelEl.closest('div[class*="container"], div[class*="item"], div[class*="row"], div') || labelEl.parentElement;
+                const trigger = parent?.querySelector('[class*="select"], [role="combobox"], [class*="Select"], button') 
+                             || labelEl.nextElementSibling?.querySelector('[class*="select"], [role="combobox"]')
+                             || labelEl.nextElementSibling;
+                if (trigger) {
+                    trigger.click();
+                }
+            }
+            return true;
+        }
+        """
+        for ctx in contexts:
+            try:
+                if hasattr(ctx, "evaluate"):
+                    ctx.evaluate(js_open_and_select_privacy, target_keywords)
+                    time.sleep(0.5)
+            except Exception:
+                pass
+
+        # 옵션 선택 JS
+        js_click_option = """
+        (keywords) => {
+            const options = Array.from(document.querySelectorAll('[role="option"], li, div[class*="select-option"], div[class*="Option"], .semi-select-option, span, div'));
+            for (const opt of options) {
+                const txt = (opt.innerText || opt.textContent || '').trim();
+                if (keywords.some(k => txt === k || txt.startsWith(k))) {
+                    if (opt.offsetParent !== null || opt.tagName === 'LI' || opt.getAttribute('role') === 'option') {
+                        opt.click();
+                        return txt;
+                    }
+                }
+            }
+            return null;
+        }
+        """
+        for ctx in contexts:
+            try:
+                if hasattr(ctx, "evaluate"):
+                    selected = ctx.evaluate(js_click_option, target_keywords)
+                    if selected:
+                        time.sleep(0.5)
+                        logger.info(f"✅ [TikTok] Privacy successfully set to '{selected}' via Step 0 JS option selector!")
+                        return
+            except Exception:
+                pass
 
         # ── 1단계: 라디오버튼 / 레이블 직접 클릭 (드롭다운 열기 불필요) ──
         logger.info("🔎 [TikTok] Step 1: Direct radio/label click attempt...")
@@ -823,44 +880,96 @@ class TikTokUploader:
                     "url": page.url
                 }
 
-            # C-1. ⚠️ "콘텐츠가 제한될 수 있음" (Content may be restricted) 안내 모달 전용 감지 및 게시 재실행
-            # 팝업 안내: "계속 게시할 수 있지만, 가이드라인을 준수하도록 수정하면..."
-            # 우측 상단 X 버튼(또는 Escape)으로 팝업을 닫고, 메인 페이지의 '게시' 버튼을 재클릭해야 업로드가 완료됨!
-            restriction_modal = target.locator('div:has-text("콘텐츠가 제한될 수 있음"), div:has-text("Content may be restricted")').first
-            if not restriction_modal.is_visible():
-                restriction_modal = page.locator('div:has-text("콘텐츠가 제한될 수 있음"), div:has-text("Content may be restricted")').first
+            # C-1. ⚠️ "콘텐츠가 제한될 수 있음" (Content may be restricted) 안내 모달 전용 감지 및 격파
+            # 틱톡 최신 스튜디오 안내 팝업: "계속 게시할 수 있지만, 가이드라인을 준수하도록 수정하면..."
+            # 상단 X 닫기 버튼을 다각도로 타격하고, 메인 게시 버튼을 100% 관통 클릭
+            js_dismiss_restriction = """
+            () => {
+                const nodes = Array.from(document.querySelectorAll('*'));
+                for (const el of nodes) {
+                    const text = (el.innerText || el.textContent || '');
+                    if (text.includes('콘텐츠가 제한될 수 있음') || text.includes('Content may be restricted') || text.includes('원작이 아니거나') || text.includes('가이드라인을 준수')) {
+                        const modal = el.closest('[role="dialog"], [class*="modal"], [class*="semi-modal"], .tiktok-modal') || el.parentElement?.parentElement?.parentElement;
+                        if (modal) {
+                            const closeBtn = modal.querySelector('.semi-modal-close, [class*="close"], [aria-label*="close" i], [aria-label*="닫기" i], svg.semi-icon-close, button:has(svg)');
+                            if (closeBtn) {
+                                closeBtn.click();
+                                return true;
+                            }
+                            const svgs = modal.querySelectorAll('svg');
+                            for (const s of svgs) {
+                                const rect = s.getBoundingClientRect();
+                                const mRect = modal.getBoundingClientRect();
+                                if (rect.top - mRect.top < 100 && mRect.right - rect.right < 100) {
+                                    (s.closest('button, span, div') || s).click();
+                                    return true;
+                                }
+                            }
+                        }
+                    }
+                }
+                const standalone = document.querySelector('.semi-modal-close, svg.semi-icon-close');
+                if (standalone) {
+                    standalone.click();
+                    return true;
+                }
+                return false;
+            }
+            """
+            
+            restriction_detected = False
+            for ctx in [target, page]:
+                if not ctx: continue
+                try:
+                    if hasattr(ctx, "evaluate") and ctx.evaluate(js_dismiss_restriction):
+                        logger.info("🎯 [TikTok] Dismissed restriction modal via JS DOM close button!")
+                        restriction_detected = True
+                        break
+                except Exception:
+                    pass
 
-            if restriction_modal.is_visible():
-                logger.info("⚠️ [TikTok] '콘텐츠가 제한될 수 있음' 안내 팝업 감지! X 버튼 닫기 및 '게시' 재실행...")
-                closed = False
-                for c_sel in ['button[aria-label*="close" i]', 'button[aria-label*="닫기" i]', 'button:has(svg)', 'svg[data-e2e*="close"]', '[class*="close"]']:
+            if not restriction_detected:
+                for ctx in [target, page]:
+                    if not ctx: continue
                     try:
-                        c_btn = restriction_modal.locator(c_sel).first
-                        if c_btn.is_visible():
-                            c_btn.click(timeout=1500, force=True)
-                            closed = True
-                            logger.info(f"🎯 [TikTok] Dismissed restriction modal via {c_sel}")
-                            break
+                        modal_loc = ctx.locator('[role="dialog"], [class*="modal"], .semi-modal, .tiktok-modal').filter(has_text="콘텐츠가 제한").first
+                        if modal_loc.is_visible(timeout=500):
+                            restriction_detected = True
+                            logger.info("⚠️ [TikTok] '콘텐츠가 제한될 수 있음' 안내 팝업 Locator 감지!")
+                            for c_sel in ['.semi-modal-close', '[class*="close"]', 'button[aria-label*="close" i]', 'button[aria-label*="닫기" i]', 'button:has(svg)', 'svg']:
+                                try:
+                                    c_btn = modal_loc.locator(c_sel).first
+                                    if c_btn.is_visible(timeout=500):
+                                        c_btn.click(timeout=1000, force=True)
+                                        logger.info(f"🎯 [TikTok] Dismissed restriction modal via Locator ({c_sel})")
+                                        break
+                                except Exception:
+                                    pass
+                            try:
+                                ctx.keyboard.press("Escape")
+                            except Exception:
+                                pass
                     except Exception:
                         pass
-                if not closed:
+                    if restriction_detected:
+                        break
+
+            # 팝업 감지 시 또는 일정 회차(iteration > 1) 경과 시: 메인 게시 버튼 관통 클릭
+            if restriction_detected or (iteration >= 2 and post_btn):
+                time.sleep(0.8)
+                if post_btn:
                     try:
-                        page.keyboard.press("Escape")
-                        closed = True
-                        logger.info("🎯 [TikTok] Dismissed restriction modal via Escape key")
+                        # 1. JS dispatch event로 강제 클릭 (모달 오버레이가 겹쳐 있어도 100% 관통 실행)
+                        post_btn.evaluate("b => b.click()")
+                        logger.info("🔘 [TikTok] Triggered main Post button via JS evaluate click (bypassing overlays)!")
                     except Exception:
-                        pass
-
-                time.sleep(1.0)
-
-                # 모달 소멸 후 메인 게시 버튼 재클릭
-                if post_btn and post_btn.is_visible():
-                    try:
-                        logger.info("🔘 [TikTok] 모달 닫힘 확인 — 메인 '게시' 버튼 재클릭 실행!")
-                        post_btn.click(timeout=5000, force=True)
-                    except Exception as re_err:
-                        logger.warning(f"Failed to re-click post button: {re_err}")
-                continue
+                        try:
+                            post_btn.click(timeout=3000, force=True)
+                            logger.info("🔘 [TikTok] Triggered main Post button via Playwright force click!")
+                        except Exception as re_err:
+                            logger.warning(f"Failed to re-click post button: {re_err}")
+                if restriction_detected:
+                    continue
 
             # C-2. 2차 확인 모달 (Sound Copyright Check, 콘텐츠 검사, Post Anyway 등) 감지 및 원클릭 격파
             for sel in secondary_confirm_selectors:

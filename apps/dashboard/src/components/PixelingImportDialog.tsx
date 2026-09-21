@@ -667,6 +667,7 @@ export const PixelingImportDialog = ({ isOpen, setIsOpen, onSuccess }: Props) =>
             : false;
 
         const platformConfigs: any = {
+            headless_mode: !isBrowserVisible,
             youtube: {
                 channel_id: sched.channelId || '',
                 privacy: sched.privacy || 'private',
@@ -678,12 +679,14 @@ export const PixelingImportDialog = ({ isOpen, setIsOpen, onSuccess }: Props) =>
                 account_id: sched.tiktokAccountId || '',
                 privacy: sched.tiktokPrivacy || 'SELF_ONLY',
                 allow_comments: sched.tiktokAllowComments !== undefined ? sched.tiktokAllowComments : true,
-                allow_duet: sched.tiktokAllowDuet !== undefined ? sched.tiktokAllowDuet : true
+                allow_duet: sched.tiktokAllowDuet !== undefined ? sched.tiktokAllowDuet : true,
+                headless_mode: !isBrowserVisible
             },
             instagram: {
                 account_id: sched.instagramAccountId || '',
                 caption: fullDesc,
-                share_to_feed: sched.instagramShareToFeed !== undefined ? sched.instagramShareToFeed : false
+                share_to_feed: sched.instagramShareToFeed !== undefined ? sched.instagramShareToFeed : false,
+                headless_mode: !isBrowserVisible
             }
         };
 

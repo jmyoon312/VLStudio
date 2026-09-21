@@ -1473,11 +1473,14 @@ const parseFailureReason = (rawReason: string): ParsedFailureInfo => {
 
     // 1. 브라우저 자동화 요소 탐색 및 폼 조작 타임아웃
     if (lower.includes('scroll_into_view') || lower.includes('locator') || lower.includes('timeout') || lower.includes('wait_for') || lower.includes('did not match')) {
+        const isTT = platform === 'tiktok';
+        const isIG = platform === 'instagram';
+        const platformStudio = isTT ? '틱톡(TikTok) 스튜디오' : isIG ? '인스타그램 웹' : '유튜브 스튜디오';
         return {
             platform: platformName,
             title: `${platformName ? platformName + ' ' : ''}스튜디오 UI 요소 탐색 타임아웃`,
-            description: "유튜브 스튜디오 페이지의 폼 입력 요소(시청자층, 버튼 등) 탐색 중 시간 초과가 발생했습니다.",
-            actionGuide: "최신 유튜브 스튜디오 변경사항이 반영된 패치로 [즉시 재시도]를 눌러 다시 진행해 주세요.",
+            description: `${platformStudio} 페이지의 폼 입력 요소(게시 버튼, 팝업 모달, 입력 필드 등) 처리 중 시간 초과가 발생했습니다.`,
+            actionGuide: `최신 ${platformStudio} UI 대응 로직이 반영되었으므로 [즉시 재시도]를 눌러 다시 진행해 주세요.`,
             rawMessage: rawReason
         };
     }
@@ -1793,11 +1796,11 @@ const QueueItemCompactCard = ({
             ? (item.scheduled_upload_time.includes('T') ? item.scheduled_upload_time : item.scheduled_upload_time.replace(' ', 'T')).slice(0, 16)
             : ''
     );
-    const [editHeadlessMode, setEditHeadlessMode] = useState(
-        item.platform_configs?.youtube?.headless_mode !== undefined
-            ? !item.platform_configs.youtube.headless_mode
-            : false
-    );
+    const [editHeadlessMode, setEditHeadlessMode] = useState<boolean>(() => {
+        const pc = item.platform_configs || {};
+        const hl = pc.headless_mode ?? pc.tiktok?.headless_mode ?? pc.instagram?.headless_mode ?? pc.youtube?.headless_mode;
+        return hl !== undefined ? !hl : (typeof window !== 'undefined' ? localStorage.getItem('vl_work_queue_browser_visible') === 'true' : false);
+    });
     const [editEnableShoppingTag, setEditEnableShoppingTag] = useState(Boolean(item.enable_shopping_tag));
     const [editShoppingTagKeyword, setEditShoppingTagKeyword] = useState(item.shopping_tag_keyword || '');
     const [isExtractingShoppingKeyword, setIsExtractingShoppingKeyword] = useState(false);
@@ -1878,8 +1881,10 @@ const QueueItemCompactCard = ({
                     ? (item.scheduled_upload_time.includes('T') ? item.scheduled_upload_time : item.scheduled_upload_time.replace(' ', 'T')).slice(0, 16)
                     : ''
             );
+            const pcSync = item.platform_configs || {};
+            const itemHeadless = pcSync.headless_mode ?? pcSync.tiktok?.headless_mode ?? pcSync.instagram?.headless_mode ?? pcSync.youtube?.headless_mode;
             setEditHeadlessMode(
-                ytConf.headless_mode !== undefined ? !ytConf.headless_mode : false
+                itemHeadless !== undefined ? !itemHeadless : (typeof window !== 'undefined' ? localStorage.getItem('vl_work_queue_browser_visible') === 'true' : false)
             );
             setEditEnableShoppingTag(Boolean(item.enable_shopping_tag));
             setEditShoppingTagKeyword(item.shopping_tag_keyword || '');
@@ -1915,7 +1920,11 @@ const QueueItemCompactCard = ({
         editChannelId !== (item.platform_configs?.youtube?.channel_id || item.channel_id || '') ||
         editPrivacy !== (item.platform_configs?.youtube?.privacy || (item.scheduled_upload_time ? 'scheduled' : 'private')) ||
         (editPrivacy === 'scheduled' && editScheduleTime !== (item.scheduled_upload_time ? (item.scheduled_upload_time.includes('T') ? item.scheduled_upload_time : item.scheduled_upload_time.replace(' ', 'T')).slice(0, 16) : '')) ||
-        editHeadlessMode !== (item.platform_configs?.youtube?.headless_mode !== undefined ? !item.platform_configs.youtube.headless_mode : false) ||
+        editHeadlessMode !== (
+            (item.platform_configs?.headless_mode ?? item.platform_configs?.tiktok?.headless_mode ?? item.platform_configs?.instagram?.headless_mode ?? item.platform_configs?.youtube?.headless_mode) !== undefined
+                ? !(item.platform_configs?.headless_mode ?? item.platform_configs?.tiktok?.headless_mode ?? item.platform_configs?.instagram?.headless_mode ?? item.platform_configs?.youtube?.headless_mode)
+                : false
+        ) ||
         editEnableShoppingTag !== Boolean(item.enable_shopping_tag) ||
         editShoppingTagKeyword !== (item.shopping_tag_keyword || '') ||
         editTiktokAccountId !== (item.platform_configs?.tiktok?.account_id || '') ||
@@ -1952,8 +1961,10 @@ const QueueItemCompactCard = ({
                 ? (item.scheduled_upload_time.includes('T') ? item.scheduled_upload_time : item.scheduled_upload_time.replace(' ', 'T')).slice(0, 16)
                 : ''
         );
+        const pcRev = item.platform_configs || {};
+        const revHeadless = pcRev.headless_mode ?? pcRev.tiktok?.headless_mode ?? pcRev.instagram?.headless_mode ?? pcRev.youtube?.headless_mode;
         setEditHeadlessMode(
-            ytConf.headless_mode !== undefined ? !ytConf.headless_mode : false
+            revHeadless !== undefined ? !revHeadless : false
         );
         setEditEnableShoppingTag(Boolean(item.enable_shopping_tag));
         setEditShoppingTagKeyword(item.shopping_tag_keyword || '');
@@ -2176,7 +2187,7 @@ const QueueItemCompactCard = ({
                 continue;
             }
             const tokens = lastLine.split(/\s+/);
-            if (tokens.every(t => t.startsWith('#'))) {
+            if (tokens.every((t: string) => t.startsWith('#'))) {
                 lines.pop();
             } else {
                 lines[lines.length - 1] = lastLine.replace(/(?:\s*#[A-Za-z0-9가-힣_]+)+$/, '').trim();
@@ -2218,17 +2229,18 @@ const QueueItemCompactCard = ({
     const buildPayload = () => {
         const parsedHashtags = editHashtags
             .split(/[\s,]+/)
-            .map(t => t.trim())
+            .map((t: string) => t.trim())
             .filter(Boolean)
-            .map(t => t.startsWith('#') ? t : `#${t}`);
+            .map((t: string) => t.startsWith('#') ? t : `#${t}`);
 
         const parsedTags = editTags
             .split(',')
-            .map(t => t.trim().replace(/^#+/, ''))
+            .map((t: string) => t.trim().replace(/^#+/, ''))
             .filter(Boolean);
 
         const configs: any = {
             ...(item.platform_configs || {}),
+            headless_mode: !editHeadlessMode,
             youtube: {
                 ...((item.platform_configs || {}).youtube || {}),
                 channel_id: editChannelId,
@@ -2241,13 +2253,15 @@ const QueueItemCompactCard = ({
                 privacy: editTiktokPrivacy,
                 allow_comments: editTiktokAllowComments,
                 allow_duet: editTiktokAllowDuet,
-                caption: editTiktokCaption
+                caption: editTiktokCaption,
+                headless_mode: !editHeadlessMode
             },
             instagram: {
                 ...((item.platform_configs || {}).instagram || {}),
                 account_id: editInstagramAccountId,
                 share_to_feed: editInstagramShareToFeed,
-                caption: editInstagramCaption
+                caption: editInstagramCaption,
+                headless_mode: !editHeadlessMode
             }
         };
 
@@ -3379,16 +3393,26 @@ const QueueItemCompactCard = ({
                                                         </Select>
                                                     </div>
 
-                                                    <div className="space-y-1 pt-1">
-                                                        <label className="flex items-center justify-between text-xs cursor-pointer p-1 rounded bg-background border border-border">
-                                                            <span className="text-[10px] font-medium">댓글 허용</span>
-                                                            <Switch checked={editTiktokAllowComments} onCheckedChange={setEditTiktokAllowComments} />
-                                                        </label>
-                                                        <label className="flex items-center justify-between text-xs cursor-pointer p-1 rounded bg-background border border-border">
-                                                            <span className="text-[10px] font-medium">듀엣/스티치</span>
-                                                            <Switch checked={editTiktokAllowDuet} onCheckedChange={setEditTiktokAllowDuet} />
-                                                        </label>
+                                                    <div className="flex flex-col justify-end">
+                                                        <div className="flex items-center justify-between p-1.5 rounded-lg bg-background border border-border">
+                                                            <span className="text-[10px] font-medium text-foreground flex items-center gap-1">
+                                                                {editHeadlessMode ? <Eye className="w-3 h-3 text-pink-500" /> : <EyeOff className="w-3 h-3 text-muted-foreground" />}
+                                                                창 표시
+                                                            </span>
+                                                            <Switch checked={editHeadlessMode} onCheckedChange={setEditHeadlessMode} />
+                                                        </div>
                                                     </div>
+                                                </div>
+
+                                                <div className="grid grid-cols-2 gap-2">
+                                                    <label className="flex items-center justify-between text-xs cursor-pointer p-1.5 rounded-lg bg-background border border-border">
+                                                        <span className="text-[10px] font-medium">댓글 허용</span>
+                                                        <Switch checked={editTiktokAllowComments} onCheckedChange={setEditTiktokAllowComments} />
+                                                    </label>
+                                                    <label className="flex items-center justify-between text-xs cursor-pointer p-1.5 rounded-lg bg-background border border-border">
+                                                        <span className="text-[10px] font-medium">듀엣/스티치</span>
+                                                        <Switch checked={editTiktokAllowDuet} onCheckedChange={setEditTiktokAllowDuet} />
+                                                    </label>
                                                 </div>
 
                                                 {/* 틱톡 맞춤 캡션 입력 */}
@@ -3464,12 +3488,22 @@ const QueueItemCompactCard = ({
                                                     </Select>
                                                 </div>
 
-                                                <div className="flex items-center justify-between p-2 rounded-lg bg-background border border-border">
-                                                    <div className="space-y-0.5">
-                                                        <span className="text-[11px] font-medium text-foreground">피드 동시 게시 (Share to Feed)</span>
-                                                        <p className="text-[9px] text-muted-foreground">릴스 탭 외에 일반 격자 피드에도 노출합니다.</p>
+                                                <div className="grid grid-cols-2 gap-2">
+                                                    <div className="flex items-center justify-between p-2 rounded-lg bg-background border border-border">
+                                                        <div className="space-y-0.5">
+                                                            <span className="text-[10px] font-medium text-foreground">피드 동시 게시</span>
+                                                            <p className="text-[8px] text-muted-foreground">릴스 외 피드 노출</p>
+                                                        </div>
+                                                        <Switch checked={editInstagramShareToFeed} onCheckedChange={setEditInstagramShareToFeed} />
                                                     </div>
-                                                    <Switch checked={editInstagramShareToFeed} onCheckedChange={setEditInstagramShareToFeed} />
+
+                                                    <div className="flex items-center justify-between p-2 rounded-lg bg-background border border-border">
+                                                        <span className="text-[10px] font-medium text-foreground flex items-center gap-1">
+                                                            {editHeadlessMode ? <Eye className="w-3 h-3 text-purple-500" /> : <EyeOff className="w-3 h-3 text-muted-foreground" />}
+                                                            창 표시
+                                                        </span>
+                                                        <Switch checked={editHeadlessMode} onCheckedChange={setEditHeadlessMode} />
+                                                    </div>
                                                 </div>
 
                                                 <div className="space-y-1">
@@ -3785,9 +3819,10 @@ const AddVideoDialog = ({ isOpen, setIsOpen, onSuccess, initialData, showBrowser
         upload_method: 'BROWSER_AUTO',
         target_platforms: ['youtube'],
         platform_configs: {
+            headless_mode: !showBrowserWindow,
             youtube: { channel_id: '', privacy: 'private', category: '22', made_for_kids: false, headless_mode: !showBrowserWindow },
-            tiktok: { account_id: '', privacy: 'private', allow_comments: true, allow_duet: true },
-            instagram: { account_id: '', caption: '', share_to_feed: false }
+            tiktok: { account_id: '', privacy: 'private', allow_comments: true, allow_duet: true, headless_mode: !showBrowserWindow },
+            instagram: { account_id: '', caption: '', share_to_feed: false, headless_mode: !showBrowserWindow }
         },
         scheduleMode: 'immediate' as 'immediate' | 'scheduled',
         scheduledTime: ''
@@ -3853,11 +3888,15 @@ const AddVideoDialog = ({ isOpen, setIsOpen, onSuccess, initialData, showBrowser
                 const pc = initialData.platform_configs || {};
                 const ytChanId = pc.youtube?.channel_id || initialData.channel_id || '';
                 const defaultHeadless = !showBrowserWindow;
-                const ytHeadless = pc.youtube?.headless_mode !== undefined ? pc.youtube.headless_mode : defaultHeadless;
+                const rootHeadless = pc.headless_mode !== undefined ? pc.headless_mode : defaultHeadless;
+                const ytHeadless = pc.youtube?.headless_mode !== undefined ? pc.youtube.headless_mode : rootHeadless;
+                const ttHeadless = pc.tiktok?.headless_mode !== undefined ? pc.tiktok.headless_mode : rootHeadless;
+                const igHeadless = pc.instagram?.headless_mode !== undefined ? pc.instagram.headless_mode : rootHeadless;
                 const mergedConfigs = {
+                    headless_mode: rootHeadless,
                     youtube: { ...defaultForm.platform_configs.youtube, ...(pc.youtube || {}), channel_id: ytChanId, headless_mode: ytHeadless },
-                    tiktok: { ...defaultForm.platform_configs.tiktok, ...(pc.tiktok || {}) },
-                    instagram: { ...defaultForm.platform_configs.instagram, ...(pc.instagram || {}) },
+                    tiktok: { ...defaultForm.platform_configs.tiktok, ...(pc.tiktok || {}), headless_mode: ttHeadless },
+                    instagram: { ...defaultForm.platform_configs.instagram, ...(pc.instagram || {}), headless_mode: igHeadless },
                 };
                 const safeData: any = {};
                 for (const key of Object.keys(initialData)) {
@@ -3889,11 +3928,19 @@ const AddVideoDialog = ({ isOpen, setIsOpen, onSuccess, initialData, showBrowser
                 });
                 loadChannels(ytChanId);
             } else {
-                setForm(defaultForm);
+                setForm({
+                    ...defaultForm,
+                    platform_configs: {
+                        headless_mode: !showBrowserWindow,
+                        youtube: { ...defaultForm.platform_configs.youtube, headless_mode: !showBrowserWindow },
+                        tiktok: { ...defaultForm.platform_configs.tiktok, headless_mode: !showBrowserWindow },
+                        instagram: { ...defaultForm.platform_configs.instagram, headless_mode: !showBrowserWindow }
+                    }
+                });
                 loadChannels();
             }
         }
-    }, [isOpen, initialData]);
+    }, [isOpen, initialData, showBrowserWindow]);
 
     const handleSelectOfficialExport = (filePath: string) => {
         if (!filePath) return;
@@ -4947,9 +4994,16 @@ const BulkImportDialog = ({
 
             const items = parsedRows.map(r => {
                 const platformConfigs: any = {
+                    headless_mode: !showBrowserWindow,
                     youtube: {
                         channel_id: defaultChannelId,
                         privacy: r.platform_privacy || 'private',
+                        headless_mode: !showBrowserWindow,
+                    },
+                    tiktok: {
+                        headless_mode: !showBrowserWindow,
+                    },
+                    instagram: {
                         headless_mode: !showBrowserWindow,
                     }
                 };

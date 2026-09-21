@@ -1542,7 +1542,13 @@ def toggle_headless_mode(
     try:
         browser_uploader.session_manager.close_session()
     except Exception as e:
-        logger.warning(f"Error resetting sessions during headless toggle: {e}")
+        logger.warning(f"Error resetting browser_uploader sessions during headless toggle: {e}")
+
+    try:
+        from app.services.browser_session_manager import session_manager
+        session_manager.close_session()
+    except Exception as e:
+        logger.warning(f"Error resetting session_manager during headless toggle: {e}")
 
     # DB 환경설정에 영구 저장 (서버 재시작 후에도 유지)
     try:
@@ -1558,15 +1564,27 @@ def toggle_headless_mode(
     updated_count = 0
     for it in items:
         configs = dict(it.platform_configs or {})
+        # 최상위 및 모든 배포 플랫폼 일괄 동기화 (SSOT 보장)
+        configs["headless_mode"] = headless
+
         yt = dict(configs.get("youtube") or {})
         yt["headless_mode"] = headless
         configs["youtube"] = yt
+
+        tt = dict(configs.get("tiktok") or {})
+        tt["headless_mode"] = headless
+        configs["tiktok"] = tt
+
+        ig = dict(configs.get("instagram") or {})
+        ig["headless_mode"] = headless
+        configs["instagram"] = ig
+
         it.platform_configs = configs
         flag_modified(it, "platform_configs")
         updated_count += 1
     
     db.commit()
-    logger.info(f"🖥️ [Headless Toggle] Browser window visibility updated: headless={headless} (Updated {updated_count} items)")
+    logger.info(f"🖥️ [Headless Toggle] Browser window visibility updated: headless={headless} (Updated {updated_count} items across YouTube/TikTok/Instagram)")
     return {"success": True, "headless": headless, "updated_items": updated_count}
 
 
@@ -1575,7 +1593,7 @@ def get_governance_mode(db: Session = Depends(get_db)):
     """작업 대기열 승인 거버넌스 및 브라우저 창 표시 설정 상태 조회"""
     settings = db.query(models.Settings).first()
     mode = getattr(settings, 'work_queue_governance_mode', 'SMART') if settings else 'SMART'
-    headless = getattr(settings, 'work_queue_headless_mode', True) if settings else True
+    headless = getattr(settings, 'work_queue_headless_mode', False) if settings else False
     return {
         "governance_mode": mode,
         "headless_mode": headless,

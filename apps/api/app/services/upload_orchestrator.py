@@ -269,6 +269,48 @@ class UploadOrchestrator:
         except Exception as e:
             return {"status": "error", "message": str(e)}
 
+    def _resolve_headless_mode(self, item, platform_config: dict, db) -> bool:
+        """
+        [SSOT] 브라우저 창 표시(가시성) 단일 진실 공급원 거버넌스.
+        1. 전역 DB 설정(settings.work_queue_headless_mode)이 False('창 표시: 켜짐')이면:
+           사용자의 시각적 감시 요구를 최우선 존중하여 플랫폼 불문 무조건 headless=False (화면 표시).
+        2. 전역 DB 설정이 True('창 숨김')인 경우:
+           플랫폼별 설정 -> 아이템 공통 설정 순으로 확인하여 개별 예외 존중, 없으면 True.
+        """
+        try:
+            from app.models import Settings
+            from app.services.browser_uploader import browser_uploader
+            settings = db.query(Settings).first()
+            global_headless = getattr(settings, 'work_queue_headless_mode', None) if settings else None
+            
+            # 1. 툴바 전역 가시성 토글이 '창 표시: 켜짐'(False/0)이면 절대적 우선순위 적용!
+            if global_headless is False or global_headless == 0 or (global_headless is not None and not bool(global_headless)):
+                return False
+            if getattr(browser_uploader, 'default_headless_mode', None) is False:
+                return False
+
+            # 2. 개별 플랫폼 설정 확인 (예: item.platform_configs['tiktok']['headless_mode'])
+            if platform_config and "headless_mode" in platform_config:
+                return bool(platform_config["headless_mode"])
+
+            # 3. 아이템 최상위 platform_configs 확인
+            all_configs = item.platform_configs or {}
+            if "headless_mode" in all_configs:
+                return bool(all_configs["headless_mode"])
+
+            # 4. 아이템 타겟 플랫폼이 유튜브인 경우에만 레거시 유튜브 설정 확인
+            targets = item.target_platforms or []
+            if "youtube" in targets:
+                yt_headless = all_configs.get("youtube", {}).get("headless_mode")
+                if yt_headless is not None:
+                    return bool(yt_headless)
+
+            # 5. 전역 기본값 (설정되어 있지 않으면 기본 False: 창 표시로 사용자에게 직관적 노출)
+            return bool(global_headless) if global_headless is not None else False
+        except Exception as e:
+            logger.warning(f"Error resolving headless mode: {e}")
+            return False
+
     # ... Helper implementations for TikTok/Instagram (Simplified copies from tasks.py) ...
     def _upload_to_tiktok(self, item, db, task_instance, base_progress):
         self._publish_progress(item.id, base_progress + 5, "TikTok 업로드 준비 중...", task_instance)
@@ -310,14 +352,14 @@ class UploadOrchestrator:
             allow_comments = config.get("allow_comments", True)
             allow_duet = config.get("allow_duet", True)
             
-            # Headless Mode Resolution from DB Settings (창 표시 설정 완벽 연동)
-            settings = db.query(models.Settings).first()
-            global_headless = getattr(settings, 'work_queue_headless_mode', False) if settings else False
-            item_headless = config.get("headless_mode")
-            headless_mode = bool(item_headless) if item_headless is not None else bool(global_headless)
+            # Headless Mode Resolution from DB Settings & Global Sovereignty (창 표시 설정 완벽 연동)
+            headless_mode = self._resolve_headless_mode(item, config, db)
             
-            logger.info(f"🖥️ [TikTokOrchestrator] Launching TikTok upload: profile={profile_id}, headless={headless_mode} (Global={global_headless}, Item={item_headless})")
-            print(f"🖥️ [TikTokOrchestrator] Launching TikTok upload: profile={profile_id}, headless={headless_mode}")
+            logger.info(f"🖥️ [TikTokOrchestrator] Launching TikTok upload: profile={profile_id}, headless={headless_mode}")
+            try:
+                print(f"🖥️ [TikTokOrchestrator] Launching TikTok upload: profile={profile_id}, headless={headless_mode}")
+            except Exception:
+                pass
 
             # Launch Upload
             self._publish_progress(item.id, base_progress + 20, "TikTok 브라우저 실행 중...", task_instance)
@@ -377,6 +419,10 @@ class UploadOrchestrator:
             )
             caption = meta["full_text"]
             
+            # Headless Mode Resolution from DB Settings & Global Sovereignty (창 표시 설정 완벽 연동)
+            headless_mode = self._resolve_headless_mode(item, config, db)
+            logger.info(f"🖥️ [InstagramOrchestrator] Launching Instagram upload: profile={profile_id}, headless={headless_mode}")
+            
             # Launch Upload
             self._publish_progress(item.id, base_progress + 20, "Instagram 브라우저 실행 중...", task_instance)
             result = session_manager.launch_instagram_upload(
@@ -384,7 +430,8 @@ class UploadOrchestrator:
                 db=db,
                 video_path=item.video_file_path,
                 caption=caption,
-                share_to_feed=share_to_feed
+                share_to_feed=share_to_feed,
+                headless=headless_mode
             )
             
             return result

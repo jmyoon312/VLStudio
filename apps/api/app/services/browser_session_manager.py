@@ -1126,7 +1126,8 @@ class BrowserSessionManager:
         db: Optional[Session] = None,
         video_path: str = "",
         caption: str = "",
-        share_to_feed: bool = False
+        share_to_feed: bool = False,
+        headless: bool = False
     ) -> dict:
         """
         Instagram Reels 스텔스 브라우저 업로드 실행.
@@ -1151,8 +1152,8 @@ class BrowserSessionManager:
         if not target_profile_id:
             return {"status": "error", "message": "No Instagram Profile found to execute upload"}
 
-        logger.info(f"Launching Instagram Upload for profile {target_profile_id}")
-        page = self._create_browser(profile_id=target_profile_id, engine_mode="standard", headless=False)
+        logger.info(f"Launching Instagram Upload for profile {target_profile_id} (headless={headless})")
+        page = self._create_browser(profile_id=target_profile_id, engine_mode="standard", headless=headless)
         try:
             from app.services.instagram_browser_uploader import instagram_browser_uploader
             return instagram_browser_uploader.upload_reel(
