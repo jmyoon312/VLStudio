@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import {
     KeyRound, ExternalLink, Copy, Check, AlertTriangle, ShieldCheck,
     Sparkles, CheckCircle2, HelpCircle, FileJson, ArrowRight, Layers,
-    Flame, Download, Terminal, ShieldAlert
+    Flame, Download, Terminal, ShieldAlert, Mail
 } from 'lucide-react';
 import { useToast } from "@/components/ui/use-toast";
 
@@ -401,6 +401,33 @@ export const GoogleApiIssuanceGuide: React.FC<GoogleApiIssuanceGuideProps> = ({
                                         <p>1. <strong>폴더 열기</strong>: 크롬에서 <strong>Ctrl + J</strong>를 누르고 해당 파일 아래의 <strong>[폴더에 표시]</strong>를 누르면 윈도우 탐색기 폴더가 바로 열립니다. (또는 키보드 <code>Win + E</code> ➔ [다운로드] 폴더 직접 이동)</p>
                                         <p>2. <strong>파일명 변경</strong>: 파일명이 <code>client_secret_...json</code>이 아니라 임시 영문숫자(예: <code>6be127bc...</code>)로 되어 있다면, 파일을 선택하고 <strong>F2</strong>를 눌러 <strong>client_secret.json</strong>으로 이름을 변경해 주시면 됩니다.</p>
                                         <p>3. <strong>다시 받기</strong>: 콘솔 창의 '사용자 인증 정보' 목록에서 맨 오른쪽 <strong>⬇️ (다운로드 아이콘)</strong>을 누르면 정상 파일명으로 다시 받을 수도 있습니다.</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Q5 */}
+                            <div className="p-3.5 rounded-xl border border-blue-200/60 dark:border-blue-800/50 bg-blue-50/40 dark:bg-blue-950/20 shadow-xs space-y-1.5">
+                                <h4 className="font-bold text-xs sm:text-sm text-foreground flex items-center gap-1.5">
+                                    <Mail className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
+                                    <span>Q. 복구 이메일을 구글 계정에도 등록해야 하나요? 여러 채널에 같은 메일을 써도 되나요?</span>
+                                </h4>
+                                <div className="text-xs text-muted-foreground pl-5 space-y-2 leading-relaxed">
+                                    <p>
+                                        <strong>A. 실제 구글 계정 보안 설정에도 반드시 등록되어 있어야 하며, 다계정 운영 시에는 이메일을 분산해야 안전합니다!</strong>
+                                    </p>
+                                    <div className="space-y-1.5 p-2.5 rounded-lg bg-background/80 border border-border text-[11px]">
+                                        <p>
+                                            <strong>1. 등록 필수 이유:</strong> ViraLoop는 프록시/LTE 격리망으로 접속하므로 구글이 <em>"본인 확인을 위해 복구 이메일을 입력하세요"</em>라는 보안 챌린지를 종종 표시합니다. 구글 계정에 복구 이메일이 없거나 다르면 계정이 잠기거나 폰 인증이 강제됩니다.
+                                        </p>
+                                        <p>
+                                            <strong>2. 다계정 연좌제(Cluster) 주의:</strong> 모든 구글 계정에 동일한 복구 이메일을 쓰거나 계정끼리 체인(A➔B➔C➔A)으로 묶으면, 구글 AI가 동일인 네트워크로 판정하여 <strong>한 계정 제재 시 전 채널 동반 정지(Shadowban)</strong> 위험이 있습니다.
+                                        </p>
+                                        <p>
+                                            <strong>3. 가장 안전한 운영법 (도메인 포워딩 / 별칭):</strong> 보유 도메인(Dynu DDNS + ForwardEmail 등)의 Catch-all 기능을 쓰거나 Outlook 무료 별칭을 활용하여, <code>ch01@내도메인</code>, <code>ch02@내도메인</code> 형태로 구글에는 독립된 메일로 인식시키고 실제 인증 코드는 본인 메일함 1곳으로 모아 받으시는 것을 권장합니다.
+                                        </p>
+                                        <p className="text-blue-700 dark:text-blue-300 font-semibold pt-0.5">
+                                            💡 등록 방법: 반드시 ViraLoop의 [스텔스 브라우저] 안에서 새 탭을 열고 myaccount.google.com/security 접속 ➔ [복구 이메일]에 등록하세요.
+                                        </p>
                                     </div>
                                 </div>
                             </div>

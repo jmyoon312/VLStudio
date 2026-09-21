@@ -695,9 +695,15 @@ const TinCanWizard: React.FC<TinCanWizardProps> = ({ isOpen, onClose, onComplete
                                         <Label>패스워드</Label>
                                         <Input type="password" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} />
                                     </div>
-                                    <div className="space-y-2">
-                                        <Label>복구 이메일 (보안/인증용)</Label>
+                                    <div className="space-y-1.5">
+                                        <div className="flex items-center justify-between">
+                                            <Label>복구 이메일 (보안/인증용)</Label>
+                                            <span className="text-[11px] text-amber-600 dark:text-amber-400 font-semibold">구글 실제 등록 권장</span>
+                                        </div>
                                         <Input placeholder="recovery@gmail.com" value={recoveryEmail} onChange={e => setRecoveryEmail(e.target.value)} />
+                                        <p className="text-[11px] text-muted-foreground leading-relaxed">
+                                            💡 실제 Google 계정 보안 설정(myaccount.google.com)에 등록된 복구 이메일이어야 프록시 접속 시 본인 확인 챌린지를 안전하게 통과할 수 있습니다.
+                                        </p>
                                     </div>
                                 </div>
                             </div>
@@ -1384,6 +1390,25 @@ const TinCanWizard: React.FC<TinCanWizardProps> = ({ isOpen, onClose, onComplete
                                     <p className="text-muted-foreground leading-relaxed text-[11px]">
                                         초보자도 5분 안에 따라할 수 있는 단계별 상세 매뉴얼(프로젝트 생성 ➔ YouTube Data API 활성화 ➔ OAuth 동의 화면 및 테스트 사용자 등록 ➔ 데스크톱 클라이언트 JSON 발급)을 지원합니다.
                                     </p>
+                                </div>
+
+                                {/* Recovery Email Section */}
+                                <div className="p-3.5 bg-blue-50/60 dark:bg-blue-950/30 border border-blue-200/60 dark:border-blue-800/50 rounded-xl space-y-2">
+                                    <h4 className="font-bold text-blue-900 dark:text-blue-300 flex items-center gap-1.5">
+                                        <span>📧</span> 5. 복구 이메일 실제 등록 필수 가이드 (계정 잠김 0% 방어)
+                                    </h4>
+                                    <div className="text-muted-foreground space-y-1.5 text-[11px] leading-relaxed">
+                                        <p>
+                                            <strong>왜 실제 구글 계정에도 등록해야 하나요?</strong><br />
+                                            ViraLoop는 프록시/LTE 격리망으로 접속하므로, 구글이 <em>"본인 확인을 위해 복구 이메일을 입력하세요"</em>라는 보안 질문을 자주 표시합니다. 이때 실제 계정에 등록된 이메일과 불일치하면 계정이 잠기거나 전화번호 인증이 강제됩니다.
+                                        </p>
+                                        <div className="p-2.5 rounded-lg bg-background/80 border border-blue-200 dark:border-blue-900/50 space-y-1 text-foreground">
+                                            <p className="font-bold text-blue-700 dark:text-blue-300">💡 1분 등록법 (⚠️ 반드시 스텔스 브라우저 안에서 진행):</p>
+                                            <p>1. 열려 있는 스텔스 브라우저 창에서 새 탭을 열고 <code>myaccount.google.com/security</code>로 이동합니다. (일반 브라우저 접속 금지!)</p>
+                                            <p>2. <strong>[Google에 로그인하는 방법] ➔ [복구 이메일]</strong>을 클릭합니다.</p>
+                                            <p>3. ViraLoop에 적은 복구 이메일을 입력하고 인증 코드를 확인하면 100% 안전하게 보호됩니다.</p>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
 
