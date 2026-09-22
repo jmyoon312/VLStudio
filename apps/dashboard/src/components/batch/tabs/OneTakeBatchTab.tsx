@@ -247,14 +247,24 @@ export const OneTakeBatchTab: React.FC<OneTakeBatchTabProps> = ({
             const richItems: BatchWorkItem[] = await Promise.all(
               completedJobs.map(async (j: any) => {
                 let primaryAnalysis: any = {};
-                let renderedUrl = j.rendered_video_url || j.video_path;
+                let renderedUrl = j.rendered_video_url || '';
                 try {
+                  if (j.gemini_results) {
+                    const parsed = typeof j.gemini_results === 'string' ? JSON.parse(j.gemini_results) : j.gemini_results;
+                    primaryAnalysis = parsed.primary || parsed;
+                  }
                   const detail = await api.get(`/ddalkkak/api/subtitle/${j.id}/result`);
-                  primaryAnalysis = detail.data?.primary_analysis || {};
+                  if (detail.data?.primary_analysis && Object.keys(detail.data.primary_analysis).length > 0) {
+                    primaryAnalysis = detail.data.primary_analysis;
+                  }
                   if (detail.data?.rendered_video_url) {
                     renderedUrl = detail.data.rendered_video_url;
                   }
                 } catch (_) {}
+
+                if (!renderedUrl) {
+                  renderedUrl = `/api/ddalkkak/api/subtitle/${j.id}/download/job_${j.id}_classic_test.mp4`;
+                }
 
                 const subs = primaryAnalysis.situation_subtitles || [];
                 const jabs = primaryAnalysis.jjap_jjap_i_subtitles || [];
@@ -272,7 +282,7 @@ export const OneTakeBatchTab: React.FC<OneTakeBatchTabProps> = ({
                   progress: 100,
                   createdAt: j.created_at ? new Date(j.created_at).toLocaleDateString() : '최근 완료',
                   videoUrl: renderedUrl,
-                  filePath: j.video_path || renderedUrl,
+                  filePath: renderedUrl,
                   thumbnailUrl: j.thumbnail_path,
                   durationSec: j.duration_sec || 30,
                   sourceOrigin: '자막 생성기 완성본',
@@ -381,10 +391,6 @@ export const OneTakeBatchTab: React.FC<OneTakeBatchTabProps> = ({
   const [sourceDetailOpen, setSourceDetailOpen] = useState(false);
   const [selectedSourceItem, setSelectedSourceItem] = useState<SourceItem | null>(null);
 
-  const handleOpenSourceDetail = (item: SourceItem) => {
-    setSelectedSourceItem(item);
-    setSourceDetailOpen(true);
-  };
 
   // 5. 실행 및 프로그레스 상태
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
@@ -1024,6 +1030,18 @@ export const OneTakeBatchTab: React.FC<OneTakeBatchTabProps> = ({
         videoData={previewData?.videoData}
         onOpenEditor={() => previewData && handleEditNle(previewData)}
         onExportCapcut={previewData ? () => handleExportCapcut(previewData) : undefined}
+        onSelectForBatch={
+          previewData?.videoData?.id
+            ? () => {
+                const targetId = String(previewData.videoData.id);
+                setSelectedSourceIds(prev => Array.from(new Set([...prev, targetId])));
+                toast({
+                  title: '⚡ 일괄 발주 대상 선택 완료',
+                  description: `'${previewData.title}' 영상이 발주 선택 목록에 추가되었습니다.`
+                });
+              }
+            : undefined
+        }
       />
 
       {/* 2. 세부 결과 대본/자막/메타 검수 모달 */}

@@ -66,6 +66,12 @@ export interface VideoDetailData {
   style?: string;
   subtitles?: any[];
   jabs?: any[];
+  situation_subtitles?: any[];
+  jjap_jjap_i_subtitles?: any[];
+  dialogue_subtitles?: any[];
+  title_candidates?: string[];
+  tags?: string[];
+  seo?: any;
   job?: any;
 }
 
@@ -80,6 +86,7 @@ interface VideoPreviewModalProps {
   onOpenEditor?: () => void;
   onExportCapcut?: () => void;
   onSendToQueue?: () => void;
+  onSelectForBatch?: () => void;
 }
 
 export const VideoPreviewModal: React.FC<VideoPreviewModalProps> = ({
@@ -93,6 +100,7 @@ export const VideoPreviewModal: React.FC<VideoPreviewModalProps> = ({
   onOpenEditor,
   onExportCapcut,
   onSendToQueue,
+  onSelectForBatch,
 }) => {
   // ─────────────────────────────────────────────────────────────
   // 1. ALL REACT HOOKS MUST BE DECLARED AT THE VERY TOP LEVEL
@@ -242,21 +250,32 @@ export const VideoPreviewModal: React.FC<VideoPreviewModalProps> = ({
   const primaryAnalysis = activeJob.primary_analysis || rawResult.primary || rawResult.primary_analysis || rawResult;
 
   // 자막 배열
-  const situationSubs: any[] = (videoData?.subtitles && videoData.subtitles.length > 0) 
-    ? videoData.subtitles 
-    : (primaryAnalysis.situation_subtitles || activeJob.subtitles || []);
-  const jjapSubs: any[] = (videoData?.jabs && videoData.jabs.length > 0) 
-    ? videoData.jabs 
-    : (primaryAnalysis.jjap_jjap_i_subtitles || []);
-  const dialogueSubs: any[] = primaryAnalysis.dialogue_subtitles || [];
+  const situationSubs: any[] = (videoData?.situation_subtitles && videoData.situation_subtitles.length > 0)
+    ? videoData.situation_subtitles
+    : ((videoData?.subtitles && videoData.subtitles.length > 0)
+      ? videoData.subtitles
+      : (primaryAnalysis.situation_subtitles || activeJob.subtitles || []));
+
+  const jjapSubs: any[] = (videoData?.jjap_jjap_i_subtitles && videoData.jjap_jjap_i_subtitles.length > 0)
+    ? videoData.jjap_jjap_i_subtitles
+    : ((videoData?.jabs && videoData.jabs.length > 0)
+      ? videoData.jabs
+      : (primaryAnalysis.jjap_jjap_i_subtitles || []));
+
+  const dialogueSubs: any[] = (videoData?.dialogue_subtitles && videoData.dialogue_subtitles.length > 0)
+    ? videoData.dialogue_subtitles
+    : (primaryAnalysis.dialogue_subtitles || []);
+
   const fullScript = primaryAnalysis.full_script || primaryAnalysis.script || videoData?.content || videoData?.extracted_text || '';
 
   // 후보 제목군
-  const titleCandidates: string[] = activeJob.title_candidates || primaryAnalysis.candidate_titles || primaryAnalysis.title_candidates || [
-    displayTitle.replace(/\.[^/.]+$/, ''),
-    `[실화] ${displayTitle.replace(/\.[^/.]+$/, '')}`,
-    `절대 멈출 수 없는 ${displayTitle.replace(/\.[^/.]+$/, '')}`
-  ];
+  const titleCandidates: string[] = (videoData?.title_candidates && videoData.title_candidates.length > 0)
+    ? videoData.title_candidates
+    : (activeJob.title_candidates || primaryAnalysis.candidate_titles || primaryAnalysis.title_candidates || [
+        displayTitle.replace(/\.[^/.]+$/, ''),
+        `[실화] ${displayTitle.replace(/\.[^/.]+$/, '')}`,
+        `절대 멈출 수 없는 ${displayTitle.replace(/\.[^/.]+$/, '')}`
+      ]);
 
   const currentTitle = selectedYtTitle || displayTitle.replace(/\.[^/.]+$/, '');
   // 🎯 실시간 AI 연출 오버레이 매칭 (자막, 쨉쨉이)
@@ -682,6 +701,20 @@ ${hashtags}`;
 
             {/* 하단 바이럴루프 원클릭 제작 액션 버튼 바 */}
             <div className="space-y-2 pt-2 border-t border-border">
+              {onSelectForBatch && (
+                <Button
+                  type="button"
+                  onClick={() => {
+                    onSelectForBatch();
+                    onOpenChange(false);
+                  }}
+                  className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs py-2.5 flex items-center justify-center gap-1.5 rounded-xl shadow-md cursor-pointer transition-all"
+                >
+                  <Zap className="w-3.5 h-3.5 fill-current text-yellow-300" />
+                  <span>⚡ 이 영상으로 일괄 발주 선택</span>
+                </Button>
+              )}
+
               <div className="grid grid-cols-2 gap-2">
                 <Button
                   type="button"

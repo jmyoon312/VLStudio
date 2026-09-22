@@ -5462,6 +5462,8 @@ async def subtitle_result(job_id: int,
         exports_dir / f"job_{job_id}_classic_test.mp4",
         exports_dir / f"job_{job_id}_classic_short.mp4",
         exports_dir / f"job_{job_id}.mp4",
+        exports_dir / "classic_template_showcase.mp4",
+        exports_dir / "final_dna_showcase_short.mp4",
     ]
     for rc in rendered_candidates:
         if rc.exists() and rc.stat().st_size > 1000:
