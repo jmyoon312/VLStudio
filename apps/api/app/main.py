@@ -80,41 +80,42 @@ if sys.platform == 'win32':
 # [Sovereign Server File Logging & Quiet Polling Filter]
 from logging.handlers import RotatingFileHandler
 
+class WindowsSafeRotatingFileHandler(RotatingFileHandler):
+    """
+    Windows-safe RotatingFileHandler that avoids crash/error spam
+    when other threads or file locks prevent renaming the file.
+    """
+    def doRollover(self):
+        try:
+            super().doRollover()
+        except (PermissionError, OSError):
+            # On Windows, if the file is locked, safely defer rollover instead of crashing
+            pass
+
 API_BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SERVER_LOG_FILE = os.path.join(API_BASE_DIR, "api_server.log")
 
 server_logger = logging.getLogger("app.server")
 server_logger.setLevel(logging.INFO)
-server_logger.propagate = False  # Prevent propagating to root logger and double-logging
+server_logger.propagate = True  # Propagate to root logger
 
-if not any(isinstance(h, (logging.FileHandler, RotatingFileHandler)) for h in server_logger.handlers):
+root_logger = logging.getLogger()
+if not any(isinstance(h, (logging.FileHandler, RotatingFileHandler)) for h in root_logger.handlers):
     try:
-        rf_handler = RotatingFileHandler(
+        root_rf_handler = WindowsSafeRotatingFileHandler(
             SERVER_LOG_FILE,
-            maxBytes=5 * 1024 * 1024, # 5MB
+            maxBytes=10 * 1024 * 1024, # 10MB
             backupCount=3,
-            encoding='utf-8'
-        )
-        rf_handler.setLevel(logging.INFO)
-        rf_formatter = logging.Formatter('%(asctime)s - %(levelname)s - [%(name)s] %(message)s')
-        rf_handler.setFormatter(rf_formatter)
-        server_logger.addHandler(rf_handler)
-        
-        # Attach to root logger to capture all module logs (native_worker, upload_orchestrator, tiktok, etc.)
-        root_logger = logging.getLogger()
-        root_logger.setLevel(logging.INFO)
-        root_rf_handler = RotatingFileHandler(
-            SERVER_LOG_FILE,
-            maxBytes=10 * 1024 * 1024,
-            backupCount=3,
-            encoding='utf-8'
+            encoding='utf-8',
+            delay=True
         )
         root_rf_handler.setLevel(logging.INFO)
+        rf_formatter = logging.Formatter('%(asctime)s - %(levelname)s - [%(name)s] %(message)s')
         root_rf_handler.setFormatter(rf_formatter)
         root_logger.addHandler(root_rf_handler)
         
         # Explicitly ensure upload modules log at INFO level
-        for mod_name in ["app.services.native_queue_worker", "app.services.upload_orchestrator", "app.services.browser_session_manager", "app.services.stealth_ops_v2", "TikTokUploader", "app.services.browser_uploader"]:
+        for mod_name in ["app.services.native_queue_worker", "app.services.upload_orchestrator", "app.services.youtube_uploader", "app.services.browser_session_manager", "app.services.stealth_ops_v2", "TikTokUploader", "app.services.browser_uploader"]:
             mod_logger = logging.getLogger(mod_name)
             mod_logger.setLevel(logging.INFO)
             mod_logger.propagate = True
@@ -168,15 +169,26 @@ from app.routers import (
     health_deployment, ml_ab_search, operations, network,
     douyin_shorts_router, capcut_remote, presets, trend_radar, fsd_mission,
     pipeline_router, universal_cutter, analytics, community, shorts_production,
-    media_intelligence, viral_intelligence, discovery
+    media_intelligence, viral_intelligence, discovery, bgm_router
 )
 from app import job_queue, crud, models, scheduler
 from app.utils.path_utils import normalize_path
 from app.database import engine
 from app.system_maintenance import system_maintenance
 
-# [DB Sync]
+# [DB Sync & Early Schema Migration]
 models.Base.metadata.create_all(bind=engine)
+try:
+    from app.migrate_db import repair_schema
+    repair_schema()
+except Exception as e:
+    logger.debug(f"[Migration] Early repair_schema error: {e}")
+
+try:
+    from app.database import migrate_source_external_id
+    migrate_source_external_id()
+except Exception as e:
+    logger.debug(f"[Migration] Early source_external_id error: {e}")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -221,6 +233,10 @@ async def lifespan(app: FastAPI):
     from app.services.background_workers import background_workers
     background_workers.start()
 
+    # [NEW] Start content verification & aging worker
+    from app.services.verification_worker import verification_worker
+    verification_worker.start()
+
     # [NEW] Start Telegram Two-Way Listener (Loopie COO Mobile Bot)
     from app.services.telegram_service import telegram_service
     telegram_service.start_listener()
@@ -233,12 +249,7 @@ async def lifespan(app: FastAPI):
     from app.services.channel_director import channel_director
     channel_director.start_director_daemon(interval_seconds=180)
 
-    # [NEW] Start DeepSeek Harness Web Daemon (Port 3080)
-    try:
-        from app.services.dsh_daemon import start_dsh_daemon
-        start_dsh_daemon()
-    except Exception as e:
-        logger.warning(f"[DSH] Failed to start DeepSeek Harness daemon: {e}")
+
 
     # [NEW] Start LDPlayer Universal SOCKS5 Gateway Bridge (Port 11080)
     try:
@@ -589,6 +600,7 @@ app.include_router(media_intelligence.router, prefix="/api", tags=["intelligence
 
 
 app.include_router(assets.router, prefix="/api/assets", tags=["assets"])
+app.include_router(bgm_router.router, prefix="/api/bgm", tags=["assets"])
 app.include_router(notebooklm_accounts.router, prefix="/api/notebooklm-accounts", tags=["infra"])
 
 app.include_router(channels.router, prefix="/api/channels", tags=["channels"])

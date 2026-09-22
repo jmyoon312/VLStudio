@@ -320,7 +320,7 @@ export const JabHookInspectorForm: React.FC<JabHookInspectorFormProps> = (props)
                         <label className="text-[10px] text-muted-foreground font-semibold">훅 문구</label>
                         <input
                           type="text"
-                          value={jabText}
+                          value={jabText || ''}
                           onChange={(e) => setJabText(e.target.value)}
                           className="w-full h-7 px-2 text-[11px] bg-background border border-border rounded-[2px] text-foreground font-bold"
                           placeholder="*3초 만에 몰입되는 반전!*"

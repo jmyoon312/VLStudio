@@ -234,13 +234,53 @@ class BrowserSessionManager:
                 email = owner.email
                 password = owner.password
 
-        # 2. 독립적인 UI 브라우저 창 띄우기 (마법사 수동 설정 모드)
+        # [SSOT Profile Resolution] 채널의 실제 소유자 구글 프로필(owner_profile_id) 단일 진실 공급원 매핑
+        channel = db.query(YouTubeChannel).filter(YouTubeChannel.channel_id == channel_id).first()
+        target_profile_id = getattr(channel, 'owner_profile_id', None) if channel else None
+
+        if not target_profile_id:
+            try:
+                from app.models import BrandChannel
+                b_ch = db.query(BrandChannel).filter(BrandChannel.channel_id == channel_id).first()
+                if b_ch and b_ch.owner_profile_id:
+                    target_profile_id = b_ch.owner_profile_id
+            except Exception:
+                pass
+
+        if not target_profile_id:
+            if access:
+                target_profile_id = access.profile_id
+            elif owner_access:
+                target_profile_id = owner_access.profile_id
+
+        if not target_profile_id:
+            owner = db.query(Profile).filter(Profile.channel_id == channel_id).first()
+            if owner:
+                target_profile_id = owner.id
+
+        if not target_profile_id:
+            target_profile_id = channel_id
+
+        # 매핑된 프로필에서 이메일/비밀번호 보완
+        if target_profile_id:
+            target_prof = db.query(Profile).filter(Profile.id == target_profile_id).first()
+            if target_prof:
+                if not email:
+                    email = target_prof.email
+                if not password:
+                    password = target_prof.password
+
+        target_url = f"https://studio.youtube.com/channel/{channel_id}"
+        logger.info(f"🌐 [Launch Channel] Opening single Google profile {target_profile_id} for channel {channel_id} at {target_url}")
+
+        # 2. 독립적인 UI 브라우저 창 띄우기 (소유자 프로필 세션으로 브랜드 채널 직행)
         stealth_ops.launch_for_setup(
-            profile_id=channel_id,
+            profile_id=target_profile_id,
             db=db,
             email=email,
             password=password,
-            target_channel_id=channel_id
+            target_channel_id=channel_id,
+            target_url=target_url
         )
         return True
 
@@ -275,6 +315,12 @@ class BrowserSessionManager:
                 profile_id = access.profile_id
         if not profile_id:
             profile_id = channel_id
+
+        # [Level 1 사용자 수동 보안 세션 보호 인터락]
+        from app.services.stealth_ops_v2 import is_user_interactive_active, UserInteractiveActiveException
+        if is_user_interactive_active(profile_id) or is_user_interactive_active(channel_id):
+            logger.warning(f"👑 [SessionManager] User interactive session is active for profile {profile_id} / channel {channel_id}. Blocking orchestrator to protect user window.")
+            raise UserInteractiveActiveException(profile_id)
 
         # 2. 세션 생존 여부(Liveness) 철저 검증 및 캐시 정리
         page = None

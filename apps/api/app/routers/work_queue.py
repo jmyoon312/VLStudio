@@ -370,12 +370,11 @@ def get_official_exports():
     """
     local_app = os.environ.get("LOCALAPPDATA", "")
     official_dir = os.path.join(local_app, "ViraLoop Studio", "media", "05_Exports")
-    legacy_dir = os.path.join(os.getcwd(), "05_Exports")
     
     exports = []
     seen_names = set()
     
-    def scan_dir(target_dir: str, is_official: bool):
+    def scan_dir(target_dir: str, is_official: bool = True):
         if not os.path.exists(target_dir):
             return
         try:
@@ -405,7 +404,6 @@ def get_official_exports():
             logger.warning(f"Error scanning exports dir {target_dir}: {e}")
 
     scan_dir(official_dir, True)
-    scan_dir(legacy_dir, False)
     
     # 최신 수정 일시순 정렬
     exports.sort(key=lambda x: x["mtime"], reverse=True)
@@ -1269,6 +1267,7 @@ def bulk_upload_file(
     title_col = next((h for h in headers if h.lower() in ("title", "제목", "name")), None)
     desc_col = next((h for h in headers if h.lower() in ("description", "desc", "설명")), None)
     ext_col = next((h for h in headers if h.lower() in ("external_id", "외부id", "id")), None)
+    video_col = next((h for h in headers if h.lower() in ("video_file_path", "video_path", "영상경로", "파일경로", "filepath", "path")), None)
     hashtag_col = next((h for h in headers if h.lower() in ("hashtags",)), None)
     tag_col = next((h for h in headers if h.lower() in ("tags", "태그")), None)
     um_col = next((h for h in headers if h.lower() in ("upload_method", "업로드방식")), None)
@@ -1280,6 +1279,7 @@ def bulk_upload_file(
         title = row.get(title_col, "") if title_col else f"Item {len(created) + 1}"
         description = row.get(desc_col, "") if desc_col else ""
         external_id = row.get(ext_col, "") if ext_col else f"{batch_id}_{len(created) + 1:04d}"
+        video_file_path = row.get(video_col, "").strip() if video_col else None
 
         hashtags_raw = row.get(hashtag_col, "") if hashtag_col else ""
         tags_raw = row.get(tag_col, "") if tag_col else ""
@@ -1316,6 +1316,7 @@ def bulk_upload_file(
             description=clean_description,
             hashtags=parsed_hashtags,
             tags=parsed_tags,
+            video_file_path=video_file_path,
             source_type="BULK_IMPORT",
             upload_method=upload_method or "BROWSER_AUTO",
             target_platforms=target_platforms,
@@ -1339,6 +1340,7 @@ def bulk_upload_file(
         })
 
     db.commit()
+
     return {
         "batch_id": batch_id,
         "count": len(created),
@@ -1349,12 +1351,12 @@ def bulk_upload_file(
 
 TEMPLATE_COLUMNS = [
     "title", "description", "hashtags", "tags",
-    "external_id", "upload_method", "platforms", "platform_privacy", "scheduled_time"
+    "video_file_path", "external_id", "upload_method", "platforms", "platform_privacy", "scheduled_time"
 ]
 
 TEMPLATE_SAMPLE_ROWS = [
-    ["재미있는 고양이 영상", "고양이가 장난감과 노는 모습을 담은 영상입니다", "#cat #funny", "cat,funny", "cat_001", "BROWSER_AUTO", "youtube", "private", ""],
-    ["하늘 풍경 타임랩스", "아름다운 노을과 구름의 변화를 담았습니다", "#sky #timelapse", "sky, timelapse, nature", "sky_002", "API", "youtube,tiktok", "unlisted", "2026-08-01 09:00"],
+    ["재미있는 고양이 영상", "고양이가 장난감과 노는 모습을 담은 영상입니다", "#cat #funny", "cat,funny", "C:\\ViraLoopMedia\\VLStudio\\05_Exports\\sample1.mp4", "cat_001", "BROWSER_AUTO", "youtube", "private", ""],
+    ["하늘 풍경 타임랩스", "아름다운 노을과 구름의 변화를 담았습니다", "#sky #timelapse", "sky, timelapse, nature", "C:\\ViraLoopMedia\\VLStudio\\05_Exports\\sample2.mp4", "sky_002", "API", "youtube,tiktok", "unlisted", "2026-08-01 09:00"],
 ]
 
 import csv
@@ -2008,14 +2010,12 @@ def stream_video(path: str, request: Request):
             local_app = os.environ.get("LOCALAPPDATA", "")
             candidate_dirs = [
                 os.path.join(local_app, "ViraLoop Studio", "media", "05_Exports"),
-                os.path.join(local_app, "ViraLoop Studio", "media", "work_queue_uploads"),
+                os.path.join(local_app, "ViraLoop Studio", "media", "02_Operations", "work_queue_uploads"),
                 os.path.join(local_app, "ViraLoop Studio", "media", "07_Downloads"),
                 os.path.join(local_app, "ViraLoop Studio", "media", "02_Operations", "Temp"),
-                "c:\\ViraLoopMedia\\VLStudio\\05_Exports",
                 os.path.expanduser("~/Downloads"),
                 os.path.expanduser("~/Videos"),
                 os.path.expanduser("~/Desktop"),
-                os.getcwd(),
             ]
             found = False
             for cdir in candidate_dirs:
@@ -2163,10 +2163,8 @@ def get_video_thumbnail(path: Optional[str] = None, item_id: Optional[int] = Non
         local_app = os.environ.get("LOCALAPPDATA", "")
         candidate_dirs = [
             os.path.join(local_app, "ViraLoop Studio", "media", "05_Exports"),
-            os.path.join(local_app, "ViraLoop Studio", "media", "work_queue_uploads"),
+            os.path.join(local_app, "ViraLoop Studio", "media", "02_Operations", "work_queue_uploads"),
             os.path.join(local_app, "ViraLoop Studio", "media", "07_Downloads"),
-            "c:\\ViraLoopMedia\\VLStudio\\05_Exports",
-            os.getcwd(),
         ]
         for cdir in candidate_dirs:
             cpath = os.path.normpath(os.path.join(cdir, filename))

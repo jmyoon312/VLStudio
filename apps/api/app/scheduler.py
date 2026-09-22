@@ -303,8 +303,9 @@ def full_channel_scan_logic():
             
             try:
                 # 1. Fetch Latest Videos (Metadata)
-                # [FIX] Pass cookiefile if available to avoid 429
-                dl_opts = {'cookiefile': settings.cookies_path} if settings and settings.cookies_path else {}
+                # [FIX] Pass cookiefile if valid to avoid 429 without failing on corrupt/empty cookies
+                from app.utils.cookie_utils import is_valid_netscape_cookiefile
+                dl_opts = {'cookiefile': settings.cookies_path} if settings and getattr(settings, 'cookies_path', None) and is_valid_netscape_cookiefile(settings.cookies_path) else {}
                 latest = downloader.downloader.get_latest_videos(channel.url, limit=5, **dl_opts)
                 
                 # [FIX] Reset failure count on success
@@ -519,7 +520,8 @@ def check_warmup_progression():
                 
                 if hours_passed >= 24:
                     next_stage = channel.warmup_stage + 1
-                    print(f"⏩ Auto-progressing {channel.channel_name} to Day {next_stage}")
+                    ch_name = getattr(channel, 'title', None) or getattr(channel, 'channel_name', None) or channel.channel_id
+                    print(f"⏩ Auto-progressing {ch_name} to Day {next_stage}")
                     
                     # Import here to avoid circular dependency
                     from app.services.browser_session_manager import session_manager
@@ -534,7 +536,7 @@ def check_warmup_progression():
                         session_manager.run_warmup_routine(channel.channel_id, next_stage)
                         progressed_count += 1
                     except Exception as e:
-                        print(f"[FAIL] Failed to progress {channel.channel_name}: {e}")
+                        print(f"[FAIL] Failed to progress {ch_name}: {e}")
                         channel.warmup_status = "FAILED"
                         channel.warmup_last_error = str(e)
                         db.commit()

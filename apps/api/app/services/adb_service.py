@@ -305,44 +305,76 @@ class ADBService:
             return False
 
     def get_current_ip(self, serial: Optional[str] = None, force: bool = False) -> str:
-        """핸드폰 내부에서 공인 IP 확인 (최적화 버전 + SOCKS5 자가치유)"""
-        target = serial or "default"
-        local_port = self.get_device_port(serial)
+        """핸드폰 내부에서 공인 IP 확인 (최적화 버전 + SOCKS5 자가치유 + SWR 무지연 반환)"""
+        # 단일 기기 또는 기본 기기일 경우 캐시 키 정규화 (중복 외부 I/O 차단)
+        connected = self.list_devices()
+        effective_serial = serial or (connected[0] if connected else None)
+        target = effective_serial or "default"
+        local_port = self.get_device_port(effective_serial)
         
-        # 너무 잦은 폴링 부하 방지: 강제 갱신이 아니고 유효한 IP가 있다면 15초간 캐시 유지
-        cached = self._cached_public_ips.get(target)
-        last_check = getattr(self, f"_last_check_{target}", 0)
+        # 캐시 조회: 정규화된 target 또는 default 둘 다 확인
+        cached = self._cached_public_ips.get(target) or self._cached_public_ips.get("default")
+        last_check = max(
+            getattr(self, f"_last_check_{target}", 0),
+            getattr(self, "_last_check_default", 0)
+        )
         
-        # [Bug Fix] "갱신 중..." 같은 상태 메시지가 마침표(.)를 포함하여 유효한 IP 캐시로 오인되는 것 방지
         is_valid_ip = False
         if cached:
             is_valid_ip = bool(re.match(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$', cached))
             
-        if not force and is_valid_ip and (time.time() - last_check < 15):
+        # 유효한 IP 캐시가 있고 20초 이내라면 즉시 반환 (0ms)
+        now = time.time()
+        if not force and is_valid_ip and (now - last_check < 20.0):
             return cached
-            
+
+        # 만약 캐시가 만료되었더라도 유효한 IP가 있다면 백그라운드 갱신 스케줄링 후 즉시 반환 (SWR)
+        if not force and is_valid_ip:
+            if not getattr(self, f"_bg_updating_{target}", False):
+                setattr(self, f"_bg_updating_{target}", True)
+                import threading
+                def _async_refresh():
+                    try:
+                        self._fetch_current_ip_internal(target, effective_serial, local_port)
+                    finally:
+                        setattr(self, f"_bg_updating_{target}", False)
+                threading.Thread(target=_async_refresh, daemon=True).start()
+            return cached
+
+        # force=True 이거나 캐시가 전혀 없는 경우 동기 조회
+        return self._fetch_current_ip_internal(target, effective_serial, local_port)
+
+    def _fetch_current_ip_internal(self, target: str, serial: Optional[str], local_port: int) -> str:
+        """[내부] 실제 외부 IP 조회 수행 및 캐시 갱신"""
+        cached = self._cached_public_ips.get(target) or self._cached_public_ips.get("default")
+        is_valid_ip = bool(cached and re.match(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$', cached))
+        
         providers = ["https://api.ipify.org", "https://ifconfig.me/ip"]
         
         # Every Proxy 포트 포워딩 보장 (SOCKS5: local_port -> 1080)
-        self.run_command(['forward', f'tcp:{local_port}', 'tcp:1080'], serial)
-        import requests
+        try:
+            self.run_command(['forward', f'tcp:{local_port}', 'tcp:1080'], serial)
+        except Exception:
+            pass
 
+        import requests
         proxy_endpoints = [f"127.0.0.1:{local_port}"]
         gw_ip = self.get_tethering_gateway_ip()
         if gw_ip and gw_ip not in ("127.0.0.1", ""):
             proxy_endpoints.append(f"{gw_ip}:{local_port}")
 
-        # 1차 시도
+        # 1차 시도 (SOCKS5h 원격 DNS, 타임아웃 2.0s 최적화)
         for endpoint in proxy_endpoints:
-            # [CRITICAL] socks5h:// 프로토콜 사용 -> DNS 조회를 폰(LTE)에서 원격 수행하여 DNS 누수 및 지연 방지
             proxies = {"http": f"socks5h://{endpoint}", "https": f"socks5h://{endpoint}"}
             for url in providers:
                 try:
-                    resp = requests.get(url, proxies=proxies, timeout=3.5)
+                    resp = requests.get(url, proxies=proxies, timeout=2.0)
                     res = resp.text.strip()
                     if res and len(res) > 6 and re.match(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$', res):
                         self._cached_public_ips[target] = res
+                        self._cached_public_ips["default"] = res
                         setattr(self, f"_last_check_{target}", time.time())
+                        setattr(self, "_last_check_default", time.time())
                         return res
                 except Exception:
                     continue
@@ -355,11 +387,13 @@ class ADBService:
                     proxies = {"http": f"socks5h://{endpoint}", "https": f"socks5h://{endpoint}"}
                     for url in providers:
                         try:
-                            resp = requests.get(url, proxies=proxies, timeout=3.5)
+                            resp = requests.get(url, proxies=proxies, timeout=2.0)
                             res = resp.text.strip()
                             if res and len(res) > 6 and re.match(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$', res):
                                 self._cached_public_ips[target] = res
+                                self._cached_public_ips["default"] = res
                                 setattr(self, f"_last_check_{target}", time.time())
+                                setattr(self, "_last_check_default", time.time())
                                 return res
                         except Exception:
                             continue
@@ -367,10 +401,12 @@ class ADBService:
         # 3차: Fallback으로 adb shell curl 시도 (기기가 직접 curl 가능한 경우)
         for url in providers:
             try:
-                res = self.run_command(['shell', 'curl', '-s', '--connect-timeout', '2', '--max-time', '3', url], serial)
+                res = self.run_command(['shell', 'curl', '-s', '--connect-timeout', '1.5', '--max-time', '2.5', url], serial)
                 if res and len(res) > 6 and re.match(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$', res):
                     self._cached_public_ips[target] = res
+                    self._cached_public_ips["default"] = res
                     setattr(self, f"_last_check_{target}", time.time())
+                    setattr(self, "_last_check_default", time.time())
                     return res
             except Exception:
                 pass
@@ -661,13 +697,33 @@ class ADBService:
             return "Error"
 
     def get_network_status_detail(self, force: bool = False, db = None) -> dict:
-        """프론트엔드용 네트워크 상세 상태 반환 (5초 인메모리 캐싱으로 폴링 부하 방지 및 고속 반영)"""
+        """프론트엔드용 네트워크 상세 상태 반환 (Stale-While-Revalidate 캐싱으로 0ms 무지연 반환)"""
         now = time.time()
-        if not force and hasattr(self, "_cached_network_status") and self._cached_network_status:
+        has_cache = hasattr(self, "_cached_network_status") and self._cached_network_status is not None
+        
+        if has_cache and not force:
             cached_time, cached_res = self._cached_network_status
+            # 5초 이내면 완벽한 최신 캐시 즉시 반환
             if now - cached_time < 5.0:
                 return cached_res
+            # 5초 이상 경과 시: 기존 캐시 즉시 반환 (0ms) + 백그라운드 비동기 갱신
+            if not getattr(self, "_bg_updating_network_status", False):
+                self._bg_updating_network_status = True
+                import threading
+                def _bg_update():
+                    try:
+                        self._build_network_status_detail(db=None)
+                    finally:
+                        self._bg_updating_network_status = False
+                threading.Thread(target=_bg_update, daemon=True).start()
+            return cached_res
 
+        # 캐시가 전혀 없거나 force=True인 경우 동기 빌드
+        return self._build_network_status_detail(db=db)
+
+    def _build_network_status_detail(self, db = None) -> dict:
+        """[내부] 실제 네트워크 상세 상태 데이터 구축 및 캐시 저장"""
+        now = time.time()
         try:
             from .network_monitor import network_monitor
             
@@ -682,7 +738,7 @@ class ADBService:
             # Refresh Mobile IP if adb is connected OR tethering is active
             mobile_ip = "Unknown"
             if adb_connected or (tethering_ip and tethering_ip not in ("Not Detected", "Error", "")):
-                 mobile_ip = self.get_current_ip(force=force) # Actual check
+                 mobile_ip = self.get_current_ip() # SWR 캐시 기반 무지연 조회
             
             # Determine status_detail for frontend logic
             mode = monitor_status.get("system_gateway_mode", "WIFI")

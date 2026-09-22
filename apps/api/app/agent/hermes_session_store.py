@@ -35,13 +35,52 @@ class HermesSessionStore:
         self._init_db()
 
 
-    def _get_connection(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(str(self.db_path), timeout=20.0)
+    def _get_connection(self, read_only: bool = False) -> sqlite3.Connection:
+        """
+        [Hermes v0.21.3 Hardened Connection]
+        Read-only first support & WAL concurrency without lock contention.
+        """
+        try:
+            if read_only:
+                uri_path = f"file:{self.db_path.as_posix()}?mode=ro"
+                conn = sqlite3.connect(uri_path, uri=True, timeout=30.0)
+            else:
+                conn = sqlite3.connect(str(self.db_path), timeout=30.0)
+        except Exception:
+            conn = sqlite3.connect(str(self.db_path), timeout=30.0)
+
         conn.row_factory = sqlite3.Row
-        # Enable WAL mode for high concurrency
-        conn.execute("PRAGMA journal_mode=WAL;")
-        conn.execute("PRAGMA synchronous=NORMAL;")
+        try:
+            conn.execute("PRAGMA busy_timeout = 30000;")
+            if not read_only:
+                conn.execute("PRAGMA journal_mode=WAL;")
+                conn.execute("PRAGMA synchronous=NORMAL;")
+        except Exception:
+            pass
         return conn
+
+    def self_heal_fts(self):
+        """[Hermes v0.21.3 Self-Healing] Rebuild FTS index on corruption without affecting base DB."""
+        try:
+            with self._get_connection(read_only=False) as conn:
+                logger.warning("[Hermes Self-Healing] Rebuilding hermes_fts virtual table...")
+                conn.execute("DROP TABLE IF EXISTS hermes_fts;")
+                conn.execute("""
+                    CREATE VIRTUAL TABLE hermes_fts USING fts5(
+                        doc_id UNINDEXED,
+                        channel_id,
+                        category,
+                        title,
+                        content,
+                        tags,
+                        created_at UNINDEXED,
+                        tokenize = 'unicode61'
+                    );
+                """)
+                conn.commit()
+                logger.info("[Hermes Self-Healing] hermes_fts restored successfully.")
+        except Exception as err:
+            logger.error(f"[Hermes Self-Healing] Failed to rebuild FTS: {err}")
 
     def _init_db(self):
         try:
@@ -122,7 +161,7 @@ class HermesSessionStore:
             return results
 
         try:
-            with self._get_connection() as conn:
+            with self._get_connection(read_only=True) as conn:
                 cur = conn.execute("""
                     SELECT doc_id, category, title, content, tags, created_at,
                            snippet(hermes_fts, 3, '<mark>', '</mark>', '...', 20) as snippet_text,
@@ -146,8 +185,10 @@ class HermesSessionStore:
                     })
         except Exception as e:
             logger.warning(f"Hermes FTS5 search error: {e}")
+            if "fts5" in str(e).lower() or "malformed" in str(e).lower() or "no such table" in str(e).lower():
+                self.self_heal_fts()
             try:
-                with self._get_connection() as conn:
+                with self._get_connection(read_only=True) as conn:
                     cur = conn.execute("""
                         SELECT doc_id, category, title, content, tags, created_at
                         FROM hermes_fts
@@ -179,7 +220,7 @@ class HermesSessionStore:
         ch_str = str(channel_id)
 
         try:
-            with self._get_connection() as conn:
+            with self._get_connection(read_only=True) as conn:
                 if clean_q:
                     cur = conn.execute("""
                         SELECT doc_id, channel_id, category, title, content, tags, created_at,

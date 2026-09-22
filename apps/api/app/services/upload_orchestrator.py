@@ -255,14 +255,14 @@ class UploadOrchestrator:
             else:
                 # API
                 from app.services.youtube_uploader import youtube_uploader
-                youtube_uploader.upload_video(db, item.id)
+                youtube_uploader.upload_video(db, item.id, force_ip_rotation=force_rotation)
                 
                 db.refresh(item)
-                if item.status == 'COMPLETED':
+                if item.status in ('COMPLETED', 'VERIFYING'):
                     return {
                         "status": "success",
                         "url": item.uploaded_urls.get('youtube') if item.uploaded_urls else "",
-                        "message": "API Upload Success"
+                        "message": "API Upload Success" if item.status == 'COMPLETED' else "API Upload Success (Video uploaded as PRIVATE, queued for browser review & auto-publish)"
                     }
                 else:
                     return {"status": "error", "message": item.failure_reason or "API Upload Failed"}

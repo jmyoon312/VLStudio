@@ -16,6 +16,12 @@ class VerificationWorker:
         return cls._instance
         
     def _initialize(self):
+        self.running = False
+        self.worker_thread = None
+
+    def start(self):
+        if self.worker_thread and self.worker_thread.is_alive():
+            return
         self.running = True
         self.worker_thread = threading.Thread(target=self._run_loop, daemon=True, name="VerificationWorker")
         self.worker_thread.start()
@@ -100,43 +106,45 @@ class VerificationWorker:
                             logger.error(f"[FAIL] [VerificationWorker] Verification execution failed for {item.id}: {e}")
                             
                     # --- [NEW] Garbage Collector for MP4 files ---
-                    settings = db.query(models.Settings).first()
-                    if settings and getattr(settings, 'auto_delete_mp4_days', 0) > 0:
-                        delete_cutoff = datetime.now() - timedelta(days=settings.auto_delete_mp4_days)
-                        
-                        items_to_cleanup = db.query(models.WorkQueueItem).filter(
-                            models.WorkQueueItem.status.in_(["COMPLETED", "FAILED", "FAILED_REVIEW"]),
-                            models.WorkQueueItem.updated_at <= delete_cutoff,
-                            models.WorkQueueItem.video_file_path.isnot(None)
-                        ).all()
-                        
-                        for cleanup_item in items_to_cleanup:
-                            if cleanup_item.video_file_path and os.path.exists(cleanup_item.video_file_path):
-                                try:
-                                    os.remove(cleanup_item.video_file_path)
-                                    logger.info(f"🗑️ [GarbageCollector] Auto-deleted old video file for item {cleanup_item.id}: {cleanup_item.video_file_path}")
-                                except Exception as e:
-                                    logger.error(f"[FAIL] [GarbageCollector] Failed to delete file {cleanup_item.video_file_path}: {e}")
+                    try:
+                        settings = db.query(models.Settings).first()
+                        if settings and getattr(settings, 'auto_delete_mp4_days', 0) > 0:
+                            delete_cutoff = datetime.now() - timedelta(days=settings.auto_delete_mp4_days)
                             
-                            # Also cleanup thumbnail if exists
-                            if cleanup_item.thumbnail_path and os.path.exists(cleanup_item.thumbnail_path):
-                                try:
-                                    os.remove(cleanup_item.thumbnail_path)
-                                except Exception:
-                                    pass
+                            items_to_cleanup = db.query(models.WorkQueueItem).filter(
+                                models.WorkQueueItem.status.in_(["COMPLETED", "FAILED", "FAILED_REVIEW"]),
+                                models.WorkQueueItem.updated_at <= delete_cutoff,
+                                models.WorkQueueItem.video_file_path.isnot(None)
+                            ).all()
                             
-                            # Mark video file path as cleared
-                            cleanup_item.video_file_path = None
-                            cleanup_item.thumbnail_path = None
-                        
-                        if items_to_cleanup:
-                            db.commit()
+                            for cleanup_item in items_to_cleanup:
+                                if cleanup_item.video_file_path and os.path.exists(cleanup_item.video_file_path):
+                                    try:
+                                        os.remove(cleanup_item.video_file_path)
+                                        logger.info(f"🗑️ [GarbageCollector] Auto-deleted old video file for item {cleanup_item.id}: {cleanup_item.video_file_path}")
+                                    except Exception as e:
+                                        logger.error(f"[FAIL] [GarbageCollector] Failed to delete file {cleanup_item.video_file_path}: {e}")
+                                
+                                # Also cleanup thumbnail if exists
+                                if cleanup_item.thumbnail_path and os.path.exists(cleanup_item.thumbnail_path):
+                                    try:
+                                        os.remove(cleanup_item.thumbnail_path)
+                                    except Exception:
+                                        pass
+                                
+                                # Mark video file path as cleared
+                                cleanup_item.video_file_path = None
+                                cleanup_item.thumbnail_path = None
+                            
+                            if items_to_cleanup:
+                                db.commit()
+                    except Exception as e:
+                        logger.debug(f"[VerificationWorker] Garbage collection deferred: {e}")
 
-                                    
                 finally:
                     db.close()
             except Exception as e:
-                logger.error(f"[FAIL] [VerificationWorker] Loop error: {e}")
+                logger.debug(f"[VerificationWorker] Loop error deferred: {e}")
             
             time.sleep(60)
 

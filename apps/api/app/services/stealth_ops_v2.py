@@ -11,6 +11,69 @@ from sqlalchemy.orm import Session
 logger = logging.getLogger("PatchrightStealth")
 
 from app.config import settings
+import threading
+
+class UserInteractiveActiveException(Exception):
+    """
+    [Level 1 우선권 수호] 사용자가 해당 프로필로 수동 보안 접속 중일 때 발생하는 예외.
+    자동화 봇이 사용자의 브라우저 창을 강제 종료(kill)하거나 간섭하는 것을 원천 방지하고 대기/양보를 유도합니다.
+    """
+    def __init__(self, profile_id: str, message: str = None):
+        self.profile_id = profile_id
+        msg = message or f"👑 [SessionLock] 프로필 [{profile_id}]은 현재 대표님의 수동 보안 접속 창이 활성화되어 사용 중입니다. 사용자의 작업을 완벽히 보호하기 위해 자동화 작업의 브라우저 점유를 안전하게 유예(대기)합니다."
+        super().__init__(msg)
+
+# Level 1 사용자 수동 보안 접속 활성 프로세스 레지스트리 (profile_id -> {process, started_at, pid})
+_active_interactive_sessions: dict = {}
+_interactive_session_lock = threading.Lock()
+
+def is_user_interactive_active(profile_id: str) -> bool:
+    """해당 프로필에 대표님의 수동 보안 접속 창이 활성 상태로 떠 있는지 실시간 검사"""
+    if not profile_id:
+        return False
+    with _interactive_session_lock:
+        sess = _active_interactive_sessions.get(profile_id)
+        if not sess:
+            return False
+        proc = sess.get("process")
+        if proc and proc.poll() is None:
+            return True
+        else:
+            _active_interactive_sessions.pop(profile_id, None)
+            return False
+
+def get_active_interactive_profile_ids() -> list:
+    """현재 활성 상태인 수동 보안 접속 profile_id 목록 반환"""
+    active_ids = []
+    with _interactive_session_lock:
+        for pid, sess in list(_active_interactive_sessions.items()):
+            proc = sess.get("process")
+            if proc and proc.poll() is None:
+                active_ids.append(pid)
+            else:
+                _active_interactive_sessions.pop(pid, None)
+    return active_ids
+
+def register_user_interactive_session(profile_id: str, proc: subprocess.Popen):
+    """대표님 수동 보안 접속 프로세스를 1급 보호 세션으로 등록"""
+    if not profile_id or not proc:
+        return
+    with _interactive_session_lock:
+        _active_interactive_sessions[profile_id] = {
+            "process": proc,
+            "started_at": time.time(),
+            "pid": proc.pid
+        }
+        logger.info(f"👑 [SessionLock] Registered Level 1 User Interactive Session for profile: {profile_id} (PID: {proc.pid})")
+
+def unregister_user_interactive_session(profile_id: str):
+    """대표님 수동 보안 접속 창 종료 시 락 해제"""
+    if not profile_id:
+        return
+    with _interactive_session_lock:
+        sess = _active_interactive_sessions.pop(profile_id, None)
+        if sess:
+            logger.info(f"🔓 [SessionLock] Unregistered User Interactive Session for profile: {profile_id}")
 
 def get_profile_path(profile_id: str) -> str:
     """채널별 프로파일 디렉토리를 리턴 (없으면 생성)"""
@@ -34,6 +97,11 @@ class PatchrightStealth:
         자동화(백그라운드) 전용 브라우저 컨텍스트 생성.
         DB 프로필의 프록시 설정(LTE EveryProxy 또는 ISP 고정 IP)을 100% 강제 바인딩하여 RAW IP 유출을 차단합니다.
         """
+        # ── [Level 1 수호 인터락] 대표님 수동 보안 접속 활성 상태 0순위 전수 검사 ──
+        if is_user_interactive_active(profile_id):
+            logger.warning(f"🛡️ [SessionLock] User Interactive Session is ACTIVE for profile [{profile_id}]. Blocking automated launch to prevent killing user window!")
+            raise UserInteractiveActiveException(profile_id)
+
         from cloakbrowser import launch_persistent_context
         from app.models import Profile
         
@@ -82,6 +150,14 @@ class PatchrightStealth:
 
         if not profile_dir:
             profile_dir = get_profile_path(profile_id)
+
+        # ── [Level 1 수호 인터락] 대표님 수동 보안 접속 활성 상태 전수 검사 ──
+        if is_user_interactive_active(profile_id):
+            logger.warning(f"🛡️ [SessionLock] User Interactive Session is ACTIVE for profile [{profile_id}]. Blocking automated launch to prevent killing user window!")
+            raise UserInteractiveActiveException(profile_id)
+        if profile and profile.channel_id and is_user_interactive_active(profile.channel_id):
+            logger.warning(f"🛡️ [SessionLock] User Interactive Session is ACTIVE for channel [{profile.channel_id}]. Blocking automated launch to prevent killing user window!")
+            raise UserInteractiveActiveException(profile.channel_id)
 
         # ── Windows: 프로필 디렉토리 잠금(Lock) 및 좀비 프로세스 자동 해제 (초고속 검사) ──
         if profile_dir and os.path.exists(profile_dir):
@@ -244,6 +320,20 @@ class PatchrightStealth:
             cmd = [venv_python, script_path, profile_dir, url, proxy_str]
             if email and password:
                 cmd.extend([email, password])
+
+            # [Level 1 선점권] 백그라운드 자동 웜업/세션이 실행 중이라면 즉시 양보(Soft Abort) 유도
+            try:
+                from app.services.browser_session_manager import BrowserSessionManager
+                sm = BrowserSessionManager()
+                target_keys = [profile_id]
+                if profile and profile.channel_id:
+                    target_keys.append(profile.channel_id)
+                for tk in set(target_keys):
+                    if tk in sm._sessions:
+                        logger.info(f"👑 [SessionLock] Yielding automated session in favor of Level 1 User Interactive launch for {tk}")
+                        sm.close_session(tk)
+            except Exception as yield_err:
+                logger.warning(f"Could not yield automated session: {yield_err}")
                 
             # Windows: Zombie process cleanup on the profile directory before setup launch
             if profile_dir:
@@ -267,18 +357,33 @@ class PatchrightStealth:
                 cmd,
                 creationflags=0x08000000 if os.name == 'nt' else 0
             )
-            
-            if rotate_ip_on_close:
-                import threading
-                def _wait_and_rotate():
-                    logger.info(f"[WAIT] Waiting for CloakBrowser (Profile: {profile_id}) to close before rotating IP...")
+
+            # [Level 1 등록] 대표님 수동 보안 접속 활성 세션으로 등록 (자동화의 kill 원천 차단)
+            register_user_interactive_session(profile_id, process)
+            if profile and profile.channel_id and profile.channel_id != profile_id:
+                register_user_interactive_session(profile.channel_id, process)
+
+            import threading
+            def _on_interactive_close():
+                try:
+                    logger.info(f"[WAIT] Waiting for CloakBrowser (Profile: {profile_id}) to close...")
                     process.wait()
-                    logger.info(f"🚪 CloakBrowser closed for profile {profile_id}. Triggering background IP rotation!")
-                    from app.services.adb_service import adb_service
-                    target_serial = getattr(profile, "bound_device_serial", None)
-                    adb_service.rotate_ip(serial=target_serial, method='soft')
-                
-                threading.Thread(target=_wait_and_rotate, daemon=True).start()
+                finally:
+                    # 프로세스 종료 감지 즉시 수동 락 자동 해제
+                    unregister_user_interactive_session(profile_id)
+                    if profile and profile.channel_id:
+                        unregister_user_interactive_session(profile.channel_id)
+
+                    if rotate_ip_on_close:
+                        logger.info(f"🚪 CloakBrowser closed for profile {profile_id}. Triggering background IP rotation!")
+                        try:
+                            from app.services.adb_service import adb_service
+                            target_serial = getattr(profile, "bound_device_serial", None)
+                            adb_service.rotate_ip(serial=target_serial, method='soft')
+                        except Exception as rot_e:
+                            logger.warning(f"Background IP rotation error: {rot_e}")
+
+            threading.Thread(target=_on_interactive_close, daemon=True).start()
                 
             return True
         except Exception as e:

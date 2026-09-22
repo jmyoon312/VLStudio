@@ -9,7 +9,8 @@ echo ===================================================
 echo.
 
 set "ROOT_DIR=%~dp0"
-set "PATH=%ROOT_DIR%runtime\adb;%ROOT_DIR%runtime\ffmpeg;%ROOT_DIR%runtime\ytdlp;%PATH%"
+set "SYSTEM_BIN=%LOCALAPPDATA%\ViraLoop Studio\media\09_System\bin"
+set "PATH=%SYSTEM_BIN%;%ROOT_DIR%runtime\adb;%ROOT_DIR%runtime\ffmpeg;%ROOT_DIR%runtime\ytdlp;%PATH%"
 
 echo [*] Step 1/3: Checking & Building Dashboard Assets...
 call npm run build:dashboard

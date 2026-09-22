@@ -247,6 +247,13 @@ if (fs.existsSync(tsConfigPath)) {
             path.join(rootDir, 'apps', 'dashboard', 'src', 'components', 'canvas', 'stage', 'UniversalCanvasStage.tsx'),
             path.join(rootDir, 'apps', 'dashboard', 'src', 'components', 'canvas', 'TransformGizmo.tsx'),
             path.join(rootDir, 'apps', 'dashboard', 'src', 'components', 'canvas', 'controls', 'BaseFloatingInspectorCard.tsx'),
+            path.join(rootDir, 'apps', 'dashboard', 'src', 'components', 'batch', 'tabs', 'OneTakeBatchTab.tsx'),
+            path.join(rootDir, 'apps', 'dashboard', 'src', 'components', 'batch', 'onetake', 'OneTakePresetSidebar.tsx'),
+            path.join(rootDir, 'apps', 'dashboard', 'src', 'components', 'batch', 'onetake', 'OneTakeSourceSection.tsx'),
+            path.join(rootDir, 'apps', 'dashboard', 'src', 'components', 'batch', 'onetake', 'VisualTemplateShowcase.tsx'),
+            path.join(rootDir, 'apps', 'dashboard', 'src', 'components', 'batch', 'onetake', 'BatchWorkQueueSection.tsx'),
+            path.join(rootDir, 'apps', 'dashboard', 'src', 'components', 'batch', 'onetake', 'WorkItemDetailModal.tsx'),
+            path.join(rootDir, 'apps', 'dashboard', 'src', 'components', 'batch', 'onetake', 'SourceDetailModal.tsx'),
         ].filter(p => fs.existsSync(p));
 
         const program = ts.createProgram(coreComponents, parsedCommandLine.options);
@@ -291,10 +298,79 @@ if (fs.existsSync(tinCanVaultTsx)) {
     }
 }
 
+// 10. [Network & Interactive Desktop Sovereignty Gate]
+console.log('🌐 [Contract-Checker] Validating Sovereign Network, Remote DNS (SOCKS5h) & Loopback Bypass...');
+const channelGuardPy = path.join(rootDir, 'apps', 'api', 'app', 'services', 'channel_network_guard.py');
+if (fs.existsSync(channelGuardPy)) {
+    const guardContent = fs.readFileSync(channelGuardPy, 'utf-8');
+    if (!guardContent.includes('socks5h://')) {
+        console.error('❌ [Contract-Checker] VIOLATION (Sovereign Network Law): ChannelNetworkGuard must use socks5h:// for remote DNS resolution.');
+        hasErrors = true;
+    }
+}
+
+const localBrowserPy = path.join(rootDir, 'apps', 'api', 'app', 'services', 'local_browser.py');
+if (fs.existsSync(localBrowserPy)) {
+    const browserContent = fs.readFileSync(localBrowserPy, 'utf-8');
+    if (!browserContent.includes('--proxy-bypass-list')) {
+        console.error('❌ [Contract-Checker] VIOLATION (Sovereign Network Law): local_browser.py missing --proxy-bypass-list! Local backend loopback bypass is mandatory.');
+        hasErrors = true;
+    }
+}
+
+// 11. [Stealth Session & Multi-Window Concurrency Law] Protect User Interactive Sessions
+console.log('🔏 [Contract-Checker] Validating Stealth Session & Multi-Window Concurrency Law...');
+const stealthOpsPy = path.join(rootDir, 'apps', 'api', 'app', 'services', 'stealth_ops_v2.py');
+if (fs.existsSync(stealthOpsPy)) {
+    const stealthContent = fs.readFileSync(stealthOpsPy, 'utf-8');
+    if (!stealthContent.includes('is_user_interactive_active') || !stealthContent.includes('UserInteractiveActiveException')) {
+        console.error('❌ [Contract-Checker] VIOLATION (Stealth Session Law): stealth_ops_v2.py missing is_user_interactive_active or UserInteractiveActiveException. User manual sessions must be protected from automated kill.');
+        hasErrors = true;
+    }
+}
+
+// 12. [Media Storage Hierarchy & Zero Repo Artifacts Gate]
+console.log('📁 [Contract-Checker] Validating Media Storage Hierarchy & Zero Repo Artifacts Law...');
+const bannedRepoPaths = [
+    path.join(rootDir, '05_Exports'),
+    path.join(rootDir, 'apps', '05_Exports'),
+    path.join(rootDir, 'apps', 'api', '05_Exports'),
+    path.join(rootDir, 'undefined'),
+    path.join(rootDir, 'apps', 'apps'),
+    path.join(rootDir, 'viral_loop.db'),
+    path.join(rootDir, 'viraloop.db.migrated_backup')
+];
+for (const bp of bannedRepoPaths) {
+    if (fs.existsSync(bp)) {
+        console.error(`❌ [Contract-Checker] VIOLATION (Zero Repo Artifacts Law): '${path.relative(rootDir, bp)}' found inside development repository! No runtime artifacts or ghost paths allowed.`);
+        hasErrors = true;
+    }
+}
+
+const localAppData = process.env.LOCALAPPDATA || (process.platform === 'win32' ? path.join(process.env.USERPROFILE || '', 'AppData', 'Local') : '');
+if (localAppData) {
+    const mediaDir = path.join(localAppData, 'ViraLoop Studio', 'media');
+    if (fs.existsSync(mediaDir)) {
+        const allowed = new Set([
+            '01_Inbox', '02_Operations', '03_Assets', '04_Profiles',
+            '05_Exports', '06_Database', '07_Downloads', '08_Intelligence',
+            '09_System', '.cache', '.swarm'
+        ]);
+        const entries = fs.readdirSync(mediaDir);
+        for (const entry of entries) {
+            if (!allowed.has(entry)) {
+                console.error(`❌ [Contract-Checker] VIOLATION (Media Storage Hierarchy Law): Non-standard directory or file '${entry}' found in media root! Only 01~09 and dot-caches are allowed.`);
+                hasErrors = true;
+            }
+        }
+    }
+}
+
 if (hasErrors) {
     console.error('❌ [Contract-Checker] Integrity check FAILED.');
     process.exit(1);
 } else {
-    console.log('✅ [Contract-Checker] All 3-Tier Layer Contracts, Zero-Hardcoding, UI/UX Theme & Zero Normal Browser Leakage Rules PASSED (100% Integrity)');
+    console.log('✅ [Contract-Checker] All 3-Tier Layer Contracts, Zero-Hardcoding, UI/UX Theme, Zero Normal Browser Leakage, Sovereign Network, Stealth Session & Storage Hierarchy Rules PASSED (100% Integrity)');
     process.exit(0);
 }
+

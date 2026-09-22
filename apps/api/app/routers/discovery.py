@@ -1472,10 +1472,6 @@ async def autonomous_clone_and_produce(
     props_file_path = os.path.join(output_dir, f"{job_id}_props.json")
     output_mp4_path = os.path.join(output_dir, f"{job_id}_short.mp4")
 
-    # 레거시 apps/api/05_Exports 폴더에도 동시 심볼릭/미러링 폴더 유지
-    legacy_output_dir = os.path.join(os.getcwd(), "05_Exports")
-    os.makedirs(legacy_output_dir, exist_ok=True)
-
     rendered_mp4_path = ""
     render_detail = ""
     try:

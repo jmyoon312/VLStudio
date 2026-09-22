@@ -22,7 +22,7 @@ import {
     FileCheck, Hash, Files, Filter, ChevronDown, ChevronUp, Copy, Film,
     Save, FileSpreadsheet, Send, Search, ArrowUpDown, Workflow, Pause,
     PlaySquare, Settings, Table, Columns2, Volume2, VolumeX, X, SlidersHorizontal,
-    Loader2, Sparkles, ExternalLink, MousePointer, UploadCloud
+    Loader2, Sparkles, ExternalLink, MousePointer, UploadCloud, Zap
 } from 'lucide-react';
 
 
@@ -449,7 +449,7 @@ const WorkQueue = () => {
             'PENDING': { className: 'bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-amber-200', icon: Clock, text: '승인 대기' },
             'QUEUED': { className: 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 border-blue-200', icon: Clock, text: '대기열' },
             'UPLOADING': { className: 'bg-violet-50 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400 border-violet-200', icon: Upload, text: '업로드 중' },
-            'VERIFYING': { className: 'bg-orange-50 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 border-orange-200', icon: Clock4, text: '검증 중' },
+            'VERIFYING': { className: 'bg-orange-50 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 border-orange-200', icon: Clock4, text: '숙성 검증 중' },
             'COMPLETED': { className: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border-emerald-200', icon: CheckCircle, text: '완료' },
             'FAILED_REVIEW': { className: 'bg-pink-50 text-pink-700 dark:bg-pink-900/30 dark:text-pink-400 border-pink-200', icon: Shield, text: '실패 검토' },
         };
@@ -986,10 +986,20 @@ const WorkQueue = () => {
                 setIsOpen={setShowBulkImport} 
                 onSuccess={() => { loadQueueItems(); loadStats(); }} 
                 channels={channels}
+                tiktokChannels={tiktokChannels}
+                instagramChannels={instagramChannels}
                 showBrowserWindow={showBrowserWindow}
             />
             {isPixelingOpen && (
-                <PixelingImportDialog isOpen={isPixelingOpen} setIsOpen={setIsPixelingOpen} onSuccess={() => { loadQueueItems(); loadStats(); }} />
+                <PixelingImportDialog
+                    isOpen={isPixelingOpen}
+                    setIsOpen={setIsPixelingOpen}
+                    onSuccess={() => { loadQueueItems(); loadStats(); }}
+                    channels={channels}
+                    tiktokChannels={tiktokChannels}
+                    instagramChannels={instagramChannels}
+                    showBrowserWindow={showBrowserWindow}
+                />
             )}
 
             {/* Delete Confirmation Dialog */}
@@ -3254,10 +3264,11 @@ const QueueItemCompactCard = ({
                                                                 <SelectValue />
                                                             </SelectTrigger>
                                                             <SelectContent>
-                                                                <SelectItem value="private">🔒 비공개 (권장)</SelectItem>
+                                                                <SelectItem value="private">🔒 비공개 (안전 보관)</SelectItem>
+                                                                <SelectItem value="smart_scheduled">⏱️ 스마트 숙성 예약 (10~20분 자동 공개)</SelectItem>
+                                                                <SelectItem value="public">🚀 {editUploadMethod === 'API' ? '하이브리드 공개 (API ➔ 브라우저 자동 전환)' : '즉시 공개 (Public)'}</SelectItem>
+                                                                <SelectItem value="scheduled">📅 지정 시간 예약</SelectItem>
                                                                 <SelectItem value="unlisted">🔗 일부 공개 (링크)</SelectItem>
-                                                                <SelectItem value="public">🌐 즉시 공개</SelectItem>
-                                                                <SelectItem value="scheduled">📅 예약 발행</SelectItem>
                                                             </SelectContent>
                                                         </Select>
                                                     </div>
@@ -3273,8 +3284,40 @@ const QueueItemCompactCard = ({
                                                     </div>
                                                 </div>
 
+                                                {/* 지능형 모드별 스마트 안내 카드 */}
+                                                {editPrivacy === 'smart_scheduled' && (
+                                                    <div className="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 space-y-1">
+                                                        <div className="flex items-center gap-1.5 text-xs font-semibold text-amber-700 dark:text-amber-300">
+                                                            <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                                                            <span>스마트 숙성 예약 (대안 B - 안전도 100%)</span>
+                                                        </div>
+                                                        <p className="text-[10px] text-muted-foreground leading-relaxed">
+                                                            영상 파일 용량(MB)에 비례하여 15~30분 뒤 구글 클라우드 자동 공개(<span className="font-mono text-foreground font-medium">publishAt</span>)를 예약합니다.
+                                                            유튜브 알고리즘 검수와 4K/HD 인코딩이 완료된 완벽한 상태로 시청자에게 자동 공개됩니다.
+                                                        </p>
+                                                    </div>
+                                                )}
+
+                                                {editPrivacy === 'public' && editUploadMethod === 'API' && (
+                                                    <div className="p-2.5 rounded-lg bg-blue-500/10 border border-blue-500/20 space-y-1">
+                                                        <div className="flex items-center gap-1.5 text-xs font-semibold text-blue-700 dark:text-blue-300">
+                                                            <Zap className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                                                            <span>하이브리드 공개 (대안 A - 초고속 연계)</span>
+                                                        </div>
+                                                        <p className="text-[10px] text-muted-foreground leading-relaxed">
+                                                            Google Data API로 <span className="text-foreground font-semibold">5초 만에 초고속 비공개 업로드</span> 후, 15분 숙성 기간을 거쳐 격리 브라우저가 저작권 검토 통과를 확인하고 안전하게 <span className="text-foreground font-semibold">'공개'</span>로 자동 전환합니다.
+                                                        </p>
+                                                    </div>
+                                                )}
+
+                                                {editPrivacy === 'private' && (
+                                                    <p className="text-[10px] text-muted-foreground">
+                                                        🔒 비공개로 안전하게 업로드되며, 유튜브 스튜디오에서 언제든 수동으로 공개 전환할 수 있습니다.
+                                                    </p>
+                                                )}
+
                                                 {/* 예약 일시 */}
-                                                {(editPrivacy === 'scheduled' || !!editScheduleTime) && (
+                                                {(editPrivacy === 'scheduled' || (!!editScheduleTime && editPrivacy !== 'smart_scheduled')) && (
                                                     <div className="p-2 rounded-lg bg-indigo-50/50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-900/40 space-y-1">
                                                         <span className="text-[10px] font-semibold text-indigo-700 dark:text-indigo-300 flex items-center gap-1">
                                                             <Clock className="w-3 h-3" /> 예약 게시 일시 (YouTube Studio 자동 예약)
@@ -3556,10 +3599,15 @@ const QueueItemCompactCard = ({
                                                     </SelectTrigger>
                                                     <SelectContent>
                                                         <SelectItem value="BROWSER_AUTO">🤖 스텔스 브라우저 자동화 (회선 격리 보호)</SelectItem>
-                                                        <SelectItem value="API">⚡ Google Data API (OAuth 직결)</SelectItem>
+                                                        <SelectItem value="API">⚡ Google Data API (5초 초고속 업로드)</SelectItem>
                                                         <SelectItem value="MANUAL">✍️ 수동 (대기열 기록 및 관리용)</SelectItem>
                                                     </SelectContent>
                                                 </Select>
+                                                {editUploadMethod === 'API' && (
+                                                    <p className="text-[10px] text-blue-600 dark:text-blue-400 mt-1 flex items-center gap-1 font-medium">
+                                                        <Zap className="w-3 h-3" /> YouTube Data API 모드: 초고속 5초 업로드 및 숙성 검증 파이프라인이 적용됩니다.
+                                                    </p>
+                                                )}
                                             </div>
 
                                             <div className="flex items-center justify-between gap-2 pt-1">
@@ -3821,13 +3869,45 @@ const AddVideoDialog = ({ isOpen, setIsOpen, onSuccess, initialData, showBrowser
         platform_configs: {
             headless_mode: !showBrowserWindow,
             youtube: { channel_id: '', privacy: 'private', category: '22', made_for_kids: false, headless_mode: !showBrowserWindow },
-            tiktok: { account_id: '', privacy: 'private', allow_comments: true, allow_duet: true, headless_mode: !showBrowserWindow },
+            tiktok: { account_id: '', privacy: 'private', allow_comments: true, allow_duet: true, caption: '', headless_mode: !showBrowserWindow },
             instagram: { account_id: '', caption: '', share_to_feed: false, headless_mode: !showBrowserWindow }
         },
         scheduleMode: 'immediate' as 'immediate' | 'scheduled',
         scheduledTime: ''
     };
     const [form, setForm] = useState(defaultForm);
+    const [activePlatformTab, setActivePlatformTab] = useState<'youtube' | 'tiktok' | 'instagram'>('youtube');
+
+    const togglePlatform = (p: 'youtube' | 'tiktok' | 'instagram') => {
+        const current = form.target_platforms || ['youtube'];
+        let updated: string[];
+        if (current.includes(p)) {
+            if (current.length <= 1) {
+                toast({ variant: "destructive", title: "최소 1개 플랫폼 필수", description: "적어도 하나의 배포 플랫폼이 선택되어 있어야 합니다." });
+                return;
+            }
+            updated = current.filter(x => x !== p);
+            if (activePlatformTab === p) {
+                setActivePlatformTab(updated[0] as any || 'youtube');
+            }
+        } else {
+            updated = [...current, p];
+            setActivePlatformTab(p);
+        }
+        setForm(prev => ({ ...prev, target_platforms: updated }));
+    };
+
+    const tiktokPreview = useMemo(() => {
+        return computeViralPreview('tiktok', form.title, form.description, form.hashtags, form.platform_configs?.tiktok?.caption);
+    }, [form.title, form.description, form.hashtags, form.platform_configs?.tiktok?.caption]);
+
+    const instagramPreview = useMemo(() => {
+        return computeViralPreview('instagram', form.title, form.description, form.hashtags, form.platform_configs?.instagram?.caption);
+    }, [form.title, form.description, form.hashtags, form.platform_configs?.instagram?.caption]);
+
+    const youtubePreview = useMemo(() => {
+        return computeViralPreview('youtube', form.title, form.description, form.hashtags);
+    }, [form.title, form.description, form.hashtags]);
 
     const loadOfficialExports = async () => {
         setIsLoadingExports(true);
@@ -3926,6 +4006,7 @@ const AddVideoDialog = ({ isOpen, setIsOpen, onSuccess, initialData, showBrowser
                         ? (safeData.scheduled_upload_time.includes('T') ? safeData.scheduled_upload_time : safeData.scheduled_upload_time.replace(' ', 'T')).slice(0, 16)
                         : '',
                 });
+                setActivePlatformTab(platforms[0] as any || 'youtube');
                 loadChannels(ytChanId);
             } else {
                 setForm({
@@ -3937,6 +4018,7 @@ const AddVideoDialog = ({ isOpen, setIsOpen, onSuccess, initialData, showBrowser
                         instagram: { ...defaultForm.platform_configs.instagram, headless_mode: !showBrowserWindow }
                     }
                 });
+                setActivePlatformTab('youtube');
                 loadChannels();
             }
         }
@@ -4264,10 +4346,10 @@ const AddVideoDialog = ({ isOpen, setIsOpen, onSuccess, initialData, showBrowser
                         </div>
                         <div className="min-w-0">
                             <DialogTitle className="text-base font-bold text-foreground truncate">
-                                {initialData ? `배포 작업 수정 (#${initialData.id})` : '쇼츠 주권 배포 작업 등록'}
+                                {initialData ? `개별 배포 작업 수정 (#${initialData.id})` : '개별 영상 주권 배포 등록'}
                             </DialogTitle>
                             <DialogDescription className="text-xs text-muted-foreground truncate">
-                                공식 저장소 렌더링 영상을 선택하고, 전용 LTE 모바일/ISP 회선으로 안전하게 자동 배포합니다
+                                공식 저장소 렌더링 영상 또는 로컬 파일을 선택하고, 전용 LTE 모바일/ISP 회선으로 안전하게 자동 배포합니다
                             </DialogDescription>
                         </div>
                     </div>
@@ -4396,7 +4478,7 @@ const AddVideoDialog = ({ isOpen, setIsOpen, onSuccess, initialData, showBrowser
                                     <Input
                                         value={form.title}
                                         onChange={e => setForm({ ...form, title: e.target.value })}
-                                        placeholder="쇼츠 영상의 매력적인 제목을 입력하세요"
+                                        placeholder="동영상 콘텐츠의 매력적인 제목을 입력하세요 (쇼츠 및 롱폼 포괄)"
                                         className="h-8 text-xs bg-background border-border"
                                     />
                                 </div>
@@ -4427,7 +4509,7 @@ const AddVideoDialog = ({ isOpen, setIsOpen, onSuccess, initialData, showBrowser
                                         <Input
                                             value={form.tags}
                                             onChange={e => setForm({ ...form, tags: e.target.value })}
-                                            placeholder="쇼츠, 꿀팁, AI, 추천"
+                                            placeholder="영상, 꿀팁, AI, 추천"
                                             className="h-8 text-xs bg-background border-border mt-1"
                                         />
                                     </div>
@@ -4487,107 +4569,182 @@ const AddVideoDialog = ({ isOpen, setIsOpen, onSuccess, initialData, showBrowser
                         {/* [우측 컬럼: 5칸 / 42%] 배포 채널 및 스케줄 네트워크 거버넌스 */}
                         <div className="lg:col-span-5 space-y-4 min-w-0">
                             
-                            {/* 1) 주권 채널 및 네트워크 회선 박스 */}
-                            <div className="p-4 rounded-xl border border-border bg-muted/30 space-y-3.5">
-                                <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                                    <Rocket className="w-3.5 h-3.5 text-indigo-500" /> 대상 플랫폼 및 주권 채널
-                                </Label>
+                            {/* 1) 주권 채널 및 멀티 플랫폼 배포 거버넌스 박스 (Tabbed Design Matrix) */}
+                            <div className="p-4 rounded-xl border border-border bg-muted/30 space-y-3 min-w-0 overflow-hidden shadow-xs">
+                                {/* 상단 플랫폼 선택 토글 필 (Pills) */}
+                                <div className="space-y-1.5">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                                            <Rocket className="w-3.5 h-3.5 text-indigo-500" /> 대상 플랫폼 선택
+                                        </span>
+                                        <span className="text-[10px] text-muted-foreground font-medium">
+                                            {form.target_platforms.length}개 플랫폼 활성
+                                        </span>
+                                    </div>
+                                    
+                                    <div className="flex items-center gap-1.5 p-1 rounded-lg bg-background border border-border">
+                                        <button
+                                            type="button"
+                                            onClick={() => togglePlatform('youtube')}
+                                            className={`flex-1 flex items-center justify-center gap-1 py-1 px-2 rounded-md text-[11px] font-semibold transition-all ${
+                                                form.target_platforms.includes('youtube')
+                                                    ? 'bg-blue-600 text-white shadow-xs'
+                                                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                                            }`}
+                                        >
+                                            <span>🎬 YouTube</span>
+                                            {form.target_platforms.includes('youtube') && <Check className="w-3 h-3 shrink-0" />}
+                                        </button>
 
-                                {/* 플랫폼 체크박스 */}
-                                <div className="flex items-center gap-3">
-                                    {['youtube', 'tiktok', 'instagram'].map(p => (
-                                        <label key={p} className="flex items-center gap-1.5 text-xs font-medium cursor-pointer">
-                                            <Checkbox
-                                                checked={form.target_platforms.includes(p)}
-                                                onCheckedChange={c => {
-                                                    const updated = c
-                                                        ? [...form.target_platforms, p]
-                                                        : form.target_platforms.filter(x => x !== p);
-                                                    setForm({ ...form, target_platforms: updated.length ? updated : ['youtube'] });
-                                                }}
-                                            />
-                                            <span className="capitalize">{p === 'youtube' ? 'YouTube' : p === 'tiktok' ? 'TikTok' : 'Instagram'}</span>
-                                        </label>
-                                    ))}
+                                        <button
+                                            type="button"
+                                            onClick={() => togglePlatform('tiktok')}
+                                            className={`flex-1 flex items-center justify-center gap-1 py-1 px-2 rounded-md text-[11px] font-semibold transition-all ${
+                                                form.target_platforms.includes('tiktok')
+                                                    ? 'bg-pink-600 text-white shadow-xs'
+                                                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                                            }`}
+                                        >
+                                            <span>🎵 TikTok</span>
+                                            {form.target_platforms.includes('tiktok') && <Check className="w-3 h-3 shrink-0" />}
+                                        </button>
+
+                                        <button
+                                            type="button"
+                                            onClick={() => togglePlatform('instagram')}
+                                            className={`flex-1 flex items-center justify-center gap-1 py-1 px-2 rounded-md text-[11px] font-semibold transition-all ${
+                                                form.target_platforms.includes('instagram')
+                                                    ? 'bg-purple-600 text-white shadow-xs'
+                                                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                                            }`}
+                                        >
+                                            <span>📸 Insta</span>
+                                            {form.target_platforms.includes('instagram') && <Check className="w-3 h-3 shrink-0" />}
+                                        </button>
+                                    </div>
                                 </div>
 
-                                {/* YouTube 전용 채널 및 회선 카드 */}
-                                {form.target_platforms.includes('youtube') && (
-                                    <div className="p-3 rounded-xl bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/40 space-y-2.5">
-                                        <div className="flex items-center justify-between">
-                                            <span className="text-[11px] font-bold text-blue-700 dark:text-blue-300">
-                                                🎬 YouTube 업로드 채널 *
-                                            </span>
-                                            {renderChannelNetworkBadge(selectedYtChannel)}
+                                {/* 활성 플랫폼 서브 탭 전환기 */}
+                                <div className="border-b border-border/80 flex items-center gap-1 pb-1">
+                                    {form.target_platforms.includes('youtube') && (
+                                        <button
+                                            type="button"
+                                            onClick={() => setActivePlatformTab('youtube')}
+                                            className={`text-xs font-semibold px-2.5 py-1 rounded-md transition-all ${
+                                                activePlatformTab === 'youtube'
+                                                    ? 'bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/30'
+                                                    : 'text-muted-foreground hover:text-foreground'
+                                            }`}
+                                        >
+                                            🎬 YouTube 설정
+                                        </button>
+                                    )}
+                                    {form.target_platforms.includes('tiktok') && (
+                                        <button
+                                            type="button"
+                                            onClick={() => setActivePlatformTab('tiktok')}
+                                            className={`text-xs font-semibold px-2.5 py-1 rounded-md transition-all ${
+                                                activePlatformTab === 'tiktok'
+                                                    ? 'bg-pink-500/15 text-pink-700 dark:text-pink-300 border border-pink-500/30'
+                                                    : 'text-muted-foreground hover:text-foreground'
+                                            }`}
+                                        >
+                                            🎵 TikTok 설정
+                                        </button>
+                                    )}
+                                    {form.target_platforms.includes('instagram') && (
+                                        <button
+                                            type="button"
+                                            onClick={() => setActivePlatformTab('instagram')}
+                                            className={`text-xs font-semibold px-2.5 py-1 rounded-md transition-all ${
+                                                activePlatformTab === 'instagram'
+                                                    ? 'bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/30'
+                                                    : 'text-muted-foreground hover:text-foreground'
+                                            }`}
+                                        >
+                                            📸 Instagram 설정
+                                        </button>
+                                    )}
+                                </div>
+
+                                {/* 탭 1: YouTube 설정 */}
+                                {activePlatformTab === 'youtube' && form.target_platforms.includes('youtube') && (
+                                    <div className="space-y-2.5 animate-in fade-in duration-150">
+                                        <div className="p-2.5 rounded-xl bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/40 space-y-2">
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-[11px] font-bold text-blue-700 dark:text-blue-300 shrink-0">
+                                                    🎬 YouTube 업로드 채널 *
+                                                </span>
+                                                {renderChannelNetworkBadge(selectedYtChannel)}
+                                            </div>
+
+                                            <Select
+                                                value={form.platform_configs?.youtube?.channel_id || ''}
+                                                onValueChange={v => {
+                                                    const ch = channels.find((c: any) => c.channel_id === v);
+                                                    setForm(prev => ({
+                                                        ...prev,
+                                                        approval_required: ch?.auto_approve_default ? false : prev.approval_required,
+                                                        platform_configs: {
+                                                            ...prev.platform_configs,
+                                                            youtube: { ...(prev.platform_configs?.youtube || {}), channel_id: v }
+                                                        }
+                                                    }));
+                                                }}
+                                                disabled={channels.length === 0}
+                                            >
+                                                <SelectTrigger className="h-7 text-xs bg-background border-border">
+                                                    <SelectValue placeholder={channels.length ? "채널 선택" : "등록된 채널 없음"} />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {channels.map((ch: any) => (
+                                                        <SelectItem key={ch.channel_id} value={ch.channel_id}>
+                                                            <div className="flex items-center justify-between gap-2 w-full text-xs">
+                                                                <span className="truncate max-w-[180px]">{ch.channel_name || ch.title} ({ch.subscriber_count?.toLocaleString()}명)</span>
+                                                                <div className="flex items-center gap-1 shrink-0">
+                                                                    {ch.auto_approve_default && (
+                                                                        <span className="text-[9px] font-bold text-blue-600 dark:text-blue-400 bg-blue-500/10 px-1 py-0.5 rounded border border-blue-500/20">
+                                                                            ⭐ 자동승인
+                                                                        </span>
+                                                                    )}
+                                                                    {renderChannelNetworkBadge(ch)}
+                                                                </div>
+                                                            </div>
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+
+                                            {selectedYtChannel && (
+                                                <div className="text-[10px] bg-background/80 p-2 rounded-lg border border-border/70 space-y-1">
+                                                    <div className="flex items-center justify-between text-muted-foreground">
+                                                        <span>소유 계정:</span>
+                                                        <span className="font-mono text-foreground font-medium truncate max-w-[140px]">
+                                                            {selectedYtChannel.profile_email || selectedYtChannel.account_email || '전용 브라우저 세션'}
+                                                        </span>
+                                                    </div>
+                                                    <div className="flex items-center justify-between text-muted-foreground">
+                                                        <span>독립 네트워크 회선:</span>
+                                                        <span className="font-semibold text-foreground">
+                                                            {selectedYtChannel.bound_device_serial ? `📱 모바일 LTE (${selectedYtChannel.bound_device_serial})` :
+                                                             (selectedYtChannel.proxy_port && selectedYtChannel.proxy_port >= 1080 && selectedYtChannel.proxy_port <= 1089) ? `📱 모바일 프록시 (포트 ${selectedYtChannel.proxy_port})` :
+                                                             selectedYtChannel.proxy_host ? `🌐 ISP 고정 (${selectedYtChannel.proxy_host})` : `🛡️ 단독 로컬 회선`}
+                                                        </span>
+                                                    </div>
+                                                    {selectedYtChannel.auto_approve_default && (
+                                                        <div className="flex items-center justify-between text-[10px] text-blue-600 dark:text-blue-400 font-semibold bg-blue-50/50 dark:bg-blue-950/40 p-1.5 rounded border border-blue-200/60 dark:border-blue-800/40 mt-1">
+                                                            <span>⭐ 자동 승인 신뢰 채널</span>
+                                                            <span className="text-[9px] font-normal text-muted-foreground">등록 시 PENDING 검수 없이 대기열로 직결</span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
                                         </div>
 
-                                        <Select
-                                            value={form.platform_configs?.youtube?.channel_id || ''}
-                                            onValueChange={v => {
-                                                const ch = channels.find((c: any) => c.channel_id === v);
-                                                setForm(prev => ({
-                                                    ...prev,
-                                                    approval_required: ch?.auto_approve_default ? false : prev.approval_required,
-                                                    platform_configs: {
-                                                        ...prev.platform_configs,
-                                                        youtube: { ...(prev.platform_configs?.youtube || {}), channel_id: v }
-                                                    }
-                                                }));
-                                            }}
-                                            disabled={channels.length === 0}
-                                        >
-                                            <SelectTrigger className="h-8 text-xs bg-background border-border">
-                                                <SelectValue placeholder={channels.length ? "채널 선택" : "등록된 채널 없음"} />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {channels.map((ch: any) => (
-                                                    <SelectItem key={ch.channel_id} value={ch.channel_id}>
-                                                        <div className="flex items-center justify-between gap-2 w-full text-xs">
-                                                            <span className="truncate max-w-[180px]">{ch.channel_name || ch.title} ({ch.subscriber_count?.toLocaleString()}명)</span>
-                                                            <div className="flex items-center gap-1 shrink-0">
-                                                                {ch.auto_approve_default && (
-                                                                    <span className="text-[9px] font-bold text-blue-600 dark:text-blue-400 bg-blue-500/10 px-1 py-0.5 rounded border border-blue-500/20">
-                                                                        ⭐ 자동승인
-                                                                    </span>
-                                                                )}
-                                                                {renderChannelNetworkBadge(ch)}
-                                                            </div>
-                                                        </div>
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-
-                                        {/* 선택된 채널의 네트워크 라인 안내 및 자동 승인 신뢰 배지 */}
-                                        {selectedYtChannel && (
-                                            <div className="text-[10px] bg-background/80 p-2 rounded-lg border border-border/70 space-y-1">
-                                                <div className="flex items-center justify-between text-muted-foreground">
-                                                    <span>소유 계정:</span>
-                                                    <span className="font-mono text-foreground font-medium truncate max-w-[140px]">
-                                                        {selectedYtChannel.profile_email || selectedYtChannel.account_email || '전용 브라우저 세션'}
-                                                    </span>
-                                                </div>
-                                                <div className="flex items-center justify-between text-muted-foreground">
-                                                    <span>독립 네트워크 회선:</span>
-                                                    <span className="font-semibold text-foreground">
-                                                        {selectedYtChannel.bound_device_serial ? `📱 모바일 LTE (${selectedYtChannel.bound_device_serial})` :
-                                                         (selectedYtChannel.proxy_port && selectedYtChannel.proxy_port >= 1080 && selectedYtChannel.proxy_port <= 1089) ? `📱 모바일 프록시 (포트 ${selectedYtChannel.proxy_port})` :
-                                                         selectedYtChannel.proxy_host ? `🌐 ISP 고정 (${selectedYtChannel.proxy_host})` : `🛡️ 단독 로컬 회선`}
-                                                    </span>
-                                                </div>
-                                                {selectedYtChannel.auto_approve_default && (
-                                                    <div className="flex items-center justify-between text-[10px] text-blue-600 dark:text-blue-400 font-semibold bg-blue-50/50 dark:bg-blue-950/40 p-1.5 rounded border border-blue-200/60 dark:border-blue-800/40 mt-1">
-                                                        <span>⭐ 자동 승인 신뢰 채널</span>
-                                                        <span className="text-[9px] font-normal text-muted-foreground">등록 시 PENDING 검수 없이 대기열로 직결</span>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        )}
-
-                                        {/* 공개 상태 및 헤드리스 모드 */}
-                                        <div className="grid grid-cols-2 gap-2 pt-1">
+                                        {/* 공개 상태 & 창 표시 토글 */}
+                                        <div className="grid grid-cols-2 gap-2">
                                             <div>
-                                                <Label className="text-[10px] text-muted-foreground">공개 상태</Label>
+                                                <Label className="text-[10px] text-muted-foreground font-semibold">공개 상태</Label>
                                                 <Select
                                                     value={form.platform_configs?.youtube?.privacy || 'private'}
                                                     onValueChange={v => setForm(prev => ({
@@ -4602,80 +4759,380 @@ const AddVideoDialog = ({ isOpen, setIsOpen, onSuccess, initialData, showBrowser
                                                         <SelectValue />
                                                     </SelectTrigger>
                                                     <SelectContent>
-                                                        <SelectItem value="private">비공개 (권장)</SelectItem>
-                                                        <SelectItem value="unlisted">미등록 (링크)</SelectItem>
-                                                        <SelectItem value="public">전체 공개</SelectItem>
+                                                        <SelectItem value="private">🔒 비공개 (안전 보관)</SelectItem>
+                                                        <SelectItem value="smart_scheduled">⏱️ 스마트 숙성 예약 (10~20분 자동 공개)</SelectItem>
+                                                        <SelectItem value="public">🚀 {form.upload_method === 'API' ? '하이브리드 공개 (API ➔ 브라우저 자동 전환)' : '즉시 공개'}</SelectItem>
+                                                        <SelectItem value="scheduled">📅 지정 시간 예약</SelectItem>
+                                                        <SelectItem value="unlisted">🔗 일부 공개 (링크)</SelectItem>
                                                     </SelectContent>
                                                 </Select>
                                             </div>
-                                            <div className="flex flex-col justify-end pb-1">
-                                                <label className="flex items-center gap-1.5 text-xs text-foreground cursor-pointer">
-                                                    <Checkbox
-                                                        checked={form.platform_configs?.youtube?.headless_mode ?? true}
-                                                        onCheckedChange={c => setForm(prev => ({
+
+                                            <div className="flex flex-col justify-end">
+                                                <div className="flex items-center justify-between p-1.5 rounded-lg bg-background border border-border">
+                                                    <span className="text-[10px] font-medium text-foreground flex items-center gap-1">
+                                                        {form.platform_configs?.youtube?.headless_mode === false ? <Eye className="w-3 h-3 text-blue-500" /> : <EyeOff className="w-3 h-3 text-muted-foreground" />}
+                                                        창 표시
+                                                    </span>
+                                                    <Switch
+                                                        checked={form.platform_configs?.youtube?.headless_mode === false}
+                                                        onCheckedChange={v => setForm(prev => ({
                                                             ...prev,
                                                             platform_configs: {
                                                                 ...prev.platform_configs,
-                                                                youtube: { ...(prev.platform_configs?.youtube || {}), headless_mode: !!c }
+                                                                youtube: { ...(prev.platform_configs?.youtube || {}), headless_mode: !v }
                                                             }
                                                         }))}
                                                     />
-                                                    <span className="text-[11px] font-medium">스텔스 백그라운드</span>
-                                                </label>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* 지능형 모드별 스마트 안내 카드 */}
+                                        {form.platform_configs?.youtube?.privacy === 'smart_scheduled' && (
+                                            <div className="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 space-y-1">
+                                                <div className="flex items-center gap-1.5 text-xs font-semibold text-amber-700 dark:text-amber-300">
+                                                    <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                                                    <span>스마트 숙성 예약 (대안 B - 안전도 100%)</span>
+                                                </div>
+                                                <p className="text-[10px] text-muted-foreground leading-relaxed">
+                                                    영상 용량에 비례하여 15~30분 뒤 구글 클라우드 자동 공개(<span className="font-mono text-foreground font-medium">publishAt</span>)를 예약합니다.
+                                                    유튜브 알고리즘 검수와 4K/HD 인코딩이 완료된 상태로 자동 공개됩니다.
+                                                </p>
+                                            </div>
+                                        )}
+
+                                        {form.platform_configs?.youtube?.privacy === 'public' && form.upload_method === 'API' && (
+                                            <div className="p-2.5 rounded-lg bg-blue-500/10 border border-blue-500/20 space-y-1">
+                                                <div className="flex items-center gap-1.5 text-xs font-semibold text-blue-700 dark:text-blue-300">
+                                                    <Zap className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                                                    <span>하이브리드 공개 (대안 A - 초고속 연계)</span>
+                                                </div>
+                                                <p className="text-[10px] text-muted-foreground leading-relaxed">
+                                                    API로 5초 만에 초고속 비공개 업로드 후 15분 검토 뒤 격리 브라우저가 공개로 자동 전환합니다.
+                                                </p>
+                                            </div>
+                                        )}
+
+                                        {form.platform_configs?.youtube?.privacy === 'private' && (
+                                            <p className="text-[10px] text-muted-foreground">
+                                                🔒 비공개로 안전하게 업로드되며, 유튜브 스튜디오에서 언제든 수동으로 공개 전환할 수 있습니다.
+                                            </p>
+                                        )}
+
+                                        {/* 예약 일시 */}
+                                        {form.platform_configs?.youtube?.privacy === 'scheduled' && (
+                                            <div className="p-2 rounded-lg bg-indigo-50/50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-900/40 space-y-1">
+                                                <span className="text-[10px] font-semibold text-indigo-700 dark:text-indigo-300 flex items-center gap-1">
+                                                    <Clock className="w-3 h-3" /> 예약 게시 일시 (YouTube Studio 자동 예약)
+                                                </span>
+                                                <Input 
+                                                    type="datetime-local" 
+                                                    value={form.scheduledTime} 
+                                                    onChange={(e) => setForm({ ...form, scheduledTime: e.target.value, scheduleMode: 'scheduled' })} 
+                                                    className="h-7 text-xs bg-background border-border" 
+                                                />
+                                            </div>
+                                        )}
+
+                                        {/* YouTube Shorts 클린 메타데이터 안내 */}
+                                        <div className="p-2 rounded-lg border border-blue-200/80 dark:border-blue-900/50 bg-blue-50/40 dark:bg-blue-950/20 space-y-1">
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-[10px] font-bold text-blue-700 dark:text-blue-300 flex items-center gap-1">
+                                                    <Sparkles className="w-3 h-3 text-blue-500" />
+                                                    🎬 YouTube Shorts 클린 메타데이터
+                                                </span>
+                                                <Badge variant="outline" className="text-[9px] py-0 bg-blue-100/60 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border-blue-300 dark:border-blue-800">
+                                                    #shorts 자동 보장
+                                                </Badge>
+                                            </div>
+                                            <p className="text-[9px] text-muted-foreground">{youtubePreview.note}</p>
+                                            <div className="flex flex-wrap gap-1 pt-0.5">
+                                                {youtubePreview.tags.map((t, i) => (
+                                                    <span key={i} className="text-[9px] font-medium px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-700 dark:text-blue-300 border border-blue-500/20">
+                                                        {t}
+                                                    </span>
+                                                ))}
                                             </div>
                                         </div>
                                     </div>
                                 )}
 
-                                {/* TikTok (체크 시 표시) */}
-                                {form.target_platforms.includes('tiktok') && (
-                                    <div className="p-3 rounded-xl bg-pink-50/50 dark:bg-pink-950/20 border border-pink-200 dark:border-pink-900/40 space-y-2">
-                                        <Label className="text-[11px] font-bold text-pink-700 dark:text-pink-300">🎵 TikTok 계정</Label>
-                                        <Select
-                                            value={form.platform_configs?.tiktok?.account_id || ''}
-                                            onValueChange={v => setForm(prev => ({
-                                                ...prev,
-                                                platform_configs: {
-                                                    ...prev.platform_configs,
-                                                    tiktok: { ...(prev.platform_configs?.tiktok || {}), account_id: v }
-                                                }
-                                            }))}
-                                        >
-                                            <SelectTrigger className="h-7 text-xs bg-background border-border">
-                                                <SelectValue placeholder="TikTok 계정 선택" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {tiktokChannels.map((c: any) => (
-                                                    <SelectItem key={c.id} value={c.id}>{c.nickname || c.id}</SelectItem>
+                                {/* 탭 2: TikTok 설정 */}
+                                {activePlatformTab === 'tiktok' && form.target_platforms.includes('tiktok') && (
+                                    <div className="space-y-2.5 animate-in fade-in duration-150">
+                                        <div className="p-2.5 rounded-xl bg-pink-50/50 dark:bg-pink-950/20 border border-pink-200 dark:border-pink-900/40 space-y-2">
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-[11px] font-bold text-pink-700 dark:text-pink-300">🎵 TikTok 계정 *</span>
+                                                <Badge variant="outline" className="text-[9px] py-0 bg-pink-100/50 text-pink-700 dark:bg-pink-950/60 dark:text-pink-300 border-pink-300 dark:border-pink-800">
+                                                    {tiktokChannels.length}개 연동됨
+                                                </Badge>
+                                            </div>
+
+                                            <Select
+                                                value={form.platform_configs?.tiktok?.account_id || ''}
+                                                onValueChange={v => setForm(prev => ({
+                                                    ...prev,
+                                                    platform_configs: {
+                                                        ...prev.platform_configs,
+                                                        tiktok: { ...(prev.platform_configs?.tiktok || {}), account_id: v }
+                                                    }
+                                                }))}
+                                                disabled={tiktokChannels.length === 0}
+                                            >
+                                                <SelectTrigger className="h-7 text-xs bg-background border-border">
+                                                    <SelectValue placeholder={tiktokChannels.length ? "TikTok 계정 선택" : "연동된 TikTok 계정 없음"} />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {tiktokChannels.map((c: any) => (
+                                                        <SelectItem key={c.id} value={c.id}>
+                                                            <div className="flex items-center justify-between gap-2 text-xs">
+                                                                <span className="font-medium">{c.nickname || c.id}</span>
+                                                                {c.account_id && <span className="text-[10px] text-muted-foreground font-mono">@{c.account_id}</span>}
+                                                            </div>
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <div>
+                                                <span className="text-[10px] text-muted-foreground font-semibold">공개 범위</span>
+                                                <Select
+                                                    value={form.platform_configs?.tiktok?.privacy || 'private'}
+                                                    onValueChange={v => setForm(prev => ({
+                                                        ...prev,
+                                                        platform_configs: {
+                                                            ...prev.platform_configs,
+                                                            tiktok: { ...(prev.platform_configs?.tiktok || {}), privacy: v }
+                                                        }
+                                                    }))}
+                                                >
+                                                    <SelectTrigger className="h-7 text-xs bg-background border-border mt-0.5">
+                                                        <SelectValue />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="private">🔒 비공개 (Private)</SelectItem>
+                                                        <SelectItem value="friends_only">👥 친구 공개 (Friends)</SelectItem>
+                                                        <SelectItem value="public">🌐 전체 공개 (Public)</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+
+                                            <div className="flex flex-col justify-end">
+                                                <div className="flex items-center justify-between p-1.5 rounded-lg bg-background border border-border">
+                                                    <span className="text-[10px] font-medium text-foreground flex items-center gap-1">
+                                                        {form.platform_configs?.tiktok?.headless_mode === false ? <Eye className="w-3 h-3 text-pink-500" /> : <EyeOff className="w-3 h-3 text-muted-foreground" />}
+                                                        창 표시
+                                                    </span>
+                                                    <Switch
+                                                        checked={form.platform_configs?.tiktok?.headless_mode === false}
+                                                        onCheckedChange={v => setForm(prev => ({
+                                                            ...prev,
+                                                            platform_configs: {
+                                                                ...prev.platform_configs,
+                                                                tiktok: { ...(prev.platform_configs?.tiktok || {}), headless_mode: !v }
+                                                            }
+                                                        }))}
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <label className="flex items-center justify-between text-xs cursor-pointer p-1.5 rounded-lg bg-background border border-border">
+                                                <span className="text-[10px] font-medium">댓글 허용</span>
+                                                <Switch
+                                                    checked={form.platform_configs?.tiktok?.allow_comments !== undefined ? Boolean(form.platform_configs.tiktok.allow_comments) : true}
+                                                    onCheckedChange={v => setForm(prev => ({
+                                                        ...prev,
+                                                        platform_configs: {
+                                                            ...prev.platform_configs,
+                                                            tiktok: { ...(prev.platform_configs?.tiktok || {}), allow_comments: v }
+                                                        }
+                                                    }))}
+                                                />
+                                            </label>
+                                            <label className="flex items-center justify-between text-xs cursor-pointer p-1.5 rounded-lg bg-background border border-border">
+                                                <span className="text-[10px] font-medium">듀엣/스티치</span>
+                                                <Switch
+                                                    checked={form.platform_configs?.tiktok?.allow_duet !== undefined ? Boolean(form.platform_configs.tiktok.allow_duet) : true}
+                                                    onCheckedChange={v => setForm(prev => ({
+                                                        ...prev,
+                                                        platform_configs: {
+                                                            ...prev.platform_configs,
+                                                            tiktok: { ...(prev.platform_configs?.tiktok || {}), allow_duet: v }
+                                                        }
+                                                    }))}
+                                                />
+                                            </label>
+                                        </div>
+
+                                        {/* 틱톡 맞춤 캡션 입력 */}
+                                        <div className="space-y-1">
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-[10px] text-muted-foreground font-semibold">틱톡 맞춤 캡션 (선택)</span>
+                                                <span className="text-[9px] text-muted-foreground">{form.platform_configs?.tiktok?.caption ? '맞춤 캡션 사용' : '비워두면 100% 자동 바이럴'}</span>
+                                            </div>
+                                            <Textarea
+                                                value={form.platform_configs?.tiktok?.caption || ''}
+                                                onChange={e => setForm(prev => ({
+                                                    ...prev,
+                                                    platform_configs: {
+                                                        ...prev.platform_configs,
+                                                        tiktok: { ...(prev.platform_configs?.tiktok || {}), caption: e.target.value }
+                                                    }
+                                                }))}
+                                                placeholder="비워두면 2줄 훅 캡션과 #fyp #틱톡순삭 태그가 자동 생성됩니다..."
+                                                rows={2}
+                                                className="text-xs bg-background border-border"
+                                            />
+                                        </div>
+
+                                        {/* TikTok 자동 바이럴 변환 실시간 미리보기 배너 */}
+                                        <div className="p-2.5 rounded-lg border border-pink-200/80 dark:border-pink-900/50 bg-pink-50/40 dark:bg-pink-950/20 space-y-1.5">
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-[10px] font-bold text-pink-700 dark:text-pink-300 flex items-center gap-1">
+                                                    <Sparkles className="w-3 h-3 text-pink-500" />
+                                                    {tiktokPreview.isCustom ? '🎵 틱톡 업로드 캡션 (수동 지정)' : '✨ 틱톡 전자동 바이럴 최적화 미리보기'}
+                                                </span>
+                                                <Badge variant="outline" className="text-[9px] py-0 bg-pink-100/60 dark:bg-pink-950/60 text-pink-700 dark:text-pink-300 border-pink-300 dark:border-pink-800">
+                                                    {tiktokPreview.isCustom ? '사용자 맞춤' : '전자동 바이럴'}
+                                                </Badge>
+                                            </div>
+                                            <p className="text-[9px] text-muted-foreground">{tiktokPreview.note}</p>
+                                            <div className="p-1.5 rounded bg-background/80 border border-border/60 text-[10px] font-sans text-foreground whitespace-pre-wrap break-all max-h-24 overflow-y-auto">
+                                                {tiktokPreview.caption}
+                                            </div>
+                                            <div className="flex flex-wrap gap-1 pt-0.5">
+                                                {tiktokPreview.tags.map((t, i) => (
+                                                    <span key={i} className="text-[9px] font-medium px-1.5 py-0.5 rounded bg-pink-500/10 text-pink-700 dark:text-pink-300 border border-pink-500/20">
+                                                        {t}
+                                                    </span>
                                                 ))}
-                                            </SelectContent>
-                                        </Select>
+                                            </div>
+                                        </div>
                                     </div>
                                 )}
 
-                                {/* Instagram (체크 시 표시) */}
-                                {form.target_platforms.includes('instagram') && (
-                                    <div className="p-3 rounded-xl bg-purple-50/50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-900/40 space-y-2">
-                                        <Label className="text-[11px] font-bold text-purple-700 dark:text-purple-300">📸 Instagram 계정</Label>
-                                        <Select
-                                            value={form.platform_configs?.instagram?.account_id || ''}
-                                            onValueChange={v => setForm(prev => ({
-                                                ...prev,
-                                                platform_configs: {
-                                                    ...prev.platform_configs,
-                                                    instagram: { ...(prev.platform_configs?.instagram || {}), account_id: v }
-                                                }
-                                            }))}
-                                        >
-                                            <SelectTrigger className="h-7 text-xs bg-background border-border">
-                                                <SelectValue placeholder="Instagram 계정 선택" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {instagramChannels.map((c: any) => (
-                                                    <SelectItem key={c.id} value={c.id}>{c.nickname || c.id}</SelectItem>
+                                {/* 탭 3: Instagram 설정 */}
+                                {activePlatformTab === 'instagram' && form.target_platforms.includes('instagram') && (
+                                    <div className="space-y-2.5 animate-in fade-in duration-150">
+                                        <div className="p-2.5 rounded-xl bg-purple-50/50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-900/40 space-y-2">
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-[11px] font-bold text-purple-700 dark:text-purple-300">📸 Instagram 계정 *</span>
+                                                <Badge variant="outline" className="text-[9px] py-0 bg-purple-100/50 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300 border-purple-300 dark:border-purple-800">
+                                                    {instagramChannels.length}개 연동됨
+                                                </Badge>
+                                            </div>
+
+                                            <Select
+                                                value={form.platform_configs?.instagram?.account_id || ''}
+                                                onValueChange={v => setForm(prev => ({
+                                                    ...prev,
+                                                    platform_configs: {
+                                                        ...prev.platform_configs,
+                                                        instagram: { ...(prev.platform_configs?.instagram || {}), account_id: v }
+                                                    }
+                                                }))}
+                                                disabled={instagramChannels.length === 0}
+                                            >
+                                                <SelectTrigger className="h-7 text-xs bg-background border-border">
+                                                    <SelectValue placeholder={instagramChannels.length ? "Instagram 계정 선택" : "연동된 Instagram 계정 없음"} />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {instagramChannels.map((c: any) => (
+                                                        <SelectItem key={c.id} value={c.id}>
+                                                            <div className="flex items-center justify-between gap-2 text-xs">
+                                                                <span className="font-medium">{c.nickname || c.id}</span>
+                                                                {c.account_id && <span className="text-[10px] text-muted-foreground font-mono">@{c.account_id}</span>}
+                                                            </div>
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <div className="flex items-center justify-between p-2 rounded-lg bg-background border border-border">
+                                                <div className="space-y-0.5">
+                                                    <span className="text-[10px] font-medium text-foreground">피드 동시 게시</span>
+                                                    <p className="text-[8px] text-muted-foreground">릴스 외 피드 노출</p>
+                                                </div>
+                                                <Switch
+                                                    checked={Boolean(form.platform_configs?.instagram?.share_to_feed)}
+                                                    onCheckedChange={v => setForm(prev => ({
+                                                        ...prev,
+                                                        platform_configs: {
+                                                            ...prev.platform_configs,
+                                                            instagram: { ...(prev.platform_configs?.instagram || {}), share_to_feed: v }
+                                                        }
+                                                    }))}
+                                                />
+                                            </div>
+
+                                            <div className="flex items-center justify-between p-2 rounded-lg bg-background border border-border">
+                                                <span className="text-[10px] font-medium text-foreground flex items-center gap-1">
+                                                    {form.platform_configs?.instagram?.headless_mode === false ? <Eye className="w-3 h-3 text-purple-500" /> : <EyeOff className="w-3 h-3 text-muted-foreground" />}
+                                                    창 표시
+                                                </span>
+                                                <Switch
+                                                    checked={form.platform_configs?.instagram?.headless_mode === false}
+                                                    onCheckedChange={v => setForm(prev => ({
+                                                        ...prev,
+                                                        platform_configs: {
+                                                            ...prev.platform_configs,
+                                                            instagram: { ...(prev.platform_configs?.instagram || {}), headless_mode: !v }
+                                                        }
+                                                    }))}
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-1">
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-[10px] text-muted-foreground font-semibold">인스타 맞춤 캡션 (선택)</span>
+                                                <span className="text-[9px] text-muted-foreground">비워두면 본문 자동 사용</span>
+                                            </div>
+                                            <Textarea
+                                                value={form.platform_configs?.instagram?.caption || ''}
+                                                onChange={e => setForm(prev => ({
+                                                    ...prev,
+                                                    platform_configs: {
+                                                        ...prev.platform_configs,
+                                                        instagram: { ...(prev.platform_configs?.instagram || {}), caption: e.target.value }
+                                                    }
+                                                }))}
+                                                placeholder="인스타그램 전용 캡션 (해시태그 포함 가능)..."
+                                                rows={2}
+                                                className="text-xs bg-background border-border"
+                                            />
+                                        </div>
+
+                                        {/* Instagram 자동 최적화 실시간 미리보기 배너 */}
+                                        <div className="p-2.5 rounded-lg border border-purple-200/80 dark:border-purple-900/50 bg-purple-50/40 dark:bg-purple-950/20 space-y-1.5">
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-[10px] font-bold text-purple-700 dark:text-purple-300 flex items-center gap-1">
+                                                    <Sparkles className="w-3 h-3 text-purple-500" />
+                                                    {instagramPreview.isCustom ? '📸 인스타 업로드 캡션 (수동 지정)' : '✨ 인스타 전자동 릴스 최적화 미리보기'}
+                                                </span>
+                                                <Badge variant="outline" className="text-[9px] py-0 bg-purple-100/60 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border-purple-300 dark:border-purple-800">
+                                                    {instagramPreview.isCustom ? '사용자 맞춤' : '전자동 릴스'}
+                                                </Badge>
+                                            </div>
+                                            <p className="text-[9px] text-muted-foreground">{instagramPreview.note}</p>
+                                            <div className="p-1.5 rounded bg-background/80 border border-border/60 text-[10px] font-sans text-foreground whitespace-pre-wrap break-all max-h-24 overflow-y-auto">
+                                                {instagramPreview.caption}
+                                            </div>
+                                            <div className="flex flex-wrap gap-1 pt-0.5">
+                                                {instagramPreview.tags.map((t, i) => (
+                                                    <span key={i} className="text-[9px] font-medium px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-700 dark:text-purple-300 border border-purple-500/20">
+                                                        {t}
+                                                    </span>
                                                 ))}
-                                            </SelectContent>
-                                        </Select>
+                                            </div>
+                                        </div>
                                     </div>
                                 )}
                             </div>
@@ -4697,10 +5154,15 @@ const AddVideoDialog = ({ isOpen, setIsOpen, onSuccess, initialData, showBrowser
                                         </SelectTrigger>
                                         <SelectContent>
                                             <SelectItem value="BROWSER_AUTO">🤖 스텔스 브라우저 자동화 (회선 격리 보호)</SelectItem>
-                                            <SelectItem value="API">⚡ Google Data API (OAuth 직결)</SelectItem>
+                                            <SelectItem value="API">⚡ Google Data API (5초 초고속 업로드)</SelectItem>
                                             <SelectItem value="MANUAL">✍️ 수동 (대기열 기록 및 관리용)</SelectItem>
                                         </SelectContent>
                                     </Select>
+                                    {form.upload_method === 'API' && (
+                                        <p className="text-[10px] text-blue-600 dark:text-blue-400 mt-1 flex items-center gap-1 font-medium">
+                                            <Zap className="w-3 h-3" /> YouTube Data API 모드: 초고속 5초 업로드 및 숙성 검증 파이프라인이 적용됩니다.
+                                        </p>
+                                    )}
                                 </div>
 
                                 <div className="space-y-1.5 pt-1">
@@ -4814,12 +5276,16 @@ const BulkImportDialog = ({
     setIsOpen, 
     onSuccess, 
     channels = [], 
+    tiktokChannels = [],
+    instagramChannels = [],
     showBrowserWindow = false 
 }: { 
     isOpen: boolean; 
     setIsOpen: (v: boolean) => void; 
     onSuccess: () => void;
     channels?: any[];
+    tiktokChannels?: any[];
+    instagramChannels?: any[];
     showBrowserWindow?: boolean;
 }) => {
     const { toast } = useToast();
@@ -4828,8 +5294,25 @@ const BulkImportDialog = ({
     const [headers, setHeaders] = useState<string[]>([]);
     const [batchId, setBatchId] = useState('');
     const [sendStatus, setSendStatus] = useState<'idle' | 'sending' | 'done'>('idle');
+
+    // 플랫폼 거버넌스 및 기본값 상태
+    const [targetPlatforms, setTargetPlatforms] = useState<string[]>(['youtube']);
+    const [activePlatformTab, setActivePlatformTab] = useState<'youtube' | 'tiktok' | 'instagram'>('youtube');
     const [defaultChannelId, setDefaultChannelId] = useState<string>('');
+    const [defaultYtPrivacy, setDefaultYtPrivacy] = useState<string>('private');
+    const [defaultUploadMethod, setDefaultUploadMethod] = useState<'BROWSER_AUTO' | 'API'>('BROWSER_AUTO');
+
+    const [defaultTiktokAccountId, setDefaultTiktokAccountId] = useState<string>('');
+    const [defaultTiktokPrivacy, setDefaultTiktokPrivacy] = useState<string>('private');
+    const [defaultTiktokAllowComments, setDefaultTiktokAllowComments] = useState<boolean>(true);
+    const [defaultTiktokAllowDuet, setDefaultTiktokAllowDuet] = useState<boolean>(true);
+
+    const [defaultInstaAccountId, setDefaultInstaAccountId] = useState<string>('');
+    const [defaultInstaShareToFeed, setDefaultInstaShareToFeed] = useState<boolean>(false);
+
+    const [headlessMode, setHeadlessMode] = useState<boolean>(!showBrowserWindow);
     const [approvalPolicy, setApprovalPolicy] = useState<'GOVERNANCE' | 'MANUAL' | 'IMMEDIATE'>('GOVERNANCE');
+
     const cachedFileBytes = useRef<Uint8Array | null>(null);
     const cachedFileName = useRef<string>('');
 
@@ -4838,6 +5321,42 @@ const BulkImportDialog = ({
             setDefaultChannelId(channels[0].channel_id || channels[0].id || '');
         }
     }, [channels]);
+
+    useEffect(() => {
+        if (tiktokChannels && tiktokChannels.length > 0 && !defaultTiktokAccountId) {
+            setDefaultTiktokAccountId(tiktokChannels[0].id || '');
+        }
+    }, [tiktokChannels]);
+
+    useEffect(() => {
+        if (instagramChannels && instagramChannels.length > 0 && !defaultInstaAccountId) {
+            setDefaultInstaAccountId(instagramChannels[0].id || '');
+        }
+    }, [instagramChannels]);
+
+    useEffect(() => {
+        setHeadlessMode(!showBrowserWindow);
+    }, [showBrowserWindow]);
+
+    const togglePlatform = (p: string) => {
+        setTargetPlatforms(prev => {
+            if (prev.includes(p)) {
+                if (prev.length <= 1) {
+                    toast({ description: "최소 1개 이상의 플랫폼을 선택해야 합니다." });
+                    return prev;
+                }
+                const next = prev.filter(x => x !== p);
+                if (activePlatformTab === p) {
+                    setActivePlatformTab(next[0] as any);
+                }
+                return next;
+            } else {
+                const next = [...prev, p];
+                setActivePlatformTab(p as any);
+                return next;
+            }
+        });
+    };
 
     const parseCSVField = (line: string): string[] => {
         const fields: string[] = [];
@@ -4862,7 +5381,7 @@ const BulkImportDialog = ({
 
     const parseCSV = (text: string) => {
         const lines = text.split('\n').filter(l => l.trim());
-        if (lines.length < 2) { toast({ variant: "destructive", title: "Invalid CSV", description: "Need at least 2 rows (header + data)" }); return; }
+        if (lines.length < 2) { toast({ variant: "destructive", title: "유효하지 않은 CSV", description: "헤더와 최소 1개 이상의 데이터 행이 필요합니다." }); return; }
         const h = parseCSVField(lines[0]);
         const rows = lines.slice(1).map(line => {
             const vals = parseCSVField(line);
@@ -4881,7 +5400,7 @@ const BulkImportDialog = ({
             const workbook = XLSX.read(ab, { type: 'array' });
             const sheet = workbook.Sheets[workbook.SheetNames[0]];
             const json = XLSX.utils.sheet_to_json<any[]>(sheet, { header: 1, defval: '' });
-            if (json.length < 2) { toast({ variant: "destructive", title: "Invalid Excel", description: "Need at least 2 rows" }); return; }
+            if (json.length < 2) { toast({ variant: "destructive", title: "유효하지 않은 Excel", description: "헤더와 최소 1개 이상의 데이터 행이 필요합니다." }); return; }
             const h = json[0].map((c: any) => String(c || '').trim());
             setHeaders(h);
             const rows = json.slice(1).map(row => {
@@ -4891,7 +5410,7 @@ const BulkImportDialog = ({
             });
             normalizeRows(rows, h);
         } catch (err: any) {
-            toast({ variant: "destructive", title: "Excel parse error", description: err?.message || 'Failed to read file' });
+            toast({ variant: "destructive", title: "Excel 분석 오류", description: err?.message || '파일을 읽을 수 없습니다.' });
         }
     };
 
@@ -4899,12 +5418,13 @@ const BulkImportDialog = ({
         const tCol = h.find(h => ['title', '제목', 'name'].includes(h.toLowerCase()));
         const dCol = h.find(h => ['description', 'desc', '설명'].includes(h.toLowerCase()));
         const eCol = h.find(h => ['external_id', 'id', '외부id'].includes(h.toLowerCase()));
-        const hCol = h.find(h => ['hashtags'].includes(h.toLowerCase()));
+        const vCol = h.find(h => ['video_file_path', 'video_path', '영상경로', '파일경로', 'filepath', 'path'].includes(h.toLowerCase()));
+        const hCol = h.find(h => ['hashtags', '해시태그'].includes(h.toLowerCase()));
         const tagCol = h.find(h => ['tags', '태그'].includes(h.toLowerCase()));
         const umCol = h.find(h => ['upload_method', '업로드방식'].includes(h.toLowerCase()));
         const platCol = h.find(h => ['platforms', '플랫폼'].includes(h.toLowerCase()));
-        const ppCol = h.find(h => ['platform_privacy', '공개설정'].includes(h.toLowerCase()));
-        const stCol = h.find(h => ['scheduled_time', '예약시간'].includes(h.toLowerCase()));
+        const ppCol = h.find(h => ['platform_privacy', '공개설정', '공개'].includes(h.toLowerCase()));
+        const stCol = h.find(h => ['scheduled_time', '예약시간', '예약'].includes(h.toLowerCase()));
 
         if (!tCol) {
             toast({ variant: "destructive", title: "title 컬럼 없음", description: "title, 제목, name 중 하나의 컬럼이 반드시 필요합니다. 템플릿을 다운로드하여 참고하세요." });
@@ -4919,6 +5439,7 @@ const BulkImportDialog = ({
 
             const hashtagsRaw = hCol ? String(r[hCol] || '') : '';
             const tagsRaw = tagCol ? String(r[tagCol] || '') : '';
+            const videoPathRaw = vCol ? String(r[vCol] || '').trim() : '';
 
             const item: any = {
                 external_id: (eCol ? String(r[eCol] || '') : `row_${i + 1}`).trim() || `row_${i + 1}`,
@@ -4926,21 +5447,21 @@ const BulkImportDialog = ({
                 description: (dCol ? String(r[dCol] || '') : ''),
                 hashtags: hashtagsRaw.split(/[ ,]+/).map((t: string) => t.startsWith('#') ? t : `#${t}`).filter((t: string) => t.length > 1),
                 tags: tagsRaw.split(',').map((t: string) => t.trim()).filter(Boolean),
-                upload_method: umCol ? String(r[umCol] || '').trim() || 'BROWSER_AUTO' : 'BROWSER_AUTO',
-                target_platforms: platCol ? String(r[platCol] || '').split(',').map((p: string) => p.trim()).filter(Boolean) : ['youtube'],
-                platform_privacy: ppCol ? String(r[ppCol] || '').trim().toLowerCase() || 'public' : 'public',
+                video_file_path: videoPathRaw || null,
+                upload_method: umCol ? String(r[umCol] || '').trim() : null,
+                target_platforms: platCol ? String(r[platCol] || '').split(',').map((p: string) => p.trim()).filter(Boolean) : null,
+                platform_privacy: ppCol ? String(r[ppCol] || '').trim().toLowerCase() : null,
                 scheduled_time: stCol ? String(r[stCol] || '').trim() || null : null,
             };
-            if (item.target_platforms.length === 0) item.target_platforms = ['youtube'];
 
             mapped.push(item);
         });
 
         setParsedRows(mapped);
         if (skipped > 0) {
-            toast({ title: `${mapped.length} rows parsed`, description: `${skipped}개 항목은 title이 없어 건너뛰었습니다. 총 ${mapped.length}개를 등록합니다.` });
+            toast({ title: `${mapped.length}개 항목 분석 완료`, description: `${skipped}개 항목은 title이 없어 제외되었습니다. 총 ${mapped.length}개를 등록합니다.` });
         } else {
-            toast({ title: `${mapped.length} rows parsed`, description: `Columns: ${h.join(', ')}` });
+            toast({ title: `${mapped.length}개 항목 분석 완료`, description: `검출 컬럼: ${h.join(', ')}` });
         }
     };
 
@@ -4959,7 +5480,7 @@ const BulkImportDialog = ({
             cachedFileBytes.current = bytes;
             await parseExcel(file, bytes);
         } else {
-            toast({ variant: "destructive", title: "Unsupported", description: "Only .csv and .xlsx files are supported" });
+            toast({ variant: "destructive", title: "지원하지 않는 파일 형식", description: ".csv 및 .xlsx 파일만 지원됩니다." });
         }
     };
 
@@ -4967,228 +5488,572 @@ const BulkImportDialog = ({
         if (!parsedRows.length) return;
         setSendStatus('sending');
         try {
-            const fileName = cachedFileName.current;
-            const bytes = cachedFileBytes.current;
-            if (bytes && fileName.endsWith('.xlsx')) {
-                const base64 = uint8ArrayToBase64(bytes);
-                const res = await fetchWithRetry('/api/work-queue/bulk/upload-file', {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ base64_file: base64, file_name: fileName, source_batch_id: batchId || undefined })
-                });
-                if (!res.ok) {
-                    const errBody = await res.json().catch(() => ({}));
-                    throw new Error(errBody.detail || `Server error ${res.status}`);
-                }
-                const result = await res.json();
-                if (result.batch_id) setBatchId(result.batch_id);
-                toast({ title: `${result.count} drafts created`, description: `Batch: ${result.batch_id?.substring(0, 8)}...` });
-                setSendStatus('done');
-                setIsOpen(false);
-                onSuccess();
-                return;
-            }
-
             const selectedChannel = channels.find((c: any) => String(c.channel_id) === String(defaultChannelId) || String(c.id) === String(defaultChannelId));
             const isTrustedChannel = Boolean(selectedChannel?.auto_approve_default);
             const approvalReq = approvalPolicy === 'MANUAL' ? true : (approvalPolicy === 'IMMEDIATE' || isTrustedChannel ? false : false);
 
             const items = parsedRows.map(r => {
+                const rowPlatforms = (r.target_platforms && r.target_platforms.length > 0) ? r.target_platforms : targetPlatforms;
+                const rowPrivacy = r.platform_privacy || defaultYtPrivacy;
+                const rowUploadMethod = r.upload_method || defaultUploadMethod;
+
                 const platformConfigs: any = {
-                    headless_mode: !showBrowserWindow,
+                    headless_mode: headlessMode,
                     youtube: {
                         channel_id: defaultChannelId,
-                        privacy: r.platform_privacy || 'private',
-                        headless_mode: !showBrowserWindow,
+                        privacy: rowPrivacy,
+                        headless_mode: headlessMode,
                     },
                     tiktok: {
-                        headless_mode: !showBrowserWindow,
+                        account_id: defaultTiktokAccountId,
+                        privacy: rowPrivacy === 'public' ? 'public' : (rowPrivacy === 'friends_only' ? 'friends_only' : 'private'),
+                        allow_comments: defaultTiktokAllowComments,
+                        allow_duet: defaultTiktokAllowDuet,
+                        headless_mode: headlessMode,
                     },
                     instagram: {
-                        headless_mode: !showBrowserWindow,
+                        account_id: defaultInstaAccountId,
+                        share_to_feed: defaultInstaShareToFeed,
+                        headless_mode: headlessMode,
                     }
                 };
-                if (r.platform_privacy) {
-                    r.target_platforms?.forEach((p: string) => {
-                        platformConfigs[p] = { ...(platformConfigs[p] || {}), privacy: r.platform_privacy };
-                    });
-                }
+
                 return {
                     title: r.title,
                     description: r.description || '',
                     hashtags: r.hashtags || [],
                     tags: r.tags || [],
+                    video_file_path: r.video_file_path || null,
                     source_external_id: r.external_id,
                     source_type: 'BULK_IMPORT',
-                    upload_method: r.upload_method || 'BROWSER_AUTO',
-                    target_platforms: r.target_platforms || ['youtube'],
+                    upload_method: rowUploadMethod,
+                    target_platforms: rowPlatforms,
                     platform_configs: platformConfigs,
                     scheduled_upload_time: r.scheduled_time || null,
                     channel_id: defaultChannelId || null,
                     approval_required: approvalReq,
                 };
             });
+
             const res = await fetchWithRetry('/api/work-queue/items/bulk/import', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                method: 'POST', 
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ items, source_batch_id: batchId || undefined })
             });
+
             if (!res.ok) {
                 const errBody = await res.json().catch(() => ({}));
                 throw new Error(errBody.detail || `Server error ${res.status}`);
             }
             const result = await res.json();
             if (result.batch_id) setBatchId(result.batch_id);
-            toast({ title: `${result.count} imported items`, description: `Batch: ${result.batch_id?.substring(0, 8)}...` });
+            toast({ 
+                title: `${result.count}개 영상 일괄 등록 완료`, 
+                description: `배치: ${result.batch_id?.substring(0, 8)}... (${approvalReq ? '수동 승인 대기' : '대기열 즉시 투입'})` 
+            });
             setSendStatus('done');
             setIsOpen(false);
             onSuccess();
         } catch (err: any) {
-            toast({ variant: "destructive", title: "Import failed", description: err?.message || 'Server error' });
+            toast({ variant: "destructive", title: "일괄 등록 실패", description: err?.message || 'Server error' });
             setSendStatus('idle');
         }
     };
 
-    const reset = () => { setParsedRows([]); setHeaders([]); setBatchId(''); setSendStatus('idle'); cachedFileBytes.current = null; cachedFileName.current = ''; if (fileInputRef.current) fileInputRef.current.value = ''; };
+    const reset = () => { 
+        setParsedRows([]); 
+        setHeaders([]); 
+        setBatchId(''); 
+        setSendStatus('idle'); 
+        cachedFileBytes.current = null; 
+        cachedFileName.current = ''; 
+        if (fileInputRef.current) fileInputRef.current.value = ''; 
+    };
 
     const selectedChannel = channels.find((c: any) => String(c.channel_id) === String(defaultChannelId) || String(c.id) === String(defaultChannelId));
 
     return (
         <Dialog open={isOpen} onOpenChange={(v) => { setIsOpen(v); if (!v) reset(); }}>
-            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-card text-foreground border-border">
+            <DialogContent className="max-w-4xl max-h-[92vh] overflow-y-auto bg-card text-foreground border-border dashboard-scroll-area">
                 <DialogHeader>
-                    <DialogTitle className="flex items-center gap-2">
+                    <DialogTitle className="flex items-center gap-2 text-base font-bold text-foreground">
                         <Upload className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-                        쇼츠 일괄 등록 (CSV / Excel)
+                        영상 일괄 주권 배포 등록 (CSV / Excel)
                     </DialogTitle>
-                    <DialogDescription>
-                        CSV 또는 Excel 파일로 다수의 영상을 한번에 대기열에 등록하고 일괄 자동 배포합니다.
+                    <DialogDescription className="text-xs text-muted-foreground">
+                        CSV 또는 Excel 파일로 다수의 영상(쇼츠 및 롱폼)을 한번에 대기열에 등록하고, 전용 LTE 모바일/ISP 회선으로 안전하게 일괄 자동 배포합니다.
                     </DialogDescription>
                 </DialogHeader>
 
                 <div className="space-y-4">
-                    {/* 일괄 적용 채널 및 승인 정책 거버넌스 설정 바 */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 rounded-xl bg-muted/40 border border-border">
-                        <div>
-                            <Label className="text-xs font-bold text-foreground flex items-center gap-1 mb-1.5">
-                                🎬 기본 적용 YouTube 채널
-                            </Label>
-                            <Select value={defaultChannelId} onValueChange={setDefaultChannelId}>
-                                <SelectTrigger className="h-8 text-xs bg-background border-border">
-                                    <SelectValue placeholder={channels.length ? "채널 선택" : "등록된 채널 없음"} />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {channels.map((ch: any) => (
-                                        <SelectItem key={ch.channel_id || ch.id} value={ch.channel_id || ch.id}>
-                                            <div className="flex items-center justify-between gap-2 w-full text-xs">
-                                                <span className="truncate">{ch.channel_name || ch.title || ch.name}</span>
-                                                {ch.auto_approve_default && (
-                                                    <span className="text-[9px] font-bold text-blue-600 dark:text-blue-400 bg-blue-500/10 px-1 py-0.5 rounded">
-                                                        ⭐ 자동승인
-                                                    </span>
-                                                )}
-                                            </div>
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                            {selectedChannel?.auto_approve_default && (
-                                <p className="text-[10px] text-blue-600 dark:text-blue-400 mt-1 font-medium">
-                                    ⭐ 자동 승인 신뢰 채널: 등록 즉시 승인 대기 없이 대기열로 직결됩니다.
-                                </p>
+                    {/* 1. 일괄 배포 플랫폼 및 거버넌스 정책 매트릭스 */}
+                    <div className="p-4 rounded-xl border border-border bg-muted/30 space-y-3 min-w-0 shadow-xs">
+                        {/* 상단 1열: 대상 플랫폼 토글 필 + 승인 거버넌스 정책 + 창 표시 토글 */}
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-border/80">
+                            {/* 플랫폼 선택 토글 필 (Pills) */}
+                            <div className="space-y-1">
+                                <div className="flex items-center justify-between gap-2">
+                                    <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                                        <Rocket className="w-3.5 h-3.5 text-indigo-500" /> 대상 플랫폼 선택
+                                    </span>
+                                    <span className="text-[10px] text-muted-foreground font-medium">
+                                        {targetPlatforms.length}개 플랫폼 활성
+                                    </span>
+                                </div>
+                                <div className="flex items-center gap-1.5 p-1 rounded-lg bg-background border border-border">
+                                    <button
+                                        type="button"
+                                        onClick={() => togglePlatform('youtube')}
+                                        className={`flex items-center justify-center gap-1 py-1 px-2.5 rounded-md text-[11px] font-semibold transition-all ${
+                                            targetPlatforms.includes('youtube')
+                                                ? 'bg-blue-600 text-white shadow-xs'
+                                                : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                                        }`}
+                                    >
+                                        <span>🎬 YouTube</span>
+                                        {targetPlatforms.includes('youtube') && <Check className="w-3 h-3 shrink-0" />}
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        onClick={() => togglePlatform('tiktok')}
+                                        className={`flex items-center justify-center gap-1 py-1 px-2.5 rounded-md text-[11px] font-semibold transition-all ${
+                                            targetPlatforms.includes('tiktok')
+                                                ? 'bg-pink-600 text-white shadow-xs'
+                                                : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                                        }`}
+                                    >
+                                        <span>🎵 TikTok</span>
+                                        {targetPlatforms.includes('tiktok') && <Check className="w-3 h-3 shrink-0" />}
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        onClick={() => togglePlatform('instagram')}
+                                        className={`flex items-center justify-center gap-1 py-1 px-2.5 rounded-md text-[11px] font-semibold transition-all ${
+                                            targetPlatforms.includes('instagram')
+                                                ? 'bg-purple-600 text-white shadow-xs'
+                                                : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                                        }`}
+                                    >
+                                        <span>📸 Insta</span>
+                                        {targetPlatforms.includes('instagram') && <Check className="w-3 h-3 shrink-0" />}
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* 우측: 거버넌스 승인 정책 & 창 표시 스위치 */}
+                            <div className="flex items-end gap-3">
+                                <div>
+                                    <Label className="text-[10px] font-bold text-foreground flex items-center gap-1 mb-1">
+                                        <Shield className="w-3 h-3 text-indigo-500" /> 일괄 승인 거버넌스 정책
+                                    </Label>
+                                    <Select value={approvalPolicy} onValueChange={(v: any) => setApprovalPolicy(v)}>
+                                        <SelectTrigger className="h-7 text-xs bg-background border-border min-w-[190px]">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="GOVERNANCE">⭐ 스마트 자동 승인 (신뢰/85점)</SelectItem>
+                                            <SelectItem value="MANUAL">🛡️ 전수 수동 확인 (PENDING)</SelectItem>
+                                            <SelectItem value="IMMEDIATE">⚡ 즉시 대기열 등록 (직결)</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
+                                <div className="flex items-center justify-between gap-2 p-1.5 rounded-lg bg-background border border-border h-7">
+                                    <span className="text-[10px] font-medium text-foreground flex items-center gap-1 shrink-0">
+                                        {!headlessMode ? <Eye className="w-3 h-3 text-blue-500" /> : <EyeOff className="w-3 h-3 text-muted-foreground" />}
+                                        창 표시
+                                    </span>
+                                    <Switch
+                                        checked={!headlessMode}
+                                        onCheckedChange={v => setHeadlessMode(!v)}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* 활성 플랫폼 서브 탭 전환기 */}
+                        <div className="border-b border-border/80 flex items-center gap-1 pb-1">
+                            {targetPlatforms.includes('youtube') && (
+                                <button
+                                    type="button"
+                                    onClick={() => setActivePlatformTab('youtube')}
+                                    className={`text-xs font-semibold px-2.5 py-1 rounded-md transition-all ${
+                                        activePlatformTab === 'youtube'
+                                            ? 'bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/30'
+                                            : 'text-muted-foreground hover:text-foreground'
+                                    }`}
+                                >
+                                    🎬 YouTube 기본 설정
+                                </button>
+                            )}
+                            {targetPlatforms.includes('tiktok') && (
+                                <button
+                                    type="button"
+                                    onClick={() => setActivePlatformTab('tiktok')}
+                                    className={`text-xs font-semibold px-2.5 py-1 rounded-md transition-all ${
+                                        activePlatformTab === 'tiktok'
+                                            ? 'bg-pink-500/15 text-pink-700 dark:text-pink-300 border border-pink-500/30'
+                                            : 'text-muted-foreground hover:text-foreground'
+                                    }`}
+                                >
+                                    🎵 TikTok 기본 설정
+                                </button>
+                            )}
+                            {targetPlatforms.includes('instagram') && (
+                                <button
+                                    type="button"
+                                    onClick={() => setActivePlatformTab('instagram')}
+                                    className={`text-xs font-semibold px-2.5 py-1 rounded-md transition-all ${
+                                        activePlatformTab === 'instagram'
+                                            ? 'bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/30'
+                                            : 'text-muted-foreground hover:text-foreground'
+                                    }`}
+                                >
+                                    📸 Instagram 기본 설정
+                                </button>
                             )}
                         </div>
 
-                        <div>
-                            <Label className="text-xs font-bold text-foreground flex items-center gap-1 mb-1.5">
-                                🛡️ 일괄 승인 거버넌스 정책
-                            </Label>
-                            <Select value={approvalPolicy} onValueChange={(v: any) => setApprovalPolicy(v)}>
-                                <SelectTrigger className="h-8 text-xs bg-background border-border">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="GOVERNANCE">⭐ 스마트 자동 승인 (신뢰 채널 / 85점 기준)</SelectItem>
-                                    <SelectItem value="MANUAL">🛡️ 전수 수동 확인 (PENDING 대기)</SelectItem>
-                                    <SelectItem value="IMMEDIATE">⚡ 즉시 대기열 등록 (100% 자동 직결)</SelectItem>
-                                </SelectContent>
-                            </Select>
-                            <p className="text-[10px] text-muted-foreground mt-1">
-                                * 창 표시: <strong className="text-foreground">{showBrowserWindow ? "화면 표시(켜짐)" : "백그라운드 스텔스"}</strong> 설정이 적용됩니다.
-                            </p>
-                        </div>
+                        {/* 탭 1: YouTube 설정 */}
+                        {activePlatformTab === 'youtube' && targetPlatforms.includes('youtube') && (
+                            <div className="space-y-2.5 animate-in fade-in duration-150">
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                                    <div className="sm:col-span-1 space-y-1">
+                                        <Label className="text-[11px] font-bold text-blue-700 dark:text-blue-300 flex items-center justify-between">
+                                            <span>🎬 기본 YouTube 채널 *</span>
+                                        </Label>
+                                        <Select value={defaultChannelId} onValueChange={setDefaultChannelId}>
+                                            <SelectTrigger className="h-7 text-xs bg-background border-border">
+                                                <SelectValue placeholder={channels.length ? "채널 선택" : "등록된 채널 없음"} />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {channels.map((ch: any) => (
+                                                    <SelectItem key={ch.channel_id || ch.id} value={ch.channel_id || ch.id}>
+                                                        <div className="flex items-center justify-between gap-2 w-full text-xs">
+                                                            <span className="truncate max-w-[150px]">{ch.channel_name || ch.title || ch.name}</span>
+                                                            <div className="flex items-center gap-1 shrink-0">
+                                                                {ch.auto_approve_default && (
+                                                                    <span className="text-[9px] font-bold text-blue-600 dark:text-blue-400 bg-blue-500/10 px-1 py-0.5 rounded">
+                                                                        ⭐ 자동승인
+                                                                    </span>
+                                                                )}
+                                                                {renderChannelNetworkBadge(ch)}
+                                                            </div>
+                                                        </div>
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+
+                                    <div className="space-y-1">
+                                        <Label className="text-[11px] font-semibold text-foreground">기본 공개 상태</Label>
+                                        <Select value={defaultYtPrivacy} onValueChange={setDefaultYtPrivacy}>
+                                            <SelectTrigger className="h-7 text-xs bg-background border-border">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="private">🔒 비공개 (안전 보관)</SelectItem>
+                                                <SelectItem value="smart_scheduled">⏱️ 스마트 숙성 예약 (10~20분)</SelectItem>
+                                                <SelectItem value="public">🚀 {defaultUploadMethod === 'API' ? '하이브리드 공개 (API➔브라우저)' : '즉시 공개'}</SelectItem>
+                                                <SelectItem value="scheduled">📅 지정 시간 예약</SelectItem>
+                                                <SelectItem value="unlisted">🔗 일부 공개 (링크)</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+
+                                    <div className="space-y-1">
+                                        <Label className="text-[11px] font-semibold text-foreground">업로드 실행 엔진</Label>
+                                        <Select value={defaultUploadMethod} onValueChange={(v: any) => setDefaultUploadMethod(v)}>
+                                            <SelectTrigger className="h-7 text-xs bg-background border-border">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="BROWSER_AUTO">🤖 스텔스 브라우저 자동화</SelectItem>
+                                                <SelectItem value="API">⚡ Google Data API (5초 초고속)</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                </div>
+
+                                {selectedChannel && (
+                                    <div className="text-[10px] bg-background/80 p-2 rounded-lg border border-border/70 flex flex-wrap items-center justify-between gap-2">
+                                        <div className="flex items-center gap-1.5 text-muted-foreground">
+                                            <span>소유 계정:</span>
+                                            <span className="font-mono text-foreground font-medium">{selectedChannel.profile_email || selectedChannel.account_email || '전용 브라우저 세션'}</span>
+                                        </div>
+                                        <div className="flex items-center gap-1.5 text-muted-foreground">
+                                            <span>네트워크:</span>
+                                            <span className="font-semibold text-foreground">
+                                                {selectedChannel.bound_device_serial ? `📱 모바일 LTE (${selectedChannel.bound_device_serial})` :
+                                                 (selectedChannel.proxy_port && selectedChannel.proxy_port >= 1080 && selectedChannel.proxy_port <= 1089) ? `📱 모바일 프록시 (포트 ${selectedChannel.proxy_port})` :
+                                                 selectedChannel.proxy_host ? `🌐 ISP 고정 (${selectedChannel.proxy_host})` : `🛡️ 단독 로컬 회선`}
+                                            </span>
+                                        </div>
+                                        {selectedChannel.auto_approve_default && (
+                                            <span className="text-[9px] font-bold text-blue-600 dark:text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded border border-blue-500/20">
+                                                ⭐ 자동 승인 신뢰 채널 (등록 즉시 대기열 투입)
+                                            </span>
+                                        )}
+                                    </div>
+                                )}
+
+                                {defaultYtPrivacy === 'smart_scheduled' && (
+                                    <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-[10px] text-muted-foreground flex items-center gap-2">
+                                        <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                                        <span>스마트 숙성 예약: 파일 용량에 비례하여 15~30분 뒤 구글 클라우드 자동 공개(publishAt)를 예약합니다.</span>
+                                    </div>
+                                )}
+
+                                {defaultYtPrivacy === 'public' && defaultUploadMethod === 'API' && (
+                                    <div className="p-2 rounded-lg bg-blue-500/10 border border-blue-500/20 text-[10px] text-muted-foreground flex items-center gap-2">
+                                        <Zap className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                                        <span>하이브리드 공개: API로 5초 만에 초고속 비공개 업로드 후 15분 뒤 격리 브라우저가 공개로 자동 전환합니다.</span>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* 탭 2: TikTok 설정 */}
+                        {activePlatformTab === 'tiktok' && targetPlatforms.includes('tiktok') && (
+                            <div className="space-y-2.5 animate-in fade-in duration-150">
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 items-end">
+                                    <div className="space-y-1">
+                                        <div className="flex items-center justify-between">
+                                            <Label className="text-[11px] font-bold text-pink-700 dark:text-pink-300">🎵 기본 TikTok 계정 *</Label>
+                                            <Badge variant="outline" className="text-[9px] py-0 bg-pink-100/50 text-pink-700 dark:bg-pink-950/60 dark:text-pink-300 border-pink-300 dark:border-pink-800">
+                                                {tiktokChannels.length}개 연동됨
+                                            </Badge>
+                                        </div>
+                                        <Select value={defaultTiktokAccountId} onValueChange={setDefaultTiktokAccountId} disabled={tiktokChannels.length === 0}>
+                                            <SelectTrigger className="h-7 text-xs bg-background border-border">
+                                                <SelectValue placeholder={tiktokChannels.length ? "TikTok 계정 선택" : "연동된 TikTok 계정 없음"} />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {tiktokChannels.map((c: any) => (
+                                                    <SelectItem key={c.id} value={c.id}>
+                                                        <div className="flex items-center justify-between gap-2 text-xs">
+                                                            <span className="font-medium">{c.nickname || c.id}</span>
+                                                            {c.account_id && <span className="text-[10px] text-muted-foreground font-mono">@{c.account_id}</span>}
+                                                        </div>
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+
+                                    <div className="space-y-1">
+                                        <Label className="text-[11px] font-semibold text-foreground">기본 공개 범위</Label>
+                                        <Select value={defaultTiktokPrivacy} onValueChange={setDefaultTiktokPrivacy}>
+                                            <SelectTrigger className="h-7 text-xs bg-background border-border">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="private">🔒 비공개 (Private)</SelectItem>
+                                                <SelectItem value="friends_only">👥 친구 공개 (Friends)</SelectItem>
+                                                <SelectItem value="public">🌐 전체 공개 (Public)</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <label className="flex items-center justify-between text-xs cursor-pointer p-1.5 rounded-lg bg-background border border-border h-7">
+                                            <span className="text-[10px] font-medium">댓글 허용</span>
+                                            <Switch
+                                                checked={defaultTiktokAllowComments}
+                                                onCheckedChange={setDefaultTiktokAllowComments}
+                                            />
+                                        </label>
+                                        <label className="flex items-center justify-between text-xs cursor-pointer p-1.5 rounded-lg bg-background border border-border h-7">
+                                            <span className="text-[10px] font-medium">듀엣/스티치</span>
+                                            <Switch
+                                                checked={defaultTiktokAllowDuet}
+                                                onCheckedChange={setDefaultTiktokAllowDuet}
+                                            />
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* 탭 3: Instagram 설정 */}
+                        {activePlatformTab === 'instagram' && targetPlatforms.includes('instagram') && (
+                            <div className="space-y-2.5 animate-in fade-in duration-150">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 items-end">
+                                    <div className="space-y-1">
+                                        <div className="flex items-center justify-between">
+                                            <Label className="text-[11px] font-bold text-purple-700 dark:text-purple-300">📸 기본 Instagram 계정 *</Label>
+                                            <Badge variant="outline" className="text-[9px] py-0 bg-purple-100/50 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300 border-purple-300 dark:border-purple-800">
+                                                {instagramChannels.length}개 연동됨
+                                            </Badge>
+                                        </div>
+                                        <Select value={defaultInstaAccountId} onValueChange={setDefaultInstaAccountId} disabled={instagramChannels.length === 0}>
+                                            <SelectTrigger className="h-7 text-xs bg-background border-border">
+                                                <SelectValue placeholder={instagramChannels.length ? "Instagram 계정 선택" : "연동된 Instagram 계정 없음"} />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {instagramChannels.map((c: any) => (
+                                                    <SelectItem key={c.id} value={c.id}>
+                                                        <div className="flex items-center justify-between gap-2 text-xs">
+                                                            <span className="font-medium">{c.nickname || c.id}</span>
+                                                            {c.account_id && <span className="text-[10px] text-muted-foreground font-mono">@{c.account_id}</span>}
+                                                        </div>
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+
+                                    <div className="flex items-center justify-between p-2 rounded-lg bg-background border border-border h-7">
+                                        <div className="space-y-0.5">
+                                            <span className="text-[10px] font-medium text-foreground">피드 동시 게시</span>
+                                        </div>
+                                        <Switch
+                                            checked={defaultInstaShareToFeed}
+                                            onCheckedChange={setDefaultInstaShareToFeed}
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                     </div>
 
+                    {/* 2. CSV / Excel 파일 업로드 카드 */}
                     <Card className="border-2 border-dashed border-border hover:border-indigo-300 transition-colors">
-                        <CardContent className="p-8 text-center">
+                        <CardContent className="p-7 text-center">
                             <input ref={fileInputRef} type="file" accept=".csv,.xlsx,.xls" onChange={handleFileChange} className="hidden" id="bulk-import-file-input" />
                             <label htmlFor="bulk-import-file-input" className="cursor-pointer block">
                                 <Layers className="w-10 h-10 mx-auto text-muted-foreground mb-3" />
-                                <h3 className="font-semibold text-foreground mb-1">CSV 또는 Excel 파일 선택</h3>
-                                <div className="text-xs text-muted-foreground mb-4">.csv / .xlsx 지원. 첫 행 = 컬럼 헤더</div>
-                                <span className="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium shadow-sm hover:bg-accent hover:text-accent-foreground">
-                                    <FileSpreadsheet className="w-4 h-4 mr-2" />파일 선택
+                                <h3 className="font-semibold text-foreground mb-1 text-sm">CSV 또는 Excel 파일 선택</h3>
+                                <div className="text-xs text-muted-foreground mb-3">.csv / .xlsx 지원. 첫 행 = 컬럼 헤더 (쇼츠 및 롱폼 포괄)</div>
+                                <span className="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-xs font-semibold shadow-xs hover:bg-accent hover:text-accent-foreground">
+                                    <FileSpreadsheet className="w-4 h-4 mr-2 text-indigo-500" />파일 선택
                                 </span>
                             </label>
-                            <div className="text-xs text-muted-foreground mt-3 flex gap-3 justify-center">
-                                <a href="/api/work-queue/template/csv" download className="text-indigo-600 hover:underline flex items-center gap-1"><FileSpreadsheet className="w-3 h-3" />.csv 템플릿</a>
-                                <a href="/api/work-queue/template/xlsx" download className="text-indigo-600 hover:underline flex items-center gap-1"><FileSpreadsheet className="w-3 h-3" />.xlsx 템플릿</a>
+                            <div className="text-xs text-muted-foreground mt-3 flex gap-4 justify-center">
+                                <a href="/api/work-queue/template/csv" download className="text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1">
+                                    <FileSpreadsheet className="w-3.5 h-3.5" />.csv 템플릿 다운로드
+                                </a>
+                                <a href="/api/work-queue/template/xlsx" download className="text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1">
+                                    <FileSpreadsheet className="w-3.5 h-3.5" />.xlsx 템플릿 다운로드
+                                </a>
                             </div>
                         </CardContent>
                     </Card>
 
+                    {/* 3. 파싱된 데이터 및 매핑 미리보기 */}
                     {parsedRows.length > 0 && (
                         <>
-                            <div className="bg-muted/40 rounded-lg p-3 border border-border">
-                                <div className="text-xs text-muted-foreground">검출된 컬럼: {headers.map(h => (
-                                    <Badge key={h} variant="outline" className="ml-1 text-[11px]">{h}</Badge>
-                                ))}</div>
-                                <div className="text-xs text-muted-foreground mt-1 flex flex-wrap gap-1">
-                                    매핑:{" "}
-                                    <Badge variant="outline" className="text-[11px]">title→제목</Badge>
-                                    <Badge variant="outline" className="text-[11px]">description→설명</Badge>
-                                    <Badge variant="outline" className="text-[11px]">external_id→외부ID</Badge>
-                                    <Badge variant="outline" className="text-[11px]">hashtags→해시태그</Badge>
-                                    <Badge variant="outline" className="text-[11px]">tags→태그</Badge>
-                                    <Badge variant="outline" className="text-[11px]">upload_method→업로드방식</Badge>
-                                    <Badge variant="outline" className="text-[11px]">platforms→플랫폼</Badge>
-                                    <Badge variant="outline" className="text-[11px]">platform_privacy→공개설정</Badge>
-                                    <Badge variant="outline" className="text-[11px]">scheduled_time→예약시간</Badge>
+                            <div className="bg-muted/40 rounded-lg p-3 border border-border space-y-1.5">
+                                <div className="text-xs text-muted-foreground flex items-center flex-wrap gap-1">
+                                    <span className="font-semibold text-foreground">검출된 컬럼:</span>
+                                    {headers.map(h => (
+                                        <Badge key={h} variant="outline" className="text-[11px]">{h}</Badge>
+                                    ))}
+                                </div>
+                                <div className="text-xs text-muted-foreground flex flex-wrap gap-1">
+                                    <span className="font-semibold text-foreground">매핑 규칙:</span>{" "}
+                                    <Badge variant="outline" className="text-[10px]">title→제목</Badge>
+                                    <Badge variant="outline" className="text-[10px]">description→설명</Badge>
+                                    <Badge variant="outline" className="text-[10px]">video_file_path→영상경로</Badge>
+                                    <Badge variant="outline" className="text-[10px]">external_id→외부ID</Badge>
+                                    <Badge variant="outline" className="text-[10px]">hashtags→해시태그</Badge>
+                                    <Badge variant="outline" className="text-[10px]">tags→태그</Badge>
+                                    <Badge variant="outline" className="text-[10px]">upload_method→업로드방식</Badge>
+                                    <Badge variant="outline" className="text-[10px]">platforms→플랫폼</Badge>
+                                    <Badge variant="outline" className="text-[10px]">platform_privacy→공개설정</Badge>
+                                    <Badge variant="outline" className="text-[10px]">scheduled_time→예약시간</Badge>
                                 </div>
                             </div>
 
                             <div className="max-h-64 overflow-auto rounded border border-border">
                                 <table className="w-full text-xs border-collapse">
-                                    <thead><tr className="bg-muted/50">
-                                        <th className="p-2 text-left border-b w-8">#</th>
-                                        <th className="p-2 text-left border-b">외부 ID</th>
-                                        <th className="p-2 text-left border-b">제목</th>
-                                        <th className="p-2 text-left border-b">설명</th>
-                                        <th className="p-2 text-left border-b">해시태그</th>
-                                        <th className="p-2 text-left border-b">플랫폼</th>
-                                        <th className="p-2 text-left border-b">공개</th>
-                                        <th className="p-2 text-left border-b">예약</th>
-                                    </tr></thead>
-                                    <tbody>{parsedRows.slice(0, 100).map((row: any, i: number) => (
-                                        <tr key={i} className="hover:bg-muted/30">
-                                            <td className="p-2 text-xs text-muted-foreground border-b">{i + 1}</td>
-                                            <td className="p-2 text-xs font-mono border-b">{row.external_id}</td>
-                                            <td className="p-2 text-sm truncate max-w-48 border-b">{row.title}</td>
-                                            <td className="p-2 text-xs text-muted-foreground truncate max-w-64 border-b">{row.description}</td>
-                                            <td className="p-2 text-xs text-muted-foreground max-w-32 border-b truncate">{row.hashtags?.join(' ') || '--'}</td>
-                                            <td className="p-2 text-xs text-muted-foreground border-b">{row.target_platforms?.join(', ') || 'youtube'}</td>
-                                            <td className="p-2 text-xs text-muted-foreground border-b">{row.platform_privacy || 'public'}</td>
-                                            <td className="p-2 text-xs text-muted-foreground border-b">{row.scheduled_time || '--'}</td>
+                                    <thead>
+                                        <tr className="bg-muted/50 text-foreground font-semibold">
+                                            <th className="p-2 text-left border-b w-8">#</th>
+                                            <th className="p-2 text-left border-b">외부 ID</th>
+                                            <th className="p-2 text-left border-b">영상 경로</th>
+                                            <th className="p-2 text-left border-b">제목</th>
+                                            <th className="p-2 text-left border-b">설명</th>
+                                            <th className="p-2 text-left border-b">해시태그</th>
+                                            <th className="p-2 text-left border-b">플랫폼</th>
+                                            <th className="p-2 text-left border-b">공개</th>
+                                            <th className="p-2 text-left border-b">방식</th>
+                                            <th className="p-2 text-left border-b">예약</th>
                                         </tr>
-                                    ))}</tbody>
+                                    </thead>
+                                    <tbody>
+                                        {parsedRows.slice(0, 100).map((row: any, i: number) => (
+                                            <tr key={i} className="hover:bg-muted/30">
+                                                <td className="p-2 text-xs text-muted-foreground border-b">{i + 1}</td>
+                                                <td className="p-2 text-xs font-mono border-b">{row.external_id}</td>
+                                                <td className="p-2 text-xs border-b max-w-36 truncate font-mono text-muted-foreground">
+                                                    {row.video_file_path ? (
+                                                        <span className="text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1" title={row.video_file_path}>
+                                                            <FileVideo className="w-3 h-3 shrink-0" />
+                                                            {row.video_file_path.split(/[/\\]/).pop()}
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-muted-foreground/60">--</span>
+                                                    )}
+                                                </td>
+                                                <td className="p-2 text-xs font-medium text-foreground truncate max-w-44 border-b" title={row.title}>{row.title}</td>
+                                                <td className="p-2 text-xs text-muted-foreground truncate max-w-48 border-b" title={row.description}>{row.description || '--'}</td>
+                                                <td className="p-2 text-xs text-muted-foreground max-w-28 border-b truncate" title={row.hashtags?.join(' ')}>{row.hashtags?.join(' ') || '--'}</td>
+                                                <td className="p-2 text-xs border-b">
+                                                    <div className="flex items-center gap-1">
+                                                        {(row.target_platforms || targetPlatforms).map((p: string) => (
+                                                            <span key={p} className={`text-[9px] px-1 py-0.5 rounded font-semibold ${
+                                                                p === 'youtube' ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20' :
+                                                                p === 'tiktok' ? 'bg-pink-500/10 text-pink-600 dark:text-pink-400 border border-pink-500/20' :
+                                                                'bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20'
+                                                            }`}>
+                                                                {p === 'youtube' ? 'YT' : p === 'tiktok' ? 'TT' : 'IG'}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                </td>
+                                                <td className="p-2 text-xs text-muted-foreground border-b">{row.platform_privacy || defaultYtPrivacy}</td>
+                                                <td className="p-2 text-xs text-muted-foreground border-b font-mono text-[10px]">{row.upload_method || defaultUploadMethod}</td>
+                                                <td className="p-2 text-xs text-muted-foreground border-b">{row.scheduled_time || '--'}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
                                 </table>
-                                {parsedRows.length > 100 && <div className="text-xs text-muted-foreground p-2">처음 100개 / 총 {parsedRows.length}개 항목</div>}
+                                {parsedRows.length > 100 && (
+                                    <div className="text-xs text-muted-foreground p-2 text-center bg-muted/20">
+                                        처음 100개 표시 중 / 총 {parsedRows.length}개 항목
+                                    </div>
+                                )}
                             </div>
                         </>
                     )}
                 </div>
-                <div className="flex justify-between gap-2 pt-3 border-t">
-                    <Button variant="outline" onClick={() => { setIsOpen(false); reset(); }}>취소</Button>
-                    <Button onClick={handleSendDrafts} disabled={sendStatus === 'sending' || !parsedRows.length} className="bg-indigo-600 hover:bg-indigo-700 text-white">
-                        {sendStatus === 'sending' ? '저장 중...' : sendStatus === 'done' ? '수신됨' : <><ArrowRight className="w-4 h-4 mr-2" /> 대기열로 보내기 ({parsedRows.length})</>}
+
+                <div className="flex justify-between items-center gap-2 pt-3 border-t border-border">
+                    <Button variant="outline" size="sm" onClick={() => { setIsOpen(false); reset(); }} className="text-xs">
+                        취소
+                    </Button>
+                    <Button 
+                        onClick={handleSendDrafts} 
+                        disabled={sendStatus === 'sending' || !parsedRows.length} 
+                        className="h-8 text-xs bg-indigo-600 hover:bg-indigo-700 text-white font-bold gap-1.5 shadow-xs"
+                    >
+                        {sendStatus === 'sending' ? (
+                            <>
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                등록 처리 중...
+                            </>
+                        ) : sendStatus === 'done' ? (
+                            '완료됨'
+                        ) : (
+                            <>
+                                <Rocket className="w-3.5 h-3.5" />
+                                대기열로 보내기 ({parsedRows.length})
+                            </>
+                        )}
                     </Button>
                 </div>
             </DialogContent>

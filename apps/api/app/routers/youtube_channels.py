@@ -544,10 +544,11 @@ def launch_channel_isolated(
             
         # 5. 접속 로그 기록
         import uuid
+        effective_profile_id = access.profile_id if access else (getattr(channel, 'owner_profile_id', None) or "SYSTEM")
         log = ChannelAccessLog(
             id=str(uuid.uuid4()),
             channel_id=channel_id,
-            profile_id=access.profile_id,
+            profile_id=effective_profile_id,
             action="login",
             ip_address=channel.last_used_ip
         )

@@ -143,18 +143,38 @@ export const hexToRgb01 = (hex?: string, defaultRgb: [number, number, number] = 
 };
 
 // 캡컷 상대 좌표계 수식: X(-1.0 ~ 1.0, 0=중앙), Y(-1.0 ~ 1.0, 0=중앙, 위=+1.0, 아래=-1.0)
-export const toCapCutCoord = (xPct: number = 50, yPct: number = 50) => ({
-  transform_x: Number(((xPct - 50) / 50).toFixed(4)),
-  transform_y: Number(((50 - yPct) / 50).toFixed(4)),
-});
+// [WYSIWYG 완치] 텍스트 줄 수(lineCount) 및 폰트 크기에 따른 Half-Height 오프셋을 역보정하여 웹 캔버스와 1:1 일치
+export const toCapCutCoord = (
+  xPct: number = 50,
+  yPct: number = 50,
+  lineCount: number = 1,
+  fontSizePx: number = 24,
+  canvasWidth: number = 1080,
+  canvasHeight: number = 1920
+) => {
+  // 웹 캔버스 상의 절대 픽셀 환산
+  const pixelX = (xPct / 100) * canvasWidth;
+  const pixelY = (yPct / 100) * canvasHeight;
+
+  // CapCut 텍스트 중앙 앵커(Center Anchor) 보정: 텍스트 줄 수에 따른 박스 높이 오프셋
+  const textHeight = lineCount * fontSizePx * 1.25;
+  const centerY = pixelY + (textHeight / 2);
+
+  return {
+    transform_x: Number(((pixelX - (canvasWidth / 2)) / (canvasWidth / 2)).toFixed(4)),
+    transform_y: Number((((canvasHeight / 2) - centerY) / (canvasHeight / 2)).toFixed(4)),
+  };
+};
 
 /**
- * CSS 픽셀을 CapCut 데스크톱 표준 폰트 단위(4.0~10.0pt)로 변환
+ * CSS 픽셀을 CapCut 데스크톱 표준 폰트 단위로 정밀 변환 (960pt 캔버스 기준 비례 정규화)
  */
-export const toCapcutFontSize = (size?: number, defaultSize: number = 7.5): number => {
+export const toCapcutFontSize = (size?: number, defaultSize: number = 7.5, canvasHeight: number = 1920): number => {
   if (!size) return defaultSize;
-  if (size <= 12.0) return Number(Math.max(3.5, Math.min(12.0, size)).toFixed(1));
-  return Number(Math.max(3.5, Math.min(12.0, size * 0.25)).toFixed(1));
+  if (size <= 12.0) return Number(Math.max(3.5, Math.min(15.0, size)).toFixed(1));
+  // 픽셀링 정밀 수식: (fontSizePx / canvasHeight) * 960 * 0.95
+  const scaled = (size / canvasHeight) * 960 * 0.95;
+  return Number(Math.max(3.5, Math.min(18.0, scaled)).toFixed(1));
 };
 
 /**
@@ -196,7 +216,7 @@ export function buildFullCapCutProjectBundle(opts: CapCutProjectExportOptions) {
   // -------------------------------------------------------------
   const videoMatId = generateId();
   const videoSegId = generateId();
-  const videoPath = opts.video.path || opts.video.url || 'video.mp4';
+  const videoPath = opts.video?.path || opts.video?.url || 'video.mp4';
   const videoFileName = videoPath.split(/[\/\\]/).pop() || 'video.mp4';
 
   const isLandscape = opts.aspectRatio === '16:9';
@@ -217,7 +237,7 @@ export function buildFullCapCutProjectBundle(opts: CapCutProjectExportOptions) {
     import_time: Math.floor(Date.now() / 1000),
   });
 
-  const videoScale = opts.video.scale ? opts.video.scale / 100 : 1.0;
+  const videoScale = opts.video?.scale ? opts.video.scale / 100 : 1.0;
   videoTrack.segments.push({
     id: videoSegId,
     material_id: videoMatId,
@@ -244,8 +264,9 @@ export function buildFullCapCutProjectBundle(opts: CapCutProjectExportOptions) {
     if (titleText.trim()) {
       const titleMatId = generateId();
       const titleSegId = generateId();
-      const titleCoord = toCapCutCoord(50, title.yPct || 12);
-      const titleSize = toCapcutFontSize(title.fontSize, 8.5);
+      const lineCount = title.mode === 'double' && title.line2 ? 2 : 1;
+      const titleCoord = toCapCutCoord(50, title.yPct || 12, lineCount, title.fontSize || 36, canvasWidth, canvasHeight);
+      const titleSize = toCapcutFontSize(title.fontSize, 8.5, canvasHeight);
 
       const line1Len = title.line1.length;
       const styles: any[] = [
@@ -316,10 +337,10 @@ export function buildFullCapCutProjectBundle(opts: CapCutProjectExportOptions) {
   allJabsToExport.forEach((jab, jIdx) => {
     const jabMatId = generateId();
     const jabSegId = generateId();
-    const jabCoord = toCapCutCoord(jab.xPct || 50, jab.yPct || 28);
+    const jabCoord = toCapCutCoord(jab.xPct || 50, jab.yPct || 28, 1, jab.fontSize || 32, canvasWidth, canvasHeight);
     const jabStartUs = toMicros((jab.startMs || 2500) / 1000);
     const jabDurationUs = toMicros(Math.max(1000, (jab.endMs - jab.startMs) || 3500) / 1000);
-    const jabSize = toCapcutFontSize(jab.fontSize, 6.5);
+    const jabSize = toCapcutFontSize(jab.fontSize, 6.5, canvasHeight);
 
     materials.texts.push({
       id: jabMatId,
@@ -376,10 +397,11 @@ export function buildFullCapCutProjectBundle(opts: CapCutProjectExportOptions) {
 
       const subMatId = generateId();
       const subSegId = generateId();
-      const subCoord = toCapCutCoord(sub.xPct || 50, sub.yPct || 78);
+      const subLineCount = cleanText.split('\n').length;
+      const subCoord = toCapCutCoord(sub.xPct || 50, sub.yPct || 78, subLineCount, sub.fontSize || 28, canvasWidth, canvasHeight);
       const subStartUs = toMicros((sub.startMs || 0) / 1000);
       const subDurUs = toMicros(Math.max(500, (sub.endMs - sub.startMs) || 2500) / 1000);
-      const subSize = toCapcutFontSize(sub.fontSize, 6.0);
+      const subSize = toCapcutFontSize(sub.fontSize, 6.0, canvasHeight);
 
       // Base style
       const baseColorRgb = hexToRgb01(sub.textColor || '#FFE500');

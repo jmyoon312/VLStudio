@@ -314,8 +314,8 @@ export default function ChannelAnalyticsPage() {
                         </Badge>
                     </CardHeader>
                     <CardContent className="p-4 space-y-3">
-                        {viralVideos.map((v: any) => (
-                            <div key={v.id} className="p-3.5 rounded-xl bg-muted/30 border border-border/60 space-y-2">
+                        {viralVideos.map((v: any, idx: number) => (
+                            <div key={v.id ? `viral-${v.id}` : `viral-${v.video_id || idx}-${idx}`} className="p-3.5 rounded-xl bg-muted/30 border border-border/60 space-y-2">
                                 <div className="flex items-start justify-between gap-2">
                                     <h4 className="text-xs sm:text-sm font-bold text-foreground line-clamp-1">{v.title}</h4>
                                     <Badge className="bg-emerald-500 text-white text-[10px] font-bold">
@@ -347,8 +347,8 @@ export default function ChannelAnalyticsPage() {
                         </Badge>
                     </CardHeader>
                     <CardContent className="p-4 space-y-3">
-                        {underperformingVideos.map((v: any) => (
-                            <div key={v.id} className="p-3.5 rounded-xl bg-muted/30 border border-border/60 space-y-2">
+                        {underperformingVideos.map((v: any, idx: number) => (
+                            <div key={v.id ? `under-${v.id}` : `under-${v.video_id || idx}-${idx}`} className="p-3.5 rounded-xl bg-muted/30 border border-border/60 space-y-2">
                                 <div className="flex items-start justify-between gap-2">
                                     <h4 className="text-xs sm:text-sm font-bold text-foreground line-clamp-1">{v.title}</h4>
                                     <Badge variant="destructive" className="text-[10px] font-bold">
@@ -363,7 +363,7 @@ export default function ChannelAnalyticsPage() {
                                     <Button
                                         size="sm"
                                         variant="outline"
-                                        onClick={() => diagnoseMutation.mutate({ video_id: v.id, title: v.title, views: v.views })}
+                                        onClick={() => diagnoseMutation.mutate({ video_id: v.video_id || String(v.id), title: v.title, views: v.views })}
                                         disabled={diagnoseMutation.isPending}
                                         className="h-6 text-[10px] px-2 rounded-md border-amber-500/40 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10"
                                     >

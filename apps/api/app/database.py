@@ -272,7 +272,7 @@ def migrate_source_external_id():
             except Exception as yt_err:
                 print(f"[Migration] youtube_channels auto_approve_default skipped: {yt_err}")
 
-            # 7. settings work_queue columns
+            # 7. settings work_queue columns & Hermes Core v0.21.3 columns
             try:
                 settings_cols = [c["name"] for c in inspector.get_columns("settings")]
                 if "work_queue_headless_mode" not in settings_cols:
@@ -281,8 +281,23 @@ def migrate_source_external_id():
                 if "work_queue_governance_mode" not in settings_cols:
                     conn.execute(text("ALTER TABLE settings ADD COLUMN work_queue_governance_mode VARCHAR(20) DEFAULT 'SMART'"))
                     print("[Migration] Added work_queue_governance_mode column to settings")
+                
+                # Hermes Core v0.21.3 Upgrades
+                hermes_new_cols = [
+                    ("hermes_cron_continuity_enabled", "BOOLEAN DEFAULT 1"),
+                    ("hermes_monitor_mode_enabled", "BOOLEAN DEFAULT 1"),
+                    ("hermes_subagent_steering_enabled", "BOOLEAN DEFAULT 1"),
+                    ("hermes_structured_schema_enforced", "BOOLEAN DEFAULT 1"),
+                    ("hermes_instruction_protection_enabled", "BOOLEAN DEFAULT 1"),
+                    ("hermes_har_api_mode", "VARCHAR(20) DEFAULT 'auto'"),
+                    ("hermes_fts_wal_pool_size", "INTEGER DEFAULT 5")
+                ]
+                for col_name, col_def in hermes_new_cols:
+                    if col_name not in settings_cols:
+                        conn.execute(text(f"ALTER TABLE settings ADD COLUMN {col_name} {col_def}"))
+                        print(f"[Migration] Added {col_name} column to settings")
             except Exception as st_err:
-                print(f"[Migration] settings work_queue migration skipped: {st_err}")
+                print(f"[Migration] settings work_queue / hermes migration skipped: {st_err}")
 
         return True
     except Exception as e:

@@ -100,34 +100,50 @@ class AnalyticsService:
         if not logs:
             logs = AnalyticsService._seed_video_logs(db, channel_id)
 
-        viral_videos = [
-            {
-                "id": log.video_id,
-                "title": log.title,
-                "views": log.views,
-                "retention_rate_3s": log.retention_rate_3s,
-                "retention_rate_5s": log.retention_rate_5s,
-                "hook_score": log.hook_score,
-                "strength_feedback": log.strength_feedback or "강렬한 질문형 오프닝과 빠른 템포 전환으로 초반 이탈 완벽 방어",
-                "thumbnail_url": log.thumbnail_url
-            }
-            for log in logs if log.status_tier == "viral"
-        ]
+        viral_videos = []
+        seen_viral = set()
+        for log in logs:
+            if log.status_tier == "viral":
+                uid = f"{log.channel_id}_{log.video_id}_{log.id}"
+                if uid in seen_viral:
+                    continue
+                seen_viral.add(uid)
+                viral_videos.append({
+                    "id": uid,
+                    "db_id": log.id,
+                    "video_id": log.video_id,
+                    "channel_id": log.channel_id,
+                    "title": log.title,
+                    "views": log.views,
+                    "retention_rate_3s": log.retention_rate_3s,
+                    "retention_rate_5s": log.retention_rate_5s,
+                    "hook_score": log.hook_score,
+                    "strength_feedback": log.strength_feedback or "강렬한 질문형 오프닝과 빠른 템포 전환으로 초반 이탈 완벽 방어",
+                    "thumbnail_url": log.thumbnail_url
+                })
 
-        underperforming_videos = [
-            {
-                "id": log.video_id,
-                "title": log.title,
-                "views": log.views,
-                "retention_rate_3s": log.retention_rate_3s,
-                "retention_rate_5s": log.retention_rate_5s,
-                "hook_score": log.hook_score,
-                "weakness_feedback": log.weakness_feedback or "초반 3초 내에 핵심 호기심 미제공, 첫 컷 장면 전환 지연으로 이탈 발생",
-                "diagnosis_summary": log.diagnosis_summary,
-                "thumbnail_url": log.thumbnail_url
-            }
-            for log in logs if log.status_tier == "underperforming"
-        ]
+        underperforming_videos = []
+        seen_under = set()
+        for log in logs:
+            if log.status_tier == "underperforming":
+                uid = f"{log.channel_id}_{log.video_id}_{log.id}"
+                if uid in seen_under:
+                    continue
+                seen_under.add(uid)
+                underperforming_videos.append({
+                    "id": uid,
+                    "db_id": log.id,
+                    "video_id": log.video_id,
+                    "channel_id": log.channel_id,
+                    "title": log.title,
+                    "views": log.views,
+                    "retention_rate_3s": log.retention_rate_3s,
+                    "retention_rate_5s": log.retention_rate_5s,
+                    "hook_score": log.hook_score,
+                    "weakness_feedback": log.weakness_feedback or "초반 3초 내에 핵심 호기심 미제공, 첫 컷 장면 전환 지연으로 이탈 발생",
+                    "diagnosis_summary": log.diagnosis_summary,
+                    "thumbnail_url": log.thumbnail_url
+                })
 
         return {
             "time_range": time_range,
@@ -196,10 +212,21 @@ class AnalyticsService:
 
     @staticmethod
     def _seed_video_logs(db: Session, channel_id: str) -> List[models.VideoPerformanceLog]:
+        target_ch_1 = channel_id if channel_id != "all" else "ch_default_1"
+        target_ch_2 = channel_id if channel_id != "all" else "ch_default_2"
+        v_suffix = f"_{channel_id}" if channel_id != "all" else "_01"
+
+        # Check if already seeded for this channel
+        existing = db.query(models.VideoPerformanceLog).filter(
+            models.VideoPerformanceLog.channel_id.in_([target_ch_1, target_ch_2])
+        ).all()
+        if existing:
+            return existing
+
         logs = [
             models.VideoPerformanceLog(
-                channel_id=channel_id if channel_id != "all" else "ch_default_1",
-                video_id="v_viral_01",
+                channel_id=target_ch_1,
+                video_id=f"v_viral{v_suffix}",
                 title="단 3초 만에 10억 번 비밀 실화 쇼츠",
                 thumbnail_url="",
                 views=148000,
@@ -213,8 +240,8 @@ class AnalyticsService:
                 analyzed_at=datetime.now()
             ),
             models.VideoPerformanceLog(
-                channel_id=channel_id if channel_id != "all" else "ch_default_2",
-                video_id="v_under_01",
+                channel_id=target_ch_2,
+                video_id=f"v_under{v_suffix}",
                 title="일상에서 유용한 과학 상식 5가지 모음",
                 thumbnail_url="",
                 views=3200,

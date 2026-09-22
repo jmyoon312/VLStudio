@@ -59,6 +59,7 @@ const ShortsEditorStudio = lazy(() => import('./pages/ShortsEditorStudio'));
 
 // Sovereign Studios & Tools
 const ShortsBatchStudio = lazy(() => import('./pages/ShortsBatchStudio'));
+const ProVideoEditorStudio = lazy(() => import('./pages/editors/ProVideoEditorStudio'));
 const ClassicEditorStudio = lazy(() => import('./pages/editors/ClassicEditorStudio'));
 const InstaEditorStudio = lazy(() => import('./pages/editors/InstaEditorStudio'));
 const GunlimboEditorStudio = lazy(() => import('./pages/editors/GunlimboEditorStudio'));
@@ -197,6 +198,11 @@ function MainAppContent() {
                     <Route path="/shorts-production-studio" element={<RouteErrorBoundary><ShortsProductionStudio /></RouteErrorBoundary>} />
                     {/* 올인원 일괄 생성 */}
                     <Route path="/shorts-batch" element={<RouteErrorBoundary><ShortsBatchStudio /></RouteErrorBoundary>} />
+
+                    {/* 플래그십 프로 NLE 비디오 편집기 */}
+                    <Route path="/pro-editor" element={<RouteErrorBoundary><ProVideoEditorStudio /></RouteErrorBoundary>} />
+                    <Route path="/video-editor" element={<Navigate to="/pro-editor" replace />} />
+                    <Route path="/editor" element={<Navigate to="/pro-editor" replace />} />
 
                     {/* 4대 전문 편집기 */}
                     <Route path="/shorts-editor" element={<Navigate to="/shorts-editor/classic" replace />} />

@@ -189,7 +189,7 @@ export const CommentCardInspectorForm: React.FC<CommentCardInspectorFormProps> =
                       <div className="space-y-1">
                         <span className="text-[10px] font-semibold text-muted-foreground">댓글 내용</span>
                         <Textarea
-                          value={commentCard.text}
+                          value={commentCard.text ?? ''}
                           onChange={(e) => setCommentCard(prev => ({ ...prev, text: e.target.value }))}
                           className="w-full h-16 text-xs p-2 bg-background border-border text-foreground rounded-[2px] resize-none focus:border-primary"
                         />
@@ -201,7 +201,7 @@ export const CommentCardInspectorForm: React.FC<CommentCardInspectorFormProps> =
                           <span className="text-[9.5px] text-muted-foreground">작성자 닉네임</span>
                           <input
                             type="text"
-                            value={commentCard.author}
+                            value={commentCard.author ?? ''}
                             onChange={(e) => setCommentCard(prev => ({ ...prev, author: e.target.value }))}
                             className="w-full h-7 px-2 text-xs bg-background border border-border rounded text-foreground"
                           />
@@ -210,7 +210,7 @@ export const CommentCardInspectorForm: React.FC<CommentCardInspectorFormProps> =
                           <span className="text-[9.5px] text-muted-foreground">좋아요 수</span>
                           <input
                             type="text"
-                            value={commentCard.likes}
+                            value={commentCard.likes ?? ''}
                             onChange={(e) => setCommentCard(prev => ({ ...prev, likes: e.target.value }))}
                             className="w-full h-7 px-2 text-xs bg-background border border-border rounded text-foreground"
                           />

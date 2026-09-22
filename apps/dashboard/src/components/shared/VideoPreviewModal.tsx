@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -169,10 +169,6 @@ export const VideoPreviewModal: React.FC<VideoPreviewModalProps> = ({
     setSelectedYtTitle(defaultTitle.replace(/\.[^/.]+$/, ''));
   }, [open, detailedJob, videoData, title]);
 
-  // ─────────────────────────────────────────────────────────────
-  // 2. CONDITIONAL RETURN (AFTER ALL HOOKS HAVE BEEN EXECUTED)
-  // ─────────────────────────────────────────────────────────────
-  if (!open) return null;
 
   // Video time tracking
   const handleTimeUpdate = () => {
@@ -264,27 +260,25 @@ export const VideoPreviewModal: React.FC<VideoPreviewModalProps> = ({
 
   const currentTitle = selectedYtTitle || displayTitle.replace(/\.[^/.]+$/, '');
   // 🎯 실시간 AI 연출 오버레이 매칭 (자막, 쨉쨉이)
-  const activeSub = useMemo(() => {
-    if (!aiOverlayEnabled) return null;
-    return situationSubs.find((s: any) => {
-      const start = Number(s.start ?? s.start_time ?? 0);
-      const end = Number(s.end ?? s.end_time ?? (start + 2.0));
-      return currentTime >= start && currentTime <= end;
-    }) || null;
-  }, [situationSubs, currentTime, aiOverlayEnabled]);
+  const activeSub = aiOverlayEnabled
+    ? (situationSubs.find((s: any) => {
+        const start = Number(s.start ?? s.start_time ?? 0);
+        const end = Number(s.end ?? s.end_time ?? (start + 2.0));
+        return currentTime >= start && currentTime <= end;
+      }) || null)
+    : null;
 
-  const activeJab = useMemo(() => {
-    if (!aiOverlayEnabled) return null;
-    return jjapSubs.find((j: any) => {
-      const start = Number(j.start ?? j.start_time ?? 0);
-      const end = Number(j.end ?? j.end_time ?? (start + 1.8));
-      return currentTime >= start && currentTime <= end;
-    }) || null;
-  }, [jjapSubs, currentTime, aiOverlayEnabled]);
+  const activeJab = aiOverlayEnabled
+    ? (jjapSubs.find((j: any) => {
+        const start = Number(j.start ?? j.start_time ?? 0);
+        const end = Number(j.end ?? j.end_time ?? (start + 1.8));
+        return currentTime >= start && currentTime <= end;
+      }) || null)
+    : null;
 
   // 상단바 2단 컬러 분할
   const mainHookTitle = primaryAnalysis?.main_hook_title || currentTitle || '';
-  const titleParts = useMemo(() => {
+  const titleParts = (() => {
     if (!mainHookTitle) return { p1: '', p2: '' };
     const words = mainHookTitle.split(' ');
     if (words.length <= 2) return { p1: words[0] || '', p2: words.slice(1).join(' ') };
@@ -293,7 +287,7 @@ export const VideoPreviewModal: React.FC<VideoPreviewModalProps> = ({
       p1: words.slice(0, mid).join(' '),
       p2: words.slice(mid).join(' ')
     };
-  }, [mainHookTitle]);
+  })();
 
   // NLE 정밀 편집기 핸드오프
   const handleHandoffToNle = () => {

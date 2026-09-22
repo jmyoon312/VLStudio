@@ -18,7 +18,8 @@ router = APIRouter(tags=["auth"])
 
 # [CONFIGURATION & DECOUPLING]
 # Zero source-code pollution: all dynamic keys, secrets, database are stored outside source tree
-storage_dir = os.environ.get("VIRALOOP_STORAGE_DIR", os.path.join(os.getcwd(), "..", ".."))
+default_storage_dir = os.path.join(os.environ.get("LOCALAPPDATA", os.path.expanduser("~")), "ViraLoop Studio")
+storage_dir = os.environ.get("VIRALOOP_STORAGE_DIR", default_storage_dir)
 if not os.path.isabs(storage_dir):
     storage_dir = os.path.abspath(storage_dir)
 

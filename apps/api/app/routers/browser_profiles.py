@@ -125,10 +125,15 @@ def sync_youtube_channel_as_profile(
     base_user_data = os.path.join(root_path, "04_Profiles")
     os.makedirs(base_user_data, exist_ok=True)
     
-    user_data_dir = os.path.join(base_user_data, yt_channel.channel_id)
-    
     channel_title = getattr(yt_channel, 'channel_name', None) or getattr(yt_channel, 'title', None) or '브랜드 채널'
     parent_brand_id = getattr(yt_channel, 'owner_profile_id', None)
+    owner_profile = db.query(models.Profile).filter(models.Profile.id == parent_brand_id).first() if parent_brand_id else None
+    if owner_profile and owner_profile.folder_path:
+        user_data_dir = owner_profile.folder_path
+    elif parent_brand_id:
+        user_data_dir = os.path.join(base_user_data, parent_brand_id)
+    else:
+        user_data_dir = os.path.join(base_user_data, yt_channel.channel_id)
     
     profile = models.BrowserProfile(
         id=yt_channel.channel_id,

@@ -493,6 +493,9 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
     holeWidthPct: 88,
     holeHeightPct: 46,
     holeRoundness: 16,
+    holeBorderWidth: 1,
+    holeBorderColor: '#E5E7EB',
+    holeShadow: true,
     theme: 'white' as 'white' | 'dark' | 'sunset' | 'cyber',
   });
 

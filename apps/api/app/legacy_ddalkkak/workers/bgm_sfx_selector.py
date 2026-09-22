@@ -18,11 +18,19 @@ from pathlib import Path
 from typing import Optional
 
 
-# 모듈 위치 기준 절대경로 — cwd 의존 X (외부 스크립트/워커가 다른 cwd로 호출해도 안전)
-_DATA_DIR = Path(__file__).resolve().parent.parent / "data"
-META_PATH = _DATA_DIR / "bgm_library_meta.json"
-LIB_ROOT = _DATA_DIR / "bgm_library"
-SFX_TRIM_CACHE = _DATA_DIR / "bgm_library_sfx_trimmed"
+# 03_Assets 단일 진실 공급원 우선 참조 (없을 시 모듈 로컬 data 폴더 fallback)
+from app.config import settings as app_settings
+_ASSETS_BGM_DIR = Path(app_settings.ASSETS_DIR) / "bgm"
+if _ASSETS_BGM_DIR.exists():
+    _DATA_DIR = _ASSETS_BGM_DIR
+    META_PATH = _DATA_DIR / "bgm_library_meta.json"
+    LIB_ROOT = _DATA_DIR
+    SFX_TRIM_CACHE = _DATA_DIR / "sfx_trimmed"
+else:
+    _DATA_DIR = Path(__file__).resolve().parent.parent / "data"
+    META_PATH = _DATA_DIR / "bgm_library_meta.json"
+    LIB_ROOT = _DATA_DIR / "bgm_library"
+    SFX_TRIM_CACHE = _DATA_DIR / "bgm_library_sfx_trimmed"
 
 
 def _ffmpeg_bin() -> str:

@@ -6,7 +6,7 @@ import { useNavigate } from 'react-router-dom';
 
 import api, { apiLong, Settings as SettingsType } from '../lib/api';
 
-import { Save, FolderOpen, Loader2, Download, Upload, AlertTriangle, FileText, Play, RefreshCcw, RotateCcw, XCircle, Settings as SettingsIcon, BrainCircuit, Mic2, MessageSquare, Wrench, Globe, Info, Trash2, Copy, Server, Plus, Minus, Search, Zap, Cpu, ExternalLink, Home, Terminal, TrendingUp, RadioReceiver, Shield, Volume2, Rocket, CheckCircle2, Film, Code2, Sparkles, Clock, Bot, Workflow, Layers, Send } from 'lucide-react';
+import { Save, FolderOpen, Loader2, Download, Upload, AlertTriangle, FileText, Play, RefreshCcw, RotateCcw, XCircle, Settings as SettingsIcon, BrainCircuit, Mic2, MessageSquare, Wrench, Globe, Info, Trash2, Copy, Server, Plus, Minus, Search, Zap, Cpu, ExternalLink, Home, Terminal, TrendingUp, RadioReceiver, Shield, Volume2, Rocket, CheckCircle2, Film, Code2, Sparkles, Clock, Bot, Workflow, Layers, Send, Pause, Check, ArrowDownUp } from 'lucide-react';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -36,7 +36,6 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 import AIModelSelector from '@/components/shared/AIModelSelector';
 import OmniRouteControlCard from '@/components/shared/OmniRouteControlCard';
-import DeepSeekHarnessControlCard from '@/components/shared/DeepSeekHarnessControlCard';
 import { SystemSettingsTab } from './SystemSettingsTab';
 
 // Helper Component for Key Lists
@@ -1071,33 +1070,28 @@ const UnifiedEnginesHub = ({ formData, setFormData }: { formData: any; setFormDa
                             <div className="space-y-1.5">
                                 <div className="flex items-center justify-between">
                                     <span className="font-bold text-sm text-foreground flex items-center gap-1.5">
-                                        <Bot className="w-4 h-4 text-amber-500" /> DeepSeek Harness AI
+                                        <Bot className="w-4 h-4 text-indigo-500" /> Hermes Sovereign Core
                                     </span>
-                                    {isLoading ? (
-                                        <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground" />
-                                    ) : (
-                                        <Badge variant="outline" className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30 font-mono text-xs font-bold">
-                                            v{enginesStatus?.deepseek_harness?.version || '0.1.5'}
-                                        </Badge>
-                                    )}
+                                    <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 font-mono text-xs font-bold">
+                                        v0.21.3 네이티브 통합
+                                    </Badge>
                                 </div>
-                                <p className="text-xs text-muted-foreground">자율 AI 코어 에이전트 & Web 터미널 런타임 (포트 3080)</p>
+                                <p className="text-xs text-muted-foreground">3-Tier Sovereign Brain & 6단계 무인 자율 제작 (외부 3080 의존성 0% 제거)</p>
                             </div>
                             <div className="flex items-center justify-between pt-2 border-t border-border/50">
                                 <div className="flex items-center gap-2">
-                                    <span className="text-xs text-muted-foreground font-medium">자동 업데이트</span>
-                                    <Switch 
-                                        checked={formData.dsh_auto_update !== false} 
-                                        onCheckedChange={c => setFormData({ ...formData, dsh_auto_update: c })} 
-                                    />
+                                    <span className="text-xs text-muted-foreground font-medium">연동 상태</span>
+                                    <span className="text-xs font-bold text-emerald-500">통합 정상 가동</span>
                                 </div>
                                 <Button
                                     variant="ghost"
                                     size="sm"
-                                    onClick={() => window.open('http://127.0.0.1:3080', '_blank')}
+                                    onClick={() => {
+                                        window.location.hash = '#/instant-studio';
+                                    }}
                                     className="h-6 text-[11px] px-2 text-primary hover:bg-primary/10 gap-1 font-bold cursor-pointer"
                                 >
-                                    <span>웹 열기</span>
+                                    <span>자율 스튜디오 열기</span>
                                     <ExternalLink className="w-3 h-3" />
                                 </Button>
                             </div>
@@ -1433,7 +1427,7 @@ const Settings = () => {
     const [isLogOpen, setIsLogOpen] = useState(false);
 
     const [logTab, setLogTab] = useState<'scheduler' | 'server'>('scheduler');
-
+    const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc'); // 최신순(desc) 기본
     const [logs, setLogs] = useState<string[]>([]);
 
     const [searchQuery, setSearchQuery] = useState("");
@@ -1443,6 +1437,14 @@ const Settings = () => {
     const [isScanning, setIsScanning] = useState(false);
 
     const [isUpdatingYtdlp, setIsUpdatingYtdlp] = useState(false);
+
+    const [isAutoRefresh, setIsAutoRefresh] = useState(true);
+
+    const [isCopied, setIsCopied] = useState(false);
+
+    const [hasSelection, setHasSelection] = useState(false);
+
+    const logContainerRef = useRef<HTMLDivElement>(null);
 
     // [NEW] Connectivity Test State
 
@@ -1622,13 +1624,17 @@ const Settings = () => {
                 fetchSchedulerStatus(); // [NEW] Fetch schedule
             }
 
-            interval = setInterval(fetchLogs, 2000);
+            interval = setInterval(() => {
+                if (isAutoRefresh) {
+                    fetchLogs();
+                }
+            }, 2000);
 
         }
 
         return () => clearInterval(interval);
 
-    }, [isLogOpen, logTab]);
+    }, [isLogOpen, logTab, isAutoRefresh, sortOrder]);
 
     // [NEW] Countdown Timer
 
@@ -1708,11 +1714,27 @@ const Settings = () => {
 
         try {
 
-            const endpoint = logTab === 'server' ? '/logs/server?lines=500' : '/logs/scheduler?lines=500';
+            const endpoint = logTab === 'server' 
+                ? `/logs/server?lines=500&order=${sortOrder}` 
+                : `/logs/scheduler?lines=500&order=${sortOrder}`;
 
             const res = await api.get(endpoint);
 
-            setLogs(res.data.logs || []);
+            const newLogs: string[] = res.data.logs || [];
+
+            // If user has active drag-selection in the window, hold off updating to prevent clearing selection
+            const currentSelection = window.getSelection()?.toString();
+            if (currentSelection && currentSelection.trim().length > 0) {
+                return;
+            }
+
+            setLogs(prev => {
+                // If logs have not changed, preserve previous array reference so DOM nodes are not re-rendered
+                if (prev.length === newLogs.length && (prev.length === 0 || (prev[0] === newLogs[0] && prev[prev.length - 1] === newLogs[newLogs.length - 1]))) {
+                    return prev;
+                }
+                return newLogs;
+            });
 
         } catch (e) {
 
@@ -1746,6 +1768,61 @@ const Settings = () => {
 
     };
 
+    // 🌟 Multi-Tier Bulletproof Clipboard Engine (Electron Native -> Web API -> In-Viewport Fallback)
+    const copyToClipboardSafely = async (text: string): Promise<boolean> => {
+        if (!text) return false;
+
+        // 1. Electron Native Desktop Clipboard (Highest Priority in Desktop Context)
+        try {
+            const apiObj = (window as any).electronAPI;
+            if (apiObj?.copyToClipboard) {
+                const ok = apiObj.copyToClipboard(text);
+                if (ok !== false) return true;
+            }
+        } catch (e) {
+            console.warn("Electron clipboard write failed:", e);
+        }
+
+        // 2. Standard Web Clipboard API (Direct execution on click gesture)
+        try {
+            if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+                await navigator.clipboard.writeText(text);
+                return true;
+            }
+        } catch (err) {
+            console.warn("navigator.clipboard.writeText failed:", err);
+        }
+
+        // 3. Fallback: in-viewport invisible textarea execCommand
+        try {
+            const textArea = document.createElement("textarea");
+            textArea.value = text;
+            textArea.style.position = "fixed";
+            textArea.style.top = "0";
+            textArea.style.left = "0";
+            textArea.style.width = "2em";
+            textArea.style.height = "2em";
+            textArea.style.padding = "0";
+            textArea.style.border = "none";
+            textArea.style.outline = "none";
+            textArea.style.boxShadow = "none";
+            textArea.style.background = "transparent";
+            textArea.style.opacity = "0.01";
+            textArea.setAttribute("readonly", "");
+            document.body.appendChild(textArea);
+            textArea.focus({ preventScroll: true });
+            textArea.select();
+            textArea.setSelectionRange(0, text.length);
+            const success = document.execCommand("copy");
+            document.body.removeChild(textArea);
+            if (success) return true;
+        } catch (err) {
+            console.warn("execCommand fallback failed:", err);
+        }
+
+        return false;
+    };
+
     const copyLogs = async () => {
 
         if (!filteredLogs || filteredLogs.length === 0) {
@@ -1757,51 +1834,45 @@ const Settings = () => {
         }
 
         const textToCopy = filteredLogs.join('\n');
+        const ok = await copyToClipboardSafely(textToCopy);
 
-        // 1. Electron Native Clipboard (Bypasses all DOM focus constraints)
-        try {
-            const apiObj = (window as any).electronAPI;
-            if (apiObj?.copyToClipboard) {
-                const ok = apiObj.copyToClipboard(textToCopy);
-                if (ok !== false) {
-                    toast.success(`로그 ${filteredLogs.length}줄이 클립보드에 복사되었습니다.`);
-                    return;
-                }
-            }
-        } catch {}
-
-        // 2. DOM execCommand Fallback (Explicit focus to circumvent 'Document is not focused')
-        try {
-            const textArea = document.createElement("textarea");
-            textArea.value = textToCopy;
-            textArea.style.position = "fixed";
-            textArea.style.left = "-999999px";
-            textArea.style.top = "-999999px";
-            textArea.style.opacity = "0";
-            document.body.appendChild(textArea);
-            textArea.focus();
-            textArea.select();
-            const success = document.execCommand("copy");
-            document.body.removeChild(textArea);
-            if (success) {
-                toast.success(`로그 ${filteredLogs.length}줄이 클립보드에 복사되었습니다.`);
-                return;
-            }
-        } catch {}
-
-        // 3. Web Standard Clipboard API Fallback
-        try {
-            if (navigator.clipboard && window.isSecureContext) {
-                await navigator.clipboard.writeText(textToCopy);
-                toast.success(`로그 ${filteredLogs.length}줄이 클립보드에 복사되었습니다.`);
-                return;
-            }
-        } catch (err: any) {
-            console.warn("navigator.clipboard error:", err);
+        if (ok) {
+            setIsCopied(true);
+            setTimeout(() => setIsCopied(false), 2000);
+            toast.success(`로그 ${filteredLogs.length}줄이 클립보드에 복사되었습니다.`);
+        } else {
+            toast.error("클립보드 복사에 실패했습니다. 마우스로 드래그 후 Ctrl+C를 눌러주세요.");
         }
 
-        toast.error("클립보드 복사에 실패했습니다. 텍스트를 드래그하여 복사해 주세요.");
+    };
 
+    const copySingleLine = async (lineText: string) => {
+        const ok = await copyToClipboardSafely(lineText);
+        if (ok) {
+            toast.success("해당 로그 한 줄이 클립보드에 복사되었습니다.");
+        } else {
+            toast.error("복사에 실패했습니다.");
+        }
+    };
+
+    const copySelectedText = async () => {
+        const sel = window.getSelection()?.toString();
+        if (!sel || !sel.trim()) {
+            toast.info("드래그하여 선택된 텍스트가 없습니다.");
+            return;
+        }
+        const ok = await copyToClipboardSafely(sel);
+        if (ok) {
+            toast.success("선택한 텍스트 영역이 클립보드에 복사되었습니다.");
+            setHasSelection(false);
+        } else {
+            toast.error("선택 영역 복사에 실패했습니다. Ctrl+C를 직접 눌러주세요.");
+        }
+    };
+
+    const handleLogSelectionCheck = () => {
+        const sel = window.getSelection()?.toString();
+        setHasSelection(!!sel && sel.trim().length > 0);
     };
 
     const triggerScan = async () => {
@@ -2884,9 +2955,6 @@ const Settings = () => {
                             {/* 🚀 OmniRoute Engine Control Center (Lifecycle & Updates) */}
                             <OmniRouteControlCard />
 
-                            {/* 🧠 DeepSeek Harness Autonomous Web & Automation Hub */}
-                            <DeepSeekHarnessControlCard />
-
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
                                 {/* Left Column: OmniRoute Gateway Configuration */}
@@ -3898,10 +3966,78 @@ const Settings = () => {
 
                         <div className="flex items-center gap-2">
 
-                            <Button variant="outline" size="sm" onClick={copyLogs} className="h-8 text-xs text-foreground hover:bg-muted border-border rounded-xl">
+                            {hasSelection && (
+                                <Button
+                                    variant="secondary"
+                                    size="sm"
+                                    onClick={copySelectedText}
+                                    className="h-8 text-xs bg-primary/10 text-primary border border-primary/30 hover:bg-primary/20 rounded-xl transition-all font-semibold"
+                                >
+                                    <Copy className="w-3.5 h-3.5 mr-1" /> 선택 영역 복사
+                                </Button>
+                            )}
 
-                                <Copy className="w-3.5 h-3.5 mr-1" /> 복사
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')}
+                                className={cn(
+                                    "h-8 text-xs border-border rounded-xl transition-all font-semibold",
+                                    sortOrder === 'desc'
+                                        ? "text-primary bg-primary/10 border-primary/30"
+                                        : "text-muted-foreground hover:text-foreground"
+                                )}
+                                title={sortOrder === 'desc' ? "현재: 최신순 (최신 로그가 상단에 표시) -> 클릭 시 과거순 전환" : "현재: 과거순 (과거 로그가 상단에 표시) -> 클릭 시 최신순 전환"}
+                            >
+                                <ArrowDownUp className="w-3.5 h-3.5 mr-1" />
+                                {sortOrder === 'desc' ? "최신순 (상단 최신)" : "과거순 (하단 최신)"}
+                            </Button>
 
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setIsAutoRefresh(!isAutoRefresh)}
+                                className={cn(
+                                    "h-8 text-xs border-border rounded-xl transition-all",
+                                    isAutoRefresh
+                                        ? "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
+                                        : "text-amber-600 dark:text-amber-400 bg-amber-500/10 border-amber-500/20 font-medium"
+                                )}
+                                title={isAutoRefresh ? "실시간 갱신 일시정지 (텍스트 선택/검토에 적합)" : "실시간 갱신 재개"}
+                            >
+                                {isAutoRefresh ? (
+                                    <>
+                                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse mr-1.5 shrink-0" />
+                                        실시간
+                                    </>
+                                ) : (
+                                    <>
+                                        <Pause className="w-3.5 h-3.5 mr-1 text-amber-500" />
+                                        일시정지됨
+                                    </>
+                                )}
+                            </Button>
+
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={copyLogs}
+                                className={cn(
+                                    "h-8 text-xs border-border rounded-xl transition-all",
+                                    isCopied
+                                        ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 font-bold"
+                                        : "text-foreground hover:bg-muted"
+                                )}
+                            >
+                                {isCopied ? (
+                                    <>
+                                        <Check className="w-3.5 h-3.5 mr-1 text-emerald-500" /> 복사 완료!
+                                    </>
+                                ) : (
+                                    <>
+                                        <Copy className="w-3.5 h-3.5 mr-1" /> 전체 복사
+                                    </>
+                                )}
                             </Button>
 
                             <Button variant="outline" size="sm" onClick={clearLogs} className="h-8 text-xs text-rose-600 hover:text-rose-700 hover:bg-rose-500/10 border-border rounded-xl">
@@ -3967,17 +4103,26 @@ const Settings = () => {
 
                     </div>
 
-                    {/* Log Terminal Window - Theme Adaptive */}
+                    {/* Log Terminal Window - Theme Adaptive & Fully Selectable */}
 
-                    <ScrollArea className="flex-1 p-4 bg-slate-50/70 dark:bg-zinc-950 font-mono text-xs overflow-y-auto">
+                    <div 
+                        ref={logContainerRef}
+                        onMouseUp={handleLogSelectionCheck}
+                        onKeyUp={handleLogSelectionCheck}
+                        className="flex-1 p-4 bg-slate-50/70 dark:bg-zinc-950 font-mono text-xs overflow-y-auto select-text cursor-text selection:bg-primary/30 selection:text-foreground scrollbar-thin"
+                        style={{ userSelect: 'text', WebkitUserSelect: 'text' }}
+                    >
 
                         {filteredLogs.length === 0 ? (
 
-                            <div className="text-center py-12 text-muted-foreground">기록된 로그가 없거나 검색 조건과 일치하는 로그가 없습니다.</div>
+                            <div className="text-center py-12 text-muted-foreground select-none">기록된 로그가 없거나 검색 조건과 일치하는 로그가 없습니다.</div>
 
                         ) : (
 
-                            <div className="space-y-1 divide-y divide-slate-200/70 dark:divide-zinc-800/60">
+                            <div 
+                                className="space-y-1 divide-y divide-slate-200/70 dark:divide-zinc-800/60 select-text cursor-text"
+                                style={{ userSelect: 'text', WebkitUserSelect: 'text' }}
+                            >
 
                                 {filteredLogs.map((log, i) => {
 
@@ -3989,31 +4134,50 @@ const Settings = () => {
 
                                     return (
 
-                                        <div key={i} className="py-1.5 flex items-start gap-2 leading-relaxed">
+                                        <div 
+                                            key={i} 
+                                            className="py-1.5 flex items-start gap-2 leading-relaxed select-text cursor-text hover:bg-muted/40 px-1.5 rounded transition-colors group"
+                                            style={{ userSelect: 'text', WebkitUserSelect: 'text' }}
+                                        >
 
                                             {isError ? (
 
-                                                <Badge variant="outline" className="bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-800 text-[10px] px-1.5 py-0 shrink-0 font-bold">ERROR</Badge>
+                                                <Badge variant="outline" className="bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-800 text-[10px] px-1.5 py-0 shrink-0 font-bold select-none pointer-events-none">ERROR</Badge>
 
                                             ) : isWarn ? (
 
-                                                <Badge variant="outline" className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-800 text-[10px] px-1.5 py-0 shrink-0 font-bold">WARN</Badge>
+                                                <Badge variant="outline" className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-800 text-[10px] px-1.5 py-0 shrink-0 font-bold select-none pointer-events-none">WARN</Badge>
 
                                             ) : isSuccess ? (
 
-                                                <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800 text-[10px] px-1.5 py-0 shrink-0 font-bold">OK</Badge>
+                                                <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800 text-[10px] px-1.5 py-0 shrink-0 font-bold select-none pointer-events-none">OK</Badge>
 
                                             ) : (
 
-                                                <Badge variant="outline" className="bg-slate-200/60 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 border-slate-300 dark:border-zinc-700 text-[10px] px-1.5 py-0 shrink-0 font-bold">INFO</Badge>
+                                                <Badge variant="outline" className="bg-slate-200/60 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 border-slate-300 dark:border-zinc-700 text-[10px] px-1.5 py-0 shrink-0 font-bold select-none pointer-events-none">INFO</Badge>
 
                                             )}
 
-                                            <span className={`flex-1 break-all ${isError ? 'text-rose-700 dark:text-rose-300 font-semibold' : isWarn ? 'text-amber-700 dark:text-amber-300' : isSuccess ? 'text-emerald-700 dark:text-emerald-300' : 'text-slate-800 dark:text-zinc-200'}`}>
+                                            <span 
+                                                className={cn(
+                                                    "flex-1 break-all select-text cursor-text",
+                                                    isError ? 'text-rose-700 dark:text-rose-300 font-semibold' : isWarn ? 'text-amber-700 dark:text-amber-300' : isSuccess ? 'text-emerald-700 dark:text-emerald-300' : 'text-slate-800 dark:text-zinc-200'
+                                                )}
+                                                style={{ userSelect: 'text', WebkitUserSelect: 'text' }}
+                                            >
 
                                                 {log}
 
                                             </span>
+
+                                            <button
+                                                type="button"
+                                                onClick={() => copySingleLine(log)}
+                                                title="이 한 줄 복사"
+                                                className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground p-1 rounded hover:bg-background/80 border border-transparent hover:border-border transition-all shrink-0 cursor-pointer select-none"
+                                            >
+                                                <Copy className="w-3 h-3" />
+                                            </button>
 
                                         </div>
 
@@ -4025,13 +4189,21 @@ const Settings = () => {
 
                         )}
 
-                    </ScrollArea>
+                    </div>
 
-                    <div className="p-3 border-t border-border bg-muted/20 text-xs text-muted-foreground flex justify-between items-center">
+                    <div className="p-3 border-t border-border bg-muted/20 text-xs text-muted-foreground flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
 
-                        <span>표시 중인 로그: {filteredLogs.length}줄 / 전체: {logs.length}줄</span>
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                            <span className="font-mono">표시 중인 로그: {filteredLogs.length}줄 / 전체: {logs.length}줄</span>
+                            <Badge variant="outline" className="text-[10px] bg-primary/10 text-primary border-primary/20 font-bold">
+                                {sortOrder === 'desc' ? "최신순 (상단 최신)" : "과거순 (하단 최신)"}
+                            </Badge>
+                            <span className="text-[11px] text-muted-foreground/80">
+                                💡 마우스로 원하는 부분을 드래그하여 자유롭게 선택 &amp; 복사(Ctrl+C)할 수 있습니다.
+                            </span>
+                        </div>
 
-                        <Button size="sm" variant="ghost" onClick={() => setIsLogOpen(false)} className="h-7 text-xs rounded-lg">닫기</Button>
+                        <Button size="sm" variant="ghost" onClick={() => setIsLogOpen(false)} className="h-7 text-xs rounded-lg shrink-0">닫기</Button>
 
                     </div>
 

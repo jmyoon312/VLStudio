@@ -86,11 +86,18 @@ const Incubator = () => {
     };
 
     useEffect(() => {
+        // 컴포넌트 마운트 시 탭과 무관하게 상단 배지용 네트워크 상태를 즉시 조회 (5ms 초고속 캐시)
+        loadNetworkStatus();
+
         if (activeTab === 'network') {
-            loadNetworkStatus();
             pollingRef.current = setInterval(() => {
                 loadNetworkStatus();
             }, 3000);
+        } else {
+            // 기타 탭에서도 10초 주기로 네트워크 상태 동기화 유지
+            pollingRef.current = setInterval(() => {
+                loadNetworkStatus();
+            }, 10000);
         }
         return () => {
             if (pollingRef.current) clearInterval(pollingRef.current);

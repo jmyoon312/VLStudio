@@ -28,8 +28,9 @@ def read_settings(db: Session = Depends(database.get_db)):
     default_whisper_path = app_whisper_path
     default_supertonic_path = app_supertonic_path
 
-    if not settings.root_download_path:
-        settings.root_download_path = os.path.normpath(settings_conf.MEDIA_ROOT) if settings_conf.MEDIA_ROOT else ""
+    default_download_path = os.path.normpath(settings_conf.DOWNLOADS_DIR)
+    if not settings.root_download_path or settings.root_download_path == os.path.normpath(settings_conf.MEDIA_ROOT):
+        settings.root_download_path = default_download_path
     else:
         settings.root_download_path = os.path.normpath(settings.root_download_path)
 

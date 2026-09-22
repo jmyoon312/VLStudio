@@ -5,18 +5,21 @@ from app.database import SessionLocal
 
 def get_standardized_download_path(settings=None) -> str:
     """
-    Returns the standardized absolute download root: {MEDIA_ROOT}/downloads
+    Returns the standardized absolute download root: {MEDIA_ROOT}/07_Downloads
     """
     from app.config import settings as app_config_settings
 
-    if not settings:
-        # settings 미전달 시 config에서 가져옴
+    if not settings or not getattr(settings, 'root_download_path', None):
         return app_config_settings.DOWNLOADS_DIR
-    elif settings and settings.root_download_path:
-        return os.path.abspath(settings.root_download_path)
-    else:
-        # DB Settings 객체에는 MEDIA_ROOT가 없으므로 app.config에서 가져옴
+    
+    p = os.path.abspath(settings.root_download_path).replace("\\", "/")
+    media_root = os.path.abspath(app_config_settings.MEDIA_ROOT).replace("\\", "/")
+    
+    # [SSOT Guard] If root_download_path is the media root without 07_Downloads, redirect to 07_Downloads
+    if p == media_root or p.endswith("/media"):
         return app_config_settings.DOWNLOADS_DIR
+        
+    return os.path.abspath(settings.root_download_path)
 
 def get_channel_download_path(settings, category_name: str = None, channel_name: str = None) -> str:
     """

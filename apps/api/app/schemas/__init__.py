@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from datetime import datetime
 from typing import Optional, List, Any, Dict
 
@@ -373,6 +373,15 @@ class SettingsBase(BaseModel):
     hermes_skill_min_score: Optional[int] = 85
     hermes_fts5_compression: Optional[bool] = True
     hermes_max_subagents: Optional[int] = 3
+
+    # [Hermes Core v0.21.3 Upgrades]
+    hermes_cron_continuity_enabled: Optional[bool] = True
+    hermes_monitor_mode_enabled: Optional[bool] = True
+    hermes_subagent_steering_enabled: Optional[bool] = True
+    hermes_structured_schema_enforced: Optional[bool] = True
+    hermes_instruction_protection_enabled: Optional[bool] = True
+    hermes_har_api_mode: Optional[str] = "auto"
+    hermes_fts_wal_pool_size: Optional[int] = 5
     telegram_bot_token: Optional[str] = None
     telegram_chat_id: Optional[str] = None
     telegram_notify_enabled: Optional[bool] = False
@@ -944,6 +953,13 @@ class HermesSettings(BaseModel):
     auto_reflection: bool = True
     auto_update_enabled: bool = True
     github_token: Optional[str] = None # [NEW]
+    hermes_cron_continuity_enabled: Optional[bool] = True
+    hermes_monitor_mode_enabled: Optional[bool] = True
+    hermes_subagent_steering_enabled: Optional[bool] = True
+    hermes_structured_schema_enforced: Optional[bool] = True
+    hermes_instruction_protection_enabled: Optional[bool] = True
+    hermes_har_api_mode: Optional[str] = "auto"
+    hermes_fts_wal_pool_size: Optional[int] = 5
 
 class HermesUpdateResponse(BaseModel):
     status: str
@@ -962,6 +978,65 @@ class AllAgentVersions(BaseModel):
     paperclip: AgentVersionInfo
     openclaude: AgentVersionInfo
     hermes: AgentVersionInfo
+
+# [NEW] Hermes Upstream Harvester & Gatekeeper Schemas
+class AcceptedFeatureItem(BaseModel):
+    title: str
+    impact: str
+    category: str = "general" # scripting, timecode, stability, cost_saving
+    relevance_score: int = 8
+
+class RejectedNoiseItem(BaseModel):
+    title: str
+    reason: str
+    category: str = "general" # docker, bash, cli, standalone_daemon
+
+class GatekeeperStatus(BaseModel):
+    contract_checker: bool = True
+    storage_validator: bool = True
+    py_compile: bool = True
+    all_passed: bool = True
+
+class HermesAuditReport(BaseModel):
+    tag: str
+    published_at: Optional[str] = None
+    verdict: str = "PASS" # PASS, REVIEW_NEEDED, REJECT
+    summary: str = ""
+    risk_score: int = 2
+    compatibility_score: int = 9
+    accepted_features: List[AcceptedFeatureItem] = Field(default_factory=list)
+    rejected_noise: List[RejectedNoiseItem] = Field(default_factory=list)
+    gatekeeper: GatekeeperStatus = Field(default_factory=GatekeeperStatus)
+
+class HermesSnapshotInfo(BaseModel):
+    snapshot_id: str
+    timestamp: str
+    version: str
+    path: str
+
+class HermesUpstreamStatus(BaseModel):
+    local_version: str
+    latest_version: str
+    has_update: bool
+    github_url: str
+    last_audit_report: Optional[HermesAuditReport] = None
+    backups: List[HermesSnapshotInfo] = Field(default_factory=list)
+
+class HermesAuditRequest(BaseModel):
+    target_tag: Optional[str] = None
+    force_refresh: bool = False
+
+class HermesApplyRequest(BaseModel):
+    target_tag: Optional[str] = None
+    skip_gatekeeper: bool = False
+
+class HermesRollbackRequest(BaseModel):
+    snapshot_id: Optional[str] = None
+
+class HermesRollbackResponse(BaseModel):
+    status: str
+    message: str
+    restored_version: Optional[str] = None
 
 # [NEW] Pixeling Schemas
 from .pixeling import PixelingDeepControlRequest, ProjectConfig, AssetConfig, ContentConfig, AudioControlConfig, VisualControlConfig

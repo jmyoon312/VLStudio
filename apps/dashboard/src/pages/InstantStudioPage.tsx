@@ -40,6 +40,25 @@ interface ChatMessage {
     directorComment?: string;
 }
 
+export interface ChannelItem {
+    id: number;
+    name: string;
+    handle?: string;
+    channel_url?: string;
+    category?: string;
+}
+
+export interface ViralArticleItem {
+    id: string | number;
+    title: string;
+    content: string;
+    url?: string;
+    source?: string;
+    category?: string;
+    thumbnail_url?: string;
+    created_at?: string;
+}
+
 interface BenchmarkDNA {
     id: number;
     channel_url: string;
@@ -400,7 +419,7 @@ export const InstantStudioPage: React.FC = () => {
         }
     };
 
-    // 🚀 Complete 6-Stage Autonomous Autopilot Execution (DeepSeek Harness Core)
+    // 🚀 Complete 6-Stage Autonomous Autopilot Execution (Hermes Sovereign Core)
     const handleRunAutopilot = async () => {
         if (!autopilotRefUrl.trim() || !autopilotRefUrl.startsWith('http')) {
             toast.error('복제할 유튜브 채널 또는 영상 URL을 입력해주세요.');
@@ -827,7 +846,7 @@ ${scenes.map(s => `#${s.sceneNumber}: [${s.title}] 자막="${s.subtitle}", 대�
                         )}
                     >
                         <Sparkles className="w-4 h-4 text-amber-500 fill-current" />
-                        <span>🤖 원클릭 자율 오토파일럿 (DeepSeek Harness Core)</span>
+                        <span>🤖 원클릭 자율 오토파일럿 (Hermes Sovereign Core)</span>
                         <Badge variant="outline" className="text-[9px] px-1.5 py-0 bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30">
                             완전 자동
                         </Badge>
@@ -1603,9 +1622,6 @@ ${scenes.map(s => `#${s.sceneNumber}: [${s.title}] 자막="${s.subtitle}", 대�
                                     fps={30}
                                     controls
                                     loop
-                                    onError={(err) => {
-                                        console.warn('[InstantStudio Remotion Player] Video playback error intercepted safely:', err);
-                                    }}
                                     style={{
                                         width: '100%',
                                         height: '100%'

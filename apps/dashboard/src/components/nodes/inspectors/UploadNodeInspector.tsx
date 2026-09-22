@@ -207,9 +207,10 @@ export const UploadNodeInspector = ({ node, onUpdate }: UploadNodeInspectorProps
                                         <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="public" className="text-xs">공개</SelectItem>
-                                        <SelectItem value="unlisted" className="text-xs">일부 공개</SelectItem>
-                                        <SelectItem value="private" className="text-xs">비공개</SelectItem>
+                                        <SelectItem value="smart_scheduled" className="text-xs">⏱️ 스마트 숙성 예약 (권장)</SelectItem>
+                                        <SelectItem value="public" className="text-xs">🚀 하이브리드 공개</SelectItem>
+                                        <SelectItem value="private" className="text-xs">🔒 비공개</SelectItem>
+                                        <SelectItem value="unlisted" className="text-xs">🔗 일부 공개</SelectItem>
                                     </SelectContent>
                                 </Select>
                             </div>

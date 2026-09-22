@@ -962,9 +962,18 @@ const TrendRadarPage: React.FC = () => {
                                 aspectFormat={aspectFormat}
                             />
                         </div>
-                        <span className="text-[10.5px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 font-semibold">
-                            ● 실시간 필터 가동 중
-                        </span>
+                        <div className="flex flex-wrap items-center gap-1.5">
+                            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 font-semibold flex items-center gap-1">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                크론 메모리 연속성
+                            </span>
+                            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 font-semibold" title="신규 시그널 미발생 시 LLM 연산 자동 스킵 (비용 $0 절감)">
+                                ⚡ 모니터 무변경 절감 ON
+                            </span>
+                            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-muted text-muted-foreground border border-border/60 font-semibold">
+                                ● 실시간 필터
+                            </span>
+                        </div>
                     </div>
 
                     <div className="text-[11px] font-mono text-muted-foreground flex items-center gap-1.5 pt-0.5">

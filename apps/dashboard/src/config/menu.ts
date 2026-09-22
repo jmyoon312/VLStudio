@@ -109,6 +109,7 @@ export const getMenuGroups = (captainId: string | null): MenuGroup[] => [
         mode: "CREATION",
         defaultExpanded: true,
         items: [
+            { name: '프로 편집기 (Pro NLE)', path: '/pro-editor', icon: Wand2, highlight: true },
             { name: '클래식 편집기', path: '/shorts-editor/classic', icon: Clapperboard, highlight: true },
             { name: '인스타 편집기', path: '/shorts-editor/instagram', icon: Smartphone, highlight: true },
             { name: '군림보 편집기', path: '/shorts-editor/gunlimbo', icon: Swords, highlight: true },

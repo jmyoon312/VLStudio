@@ -21,11 +21,18 @@ class CredentialManager:
         if not brand_channel:
             raise ValueError(f"BrandChannel {brand_channel_id} not found")
             
-        tin_can = brand_channel.tin_can_account
+        tin_can = getattr(brand_channel, 'owner_profile', None)
+        if not tin_can and hasattr(brand_channel, 'owner_profile_id') and brand_channel.owner_profile_id:
+            tin_can = db.query(models.Profile).filter(models.Profile.id == brand_channel.owner_profile_id).first()
+        if not tin_can:
+            tin_can = getattr(brand_channel, 'tin_can_account', None)
         if not tin_can or not tin_can.client_secret_json:
-             raise ValueError(f"BrandChannel {brand_channel.title} has no valid TinCan Owner with JSON")
+             raise ValueError(f"BrandChannel {brand_channel.title} has no valid Profile/TinCan Owner with JSON")
 
-        if not brand_channel.refresh_token:
+        refresh_token = brand_channel.refresh_token or tin_can.refresh_token
+        access_token = brand_channel.access_token or tin_can.access_token
+
+        if not refresh_token:
             raise ValueError(f"BrandChannel {brand_channel.title} is not authenticated (Missing Refresh Token). Please Auth via Captain's Quarters.")
 
         try:
@@ -36,12 +43,16 @@ class CredentialManager:
                  raise ValueError("Invalid client_secret.json format")
 
              creds = Credentials(
-                 token=brand_channel.access_token,
-                 refresh_token=brand_channel.refresh_token,
+                 token=access_token,
+                 refresh_token=refresh_token,
                  token_uri=app_info.get('token_uri', 'https://oauth2.googleapis.com/token'),
                  client_id=app_info['client_id'],
                  client_secret=app_info['client_secret'],
-                 scopes=['https://www.googleapis.com/auth/youtube.upload']
+                 scopes=[
+                     'https://www.googleapis.com/auth/youtube.upload',
+                     'https://www.googleapis.com/auth/youtube.force-ssl',
+                     'https://www.googleapis.com/auth/youtube.readonly'
+                 ]
              )
              
              # Automatic Refresh check
@@ -51,6 +62,8 @@ class CredentialManager:
                      creds.refresh(Request())
                      # Save new access token
                      brand_channel.access_token = creds.token
+                     if tin_can:
+                         tin_can.access_token = creds.token
                      db.commit()
                  else:
                      raise ValueError("Token invalid and cannot be refreshed.")

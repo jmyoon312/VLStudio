@@ -18,6 +18,7 @@ from datetime import datetime
 import re
 import logging
 from app import dependency_manager
+from app.utils.cookie_utils import is_valid_netscape_cookiefile
 
 logger = logging.getLogger(__name__)
 
@@ -76,7 +77,7 @@ class YTDLPDownloader:
         opts = {
             'quiet': True,
             'no_warnings': True,
-            'cookiefile': cookies_path if cookies_path and os.path.exists(cookies_path) else None,
+            'cookiefile': cookies_path if is_valid_netscape_cookiefile(cookies_path) else None,
             'http_headers': {
                 'Referer': 'https://www.google.com/',
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
@@ -181,7 +182,7 @@ class YTDLPDownloader:
         })
 
         # [FIX] Don't pass cookies to android client (causes warnings)
-        if cookies_path and os.path.exists(cookies_path): ydl_opts['cookiefile'] = cookies_path
+        if is_valid_netscape_cookiefile(cookies_path): ydl_opts['cookiefile'] = cookies_path
         
         def _extract():
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -296,7 +297,7 @@ class YTDLPDownloader:
         })
         
         # [FIX] Don't use cookies with android client (causes warnings)
-        if cookies_path and os.path.exists(cookies_path):
+        if is_valid_netscape_cookiefile(cookies_path):
             ydl_opts['cookiefile'] = cookies_path
             logger.debug(f"[get_video_info] Using cookies: {os.path.basename(cookies_path)}")
         
@@ -340,7 +341,7 @@ class YTDLPDownloader:
         })
         
         # [FIX] Don't use cookies with android client
-        if cookies_path and os.path.exists(cookies_path):
+        if is_valid_netscape_cookiefile(cookies_path):
             ydl_opts_info['cookiefile'] = cookies_path
             logger.debug(f"Using cookies for authentication: {cookies_path}")
         
@@ -471,11 +472,11 @@ class YTDLPDownloader:
             ydl_opts['http_headers'] = browser_headers
         
         # [FIX] Don't use cookies with android client (causes warnings)
-        if cookies_path and os.path.exists(cookies_path): 
+        if is_valid_netscape_cookiefile(cookies_path): 
             ydl_opts['cookiefile'] = cookies_path
             logger.debug(f"Using cookies for authentication: {cookies_path}")
         else:
-            logger.debug("No cookies found - may result in 360p quality restriction!")
+            logger.debug("No valid cookies found - proceeding with default extraction")
 
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:

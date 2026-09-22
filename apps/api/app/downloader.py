@@ -160,6 +160,12 @@ def _get_latest_videos_impl(channel_url, limit, timeout, **kwargs):
     if kwargs:
         opts.update(kwargs)
         
+    # [FIX] Sanitize cookiefile if invalid or 0-byte to avoid yt-dlp Netscape format crash
+    if 'cookiefile' in opts:
+        from app.utils.cookie_utils import is_valid_netscape_cookiefile
+        if not is_valid_netscape_cookiefile(opts.get('cookiefile')):
+            opts.pop('cookiefile', None)
+            
     from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
     
     def _fetch():

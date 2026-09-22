@@ -18,10 +18,10 @@ LOG_FILE = os.path.join(API_DIR, "scan_debug.log")
 SERVER_LOG_FILE = os.path.join(API_DIR, "api_server.log")
 
 @router.get("/scheduler")
-async def get_scheduler_logs(lines: int = 100, order: str = "asc"):
+async def get_scheduler_logs(lines: int = 100, order: str = "desc"):
     """
     Reads the last N lines of the scheduler log file.
-    order: 'asc' (chronological, terminal order) or 'desc' (newest first).
+    order: 'desc' (newest first, default) or 'asc' (chronological).
     """
     if not os.path.exists(LOG_FILE):
         # Create empty file if not exists to avoid empty list issues
@@ -56,10 +56,10 @@ async def clear_scheduler_logs():
         raise HTTPException(status_code=500, detail=f"Failed to clear logs: {str(e)}")
 
 @router.get("/server")
-async def get_server_logs(lines: int = 100, order: str = "asc"):
+async def get_server_logs(lines: int = 100, order: str = "desc"):
     """
     Reads the last N lines of the backend server log file.
-    order: 'asc' (chronological, terminal order) or 'desc' (newest first).
+    order: 'desc' (newest first, default) or 'asc' (chronological).
     """
     if not os.path.exists(SERVER_LOG_FILE):
         try:

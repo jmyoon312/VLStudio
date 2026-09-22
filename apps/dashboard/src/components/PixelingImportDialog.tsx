@@ -27,6 +27,10 @@ interface Props {
     isOpen: boolean;
     setIsOpen: (v: boolean) => void;
     onSuccess?: () => void;
+    channels?: any[];
+    tiktokChannels?: any[];
+    instagramChannels?: any[];
+    showBrowserWindow?: boolean;
 }
 
 interface PoolVideo {
@@ -268,7 +272,46 @@ const VideoPreviewBox = ({ vid, lang }: { vid?: PoolVideo; lang: string }) => {
     );
 };
 
-export const PixelingImportDialog = ({ isOpen, setIsOpen, onSuccess }: Props) => {
+// === 주권 멀티라인 네트워크 회선 뱃지 렌더러 (LTE 1080~1089, 고정 ISP, 로컬 직결) ===
+const renderChannelNetworkBadge = (ch: any) => {
+    if (!ch) return null;
+    if (ch.bound_device_serial) {
+        return (
+            <span className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30 shrink-0">
+                📱 LTE ({ch.bound_device_serial})
+            </span>
+        );
+    }
+    if (ch.proxy_port && ch.proxy_port >= 1080 && ch.proxy_port <= 1089) {
+        return (
+            <span className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 shrink-0">
+                📱 모바일 포트 {ch.proxy_port}
+            </span>
+        );
+    }
+    if (ch.proxy_mode === 'MANUAL' || ch.proxy_host) {
+        return (
+            <span className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/30 shrink-0">
+                🌐 ISP 고정 {ch.proxy_port ? `(${ch.proxy_port})` : ''}
+            </span>
+        );
+    }
+    return (
+        <span className="inline-flex items-center gap-1 text-[9px] font-medium px-1.5 py-0.5 rounded bg-muted text-muted-foreground border border-border shrink-0">
+            🛡️ 로컬 단독 회선
+        </span>
+    );
+};
+
+export const PixelingImportDialog = ({
+    isOpen,
+    setIsOpen,
+    onSuccess,
+    channels = [],
+    tiktokChannels = [],
+    instagramChannels = [],
+    showBrowserWindow: propShowBrowserWindow,
+}: Props) => {
     const { toast } = useToast();
 
     const textFileRef = useRef<HTMLInputElement>(null);
@@ -296,9 +339,19 @@ export const PixelingImportDialog = ({ isOpen, setIsOpen, onSuccess }: Props) =>
     const [sendingKey, setSendingKey] = useState('');
 
     // 플랫폼별 채널/계정 목록
-    const [channelList, setChannelList] = useState<any[]>([]);
-    const [tiktokChannels, setTiktokChannels] = useState<any[]>([]);
-    const [instagramChannels, setInstagramChannels] = useState<any[]>([]);
+    const [channelList, setChannelList] = useState<any[]>(channels || []);
+    const [tiktokChannelsList, setTiktokChannelsList] = useState<any[]>(tiktokChannels || []);
+    const [instagramChannelsList, setInstagramChannelsList] = useState<any[]>(instagramChannels || []);
+
+    useEffect(() => {
+        if (channels && channels.length > 0) setChannelList(channels);
+    }, [channels]);
+    useEffect(() => {
+        if (tiktokChannels && tiktokChannels.length > 0) setTiktokChannelsList(tiktokChannels);
+    }, [tiktokChannels]);
+    useEffect(() => {
+        if (instagramChannels && instagramChannels.length > 0) setInstagramChannelsList(instagramChannels);
+    }, [instagramChannels]);
 
     const poolRef = useRef<Record<string, PoolVideo>>({});
     useEffect(() => { poolRef.current = pool; }, [pool]);
@@ -306,34 +359,40 @@ export const PixelingImportDialog = ({ isOpen, setIsOpen, onSuccess }: Props) =>
     const attachRef = useRef<Record<string, string>>({});
     useEffect(() => { attachRef.current = attachments; }, [attachments]);
 
-    // 채널 데이터 로드
+    // 채널 데이터 로드 (prop이 비어있을 때만 자동 fallback fetch)
     useEffect(() => {
         if (!isOpen) return;
         let alive = true;
         (async () => {
             try {
-                const [rCh, rTk, rIg] = await Promise.all([
-                    fetchWithRetry('/api/youtube/all'),
-                    fetchWithRetry('/api/tiktok-channels/'),
-                    fetchWithRetry('/api/instagram-channels/')
-                ]);
+                const fetchTasks: Promise<any>[] = [];
+                if (!channels || channels.length === 0) fetchTasks.push(fetchWithRetry('/api/youtube/all'));
+                else fetchTasks.push(Promise.resolve(null));
+
+                if (!tiktokChannels || tiktokChannels.length === 0) fetchTasks.push(fetchWithRetry('/api/tiktok-channels/'));
+                else fetchTasks.push(Promise.resolve(null));
+
+                if (!instagramChannels || instagramChannels.length === 0) fetchTasks.push(fetchWithRetry('/api/instagram-channels/'));
+                else fetchTasks.push(Promise.resolve(null));
+
+                const [rCh, rTk, rIg] = await Promise.all(fetchTasks);
                 if (!alive) return;
-                if (rCh.ok) {
+                if (rCh && rCh.ok) {
                     const data = await rCh.json();
                     setChannelList(Array.isArray(data) ? data : []);
                 }
-                if (rTk.ok) {
+                if (rTk && rTk.ok) {
                     const data = await rTk.json();
-                    setTiktokChannels(Array.isArray(data) ? data : []);
+                    setTiktokChannelsList(Array.isArray(data) ? data : []);
                 }
-                if (rIg.ok) {
+                if (rIg && rIg.ok) {
                     const data = await rIg.json();
-                    setInstagramChannels(Array.isArray(data) ? data : []);
+                    setInstagramChannelsList(Array.isArray(data) ? data : []);
                 }
             } catch (_) { }
         })();
         return () => { alive = false; };
-    }, [isOpen]);
+    }, [isOpen, channels, tiktokChannels, instagramChannels]);
 
     // 딸깍 스튜디오에서 전송된 메타 텍스트 자동 수신
     const hasAnalyzedRef = useRef(false);
@@ -429,15 +488,15 @@ export const PixelingImportDialog = ({ isOpen, setIsOpen, onSuccess }: Props) =>
             approvalRequired: saved.approvalRequired ?? false,
             channelId: saved.channelId || (channelList[0]?.channel_id || ''),
             privacy: saved.privacy || 'private',
-            tiktokAccountId: saved.tiktokAccountId || (tiktokChannels[0]?.id || ''),
-            tiktokPrivacy: saved.tiktokPrivacy || 'SELF_ONLY',
+            tiktokAccountId: saved.tiktokAccountId || (tiktokChannelsList[0]?.id || ''),
+            tiktokPrivacy: saved.tiktokPrivacy || 'PUBLIC',
             tiktokAllowComments: saved.tiktokAllowComments ?? true,
             tiktokAllowDuet: saved.tiktokAllowDuet ?? true,
-            instagramAccountId: saved.instagramAccountId || (instagramChannels[0]?.id || ''),
+            instagramAccountId: saved.instagramAccountId || (instagramChannelsList[0]?.id || ''),
             instagramShareToFeed: saved.instagramShareToFeed ?? false,
         };
         return base;
-    }, [schedules, channelList, tiktokChannels, instagramChannels]);
+    }, [schedules, channelList, tiktokChannelsList, instagramChannelsList]);
 
     const updateSched = (lang: string, patch: Partial<ScheduleLocal>) => {
         setSchedules(prev => {
@@ -662,9 +721,11 @@ export const PixelingImportDialog = ({ isOpen, setIsOpen, onSuccess }: Props) =>
             scheduledTimeStr = `${when.getFullYear()}-${pad(when.getMonth() + 1)}-${pad(when.getDate())}T${pad(when.getHours())}:${pad(when.getMinutes())}:00`;
         }
 
-        const isBrowserVisible = typeof window !== 'undefined'
-            ? localStorage.getItem('vl_work_queue_browser_visible') === 'true'
-            : false;
+        const isBrowserVisible = propShowBrowserWindow !== undefined
+            ? propShowBrowserWindow
+            : (typeof window !== 'undefined'
+                ? localStorage.getItem('vl_work_queue_browser_visible') === 'true'
+                : false);
 
         const platformConfigs: any = {
             headless_mode: !isBrowserVisible,
@@ -677,7 +738,7 @@ export const PixelingImportDialog = ({ isOpen, setIsOpen, onSuccess }: Props) =>
             },
             tiktok: {
                 account_id: sched.tiktokAccountId || '',
-                privacy: sched.tiktokPrivacy || 'SELF_ONLY',
+                privacy: (sched.tiktokPrivacy || 'PUBLIC').toUpperCase(),
                 allow_comments: sched.tiktokAllowComments !== undefined ? sched.tiktokAllowComments : true,
                 allow_duet: sched.tiktokAllowDuet !== undefined ? sched.tiktokAllowDuet : true,
                 headless_mode: !isBrowserVisible
@@ -1192,10 +1253,12 @@ export const PixelingImportDialog = ({ isOpen, setIsOpen, onSuccess }: Props) =>
                                                         />
 
                                                         {/* 다중 플랫폼 및 채널 할당 */}
-                                                        <div className="space-y-1.5 pt-1 border-t border-border/50">
+                                                        <div className="space-y-2 pt-1 border-t border-border/50">
                                                             <div className="flex items-center justify-between">
-                                                                <Label className="text-[10px] font-semibold text-muted-foreground">배포 플랫폼</Label>
-                                                                <label className="flex items-center gap-1 text-[10px] cursor-pointer">
+                                                                <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                                                                    <Rocket className="w-3.5 h-3.5 text-indigo-500" /> 대상 플랫폼 선택
+                                                                </span>
+                                                                <label className="flex items-center gap-1 text-[10px] cursor-pointer text-muted-foreground hover:text-foreground font-medium">
                                                                     <Checkbox
                                                                         checked={cfg.approvalRequired}
                                                                         onCheckedChange={v => updateSched(lang, { approvalRequired: !!v })}
@@ -1203,113 +1266,301 @@ export const PixelingImportDialog = ({ isOpen, setIsOpen, onSuccess }: Props) =>
                                                                     <span>승인 대기로 등록</span>
                                                                 </label>
                                                             </div>
-                                                            <div className="flex flex-wrap gap-2.5 text-xs">
-                                                                {[
-                                                                    { id: 'youtube', label: 'YouTube' },
-                                                                    { id: 'tiktok', label: 'TikTok' },
-                                                                    { id: 'instagram', label: 'Instagram' }
-                                                                ].map(plat => {
-                                                                    const checked = (cfg.targetPlatforms || []).includes(plat.id);
-                                                                    return (
-                                                                        <label key={plat.id} className="flex items-center gap-1 cursor-pointer text-[11px]">
-                                                                            <Checkbox
-                                                                                checked={checked}
-                                                                                onCheckedChange={() => {
-                                                                                    const cur = cfg.targetPlatforms || [];
-                                                                                    const next = checked ? cur.filter(x => x !== plat.id) : [...cur, plat.id];
-                                                                                    updateSched(lang, { targetPlatforms: next.length ? next : ['youtube'] });
-                                                                                }}
-                                                                            />
-                                                                            <span>{plat.label}</span>
-                                                                        </label>
-                                                                    );
-                                                                })}
+
+                                                            {/* 상단 플랫폼 선택 토글 필 (Pills) - 메인화면 WorkQueue와 1:1 일치 */}
+                                                            <div className="flex items-center gap-1.5 p-1 rounded-lg bg-background border border-border">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => {
+                                                                        const cur = cfg.targetPlatforms || [];
+                                                                        const next = cur.includes('youtube') ? cur.filter(x => x !== 'youtube') : [...cur, 'youtube'];
+                                                                        updateSched(lang, { targetPlatforms: next.length ? next : ['youtube'] });
+                                                                    }}
+                                                                    className={`flex-1 flex items-center justify-center gap-1 py-1 px-1.5 rounded-md text-[11px] font-semibold transition-all ${
+                                                                        (cfg.targetPlatforms || []).includes('youtube')
+                                                                            ? 'bg-blue-600 text-white shadow-xs'
+                                                                            : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                                                                    }`}
+                                                                >
+                                                                    <span>🎬 YouTube</span>
+                                                                    {(cfg.targetPlatforms || []).includes('youtube') && <Check className="w-3 h-3 shrink-0" />}
+                                                                </button>
+
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => {
+                                                                        const cur = cfg.targetPlatforms || [];
+                                                                        const next = cur.includes('tiktok') ? cur.filter(x => x !== 'tiktok') : [...cur, 'tiktok'];
+                                                                        updateSched(lang, { targetPlatforms: next.length ? next : ['youtube'] });
+                                                                    }}
+                                                                    className={`flex-1 flex items-center justify-center gap-1 py-1 px-1.5 rounded-md text-[11px] font-semibold transition-all ${
+                                                                        (cfg.targetPlatforms || []).includes('tiktok')
+                                                                            ? 'bg-pink-600 text-white shadow-xs'
+                                                                            : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                                                                    }`}
+                                                                >
+                                                                    <span>🎵 TikTok</span>
+                                                                    {(cfg.targetPlatforms || []).includes('tiktok') && <Check className="w-3 h-3 shrink-0" />}
+                                                                </button>
+
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => {
+                                                                        const cur = cfg.targetPlatforms || [];
+                                                                        const next = cur.includes('instagram') ? cur.filter(x => x !== 'instagram') : [...cur, 'instagram'];
+                                                                        updateSched(lang, { targetPlatforms: next.length ? next : ['youtube'] });
+                                                                    }}
+                                                                    className={`flex-1 flex items-center justify-center gap-1 py-1 px-1.5 rounded-md text-[11px] font-semibold transition-all ${
+                                                                        (cfg.targetPlatforms || []).includes('instagram')
+                                                                            ? 'bg-purple-600 text-white shadow-xs'
+                                                                            : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                                                                    }`}
+                                                                >
+                                                                    <span>📸 Insta</span>
+                                                                    {(cfg.targetPlatforms || []).includes('instagram') && <Check className="w-3 h-3 shrink-0" />}
+                                                                </button>
                                                             </div>
 
-                                                            {/* 플랫폼별 채널 드롭다운 */}
-                                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-0.5">
-                                                                {(cfg.targetPlatforms || []).includes('youtube') && (
-                                                                    <div>
-                                                                        <div className="flex items-center justify-between">
-                                                                            <Label className="text-[9px] text-muted-foreground">YouTube 채널 *</Label>
-                                                                            {channelList.find(c => c.channel_id === cfg.channelId)?.auto_approve_default && (
-                                                                                <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-semibold">⭐ 자동 승인</span>
+                                                            {/* 플랫폼별 상세 설정 컨테이너 */}
+                                                            <div className="space-y-2 pt-0.5">
+                                                                {/* 1) YouTube 전용 설정 박스 */}
+                                                                {(cfg.targetPlatforms || []).includes('youtube') && (() => {
+                                                                    const selectedChannel = channelList.find(c => c.channel_id === cfg.channelId);
+                                                                    return (
+                                                                        <div className="p-2.5 rounded-xl bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/40 space-y-2">
+                                                                            <div className="flex items-center justify-between">
+                                                                                <span className="text-[11px] font-bold text-blue-700 dark:text-blue-300 flex items-center gap-1">
+                                                                                    🎬 YouTube 채널 *
+                                                                                </span>
+                                                                                {renderChannelNetworkBadge(selectedChannel)}
+                                                                            </div>
+                                                                            
+                                                                            <Select
+                                                                                value={cfg.channelId}
+                                                                                onValueChange={v => {
+                                                                                    const sel = channelList.find(c => c.channel_id === v);
+                                                                                    const autoApprove = sel?.auto_approve_default;
+                                                                                    updateSched(lang, {
+                                                                                        channelId: v,
+                                                                                        ...(autoApprove !== undefined ? { approvalRequired: !autoApprove } : {})
+                                                                                    });
+                                                                                }}
+                                                                            >
+                                                                                <SelectTrigger className="h-7 text-xs bg-background border-border">
+                                                                                    <SelectValue placeholder="채널 선택" />
+                                                                                </SelectTrigger>
+                                                                                <SelectContent>
+                                                                                    {channelList.map(c => (
+                                                                                        <SelectItem key={c.channel_id} value={c.channel_id}>
+                                                                                            <div className="flex items-center justify-between gap-2 w-full text-xs">
+                                                                                                <span className="truncate max-w-[180px]">{c.channel_name || c.title} ({c.subscriber_count?.toLocaleString()}명)</span>
+                                                                                                <div className="flex items-center gap-1 shrink-0">
+                                                                                                    {c.auto_approve_default && (
+                                                                                                        <span className="text-[9px] font-bold text-blue-600 dark:text-blue-400 bg-blue-500/10 px-1 py-0.5 rounded border border-blue-500/20">
+                                                                                                            ⭐ 자동승인
+                                                                                                        </span>
+                                                                                                    )}
+                                                                                                    {renderChannelNetworkBadge(c)}
+                                                                                                </div>
+                                                                                            </div>
+                                                                                        </SelectItem>
+                                                                                    ))}
+                                                                                </SelectContent>
+                                                                            </Select>
+
+                                                                            {/* 선택 채널 네트워크 상세 */}
+                                                                            {selectedChannel && (
+                                                                                <div className="text-[10px] bg-background/80 p-2 rounded-lg border border-border/70 space-y-1">
+                                                                                    <div className="flex items-center justify-between text-muted-foreground">
+                                                                                        <span>소유 계정:</span>
+                                                                                        <span className="font-mono text-foreground font-medium truncate max-w-[150px]">
+                                                                                            {selectedChannel.profile_email || selectedChannel.account_email || '전용 브라우저 세션'}
+                                                                                        </span>
+                                                                                    </div>
+                                                                                    <div className="flex items-center justify-between text-muted-foreground">
+                                                                                        <span>독립 회선:</span>
+                                                                                        <span className="font-semibold text-foreground">
+                                                                                            {selectedChannel.bound_device_serial ? `📱 모바일 LTE (${selectedChannel.bound_device_serial})` :
+                                                                                             (selectedChannel.proxy_port && selectedChannel.proxy_port >= 1080 && selectedChannel.proxy_port <= 1089) ? `📱 모바일 프록시 (포트 ${selectedChannel.proxy_port})` :
+                                                                                             selectedChannel.proxy_host ? `🌐 ISP 고정 (${selectedChannel.proxy_host})` : `🛡️ 로컬 단독 회선`}
+                                                                                        </span>
+                                                                                    </div>
+                                                                                    {selectedChannel.auto_approve_default && (
+                                                                                        <div className="flex items-center justify-between text-[10px] text-blue-600 dark:text-blue-400 font-semibold bg-blue-50/50 dark:bg-blue-950/40 p-1.5 rounded border border-blue-200/60 dark:border-blue-800/40 mt-1">
+                                                                                            <span>⭐ 자동 승인 신뢰 채널</span>
+                                                                                            <span className="text-[9px] font-normal text-muted-foreground">등록 시 승인 대기 없이 대기열 직결</span>
+                                                                                        </div>
+                                                                                    )}
+                                                                                </div>
+                                                                            )}
+
+                                                                            {/* 공개 상태 & 업로드 엔진 2열 그리드 */}
+                                                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-0.5">
+                                                                                <div>
+                                                                                    <span className="text-[10px] text-muted-foreground font-semibold">공개 상태</span>
+                                                                                    <Select
+                                                                                        value={cfg.privacy || 'private'}
+                                                                                        onValueChange={v => updateSched(lang, { privacy: v })}
+                                                                                    >
+                                                                                        <SelectTrigger className="h-7 text-xs bg-background border-border mt-0.5">
+                                                                                            <SelectValue />
+                                                                                        </SelectTrigger>
+                                                                                        <SelectContent>
+                                                                                            <SelectItem value="private">🔒 비공개 (안전 보관)</SelectItem>
+                                                                                            <SelectItem value="smart_scheduled">⏱️ 스마트 숙성 예약 (10~20분)</SelectItem>
+                                                                                            <SelectItem value="public">🚀 {cfg.uploadMethod === 'API' ? '하이브리드 공개' : '즉시 공개'}</SelectItem>
+                                                                                            <SelectItem value="scheduled">📅 지정 시간 예약</SelectItem>
+                                                                                            <SelectItem value="unlisted">🔗 일부 공개 (링크)</SelectItem>
+                                                                                        </SelectContent>
+                                                                                    </Select>
+                                                                                </div>
+
+                                                                                <div>
+                                                                                    <span className="text-[10px] text-muted-foreground font-semibold">업로드 엔진</span>
+                                                                                    <Select
+                                                                                        value={cfg.uploadMethod || 'BROWSER_AUTO'}
+                                                                                        onValueChange={v => updateSched(lang, { uploadMethod: v })}
+                                                                                    >
+                                                                                        <SelectTrigger className="h-7 text-xs bg-background border-border mt-0.5">
+                                                                                            <SelectValue />
+                                                                                        </SelectTrigger>
+                                                                                        <SelectContent>
+                                                                                            <SelectItem value="BROWSER_AUTO">🤖 스텔스 브라우저</SelectItem>
+                                                                                            <SelectItem value="API">⚡ Google Data API (5초)</SelectItem>
+                                                                                            <SelectItem value="MANUAL">✍️ 수동 기록용</SelectItem>
+                                                                                        </SelectContent>
+                                                                                    </Select>
+                                                                                </div>
+                                                                            </div>
+
+                                                                            {/* 스마트 안내 배너 */}
+                                                                            {cfg.privacy === 'smart_scheduled' && (
+                                                                                <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-[10px] text-amber-700 dark:text-amber-300 flex items-start gap-1.5">
+                                                                                    <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
+                                                                                    <div>
+                                                                                        <span className="font-semibold">스마트 숙성 예약:</span> 영상 용량에 비례하여 15~30분 뒤 구글 클라우드 자동 공개(publishAt)를 예약합니다.
+                                                                                    </div>
+                                                                                </div>
+                                                                            )}
+                                                                            {cfg.privacy === 'public' && cfg.uploadMethod === 'API' && (
+                                                                                <div className="p-2 rounded-lg bg-blue-500/10 border border-blue-500/20 text-[10px] text-blue-700 dark:text-blue-300 flex items-start gap-1.5">
+                                                                                    <Zap className="w-3.5 h-3.5 text-blue-500 shrink-0 mt-0.5" />
+                                                                                    <div>
+                                                                                        <span className="font-semibold">하이브리드 공개:</span> API로 5초 만에 초고속 비공개 업로드 후 15분 숙성 뒤 브라우저가 공개로 자동 전환합니다.
+                                                                                    </div>
+                                                                                </div>
                                                                             )}
                                                                         </div>
+                                                                    );
+                                                                })()}
+
+                                                                {/* 2) TikTok 전용 설정 박스 */}
+                                                                {(cfg.targetPlatforms || []).includes('tiktok') && (
+                                                                    <div className="p-2.5 rounded-xl bg-pink-50/50 dark:bg-pink-950/20 border border-pink-200 dark:border-pink-900/40 space-y-2">
+                                                                        <div className="flex items-center justify-between">
+                                                                            <span className="text-[11px] font-bold text-pink-700 dark:text-pink-300 flex items-center gap-1">
+                                                                                🎵 TikTok 계정 *
+                                                                            </span>
+                                                                            <Badge variant="outline" className="text-[9px] py-0 bg-pink-100/50 text-pink-700 dark:bg-pink-950/60 dark:text-pink-300 border-pink-300 dark:border-pink-800">
+                                                                                {tiktokChannelsList.length}개 연동
+                                                                            </Badge>
+                                                                        </div>
+
                                                                         <Select
-                                                                            value={cfg.channelId}
-                                                                            onValueChange={v => {
-                                                                                const sel = channelList.find(c => c.channel_id === v);
-                                                                                const autoApprove = sel?.auto_approve_default;
-                                                                                updateSched(lang, {
-                                                                                    channelId: v,
-                                                                                    ...(autoApprove !== undefined ? { approvalRequired: !autoApprove } : {})
-                                                                                });
-                                                                            }}
+                                                                            value={cfg.tiktokAccountId || ''}
+                                                                            onValueChange={v => updateSched(lang, { tiktokAccountId: v })}
                                                                         >
-                                                                            <SelectTrigger className="h-6 text-xs bg-background"><SelectValue placeholder="채널 선택" /></SelectTrigger>
+                                                                            <SelectTrigger className="h-7 text-xs bg-background border-border">
+                                                                                <SelectValue placeholder="계정 선택" />
+                                                                            </SelectTrigger>
                                                                             <SelectContent>
-                                                                                {channelList.map(c => (
-                                                                                    <SelectItem key={c.channel_id} value={c.channel_id}>
-                                                                                        {c.channel_name || c.title} ({c.subscriber_count?.toLocaleString()}명)
-                                                                                        {c.auto_approve_default ? ' ⭐' : ''}
+                                                                                {tiktokChannelsList.map(c => (
+                                                                                    <SelectItem key={c.id} value={c.id}>
+                                                                                        <div className="flex items-center justify-between gap-2 text-xs">
+                                                                                            <span className="font-medium">{c.nickname || c.id}</span>
+                                                                                            {c.account_id && <span className="text-[10px] text-muted-foreground font-mono">@{c.account_id}</span>}
+                                                                                        </div>
                                                                                     </SelectItem>
                                                                                 ))}
                                                                             </SelectContent>
                                                                         </Select>
-                                                                    </div>
-                                                                )}
 
-                                                                {(cfg.targetPlatforms || []).includes('tiktok') && (
-                                                                    <div className="space-y-1">
-                                                                        <Label className="text-[9px] text-muted-foreground">TikTok 계정</Label>
-                                                                        <Select
-                                                                            value={cfg.tiktokAccountId}
-                                                                            onValueChange={v => updateSched(lang, { tiktokAccountId: v })}
-                                                                        >
-                                                                            <SelectTrigger className="h-6 text-xs bg-background"><SelectValue placeholder="계정 선택" /></SelectTrigger>
-                                                                            <SelectContent>
-                                                                                {tiktokChannels.map(c => <SelectItem key={c.id} value={c.id}>{c.nickname || c.id}</SelectItem>)}
-                                                                            </SelectContent>
-                                                                        </Select>
-                                                                        <div className="flex items-center gap-2 pt-0.5">
-                                                                            <label className="flex items-center gap-1 text-[10px] text-muted-foreground cursor-pointer">
-                                                                                <Checkbox
-                                                                                    checked={cfg.tiktokAllowComments !== false}
-                                                                                    onCheckedChange={v => updateSched(lang, { tiktokAllowComments: !!v })}
-                                                                                />
-                                                                                <span>댓글</span>
-                                                                            </label>
-                                                                            <label className="flex items-center gap-1 text-[10px] text-muted-foreground cursor-pointer">
-                                                                                <Checkbox
-                                                                                    checked={cfg.tiktokAllowDuet !== false}
-                                                                                    onCheckedChange={v => updateSched(lang, { tiktokAllowDuet: !!v })}
-                                                                                />
-                                                                                <span>듀엣</span>
-                                                                            </label>
+                                                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-0.5">
+                                                                            <div>
+                                                                                <span className="text-[10px] text-muted-foreground font-semibold">공개 범위</span>
+                                                                                <Select
+                                                                                    value={cfg.tiktokPrivacy || 'PUBLIC'}
+                                                                                    onValueChange={v => updateSched(lang, { tiktokPrivacy: v })}
+                                                                                >
+                                                                                    <SelectTrigger className="h-7 text-xs bg-background border-border mt-0.5">
+                                                                                        <SelectValue />
+                                                                                    </SelectTrigger>
+                                                                                    <SelectContent>
+                                                                                        <SelectItem value="PUBLIC">🌐 전체 공개 (Public)</SelectItem>
+                                                                                        <SelectItem value="FRIENDS">👥 친구 공개 (Friends)</SelectItem>
+                                                                                        <SelectItem value="PRIVATE">🔒 비공개 (Private)</SelectItem>
+                                                                                    </SelectContent>
+                                                                                </Select>
+                                                                            </div>
+
+                                                                            <div className="flex items-center gap-3 pt-4">
+                                                                                <label className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground cursor-pointer font-medium">
+                                                                                    <Checkbox
+                                                                                        checked={cfg.tiktokAllowComments !== false}
+                                                                                        onCheckedChange={v => updateSched(lang, { tiktokAllowComments: !!v })}
+                                                                                    />
+                                                                                    <span>댓글 허용</span>
+                                                                                </label>
+                                                                                <label className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground cursor-pointer font-medium">
+                                                                                    <Checkbox
+                                                                                        checked={cfg.tiktokAllowDuet !== false}
+                                                                                        onCheckedChange={v => updateSched(lang, { tiktokAllowDuet: !!v })}
+                                                                                    />
+                                                                                    <span>듀엣/스티치</span>
+                                                                                </label>
+                                                                            </div>
                                                                         </div>
                                                                     </div>
                                                                 )}
 
+                                                                {/* 3) Instagram 전용 설정 박스 */}
                                                                 {(cfg.targetPlatforms || []).includes('instagram') && (
-                                                                    <div className="space-y-1">
-                                                                        <Label className="text-[9px] text-muted-foreground">Instagram 계정</Label>
+                                                                    <div className="p-2.5 rounded-xl bg-purple-50/50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-900/40 space-y-2">
+                                                                        <div className="flex items-center justify-between">
+                                                                            <span className="text-[11px] font-bold text-purple-700 dark:text-purple-300 flex items-center gap-1">
+                                                                                📸 Instagram 계정 *
+                                                                            </span>
+                                                                            <Badge variant="outline" className="text-[9px] py-0 bg-purple-100/50 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300 border-purple-300 dark:border-purple-800">
+                                                                                {instagramChannelsList.length}개 연동
+                                                                            </Badge>
+                                                                        </div>
+
                                                                         <Select
-                                                                            value={cfg.instagramAccountId}
+                                                                            value={cfg.instagramAccountId || ''}
                                                                             onValueChange={v => updateSched(lang, { instagramAccountId: v })}
                                                                         >
-                                                                            <SelectTrigger className="h-6 text-xs bg-background"><SelectValue placeholder="계정 선택" /></SelectTrigger>
+                                                                            <SelectTrigger className="h-7 text-xs bg-background border-border">
+                                                                                <SelectValue placeholder="계정 선택" />
+                                                                            </SelectTrigger>
                                                                             <SelectContent>
-                                                                                {instagramChannels.map(c => <SelectItem key={c.id} value={c.id}>{c.nickname || c.id}</SelectItem>)}
+                                                                                {instagramChannelsList.map(c => (
+                                                                                    <SelectItem key={c.id} value={c.id}>
+                                                                                        <div className="flex items-center justify-between gap-2 text-xs">
+                                                                                            <span className="font-medium">{c.nickname || c.id}</span>
+                                                                                            {c.account_id && <span className="text-[10px] text-muted-foreground font-mono">@{c.account_id}</span>}
+                                                                                        </div>
+                                                                                    </SelectItem>
+                                                                                ))}
                                                                             </SelectContent>
                                                                         </Select>
+
                                                                         <div className="pt-0.5">
-                                                                            <label className="flex items-center gap-1 text-[10px] text-muted-foreground cursor-pointer">
+                                                                            <label className="flex items-center gap-1.5 text-[10px] text-muted-foreground hover:text-foreground cursor-pointer font-medium">
                                                                                 <Checkbox
                                                                                     checked={cfg.instagramShareToFeed === true}
                                                                                     onCheckedChange={v => updateSched(lang, { instagramShareToFeed: !!v })}
                                                                                 />
-                                                                                <span>피드 동시 게시</span>
+                                                                                <span>피드 동시 게시 (릴스 외 피드 동시 노출)</span>
                                                                             </label>
                                                                         </div>
                                                                     </div>

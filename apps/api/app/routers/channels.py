@@ -21,6 +21,7 @@ class ReferenceChannelRequest(BaseModel):
 def sanitize_folder_name(name):
     return re.sub(r'[\\/*?:"<>|]', "", name).replace(" ", "_")
 
+@router.get("", response_model=List[schemas.Channel])
 @router.get("/", response_model=List[schemas.Channel])
 def read_channels(skip: int = 0, limit: int = 100, db: Session = Depends(database.get_db)):
     channels = crud.get_channels(db, skip=skip, limit=limit)

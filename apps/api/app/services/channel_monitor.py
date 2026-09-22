@@ -510,7 +510,8 @@ def scan_channel_with_preset(db: Session, channel: models.Channel, preset: model
         elif preset.video_type in ['long', 'longform'] and not target_url.endswith('/videos'):
             target_url = f"{target_url}/videos"
             
-        cookies_path = settings.cookies_path if settings and hasattr(settings, 'cookies_path') and settings.cookies_path and os.path.exists(settings.cookies_path) else None
+        from app.utils.cookie_utils import is_valid_netscape_cookiefile
+        cookies_path = settings.cookies_path if settings and getattr(settings, 'cookies_path', None) and is_valid_netscape_cookiefile(settings.cookies_path) else None
         
         # Fast playlist entries extraction
         extracted = downloader.get_channel_videos(

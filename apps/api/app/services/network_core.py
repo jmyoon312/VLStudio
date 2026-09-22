@@ -67,10 +67,16 @@ def _refresh_proxy_settings():
                             _adb_forwarded = False
                             _last_forward_port = None
         except Exception as e:
-            logger.error(f"[FAIL] [NetworkCore] Failed to refresh proxy settings: {e}")
+            logger.debug(f"[NetworkCore] Proxy settings refresh deferred: {e}")
         time.sleep(5)
 
-threading.Thread(target=_refresh_proxy_settings, daemon=True).start()
+_refresh_proxy_thread = None
+
+def start_proxy_settings_refresher():
+    global _refresh_proxy_thread
+    if _refresh_proxy_thread is None or not _refresh_proxy_thread.is_alive():
+        _refresh_proxy_thread = threading.Thread(target=_refresh_proxy_settings, daemon=True, name="ProxySettingsRefresher")
+        _refresh_proxy_thread.start()
 
 class ThreadingTCPServer(ThreadingMixIn, TCPServer):
     allow_reuse_address = True
@@ -378,6 +384,7 @@ class NetworkService:
     def initialize(self):
         self.start_proxy_server()
         network_monitor.start()
+        start_proxy_settings_refresher()
 
     def start_proxy_server(self):
         if not self.proxy_server:

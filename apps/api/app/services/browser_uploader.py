@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from app import models
 from app.services.browser_session_manager import BrowserSessionManager
 from app.services.adb_service import adb_service
+from app.services.stealth_ops_v2 import UserInteractiveActiveException
 
 logger = logging.getLogger(__name__)
 
@@ -166,6 +167,12 @@ class BrowserUploader:
             logger.info(f"[OK] Upload Task Complete. Final status: {item.status}")
             db.commit()
 
+        except UserInteractiveActiveException as ue:
+            logger.warning(f"👑 [BrowserUploader] Upload deferred for channel {channel_id}: {ue}")
+            item.status = "PAUSED"
+            item.failure_reason = "사용자 보안 접속(수동 조작) 중으로 안전하게 대기 중입니다. 창이 닫히면 자동으로 다시 진행됩니다."
+            db.commit()
+            return
         except Exception as e:
             logger.error(f"[FAIL] Browser Automation Failed: {e}")
             item.status = "FAILED"
@@ -375,6 +382,56 @@ class BrowserUploader:
             except Exception:
                 pass
 
+            # --- Video Language Selection (Global Targeting: ja, ko, en, es) ---
+            try:
+                lang_code = yt_config.get('language') or getattr(brand_channel, 'default_language', None)
+                if not lang_code and item.title:
+                    import re
+                    has_jp = bool(re.search(r'[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]', item.title))
+                    has_ko = bool(re.search(r'[\uAC00-\uD7AF\u1100-\u11FF]', item.title))
+                    if has_jp and not has_ko:
+                        lang_code = 'ja'
+                    elif has_ko:
+                        lang_code = 'ko'
+
+                if lang_code:
+                    logger.info(f"🌐 [BrowserUploader] Configuring Video Language for global targeting: {lang_code}...")
+                    lang_targets = {
+                        'ja': ['일본어', 'Japanese'],
+                        'ko': ['한국어', 'Korean'],
+                        'en': ['영어', 'English'],
+                        'es': ['스페인어', 'Spanish']
+                    }.get(lang_code, [lang_code])
+
+                    # Scroll down to reveal language section
+                    page.evaluate('''() => {
+                        const sc = document.querySelector('#scrollable-content');
+                        if (sc) sc.scrollTop = sc.scrollHeight;
+                    }''')
+                    time.sleep(0.5)
+
+                    lang_selector = page.locator('ytcp-form-language-input, ytcp-select[aria-label*="동영상 언어"], ytcp-select[aria-label*="Video language"], #language-audio-language').first
+                    if lang_selector.count() > 0 and lang_selector.is_visible(timeout=3000):
+                        lang_selector.click()
+                        time.sleep(0.8)
+
+                        # Check if search box opened
+                        search_box = page.locator('tp-yt-paper-dialog input, input#search-input, input[aria-label*="검색"], input[aria-label*="Search"]').first
+                        if search_box.count() > 0 and search_box.is_visible(timeout=1500):
+                            search_box.fill(lang_targets[0])
+                            time.sleep(0.5)
+
+                        # Select matching option
+                        for target_text in lang_targets:
+                            opt = page.locator(f'tp-yt-paper-item:has-text("{target_text}"), ytcp-text-menu tp-yt-paper-item:has-text("{target_text}"), tp-yt-paper-item .item-text:has-text("{target_text}")').first
+                            if opt.count() > 0 and opt.is_visible(timeout=2000):
+                                opt.click()
+                                logger.info(f"✅ [BrowserUploader] Video Language set to: {target_text}")
+                                time.sleep(0.5)
+                                break
+            except Exception as lang_e:
+                logger.warning(f"Video language selection non-critical warning: {lang_e}")
+
         except Exception as e:
             logger.error(f"[FAIL] Metadata Entry Error: {e}")
             raise Exception(f"Metadata phase failed: {e}")
@@ -410,7 +467,19 @@ class BrowserUploader:
             logger.info("👁️ Setting Visibility & Schedule...")
             yt_config = item.platform_configs.get('youtube', {})
             original_privacy = yt_config.get('privacy', 'private').lower()
-            is_scheduled = (original_privacy in ["schedule", "scheduled"]) or (item.scheduled_upload_time is not None and item.scheduled_upload_time > __import__('datetime').datetime.now())
+            if original_privacy == 'smart_scheduled' and not item.scheduled_upload_time:
+                import os
+                file_mb = 15.0
+                try:
+                    if item.video_file_path and os.path.exists(item.video_file_path):
+                        file_mb = os.path.getsize(item.video_file_path) / (1024 * 1024)
+                except Exception:
+                    pass
+                aging_mins = min(max(15, int(file_mb * 0.15) + 12), 30)
+                item.scheduled_upload_time = __import__('datetime').datetime.now() + __import__('datetime').timedelta(minutes=aging_mins)
+                db.commit()
+
+            is_scheduled = (original_privacy in ["schedule", "scheduled", "smart_scheduled"]) or (item.scheduled_upload_time is not None and item.scheduled_upload_time > __import__('datetime').datetime.now())
 
             yt_config['final_privacy'] = 'scheduled' if is_scheduled else original_privacy
             item.platform_configs['youtube'] = yt_config
@@ -594,7 +663,7 @@ class BrowserUploader:
             time.sleep(1)
             
             # Select final privacy
-            if final_privacy in ["SCHEDULE", "SCHEDULED"] and item.scheduled_upload_time:
+            if final_privacy in ["SCHEDULE", "SCHEDULED", "SMART_SCHEDULED"] and item.scheduled_upload_time:
                 logger.info(f"📅 Entering Scheduling Mode for {item.scheduled_upload_time}")
                 # Click the schedule radio
                 page.locator('tp-yt-paper-radio-button[name="SCHEDULE"], tp-yt-paper-radio-button[name="SCHEDULED"]').first.click(timeout=5000)

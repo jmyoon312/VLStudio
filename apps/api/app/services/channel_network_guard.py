@@ -37,17 +37,34 @@ class ChannelNetworkGuard:
 
         # 2. BrandChannel을 통한 역추적
         brand = db.query(models.BrandChannel).filter(models.BrandChannel.channel_id == channel_id).first()
-        if brand and hasattr(brand, "profile_id") and brand.profile_id:
-            return db.query(models.Profile).filter(models.Profile.id == brand.profile_id).first()
+        if brand:
+            if getattr(brand, "owner_profile", None):
+                return brand.owner_profile
+            if getattr(brand, "owner_profile_id", None):
+                p = db.query(models.Profile).filter(models.Profile.id == brand.owner_profile_id).first()
+                if p:
+                    return p
+            if getattr(brand, "profile_id", None):
+                p = db.query(models.Profile).filter(models.Profile.id == brand.profile_id).first()
+                if p:
+                    return p
 
-        # 3. 기본 프로필 fallback
+        # 3. YouTubeChannel을 통한 역추적
+        yt_ch = db.query(models.YouTubeChannel).filter(models.YouTubeChannel.channel_id == channel_id).first()
+        if yt_ch and getattr(yt_ch, "owner_profile_id", None):
+            p = db.query(models.Profile).filter(models.Profile.id == yt_ch.owner_profile_id).first()
+            if p:
+                return p
+
+        # 4. 기본 프로필 fallback
         return db.query(models.Profile).first()
 
     @classmethod
     def prepare_network_context(
         cls,
         db: Session,
-        channel_id: Optional[str]
+        channel_id: Optional[str],
+        force_rotation: bool = False
     ) -> Dict[str, Any]:
         """
         채널 작업 진입 전 보안 네트워크 환경을 확립하고 프록시 딕셔너리를 반환
@@ -63,7 +80,7 @@ class ChannelNetworkGuard:
             return {"mode": "DIRECT", "proxies": None, "rotated": False}
 
         proxy_mode = getattr(profile, "proxy_mode", "DIRECT_LTE") or "DIRECT_LTE"
-        logger.info(f"🛡️ [NetworkGuard] 채널 [{channel_id}] 보안 모드: {proxy_mode}")
+        logger.info(f"🛡️ [NetworkGuard] 채널 [{channel_id}] 보안 모드: {proxy_mode} (force_rotation={force_rotation})")
 
         # ── CASE 1: ISP_PROXY (고정 IP 채널) ──────────────────────────
         if proxy_mode == "ISP_PROXY":
@@ -100,15 +117,37 @@ class ChannelNetworkGuard:
             except Exception:
                 pass
 
+            # 2. 대표님 수동 보안 접속(Interactive Session) 활성 확인 -> 회선 및 소켓 보호
+            is_interactive_active = False
+            try:
+                from app.services.stealth_ops_v2 import is_user_interactive_active, get_active_interactive_profile_ids
+                if profile and is_user_interactive_active(profile.id):
+                    is_interactive_active = True
+                elif is_user_interactive_active(channel_id):
+                    is_interactive_active = True
+                else:
+                    # 동일 기기(bound_device_serial)를 공유하는 다른 프로필이 수동 접속 중인지 검사
+                    target_serial = getattr(profile, "bound_device_serial", None)
+                    if target_serial:
+                        active_pids = get_active_interactive_profile_ids()
+                        for apid in active_pids:
+                            act_prof = db.query(models.Profile).filter(models.Profile.id == apid).first()
+                            if act_prof and getattr(act_prof, "bound_device_serial", None) == target_serial:
+                                is_interactive_active = True
+                                logger.info(f"👑 [NetworkGuard] 기기 [{target_serial}]를 공유하는 프로필 [{apid}]이 수동 보안 접속 중입니다.")
+                                break
+            except Exception as check_e:
+                logger.debug(f"[NetworkGuard] Interactive session check soft warning: {check_e}")
+
             now = time.time()
             if is_upload_in_progress:
                 logger.warning(f"🛡️ [NetworkGuard] 쇼츠 대용량 업로드 작업 진행 중! LTE 회선 단선 방지를 위해 IP 교체를 안전하게 생략합니다.")
                 _LAST_ACTIVE_CHANNEL = channel_id
-            elif (now - _LAST_ROTATION_TIME) < _ROTATION_COOLDOWN_SEC:
-                logger.info(f"⏳ [NetworkGuard] 최근 IP 교체 쿨다운 활성 ({int(now - _LAST_ROTATION_TIME)}s < {_ROTATION_COOLDOWN_SEC}s). IP 로테이션 스킵")
+            elif is_interactive_active:
+                logger.info(f"👑 [NetworkGuard] 수동 보안 접속(Interactive Session) 활성 중! 회선 연결 유지 및 소켓 보호를 위해 LTE IP 교체를 안전하게 생략합니다.")
                 _LAST_ACTIVE_CHANNEL = channel_id
-            elif _LAST_ACTIVE_CHANNEL != channel_id:
-                logger.info(f"⚡ [NetworkGuard] 채널 전환 감지 ({_LAST_ACTIVE_CHANNEL} -> {channel_id}). LTE 소프트 IP 교체 중...")
+            elif force_rotation or _LAST_ACTIVE_CHANNEL != channel_id or (now - _LAST_ROTATION_TIME) >= _ROTATION_COOLDOWN_SEC:
+                logger.info(f"⚡ [NetworkGuard] 업로드 전 LTE 소프트 IP 교체 실행 (force={force_rotation}, channel={channel_id})...")
                 try:
                     target_serial = getattr(profile, "bound_device_serial", None)
                     adb_service.rotate_ip(serial=target_serial, method='soft')
@@ -116,6 +155,9 @@ class ChannelNetworkGuard:
                     _LAST_ROTATION_TIME = now
                 except Exception as e:
                     logger.warning(f"[NetworkGuard] LTE 소프트 교체 경고: {e}")
+                _LAST_ACTIVE_CHANNEL = channel_id
+            else:
+                logger.info(f"⏳ [NetworkGuard] 최근 IP 교체 쿨다운 활성 ({int(now - _LAST_ROTATION_TIME)}s < {_ROTATION_COOLDOWN_SEC}s). IP 로테이션 스킵")
                 _LAST_ACTIVE_CHANNEL = channel_id
 
             # 로컬 Every Proxy SOCKS5 매핑 (socks5h:// 사용하여 DNS 누출 원천 방지)

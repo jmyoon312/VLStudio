@@ -484,7 +484,7 @@ export const TemplateInspectorForm: React.FC<TemplateInspectorFormProps> = (prop
                           <span className="text-[9px] text-muted-foreground block mb-0.5">프로필 닉네임</span>
                           <input
                             type="text"
-                            value={instaConfig.profileName}
+                            value={instaConfig?.profileName ?? ''}
                             onChange={(e) => setInstaConfig(prev => ({ ...prev, profileName: e.target.value }))}
                             placeholder="사용자명"
                             className="w-full px-2 py-1 text-xs bg-background border border-border rounded-[2px]"
@@ -494,7 +494,7 @@ export const TemplateInspectorForm: React.FC<TemplateInspectorFormProps> = (prop
                           <span className="text-[9px] text-muted-foreground block mb-0.5">아이디 (@핸들)</span>
                           <input
                             type="text"
-                            value={instaConfig.profileHandle}
+                            value={instaConfig?.profileHandle ?? ''}
                             onChange={(e) => setInstaConfig(prev => ({ ...prev, profileHandle: e.target.value }))}
                             placeholder="@아이디"
                             className="w-full px-2 py-1 text-xs bg-background border border-border rounded-[2px]"
@@ -523,13 +523,13 @@ export const TemplateInspectorForm: React.FC<TemplateInspectorFormProps> = (prop
                         </div>
                         <div className="flex items-center gap-1.5">
                           <img
-                            src={instaConfig.profileAvatarUrl || "https://api.dicebear.com/9.x/lorelei/svg?seed=user_avatar_blue"}
+                            src={instaConfig?.profileAvatarUrl || "https://api.dicebear.com/9.x/lorelei/svg?seed=user_avatar_blue"}
                             alt="Avatar"
                             className="w-6 h-6 rounded-full border border-border object-cover shrink-0"
                           />
                           <input
                             type="text"
-                            value={instaConfig.profileAvatarUrl}
+                            value={instaConfig?.profileAvatarUrl ?? ''}
                             onChange={(e) => setInstaConfig(prev => ({ ...prev, profileAvatarUrl: e.target.value }))}
                             placeholder="https://..."
                             className="w-full px-2 py-0.5 text-[11px] bg-background border border-border rounded-[2px] font-mono"
@@ -542,7 +542,7 @@ export const TemplateInspectorForm: React.FC<TemplateInspectorFormProps> = (prop
                         <label className="flex items-center gap-1.5 text-[10px] cursor-pointer">
                           <input
                             type="checkbox"
-                            checked={instaConfig.isVerified}
+                            checked={Boolean(instaConfig?.isVerified)}
                             onChange={(e) => setInstaConfig(prev => ({ ...prev, isVerified: e.target.checked }))}
                             className="rounded accent-primary cursor-pointer"
                           />
@@ -779,7 +779,7 @@ export const TemplateInspectorForm: React.FC<TemplateInspectorFormProps> = (prop
                         <div className="flex items-center justify-between">
                           <UnitSliderControl
                             label="테두리 두께"
-                            value={instaConfig.holeBorderWidth}
+                            value={instaConfig?.holeBorderWidth ?? 1}
                             min={0}
                             max={4}
                             step={1}
@@ -790,7 +790,7 @@ export const TemplateInspectorForm: React.FC<TemplateInspectorFormProps> = (prop
                           <label className="flex items-center gap-1 cursor-pointer pt-3">
                             <input
                               type="checkbox"
-                              checked={instaConfig.holeShadow}
+                              checked={Boolean(instaConfig?.holeShadow)}
                               onChange={(e) => setInstaConfig(prev => ({ ...prev, holeShadow: e.target.checked }))}
                               className="rounded accent-primary cursor-pointer"
                             />
@@ -880,7 +880,7 @@ export const TemplateInspectorForm: React.FC<TemplateInspectorFormProps> = (prop
                         <div className="flex items-center gap-1.5">
                           <input
                             type="checkbox"
-                            checked={hasCommentCard}
+                            checked={Boolean(hasCommentCard)}
                             onChange={(e) => setHasCommentCard(e.target.checked)}
                             className="rounded accent-primary cursor-pointer"
                           />
@@ -903,7 +903,7 @@ export const TemplateInspectorForm: React.FC<TemplateInspectorFormProps> = (prop
                               <span className="text-[9px] text-muted-foreground block mb-0.5">댓글 작성자</span>
                               <input
                                 type="text"
-                                value={commentCard.author}
+                                value={commentCard?.author ?? ''}
                                 onChange={(e) => setCommentCard(prev => ({ ...prev, author: e.target.value }))}
                                 placeholder="작성자"
                                 className="w-full px-2 py-1 text-xs bg-background border border-border rounded-[2px]"
@@ -913,7 +913,7 @@ export const TemplateInspectorForm: React.FC<TemplateInspectorFormProps> = (prop
                               <span className="text-[9px] text-muted-foreground block mb-0.5">좋아요 수</span>
                               <input
                                 type="text"
-                                value={commentCard.likes}
+                                value={commentCard?.likes ?? ''}
                                 onChange={(e) => setCommentCard(prev => ({ ...prev, likes: e.target.value }))}
                                 placeholder="예: 1.4만"
                                 className="w-full px-2 py-1 text-xs bg-background border border-border rounded-[2px]"
@@ -1021,7 +1021,7 @@ export const TemplateInspectorForm: React.FC<TemplateInspectorFormProps> = (prop
                             <label className="flex items-center gap-1 cursor-pointer">
                               <input
                                 type="checkbox"
-                                checked={commentCard.anonymous}
+                                checked={Boolean(commentCard?.anonymous)}
                                 onChange={(e) => setCommentCard(prev => ({ ...prev, anonymous: e.target.checked }))}
                                 className="rounded accent-primary cursor-pointer"
                               />
@@ -1030,7 +1030,7 @@ export const TemplateInspectorForm: React.FC<TemplateInspectorFormProps> = (prop
                             <label className="flex items-center gap-1 cursor-pointer">
                               <input
                                 type="checkbox"
-                                checked={commentCard.blurId}
+                                checked={Boolean(commentCard?.blurId)}
                                 onChange={(e) => setCommentCard(prev => ({ ...prev, blurId: e.target.checked }))}
                                 className="rounded accent-primary cursor-pointer"
                               />
@@ -1119,15 +1119,15 @@ export const TemplateInspectorForm: React.FC<TemplateInspectorFormProps> = (prop
                         <div className="space-y-1">
                           <input
                             type="text"
-                            value={gunlimboConfig.titleLine1}
+                            value={gunlimboConfig?.titleLine1 ?? ''}
                             onChange={(e) => setGunlimboConfig(prev => ({ ...prev, titleLine1: e.target.value }))}
                             placeholder="1번째 줄 (예: 제목을)"
                             className="w-full px-2 py-1 text-xs bg-background border border-border rounded-[2px] font-bold"
-                            style={{ color: gunlimboConfig.titleLine1Color }}
+                            style={{ color: gunlimboConfig?.titleLine1Color }}
                           />
                           <ColorPicker8Preset
                             label="1번째 줄 글자색"
-                            value={gunlimboConfig.titleLine1Color || '#FFFFFF'}
+                            value={gunlimboConfig?.titleLine1Color || '#FFFFFF'}
                             onChange={(val) => setGunlimboConfig(prev => ({ ...prev, titleLine1Color: val }))}
                           />
                         </div>
@@ -1136,15 +1136,15 @@ export const TemplateInspectorForm: React.FC<TemplateInspectorFormProps> = (prop
                         <div className="space-y-1">
                           <input
                             type="text"
-                            value={gunlimboConfig.titleLine2}
+                            value={gunlimboConfig?.titleLine2 ?? ''}
                             onChange={(e) => setGunlimboConfig(prev => ({ ...prev, titleLine2: e.target.value }))}
                             placeholder="2번째 줄 (예: 입력해주세요)"
                             className="w-full px-2 py-1 text-xs bg-background border border-border rounded-[2px] font-bold"
-                            style={{ color: gunlimboConfig.titleLine2Color }}
+                            style={{ color: gunlimboConfig?.titleLine2Color }}
                           />
                           <ColorPicker8Preset
                             label="2번째 줄 글자색"
-                            value={gunlimboConfig.titleLine2Color || '#FFE500'}
+                            value={gunlimboConfig?.titleLine2Color || '#FFE500'}
                             onChange={(val) => setGunlimboConfig(prev => ({ ...prev, titleLine2Color: val }))}
                           />
                         </div>
@@ -1154,7 +1154,7 @@ export const TemplateInspectorForm: React.FC<TemplateInspectorFormProps> = (prop
                       <div className="space-y-2 pt-1 border-t border-border/40 text-[10px]">
                         <UnitSliderControl
                           label="글자 크기"
-                          value={gunlimboConfig.titleFontSize}
+                          value={gunlimboConfig?.titleFontSize ?? 34}
                           min={24}
                           max={48}
                           step={1}
@@ -1165,7 +1165,7 @@ export const TemplateInspectorForm: React.FC<TemplateInspectorFormProps> = (prop
                           <input
                             type="checkbox"
                             id="gunlimbo-keep-title"
-                            checked={gunlimboConfig.keepTitleThroughout}
+                            checked={Boolean(gunlimboConfig?.keepTitleThroughout)}
                             onChange={(e) => setGunlimboConfig(prev => ({ ...prev, keepTitleThroughout: e.target.checked }))}
                             className="rounded accent-amber-500 cursor-pointer"
                           />
@@ -1190,10 +1190,10 @@ export const TemplateInspectorForm: React.FC<TemplateInspectorFormProps> = (prop
                               const firstSub = subLayer.data[0];
                               const newDuration = (firstSub.endMs && firstSub.startMs) 
                                 ? Math.max(1.0, Math.min(5.0, (firstSub.endMs - firstSub.startMs) / 1000))
-                                : gunlimboConfig.introDurationSec;
+                                : (gunlimboConfig?.introDurationSec ?? 2.5);
                               setGunlimboConfig(prev => ({
                                 ...prev,
-                                hookPhrase: firstSub.text || prev.hookPhrase,
+                                hookPhrase: firstSub.text || prev?.hookPhrase || '',
                                 introDurationSec: newDuration,
                               }));
                               toast({
@@ -1216,7 +1216,7 @@ export const TemplateInspectorForm: React.FC<TemplateInspectorFormProps> = (prop
 
                       <input
                         type="text"
-                        value={gunlimboConfig.hookPhrase}
+                        value={gunlimboConfig?.hookPhrase ?? ''}
                         onChange={(e) => setGunlimboConfig(prev => ({ ...prev, hookPhrase: e.target.value }))}
                         placeholder="후킹문구를 입력하세요"
                         className="w-full px-2 py-1 text-xs bg-background border border-border rounded-[2px] font-bold"
@@ -1227,7 +1227,7 @@ export const TemplateInspectorForm: React.FC<TemplateInspectorFormProps> = (prop
                         <div className="grid grid-cols-2 gap-2">
                           <UnitSliderControl
                             label="후킹 노출 시간"
-                            value={gunlimboConfig.introDurationSec}
+                            value={gunlimboConfig?.introDurationSec ?? 2.5}
                             min={1.0}
                             max={5.0}
                             step={0.5}
@@ -1236,7 +1236,7 @@ export const TemplateInspectorForm: React.FC<TemplateInspectorFormProps> = (prop
                           />
                           <UnitSliderControl
                             label="후킹 글자 크기"
-                            value={gunlimboConfig.hookFontSize}
+                            value={gunlimboConfig?.hookFontSize ?? 19}
                             min={16}
                             max={32}
                             step={1}
@@ -1246,12 +1246,12 @@ export const TemplateInspectorForm: React.FC<TemplateInspectorFormProps> = (prop
                         </div>
                         <ColorPicker8Preset
                           label="후킹 바 배경색"
-                          value={gunlimboConfig.hookBgColor || '#FFFFFF'}
+                          value={gunlimboConfig?.hookBgColor || '#FFFFFF'}
                           onChange={(val) => setGunlimboConfig(prev => ({ ...prev, hookBgColor: val }))}
                         />
                         <ColorPicker8Preset
                           label="후킹 글자색"
-                          value={gunlimboConfig.hookTextColor || '#000000'}
+                          value={gunlimboConfig?.hookTextColor || '#000000'}
                           onChange={(val) => setGunlimboConfig(prev => ({ ...prev, hookTextColor: val }))}
                         />
                       </div>
@@ -1264,7 +1264,7 @@ export const TemplateInspectorForm: React.FC<TemplateInspectorFormProps> = (prop
                       </span>
                       <input
                         type="checkbox"
-                        checked={gunlimboConfig.showGuidelines}
+                        checked={Boolean(gunlimboConfig?.showGuidelines)}
                         onChange={(e) => setGunlimboConfig(prev => ({ ...prev, showGuidelines: e.target.checked }))}
                         className="rounded accent-amber-500 cursor-pointer"
                       />
@@ -1456,7 +1456,7 @@ export const TemplateInspectorForm: React.FC<TemplateInspectorFormProps> = (prop
                         <label className="flex items-center gap-1 text-[9.5px] cursor-pointer">
                           <input
                             type="checkbox"
-                            checked={ssulConfig.memeAliveMotion}
+                            checked={Boolean(ssulConfig?.memeAliveMotion)}
                             onChange={(e) => setSsulConfig(prev => ({ ...prev, memeAliveMotion: e.target.checked }))}
                             className="rounded accent-emerald-500 cursor-pointer"
                           />
@@ -1552,7 +1552,7 @@ export const TemplateInspectorForm: React.FC<TemplateInspectorFormProps> = (prop
                     <label className="flex items-center gap-1 text-[9.5px] cursor-pointer">
                       <input
                         type="checkbox"
-                        checked={autoMoodMatching}
+                        checked={Boolean(autoMoodMatching)}
                         onChange={(e) => setAutoMoodMatching(e.target.checked)}
                         className="rounded accent-primary cursor-pointer"
                       />

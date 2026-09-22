@@ -10,6 +10,7 @@ import json
 
 router = APIRouter(tags=["brand-channels"])
 
+@router.get("", response_model=List[schemas.BrandChannel])
 @router.get("/", response_model=List[schemas.BrandChannel])
 def get_brand_channels(db: Session = Depends(database.get_db)):
     # Only return active channels by default

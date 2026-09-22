@@ -33,7 +33,7 @@ class FreeMediaScraper:
 
     def __init__(self):
         self.media_root = get_default_media_root()
-        self.cache_dir = os.path.join(self.media_root, "cache", "free_media")
+        self.cache_dir = os.path.join(self.media_root, "02_Operations", "cache", "free_media")
         os.makedirs(self.cache_dir, exist_ok=True)
         self.headers = {
             "User-Agent": USER_AGENTS[0],

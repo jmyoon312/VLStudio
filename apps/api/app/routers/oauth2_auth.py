@@ -17,7 +17,7 @@ from google_auth_oauthlib.flow import Flow
 from google.oauth2.credentials import Credentials
 
 from app.database import get_db
-from app.models import Profile
+from app.models import Profile, BrandChannel
 
 logger = logging.getLogger(__name__)
 
@@ -103,7 +103,7 @@ async def start_oauth2_flow(profile_id: str, db: Session = Depends(get_db)):
         authorization_url, state = flow.authorization_url(
             access_type='offline',
             include_granted_scopes='true',
-            prompt='consent',
+            prompt='consent select_account',
             state=state_data
         )
         
@@ -162,11 +162,60 @@ async def oauth2_callback(code: str, state: str = None, db: Session = Depends(ge
         profile.refresh_token = credentials.refresh_token
         profile.token_expiry = credentials.expiry
         
+        # [NEW] Check authorized YouTube channel identity and bind directly to BrandChannel
+        channel_info = None
+        matched_brand_channel = None
+        try:
+            from googleapiclient.discovery import build
+            yt_service = build("youtube", "v3", credentials=credentials, cache_discovery=False)
+            ch_res = yt_service.channels().list(mine=True, part="id,snippet").execute()
+            items = ch_res.get("items", [])
+            if items:
+                channel_info = {
+                    "id": items[0]["id"],
+                    "title": items[0]["snippet"]["title"]
+                }
+                logger.info(f"✅ OAuth2 token authorized for YouTube Channel: '{channel_info['title']}' ({channel_info['id']})")
+                
+                # Try finding BrandChannel by channel_id first, then by owner_profile_id
+                bc = db.query(BrandChannel).filter(BrandChannel.channel_id == channel_info["id"]).first()
+                if not bc:
+                    bc = db.query(BrandChannel).filter(BrandChannel.owner_profile_id == profile.id).first()
+                
+                if bc:
+                    matched_brand_channel = bc
+                    bc.access_token = credentials.token
+                    bc.refresh_token = credentials.refresh_token
+                    bc.token_expiry = credentials.expiry
+                    logger.info(f"✅ Bound OAuth credentials directly to BrandChannel ID {bc.id} ({bc.title}, {bc.channel_id})")
+        except Exception as ex:
+            logger.warning(f"Could not fetch channel info during OAuth callback: {ex}")
+        
         db.commit()
         
         logger.info(f"OAuth2 authentication successful for profile {profile.id} ({profile.email})")
         
         email_display = profile.email or "Google Account"
+        ch_html = ""
+        if channel_info:
+            is_matched = matched_brand_channel and (matched_brand_channel.channel_id == channel_info['id'])
+            badge_color = "#10b981" if is_matched else "#f59e0b"
+            badge_title = "브랜드 채널 일치" if is_matched else "승인된 채널"
+            ch_html = f"""
+            <div style="background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 12px; margin: 16px 0; text-align: left;">
+                <div style="font-size: 11px; font-weight: bold; color: {badge_color}; text-transform: uppercase; margin-bottom: 4px;">● {badge_title}</div>
+                <div style="font-size: 14px; font-weight: bold; color: #f8fafc;">{channel_info['title']}</div>
+                <div style="font-size: 12px; color: #94a3b8; font-family: monospace;">ID: {channel_info['id']}</div>
+            </div>
+            """
+            if not is_matched and matched_brand_channel:
+                ch_html += f"""
+                <div style="font-size: 12px; color: #f87171; background: #450a0a; padding: 8px 12px; border-radius: 6px; margin-bottom: 12px; text-align: left;">
+                    ⚠️ 목표 브랜드 채널(<strong>{matched_brand_channel.title}</strong>)이 아닌 <strong>{channel_info['title']}</strong> 채널로 승인되었습니다.<br>
+                    브랜드 채널로 업로드하려면 승인 창의 계정 목록에서 해당 브랜드 계정을 직접 선택해 주세요.
+                </div>
+                """
+
         return HTMLResponse(content=f"""
         <!DOCTYPE html>
         <html lang="ko">
@@ -188,15 +237,15 @@ async def oauth2_callback(code: str, state: str = None, db: Session = Depends(ge
                     background: #1e293b;
                     border: 1px solid #334155;
                     border-radius: 16px;
-                    padding: 40px;
+                    padding: 36px;
                     text-align: center;
                     max-width: 480px;
                     box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
                 }}
-                .icon {{ font-size: 52px; margin-bottom: 16px; }}
-                h1 {{ font-size: 22px; margin: 0 0 12px 0; color: #10b981; font-weight: 800; }}
-                p {{ font-size: 14px; color: #94a3b8; line-height: 1.6; margin: 0 0 24px 0; }}
-                .email {{ color: #818cf8; font-weight: bold; background: #312e81; padding: 4px 8px; border-radius: 6px; }}
+                .icon {{ font-size: 48px; margin-bottom: 12px; }}
+                h1 {{ font-size: 20px; margin: 0 0 10px 0; color: #10b981; font-weight: 800; }}
+                p {{ font-size: 13px; color: #94a3b8; line-height: 1.5; margin: 0 0 16px 0; }}
+                .email {{ color: #818cf8; font-weight: bold; background: #312e81; padding: 3px 6px; border-radius: 4px; }}
                 .btn {{
                     background: #6366f1;
                     color: white;
@@ -215,8 +264,9 @@ async def oauth2_callback(code: str, state: str = None, db: Session = Depends(ge
             <div class="card">
                 <div class="icon">🎉</div>
                 <h1>Google API 연동 승인 완료!</h1>
-                <p>계정(<span class="email">{email_display}</span>)에 YouTube API 권한이 정상 등록되었습니다.<br><br>이제 이 창을 닫고 <strong>ViraLoop Studio</strong>로 돌아가서 계속 진행하세요.</p>
-                <button class="btn" onclick="window.close(); try { window.open('','_self').close(); } catch(e){}">이 창 닫기 (또는 Ctrl+W)</button>
+                <p>계정(<span class="email">{email_display}</span>)에 YouTube API 권한이 등록되었습니다.</p>
+                {ch_html}
+                <button class="btn" onclick="window.close(); try {{ window.open('','_self').close(); }} catch(e){{}}">이 창 닫기 (또는 Ctrl+W)</button>
                 <div style="font-size: 12px; color: #64748b; margin-top: 14px;">※ 브라우저 보안 정책상 버튼으로 닫히지 않을 경우, 키보드의 <strong>Ctrl + W</strong> 또는 우측 상단 <strong>X</strong> 버튼을 눌러 직접 닫아주세요.</div>
             </div>
         </body>
@@ -288,6 +338,34 @@ async def manual_oauth2_callback(req: ManualCallbackRequest, db: Session = Depen
         profile.refresh_token = credentials.refresh_token
         profile.token_expiry = credentials.expiry
 
+        # [NEW] Check authorized YouTube channel identity and bind directly to BrandChannel
+        channel_info = None
+        matched_brand_channel = None
+        try:
+            from googleapiclient.discovery import build
+            yt_service = build("youtube", "v3", credentials=credentials, cache_discovery=False)
+            ch_res = yt_service.channels().list(mine=True, part="id,snippet").execute()
+            items = ch_res.get("items", [])
+            if items:
+                channel_info = {
+                    "id": items[0]["id"],
+                    "title": items[0]["snippet"]["title"]
+                }
+                logger.info(f"✅ [Manual OAuth2] token authorized for YouTube Channel: '{channel_info['title']}' ({channel_info['id']})")
+                
+                bc = db.query(BrandChannel).filter(BrandChannel.channel_id == channel_info["id"]).first()
+                if not bc:
+                    bc = db.query(BrandChannel).filter(BrandChannel.owner_profile_id == profile.id).first()
+                
+                if bc:
+                    matched_brand_channel = bc
+                    bc.access_token = credentials.token
+                    bc.refresh_token = credentials.refresh_token
+                    bc.token_expiry = credentials.expiry
+                    logger.info(f"✅ [Manual OAuth2] Bound OAuth credentials directly to BrandChannel ID {bc.id} ({bc.title}, {bc.channel_id})")
+        except Exception as ex:
+            logger.warning(f"Could not fetch channel info during manual OAuth callback: {ex}")
+
         db.commit()
 
         logger.info(f"Manual OAuth2 authentication successful for profile {profile.id} ({profile.email})")
@@ -296,6 +374,8 @@ async def manual_oauth2_callback(req: ManualCallbackRequest, db: Session = Depen
             "success": True,
             "message": f"Google API 연동 승인 완료 ({profile.email})",
             "email": profile.email,
+            "channel": channel_info,
+            "matched_brand_channel": matched_brand_channel.title if matched_brand_channel else None,
             "has_access_token": bool(profile.access_token),
             "has_refresh_token": bool(profile.refresh_token)
         }
@@ -339,7 +419,7 @@ async def start_oauth2_with_profile(profile_id: str, db: Session = Depends(get_d
             'response_type': 'code',
             'scope': ' '.join(SCOPES),
             'access_type': 'offline',
-            'prompt': 'consent',
+            'prompt': 'consent select_account',
             'state': state_data
         }
         

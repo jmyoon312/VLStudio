@@ -177,6 +177,20 @@ class BrandChannel(Base):
     
     created_at = Column(DateTime, default=datetime.now)
 
+    @property
+    def tin_can_account(self):
+        """Backward-compatibility alias for owner_profile"""
+        return self.owner_profile
+
+    @property
+    def channel_name(self):
+        """Backward-compatibility alias for title or channel_id"""
+        return self.title or self.channel_id or ""
+
+    @channel_name.setter
+    def channel_name(self, value):
+        self.title = value
+
 class ChannelDNABenchmark(Base):
     """
     [CHANNEL-DNA-BENCHMARK]
@@ -529,6 +543,15 @@ class Settings(Base):
     hermes_skill_min_score = Column(Integer, default=85)
     hermes_fts5_compression = Column(Boolean, default=True)
     hermes_max_subagents = Column(Integer, default=3)
+
+    # [Hermes Core v0.21.3 Upgrades]
+    hermes_cron_continuity_enabled = Column(Boolean, default=True)
+    hermes_monitor_mode_enabled = Column(Boolean, default=True)
+    hermes_subagent_steering_enabled = Column(Boolean, default=True)
+    hermes_structured_schema_enforced = Column(Boolean, default=True)
+    hermes_instruction_protection_enabled = Column(Boolean, default=True)
+    hermes_har_api_mode = Column(String(20), default="auto")
+    hermes_fts_wal_pool_size = Column(Integer, default=5)
     telegram_bot_token = Column(String, nullable=True)
     telegram_chat_id = Column(String, nullable=True)
     telegram_notify_enabled = Column(Boolean, default=False)

@@ -296,6 +296,29 @@ function getDashboardIndexPath() {
 // 보조 창(새 창에서 열린 독립 인스턴스) 레지스트리
 const auxiliaryWindows = new Set()
 
+function isInternalAppUrl(urlStr) {
+  try {
+    if (!urlStr) return false;
+    // Packaged app local file URL
+    if (urlStr.startsWith('file://') && urlStr.includes('index.html')) {
+      return true;
+    }
+    // Dev server: must match Vite dev server origin (host + port)
+    if (process.env.VITE_DEV_SERVER_URL) {
+      const devUrl = new URL(process.env.VITE_DEV_SERVER_URL);
+      const targetUrl = new URL(urlStr);
+      const isLocalHost = targetUrl.hostname === 'localhost' || targetUrl.hostname === '127.0.0.1';
+      const isDevHost = devUrl.hostname === 'localhost' || devUrl.hostname === '127.0.0.1';
+      if (isLocalHost && isDevHost && targetUrl.port === devUrl.port) {
+        return true;
+      }
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
 async function openAuxiliaryWindow({ route, title } = {}) {
   try {
     const targetRoute = (route || '/').replace(/^[#\/]+/, '')
@@ -333,11 +356,7 @@ async function openAuxiliaryWindow({ route, title } = {}) {
     // 새 창 내부에서의 링크 열기도 내부/외부 분기
     newWin.webContents.setWindowOpenHandler(({ url }) => {
       try {
-        const isInternal = url.startsWith('file://') || 
-                           url.includes('index.html') || 
-                           url.includes('localhost:') || 
-                           url.includes('127.0.0.1:');
-        if (isInternal) {
+        if (isInternalAppUrl(url)) {
           const urlObj = new URL(url);
           const hash = urlObj.hash ? urlObj.hash.replace(/^#\/?/, '/') : '/';
           openAuxiliaryWindow({ route: hash, title: 'ViraLoop Studio' });
@@ -1032,11 +1051,7 @@ function createWindow() {
   // Open target="_blank" links: 앱 내부 URL이면 새 Electron BrowserWindow 생성, 외부는 시스템 기본 브라우저
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     try {
-      const isInternal = url.startsWith('file://') || 
-                         url.includes('index.html') || 
-                         url.includes('localhost:') || 
-                         url.includes('127.0.0.1:');
-      if (isInternal) {
+      if (isInternalAppUrl(url)) {
         let route = '/';
         try {
           const urlObj = new URL(url);
@@ -2669,49 +2684,10 @@ function checkPortOpen(port, host = '127.0.0.1') {
   })
 }
 
-async function startDeepSeekHarnessDaemon() {
-  if (appIsQuitting) return
-  try {
-    const isOpen = await checkPortOpen(3080)
-    if (isOpen) {
-      console.log('[Orchestration] ✅ DeepSeek Harness is already active on port 3080. Retaining instance.')
-      return
-    }
-
-    console.log('[Orchestration] 🤖 Launching DeepSeek Harness AI Director on port 3080...')
-    const rootDir = path.resolve(__dirname, '..')
-    const startBat = path.join(rootDir, 'harness', 'start-dsh.bat')
-
-    if (fsSync.existsSync(startBat)) {
-      dshProcess = spawn('cmd.exe', ['/c', startBat], {
-        cwd: rootDir,
-        detached: true,
-        stdio: 'ignore',
-        windowsHide: true,
-        env: {
-          ...process.env,
-          YOUTUBE2_API_KEY: 'sk-95b157f52819c50b-62f661-a5667588'
-        }
-      })
-      dshProcess.unref()
-      console.log(`[Orchestration] 🚀 DeepSeek Harness daemon spawned (PID: ${dshProcess.pid})`)
-    } else {
-      console.warn('[Orchestration] start-dsh.bat not found at:', startBat)
-    }
-  } catch (err) {
-    console.warn('[Orchestration] Failed to spawn DeepSeek Harness:', err.message)
-  }
-}
-
 function startViraLoopInfrastructure() {
-  console.log('[Orchestration] 🚀 Starting all background infrastructures (FastAPI, OmniRoute, DSH & Dashboard Web Server)...')
+  console.log('[Orchestration] 🚀 Starting background infrastructures (FastAPI, OmniRoute & Dashboard Web Server)...')
   _doStartBackend()
   startBackendHealthMonitor()
-  try {
-    startDeepSeekHarnessDaemon()
-  } catch (err) {
-    console.warn('[Orchestration] Failed to initialize DeepSeek Harness daemon:', err.message)
-  }
   try {
     startOmniRouteDaemon().catch(err => {
       console.warn('[Orchestration] OmniRoute auto-start skipped or failed:', err.message)
@@ -2829,11 +2805,13 @@ function _doStartBackend(force = false) {
   } else if (foundPython) {
     console.log('[Orchestration] Launching ViraLoop FastAPI Backend via:', foundPython, 'in CWD:', workingDir)
     executablePath = foundPython
-    spawnArgs = ['-m', 'uvicorn', 'app.main:app', '--host', '0.0.0.0', '--port', '8000', '--no-access-log']
+    const reloadArgs = !isPackaged ? ['--reload'] : []
+    spawnArgs = ['-m', 'uvicorn', 'app.main:app', '--host', '0.0.0.0', '--port', '8000', '--no-access-log', ...reloadArgs]
   } else {
     console.log('[Orchestration] Fallback: using system python in CWD:', workingDir)
     executablePath = 'python'
-    spawnArgs = ['-m', 'uvicorn', 'app.main:app', '--host', '0.0.0.0', '--port', '8000', '--no-access-log']
+    const reloadArgs = !isPackaged ? ['--reload'] : []
+    spawnArgs = ['-m', 'uvicorn', 'app.main:app', '--host', '0.0.0.0', '--port', '8000', '--no-access-log', ...reloadArgs]
   }
 
   // SQLite 및 로컬 환경 강제 설정을 위한 환경 변수 주입

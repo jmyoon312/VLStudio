@@ -1,0 +1,49 @@
+=== pt (OneTake/Song) ===
+Korean strings (0): 
+function pt({className:e,isActive:t=!0,isRestoring:a=!1,lane:n="one-take",floatingNotice:s}){let o=function({lane:e="one-take"}){let t=(0,c.useMemo)(()=>(0,u5.MB)(e),[e]),a="song"===e,n=(0,c.useMemo)(()=>(0,u5.Ff)(e),[e]),i=function(e){var t;let r=(0,un.HF)(e=>e.jobs),a=(0,un.HF)(t=>t.runningLanes[e]),n=(0,un.HF)(e=>e.customInstruction),i=(0,un.HF)(e=>e.instructionScopes),s=(0,un.HF)(e=>e.extraCap
+...
+
+=== cX (LongformMulti) ===
+Korean strings (3): 클릭 즉시, 주기 감시, ):
+function cX({canUseCustomImageCount:e=!1,canUseSceneCompositionModes:t=!1,onListNavigationStateChange:r,onActiveWorkStateChange:a}={}){return(0,i.jsx)(cG,{canUseCustomImageCount:e,canUseSceneCompositionModes:t,onListNavigationStateChange:r,onActiveWorkStateChange:a})}var cQ=r(12165),cZ=r(35470),c0=r(11306);let c1="pixi-one-take-design-surface",c2="pixi-one-take-design-surface-change";function c5()
+...
+
+=== wd (LongToShort) ===
+Korean strings (3): 선택한 영상 파일을 읽지 못했습니다. 다시 시도해 주세요., 마지막 대기 영상을 준비합니다., 마지막 대기 영상을 준비합니다.
+function wd({disabledNotice:e,isActive:t=!0}={}){let a=!!e,[n,s]=(0,c.useState)(!1),[o,l]=(0,c.useState)(!1),[d,u]=(0,c.useState)(!1),[m,p]=(0,c.useState)(!1),[b,y]=(0,c.useState)(null),[v,w]=(0,c.useState)(null),{data:j}=(0,f.useSession)(),k=(0,g.Tc)([],j?.user?.id),M=(0,x.RI)({accessTier:j?.user?.accessTier,email:j?.user?.email,entitlementKeys:k.keys,role:j?.user?.role}),C=(0,pw.C0)(j?.user?.rol
+...
+
+=== kj (LongToShort2) ===
+Korean strings (0): 
+function kj({disabledNotice:e,isActive:t=!0}={}){var a;let n,s,o,l,d,u,m,p,b,y,v=!!e,w=(0,h.zG)(),{data:j}=(0,f.useSession)(),k=(0,g.Tc)([],j?.user?.id),M=(0,x.RI)({accessTier:j?.user?.accessTier,email:j?.user?.email,entitlementKeys:k.keys,openToAll:!1,role:j?.user?.role}),C=(0,pw.C0)(j?.user?.role)||k.keys.includes("feature.paid.use"),[,S]=(0,c.useState)(null),N=v$(e=>e.selectedUploadSource),A=v$
+...
+
+=== z4 (MovieDrama) ===
+Korean strings (0): 
+function z4(){let e,{desktopSource:t,restoredLocalPath:a,rightsConfirmed:n,setRightsConfirmed:s,targetShortsCount:o,setTargetShortsCount:l,deliveryMode:d,setDeliveryMode:u,layoutPreset:m,setLayoutPreset:p,framingCandidateId:h,setFramingCandidateId:g,framingSaving:f,styleSettings:x,setStyleSettings:b,currentJob:y,candidates:v,isCandidatesLoading:w,isBusy:j,error:k,setError:C,activityMessage:S,setAc
+...
+
+=== KC (TextCreative) ===
+Korean strings (0): 
+function KC({canUseEditChat:e=!1,canUseImageStoryboard:t=!1}={}){let r=(0,KM.mh)(),{analysisModelDraft:a,captureEnabledDraft:n,includeCommentsDraft:s,productionTargetDraft:o,setAnalysisModelDraft:l,setProductionTargetDraft:d,setSourceModeDraft:u,sourceModeDraft:m,useTemplateDraft:p,useTonePromptDraft:h}=r,{applyTimelineDecisions:g,clear:f,cutDirectorRunByJob:x,editingBriefJobId:b,removeAllJobs:y,r
+...
+
+=== KB (VideoCreative) ===
+Korean strings (0): 
+function KB(){let[e,t]=(0,c.useState)(KN.hf),[r,a]=(0,c.useState)(KE),[n,s]=(0,c.useState)(KN.W1),[o,l]=(0,c.useState)(KN.Mk.map(e=>e.value)),[d,u]=(0,c.useState)(KN.JF.map(e=>e.value)),[m,p]=(0,c.useState)(""),[h,g]=(0,c.useState)([]),[x,b]=(0,c.useState)(""),[y,v]=(0,c.useState)(KN.m9),[w,j]=(0,c.useState)(KN.nw),[k,C]=(0,c.useState)({status:"idle"}),S=(0,c.useRef)(null),N=(0,c.useRef)(null),A=(
+...
+
+=== Rr (Meokguri) ===
+Korean strings (1): 먹구리
+function Rr({youtubeNotice:e}={}){var t,a,n,s,o,l,d,u,m,p,g,x;let b,y,v,w,j,C,S,N,A,I,$,E,T,R,F,P,z,_,D,L,O,U,{data:B}=(0,f.useSession)(),V=(0,c0.Y)(B?.user),[J]=(0,c.useState)(()=>{var e,t;return Re?{jobs:(e=Re.jobs,t=Date.now(),e.map(e=>"running"===e.status?{...e,progress:0,status:"queued",updatedAtMs:t}:e)),sourcePairDrafts:Re.sourcePairDrafts,selectedRenderedJobId:Re.selectedRenderedJobId,sour
+...
+
+=== JC (Ranking) ===
+Korean strings (1): 내 랭킹 템플릿
+function JC({isActive:e=!0}={}){return!function(e){let[t,r]=(0,c.useState)(e);return(0,c.useEffect)(()=>{e&&r(!0)},[e]),t||e}(e)?null:(0,i.jsx)(_e,{children:(0,i.jsx)(JS,{isActive:e})})}function JS({isActive:e}){let{data:t,isPending:r,isRefetching:a}=(0,f.useSession)(),n=t?.user?.id??null;return(0,i.jsx)(BF,{userId:n,children:(0,i.jsx)(JN,{isActive:e,rankingQueueUserId:n,rankingSessionVerified:!r&
+...
+
+=== JH (StockMotion) ===
+Korean strings (2): 스톡모션 생성에 실패했습니다., 스톡모션
+function JH(){let[e,t]=(0,c.useState)("https://www.youtube.com/shorts/JSBjWeSTfx4"),[r,a]=(0,c.useState)([]),[n,s]=(0,c.useState)("bw-sketch"),[o,l]=(0,c.useState)(8),[d,u]=(0,c.useState)(1.6),[m,p]=(0,c.useState)(!0),[h,g]=(0,c.useState)(!0),[f,x]=(0,c.useState)([]),[b,y]=(0,c.useState)(""),[v,w]=(0,c.useState)(""),[j,k]=(0,c.useState)(!1),C=(0,c.useRef)(new Set),S=(0,c.useMemo)(()=>Array.from(ne
+...

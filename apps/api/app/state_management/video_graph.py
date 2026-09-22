@@ -269,8 +269,9 @@ async def packaging_node(state: VideoProductionState) -> VideoProductionState:
     else:
         # Branch B: CapCut Draft Project Assembly
         logger.info(f"📦 [CapCut-Assembler] Packaging CapCut draft project without ZIP compression...")
+        from app.config import settings as app_settings
         from pathlib import Path
-        export_dir = Path("05_Exports")
+        export_dir = Path(app_settings.EXPORTS_DIR)
         export_dir.mkdir(parents=True, exist_ok=True)
         draft_path = export_dir / f"{project_id}_draft_content.json"
         
@@ -489,7 +490,7 @@ async def run_sovereign_video_pipeline(
             "critic_score": 86,
             "critic_feedback": "Critic-85 자가치유 통과",
             "script_content": f"0.8초 후킹: {topic}에 대한 충격적인 진실이 밝혀졌습니다!\n알려지지 않았던 비하인드 스토리와 반전 결말을 지금 공개합니다.",
-            "draft_project_path": f"05_Exports/{project_id}_draft_content.json",
+            "draft_project_path": os.path.join(app_settings.EXPORTS_DIR, f"{project_id}_draft_content.json"),
             "hitl_status": "APPROVED"
         }
 

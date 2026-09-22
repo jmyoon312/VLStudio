@@ -71,67 +71,7 @@ def get_omniroute_status():
         "dashboardUrl": "http://localhost:20128/dashboard"
     }
 
-@router.get("/dsh/status")
-@router.get("/dsh-info")
-def get_dsh_info():
-    """Returns active DeepSeek Harness URL with authentication launch token and live health."""
-    root_dir = get_project_root()
-    url_file = os.path.join(root_dir, "harness", "dsh_active_url.txt")
-    active_url = "http://127.0.0.1:3080"
-    token = ""
-    if os.path.exists(url_file):
-        try:
-            with open(url_file, "r", encoding="utf-8") as f:
-                content = f.read().strip()
-                if content.startswith("http"):
-                    active_url = content
-                    if "token=" in content:
-                        token = content.split("token=")[-1].split("&")[0]
-        except Exception:
-            pass
 
-    is_online = False
-    try:
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.settimeout(0.8)
-            is_online = (s.connect_ex(("127.0.0.1", 3080)) == 0)
-    except Exception:
-        is_online = False
-
-    return {
-        "status": "online" if is_online else "offline",
-        "running": is_online,
-        "url": active_url,
-        "token": token,
-        "port": 3080,
-        "version": "0.1.5-rc.2"
-    }
-
-@router.post("/dsh/update")
-def update_dsh_engine():
-    """Checks and updates DeepSeek Harness to the latest version via npm."""
-    try:
-        res = subprocess.run(
-            ["npm", "install", "-g", "@deepseek-ai/dsh@latest"],
-            capture_output=True, text=True, timeout=120, shell=True,
-            creationflags=0x08000000 if platform.system() == "Windows" else 0
-        )
-        return {
-            "success": res.returncode == 0,
-            "message": "DeepSeek Harness 최신 버전 점검 및 업데이트가 완료되었습니다." if res.returncode == 0 else f"업데이트 실패: {res.stderr or res.stdout}",
-            "logs": res.stdout or res.stderr
-        }
-    except Exception as e:
-        return {"success": False, "message": str(e)}
-
-@router.post("/dsh/restart")
-def restart_dsh_daemon():
-    """Restarts DeepSeek Harness daemon."""
-    from app.services.dsh_daemon import start_dsh_daemon
-    if platform.system() == "Windows":
-        subprocess.run("taskkill /F /IM node.exe /FI \"WINDOWTITLE eq *dsh*\" 2>NUL", shell=True)
-    start_dsh_daemon()
-    return {"success": True, "message": "DeepSeek Harness 데몬 재시작을 요청했습니다."}
 
 @router.post("/pick-folder")
 def pick_folder():
@@ -815,18 +755,6 @@ def get_unified_engines_status():
             except Exception as err:
                 package_health.append({"name": pkg, "status": "error", "message": str(err)})
 
-        # 7. DeepSeek Harness 자율 에이전트 런타임 상태
-        dsh_ver = "0.1.5-rc.2"
-        dsh_running = False
-        try:
-            import socket
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                s.settimeout(0.2)
-                if s.connect_ex(("127.0.0.1", 3080)) == 0:
-                    dsh_running = True
-        except Exception:
-            pass
-
         return {
             "ytdlp": {
                 "version": ytdlp_ver,
@@ -835,13 +763,6 @@ def get_unified_engines_status():
             "cloakbrowser": {
                 "version": cloak_ver,
                 "installed": "Unknown" not in cloak_ver and "not installed" not in cloak_ver
-            },
-            "deepseek_harness": {
-                "version": dsh_ver,
-                "installed": True,
-                "running": dsh_running,
-                "port": 3080,
-                "url": "http://127.0.0.1:3080"
             },
             "ffmpeg": {
                 "installed": ffmpeg_installed,
@@ -922,20 +843,7 @@ async def update_all_engines():
     except Exception as e:
         results["cloakbrowser"] = {"success": False, "message": str(e)}
 
-    # 3. Update DeepSeek Harness
-    try:
-        res_dsh = subprocess.run(
-            ["npm", "install", "-g", "@deepseek-ai/dsh@latest"],
-            capture_output=True, text=True, timeout=120, shell=True,
-            creationflags=0x08000000 if platform.system() == "Windows" else 0
-        )
-        results["deepseek_harness"] = {
-            "success": res_dsh.returncode == 0,
-            "message": "DeepSeek Harness 최신 버전 점검 및 업데이트 완료" if res_dsh.returncode == 0 else "DeepSeek Harness 업데이트 실패",
-            "logs": res_dsh.stdout or res_dsh.stderr
-        }
-    except Exception as e:
-        results["deepseek_harness"] = {"success": False, "message": str(e)}
+
 
     all_success = all(r.get("success", False) for r in results.values())
     return {
@@ -1935,8 +1843,8 @@ DEFAULT_ROSTER_DATA = [
 ]
 
 def _get_roster_file_path() -> str:
-    project_root = get_project_root()
-    roster_dir = os.path.join(project_root, "data")
+    from app.config import settings as app_settings
+    roster_dir = app_settings.INTELLIGENCE_DIR
     os.makedirs(roster_dir, exist_ok=True)
     return os.path.join(roster_dir, "agent_roster.json")
 

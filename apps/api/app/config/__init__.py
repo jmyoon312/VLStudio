@@ -137,6 +137,13 @@ class Settings(BaseSettings):
     hermes_reflection_verbosity: str = "balanced"
     hermes_auto_reflection: bool = True
     hermes_auto_update_enabled: bool = True
+    hermes_cron_continuity_enabled: bool = True
+    hermes_monitor_mode_enabled: bool = True
+    hermes_subagent_steering_enabled: bool = True
+    hermes_structured_schema_enforced: bool = True
+    hermes_instruction_protection_enabled: bool = True
+    hermes_har_api_mode: str = "auto"
+    hermes_fts_wal_pool_size: int = 5
     
     # Rendering & Swarm Management
     MAX_CONCURRENT_RENDERS: int = 2 

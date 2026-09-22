@@ -154,38 +154,51 @@ class ViralRadarWorker:
                 if not self._routes_queue:
                     self._build_routes()
 
-                route_code, route_name = self._routes_queue[self._queue_idx]
+                route_entry = self._routes_queue[self._queue_idx]
                 self._queue_idx = (self._queue_idx + 1) % len(self._routes_queue)
+                if not route_entry or not isinstance(route_entry, (tuple, list)) or len(route_entry) < 2:
+                    continue
+                route_code, route_name = route_entry[0], route_entry[1]
                 viral_radar_telemetry.current_source = f"{route_name} 수집 중"
 
                 db = next(database.get_db())
                 try:
                     articles = await discovery_scraper.scrape_source(route_code, limit=8)
+                    articles = articles or []
 
                     upserted = []
                     for a in articles:
+                        if not a or not isinstance(a, dict):
+                            continue
                         rec = discovery_scraper.sync_upsert_article(db, a)
-                        upserted.append(rec)
+                        if rec:
+                            upserted.append(rec)
 
                     # Auto-enrich top 2 items with full text and images via Trafilatura
                     enriched_count = 0
                     for rec in upserted[:2]:
-                        if not rec.content_text or len(rec.content_text) <= len(rec.title) + 5 or not rec.images:
+                        if not rec:
+                            continue
+                        if not rec.content_text or len(rec.content_text) <= len(rec.title or "") + 5 or not rec.images:
                             try:
                                 details = await discovery_scraper.fetch_article_details(rec.url)
+                                if not details or not isinstance(details, dict):
+                                    continue
                                 if details.get("content_text") and len(details["content_text"]) > len(rec.content_text or ""):
                                     rec.content_text = details["content_text"]
                                 if details.get("images") and not rec.images:
                                     rec.images = details["images"]
                                 if details.get("comments") and not rec.comments:
-                                    for cmt in details["comments"]:
+                                    for cmt in (details.get("comments") or []):
+                                        if not isinstance(cmt, dict):
+                                            continue
                                         c_rec = models.ViralArticleComment(
                                             article_id=rec.id,
-                                            author=cmt.get("author", "익명"),
-                                            text=cmt.get("text", ""),
-                                            likes=cmt.get("likes", 0),
-                                            is_best=cmt.get("is_best", False),
-                                            order_idx=cmt.get("order_idx", 0)
+                                            author=cmt.get("author", "익명") or "익명",
+                                            text=cmt.get("text", "") or "",
+                                            likes=cmt.get("likes", 0) or 0,
+                                            is_best=cmt.get("is_best", False) or False,
+                                            order_idx=cmt.get("order_idx", 0) or 0
                                         )
                                         db.add(c_rec)
                                 db.commit()
@@ -197,7 +210,7 @@ class ViralRadarWorker:
                     viral_radar_telemetry.record_harvest(
                         route_name,
                         len(upserted),
-                        [{"title": r.title, "viral_score": r.viral_score, "images": r.images, "psychological_trigger": r.psychological_trigger, "content_text": r.content_text} for r in upserted[:4]]
+                        [{"title": r.title, "viral_score": r.viral_score, "images": r.images, "psychological_trigger": r.psychological_trigger, "content_text": r.content_text} for r in upserted[:4] if r is not None]
                     )
                 finally:
                     db.close()
@@ -207,7 +220,7 @@ class ViralRadarWorker:
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                logger.error(f"[ViralRadarWorker] Loop iteration error: {e}")
+                logger.error(f"[ViralRadarWorker] Loop iteration error: {e}", exc_info=True)
                 await asyncio.sleep(8.0)
 
 

@@ -314,8 +314,11 @@ def cleanup_orphan_profile_folders(db: Session = Depends(get_db)):
     if not base_path.exists():
         return {"status": "ok", "deleted": [], "message": "04_Profiles directory not found"}
 
-    # DB???덈뒗 ?좏슚??Profile ID 紐⑸줉
+    # DB에 있는 유효한 Profile ID 및 폴더명 목록 수집
     valid_ids = set(r[0] for r in db.query(Profile.id).all())
+    for (fp,) in db.query(Profile.folder_path).filter(Profile.folder_path != None).all():
+        if fp:
+            valid_ids.add(os.path.basename(os.path.normpath(fp)))
     
     deleted = []
     skipped = []

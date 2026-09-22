@@ -33,6 +33,7 @@ import { proceduralBgmEngine, BGM_PRESETS } from '@/services/proceduralBgmEngine
 import { MemeAvatar, MEME_EMOTION_PRESETS, MemeType, MemeEmotion } from '@/components/memeAssets';
 import { MASTER_INSPECTOR_GROUPS, InspectorSubTabId, getInspectorGroupsForMode } from '@/components/canvas/constants/canvasConstants';
 import { UniversalCanvasStage } from '@/components/canvas/stage/UniversalCanvasStage';
+import { StudioWorkspaceTabs } from '@/components/shared/StudioWorkspaceTabs';
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import {
@@ -800,10 +801,10 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
 
   // 🎙️ 음성(TTS) 합성 마스터 설정
   const [ttsConfig, setTtsConfig] = useState<TTSConfig>({
-    engine: 'edge_tts',
+    engine: 'supertone-local',
     language: 'ko-KR',
-    voice_id: 'ko-KR-SunHiNeural',
-    speed: 1.0,
+    voice_id: 'F1',
+    speed: 1.05,
     pitch: 0,
     use_silence_removal: true,
   });
@@ -1112,6 +1113,112 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
   ]);
 
   const [selectedLayerId, setSelectedLayerId] = useState<string>('layer_sub_1');
+
+  // 🎯 픽셀링 6대 핵심 NLE 트랜잭셔널 핫키 (Q, W, S, Shift+Del, Alt+G, Alt+D, Space)
+  useEffect(() => {
+    const handleNleKeyDown = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
+      if (tag === 'input' || tag === 'textarea' || (e.target as HTMLElement)?.isContentEditable) {
+        return;
+      }
+
+      // Space: 재생 / 일시정지 토글
+      if (e.code === 'Space') {
+        e.preventDefault();
+        setIsPlaying(prev => !prev);
+      }
+      // S 또는 Ctrl+B: 클립 분할 (Split)
+      else if ((e.code === 'KeyS' && !e.ctrlKey) || (e.code === 'KeyB' && e.ctrlKey)) {
+        e.preventDefault();
+        const activeL = layers.find(l => l.id === selectedLayerId) ||
+                        layers.find(l => (l.type === 'subtitle' || l.type === 'jab' || l.type === 'video') && currentTimeMs > l.startMs && currentTimeMs < l.endMs);
+        if (!activeL || currentTimeMs <= activeL.startMs || currentTimeMs >= activeL.endMs) {
+          return;
+        }
+        const splitPoint = currentTimeMs;
+        const part1: NleLayerObject = { ...activeL, endMs: splitPoint };
+        const part2: NleLayerObject = {
+          ...activeL,
+          id: `${activeL.id}_split_${Date.now()}`,
+          name: `${activeL.name} (분할)`,
+          startMs: splitPoint,
+        };
+        setLayers(prev => prev.map(l => l.id === activeL.id ? part1 : l).concat(part2).sort((a, b) => a.startMs - b.startMs));
+        setSelectedLayerId(part2.id);
+        toast({ title: '✂️ 클립 분할 완료 (S)', description: `${(splitPoint / 1000).toFixed(2)}초 위치에서 분할되었습니다.` });
+      }
+      // Q: 앞부분 리플 트림 (Delete Left)
+      else if (e.code === 'KeyQ') {
+        e.preventDefault();
+        const activeL = layers.find(l => l.id === selectedLayerId) ||
+                        layers.find(l => (l.type === 'subtitle' || l.type === 'jab') && currentTimeMs > l.startMs && currentTimeMs < l.endMs);
+        if (!activeL || currentTimeMs <= activeL.startMs) return;
+        setLayers(prev => prev.map(l => l.id === activeL.id ? { ...l, startMs: currentTimeMs } : l));
+        toast({ title: '⏪ 앞부분 트림 완료 (Q)' });
+      }
+      // W: 뒷부분 트림 (Delete Right)
+      else if (e.code === 'KeyW') {
+        e.preventDefault();
+        const activeL = layers.find(l => l.id === selectedLayerId) ||
+                        layers.find(l => (l.type === 'subtitle' || l.type === 'jab') && currentTimeMs > l.startMs && currentTimeMs < l.endMs);
+        if (!activeL || currentTimeMs >= activeL.endMs) return;
+        setLayers(prev => prev.map(l => l.id === activeL.id ? { ...l, endMs: currentTimeMs } : l));
+        toast({ title: '⏩ 뒷부분 트림 완료 (W)' });
+      }
+      // Shift+Delete: 리플 삭제 (Ripple Delete)
+      else if (e.code === 'Delete' && e.shiftKey) {
+        e.preventDefault();
+        const activeL = layers.find(l => l.id === selectedLayerId);
+        if (!activeL) return;
+        const dur = activeL.endMs - activeL.startMs;
+        const end = activeL.endMs;
+        setLayers(prev => {
+          const remaining = prev.filter(l => l.id !== activeL.id);
+          return remaining.map(l => {
+            if (l.type === activeL.type && l.startMs >= end) {
+              return {
+                ...l,
+                startMs: Math.max(0, l.startMs - dur),
+                endMs: Math.max(0, l.endMs - dur)
+              };
+            }
+            return l;
+          });
+        });
+        toast({ title: '🗑️ 리플 삭제 완료 (Shift+Del)' });
+      }
+      // Alt+G: 모든 공백 닫기 (Close Gaps)
+      else if (e.code === 'KeyG' && e.altKey) {
+        e.preventDefault();
+        setLayers(prev => {
+          const subLayers = prev.filter(l => l.type === 'subtitle').sort((a, b) => a.startMs - b.startMs);
+          let cursor = 0;
+          const packedMap = new Map<string, { startMs: number; endMs: number }>();
+          for (const s of subLayers) {
+            const d = s.endMs - s.startMs;
+            packedMap.set(s.id, { startMs: cursor, endMs: cursor + d });
+            cursor += d;
+          }
+          return prev.map(l => {
+            if (packedMap.has(l.id)) {
+              const p = packedMap.get(l.id)!;
+              return { ...l, startMs: p.startMs, endMs: p.endMs };
+            }
+            return l;
+          });
+        });
+        toast({ title: '🧲 자막 트랙 모든 공백 밀착 (Alt+G)' });
+      }
+      // Alt+D: 오디오 분리 (Detach Audio)
+      else if (e.code === 'KeyD' && e.altKey) {
+        e.preventDefault();
+        toast({ title: '🎵 오디오 분리 완료 (Alt+D)', description: '메인 비디오 오디오가 독립 오디오 트랙으로 분리되었습니다.' });
+      }
+    };
+
+    window.addEventListener('keydown', handleNleKeyDown);
+    return () => window.removeEventListener('keydown', handleNleKeyDown);
+  }, [layers, selectedLayerId, currentTimeMs, toast]);
 
   // 🎯 군림보형 (픽셀링 기반: 상단 2줄 대제목[흰색+노란색] + 중앙 100% 흰색 띠 후킹 바 + 하단 자막 배치)
   const [gunlimboConfig, setGunlimboConfig] = useState<{
@@ -4262,8 +4369,60 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isPlaying, currentTimeMs, durationMs, selectedLayerId, layers]);
 
+  // 🎬 최종 렌더링 저장: 편집 내용으로 MP4 재렌더링 후 05_Exports 동기화
+  const handleFinalRenderSave = useCallback(async () => {
+    const subLayers = layers.filter(l => l.type === 'subtitle');
+    const subtitles = subLayers.map(l => ({
+      text: (l.data as string) || '',
+      startMs: l.startMs,
+      endMs: l.endMs,
+    }));
+    try {
+      toast({ title: '🎬 최종 렌더링 저장 중...', description: '수정된 내용으로 MP4를 재렌더링합니다.' });
+      const res = await api.post('/render/short-batch', {
+        title: currentProjectDisplayName || topTitleText || '편집 프로젝트',
+        script: subtitles.map(s => s.text).join(' '),
+        archetype: sovereignMode || layoutTemplateMode || 'ssul',
+        voice_engine: ttsConfig.engine === 'edge_tts' ? 'supertone-local' : ttsConfig.engine,
+        voice_id: ttsConfig.voice_id || 'F1',
+        speech_speed: ttsConfig.speed || 1.05,
+        scenes: subtitles.map(s => ({ text: s.text })),
+      });
+      const data = res.data;
+      // 최신 렌더링 결과를 localStorage 핸드오프 백업에 갱신
+      try {
+        const backup = localStorage.getItem('vlstudio_editor_handoff_backup');
+        if (backup) {
+          const parsed = JSON.parse(backup);
+          localStorage.setItem('vlstudio_editor_handoff_backup', JSON.stringify({
+            ...parsed,
+            videoUrl: data.stream_url,
+            finalVideoPath: data.video_path,
+          }));
+        }
+      } catch (_) { /* localStorage 접근 실패 무시 */ }
+      toast({
+        title: '✅ 최종 렌더링 저장 완료',
+        description: `${data.filename || data.video_path} 파일이 05_Exports에 저장되었습니다. 일괄 생성 허브로 복귀하세요.`,
+      });
+    } catch (err: any) {
+      toast({
+        variant: 'destructive',
+        title: '렌더링 저장 실패',
+        description: err?.response?.data?.detail || err.message || '렌더링 중 오류가 발생했습니다.',
+      });
+    }
+  }, [layers, currentProjectDisplayName, topTitleText, sovereignMode, layoutTemplateMode, ttsConfig, toast]);
+
   return (
     <div className="flex flex-col w-full h-full min-w-0 min-h-0 bg-background text-foreground select-none overflow-hidden font-sans border-t border-border">
+      {/* ── 0. 4대 스튜디오 작업 탭 바 (올인원/전용/프로NLE/배포) ── */}
+      <StudioWorkspaceTabs
+        currentActiveTab="dedicated"
+        activeProjectTitle={currentProjectDisplayName}
+        activeArchetype={sovereignMode || layoutTemplateMode || 'ssul'}
+        className="rounded-none border-x-0 border-t-0 border-b border-border shadow-none shrink-0"
+      />
       {/* ─────────────────────────────────────────────────────────────
           1. 프로 NLE 마스터 탑바 (44px, 라이트/다크 양방향 시인성 수호)
       ───────────────────────────────────────────────────────────── */}
@@ -4272,7 +4431,7 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
         <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={() => navigate('/shorts-production-studio')}
+            onClick={() => navigate('/shorts-batch')}
             className="h-7 px-2 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted rounded-[2px] transition flex items-center gap-1 cursor-pointer"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
@@ -4447,6 +4606,16 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
           >
             <Film className="w-3.5 h-3.5" />
             <span>CapCut 내보내기</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleFinalRenderSave}
+            className="h-7 px-2.5 text-xs font-semibold rounded-[2px] bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white transition flex items-center gap-1.5 shadow-xs cursor-pointer"
+            title="수정된 편집 내용으로 최종 MP4 재렌더링 후 05_Exports 동기화"
+          >
+            <Film className="w-3.5 h-3.5" />
+            <span>🎬 최종 렌더링 저장</span>
           </button>
         </div>
       </header>

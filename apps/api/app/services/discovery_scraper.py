@@ -1991,7 +1991,7 @@ class DiscoveryScraper:
                 for q in queries:
                     try:
                         res = ydl.extract_info(q, download=False)
-                        entries = res.get('entries', []) or []
+                        entries = (res.get('entries') or []) if res and isinstance(res, dict) else []
                         for e in entries:
                             v_id = e.get('id') or (e.get('url', '').split('v=')[-1] if 'v=' in e.get('url', '') else '')
                             if not v_id or any(c["id"] == v_id for c in candidates):
@@ -2583,12 +2583,12 @@ class DiscoveryScraper:
 
                             # Fallback to feed media/enclosures or OpenGraph if images empty
                             if not imgs:
-                                for m in entry.get("media_content", []):
-                                    if m.get("url"):
+                                for m in (entry.get("media_content") or []):
+                                    if m and isinstance(m, dict) and m.get("url"):
                                         imgs.append(m["url"])
                                 if not imgs and entry.get("media_thumbnail"):
-                                    for m in entry.get("media_thumbnail", []):
-                                        if m.get("url"):
+                                    for m in (entry.get("media_thumbnail") or []):
+                                        if m and isinstance(m, dict) and m.get("url"):
                                             imgs.append(m["url"])
 
                             # Fallback to feed summary if deep extraction body was too short
@@ -2777,8 +2777,10 @@ class DiscoveryScraper:
                             data = _json.loads(script.string or "")
                             items = []
                             if isinstance(data, dict) and data.get("@type") == "CollectionPage":
-                                items = data.get("mainEntity", {}).get("itemListElement", [])
-                            for item in items:
+                                items = (data.get("mainEntity") or {}).get("itemListElement") or []
+                            for item in (items or []):
+                                if not isinstance(item, dict):
+                                    continue
                                 h = item.get("url", "")
                                 t = item.get("name", "")
                                 if h and t and h not in seen_opgg:
@@ -3064,7 +3066,7 @@ class DiscoveryScraper:
                 data.get("title", ""),
                 data.get("content_text", ""),
                 data.get("category", ""),
-                data.get("images", [])
+                data.get("images") or []
             )
             topic_cat = topic_cat or calc_topic
             med_type = med_type or calc_media
@@ -3077,15 +3079,15 @@ class DiscoveryScraper:
             existing.title = data.get("title", existing.title)
             existing.content_text = data.get("content_text") or existing.content_text
             if "images" in data and data["images"] is not None:
-                existing.images = data["images"]
-            existing.views = max(existing.views, data.get("views", 0))
-            existing.likes = max(existing.likes, data.get("likes", 0))
-            existing.comments_count = max(existing.comments_count, data.get("comments_count", 0))
-            existing.viral_score = max(existing.viral_score, data.get("viral_score", 0.0))
+                existing.images = data["images"] or []
+            existing.views = max(existing.views or 0, data.get("views", 0) or 0)
+            existing.likes = max(existing.likes or 0, data.get("likes", 0) or 0)
+            existing.comments_count = max(existing.comments_count or 0, data.get("comments_count", 0) or 0)
+            existing.viral_score = max(existing.viral_score or 0.0, data.get("viral_score", 0.0) or 0.0)
             existing.topic_category = topic_cat
             existing.media_type = med_type
-            existing.entity_tags = ent_tags
-            existing.cluster_keywords = ent_tags
+            existing.entity_tags = ent_tags or []
+            existing.cluster_keywords = ent_tags or []
             existing.cross_topics = cross_topics or []
             existing.series_key = series_key
             if data.get("analysis_summary"):
@@ -3102,14 +3104,16 @@ class DiscoveryScraper:
             # Refresh comments with fresh real comments (wipe old comments even if fresh list is empty)
             if "comments" in data and data["comments"] is not None:
                 db.query(models.ViralArticleComment).filter(models.ViralArticleComment.article_id == existing.id).delete()
-                for c_data in data["comments"]:
+                for c_data in (data["comments"] or []):
+                    if not isinstance(c_data, dict):
+                        continue
                     cmt = models.ViralArticleComment(
                         article_id=existing.id,
-                        author=c_data.get("author", "네티즌"),
-                        text=c_data.get("text", ""),
-                        likes=c_data.get("likes", 0),
-                        is_best=c_data.get("is_best", False),
-                        order_idx=c_data.get("order_idx", 0)
+                        author=c_data.get("author", "네티즌") or "네티즌",
+                        text=c_data.get("text", "") or "",
+                        likes=c_data.get("likes", 0) or 0,
+                        is_best=c_data.get("is_best", False) or False,
+                        order_idx=c_data.get("order_idx", 0) or 0
                     )
                     db.add(cmt)
             db.commit()
@@ -3122,23 +3126,23 @@ class DiscoveryScraper:
                 category=data.get("category", "일반"),
                 topic_category=topic_cat,
                 media_type=med_type,
-                entity_tags=ent_tags,
-                cluster_keywords=ent_tags,
+                entity_tags=ent_tags or [],
+                cluster_keywords=ent_tags or [],
                 cross_topics=cross_topics or [],
                 series_key=series_key,
                 title=data.get("title", "제목 없음"),
                 url=url,
                 author=data.get("author"),
                 created_at_source=data.get("created_at_source"),
-                views=data.get("views", 0),
-                likes=data.get("likes", 0),
-                comments_count=data.get("comments_count", 0),
-                content_text=data.get("content_text", ""),
-                images=data.get("images", []),
+                views=data.get("views", 0) or 0,
+                likes=data.get("likes", 0) or 0,
+                comments_count=data.get("comments_count", 0) or 0,
+                content_text=data.get("content_text", "") or "",
+                images=data.get("images") or [],
                 scraped_at=datetime.now(),
                 analysis_summary=data.get("analysis_summary"),
                 suggested_title=data.get("suggested_title"),
-                viral_score=data.get("viral_score", 70.0),
+                viral_score=data.get("viral_score", 70.0) or 70.0,
                 target_form_factors=data.get("target_form_factors", ["gunlimbo", "ssul"]),
                 structured_script=data.get("structured_script"),
                 status="analyzed" if data.get("structured_script") else "collected",
@@ -3154,19 +3158,43 @@ class DiscoveryScraper:
 
             # Ensure no stale orphaned comments with this new article ID
             db.query(models.ViralArticleComment).filter(models.ViralArticleComment.article_id == article.id).delete()
-            for c_data in data.get("comments", []):
+            for c_data in (data.get("comments") or []):
+                if not isinstance(c_data, dict):
+                    continue
                 cmt = models.ViralArticleComment(
                     article_id=article.id,
-                    author=c_data.get("author", "네티즌"),
-                    text=c_data.get("text", ""),
-                    likes=c_data.get("likes", 0),
-                    is_best=c_data.get("is_best", True),
-                    order_idx=c_data.get("order_idx", 0)
+                    author=c_data.get("author", "네티즌") or "네티즌",
+                    text=c_data.get("text", "") or "",
+                    likes=c_data.get("likes", 0) or 0,
+                    is_best=c_data.get("is_best", True) or True,
+                    order_idx=c_data.get("order_idx", 0) or 0
                 )
                 db.add(cmt)
             db.commit()
 
             return article
+
+    async def fetch_article_details(self, url: str, source_code: str = "") -> Dict[str, Any]:
+        """Deep extract article body, images, and comments via ArticleBodyExtractor (contracts match as_detail_dict)."""
+        try:
+            from app.services.article_body_extractor import article_body_extractor
+            async with httpx.AsyncClient(timeout=14.0, follow_redirects=True, headers=self._get_headers()) as client:
+                res = await article_body_extractor.extract_url(client, url, source_code=source_code)
+                return res.as_detail_dict()
+        except Exception as e:
+            logger.debug(f"[DiscoveryScraper] fetch_article_details error for {url}: {e}")
+            return {
+                "content_text": "",
+                "images": [],
+                "comments": [],
+                "title": "",
+                "status": "failed",
+                "error": str(e),
+                "engine": "none",
+                "score": 0.0,
+                "http_status": None,
+                "content_length": 0,
+            }
 
 
 discovery_scraper = DiscoveryScraper()

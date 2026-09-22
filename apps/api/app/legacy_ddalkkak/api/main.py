@@ -130,7 +130,7 @@ def resolve_actual_video_path(filename_or_title: str, url_str: str = "", display
             pass
 
     # 4. 05_Exports 디렉토리 직접 탐색
-    exports_dir = Path("05_Exports")
+    exports_dir = Path(local_app_data) / "ViraLoop Studio" / "media" / "05_Exports"
     if exports_dir.exists():
         try:
             for p in exports_dir.rglob(f"*{clean_file_name}*"):
@@ -5272,7 +5272,7 @@ async def freelancer_report_detail(user_id: int,
 # ============================================================
 from fastapi import UploadFile, File, Form
 
-SUBTITLES_DIR = _BB_DATA / "subtitles"
+SUBTITLES_DIR = _BB_DATA / "02_Operations" / "subtitles"
 SUBTITLES_DIR.mkdir(parents=True, exist_ok=True)
 
 
@@ -6075,7 +6075,7 @@ async def subtitle_export_capcut(job_id: int, target_path: str = None, current=D
 
 
 # ===== URL로 영상 다운로드 (여러 개) =====
-VIDEO_DL_DIR = _BB_DATA / "video_downloads"
+VIDEO_DL_DIR = _BB_DATA / "07_Downloads" / "video_downloads"
 VIDEO_DL_DIR.mkdir(parents=True, exist_ok=True)
 
 
@@ -6982,7 +6982,7 @@ async def audio_sub_delete(job_id: int, current=Depends(auth.require_feature("su
 
 # ===== 대본+더빙 (영상→Gemini 대본/메타 + 타입캐스트 TTS + SRT) =====
 
-TTS_DUB_DIR = _BB_DATA / "tts_dub"
+TTS_DUB_DIR = _BB_DATA / "02_Operations" / "tts_dub"
 TTS_DUB_DIR.mkdir(parents=True, exist_ok=True)
 
 

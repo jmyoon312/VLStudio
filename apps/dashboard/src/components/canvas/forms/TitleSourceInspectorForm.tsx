@@ -1109,7 +1109,7 @@ export const TitleSourceInspectorForm: React.FC<TitleSourceInspectorFormProps> =
                     <label className="text-[10px] font-semibold text-muted-foreground">뱃지 문구</label>
                     <input
                       type="text"
-                      value={titleBadgeText}
+                      value={titleBadgeText || ''}
                       onChange={(e) => setTitleBadgeText(e.target.value)}
                       className="w-full h-7 px-2 text-[11px] bg-background border border-border rounded-[2px] text-foreground font-bold focus:outline-hidden focus:ring-1 focus:ring-primary"
                       placeholder="예: [단독], [속보], [실화]"
@@ -1162,7 +1162,7 @@ export const TitleSourceInspectorForm: React.FC<TitleSourceInspectorFormProps> =
                     <label className="text-[10px] font-semibold text-muted-foreground">1단 타이틀 문구</label>
                     <input
                       type="text"
-                      value={titleLine1}
+                      value={titleLine1 || ''}
                       onChange={(e) => setTitleLine1(e.target.value)}
                       className="w-full h-7 px-2 text-[11px] bg-background border border-border rounded-[2px] text-foreground font-bold focus:outline-hidden focus:ring-1 focus:ring-primary"
                       placeholder="1단 타이틀 입력..."
@@ -1245,7 +1245,7 @@ export const TitleSourceInspectorForm: React.FC<TitleSourceInspectorFormProps> =
                       <label className="text-[10px] font-semibold text-muted-foreground">2단 타이틀 문구</label>
                       <input
                         type="text"
-                        value={titleLine2}
+                        value={titleLine2 || ''}
                         onChange={(e) => setTitleLine2(e.target.value)}
                         className="w-full h-7 px-2 text-[11px] bg-background border border-border rounded-[2px] text-foreground font-bold focus:outline-hidden focus:ring-1 focus:ring-primary"
                         placeholder="2단 타이틀 입력..."
@@ -1417,7 +1417,7 @@ export const TitleSourceInspectorForm: React.FC<TitleSourceInspectorFormProps> =
                 <label className="text-[10px] font-semibold text-muted-foreground">출처 문구</label>
                 <input
                   type="text"
-                  value={bottomSourceText}
+                  value={bottomSourceText || ''}
                   onChange={(e) => setBottomSourceText(e.target.value)}
                   placeholder="출처: 공식 유튜브 영상"
                   className="w-full h-7 px-2 text-[11px] bg-background border border-border rounded-[2px] text-foreground font-medium"

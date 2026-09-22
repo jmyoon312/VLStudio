@@ -35,12 +35,12 @@ class YouTubeAPIError(Exception):
 class YouTubeUploader:
     
     @staticmethod
-    def upload_video(db: Session, item_id: int):
+    def upload_video(db: Session, item_id: int, force_ip_rotation: bool = True):
         """
         Orchestrates the Stealth Upload Logic for WorkQueueItems:
         1. Config Check
         2. Auth Resolution (TinCan)
-        3. Stealth Guard (IP Check)
+        3. Stealth Guard (IP Check & Rotation)
         4. Upload
         """
         item = db.query(models.WorkQueueItem).filter(models.WorkQueueItem.id == item_id).first()
@@ -67,123 +67,180 @@ class YouTubeUploader:
                  # If using API upload, we MUST have a BrandChannel record (Authorized)
                  raise Exception(f"Brand Channel {channel_id} not found in database")
                  
-            tin_can = brand_channel.tin_can_account
+            tin_can = getattr(brand_channel, 'owner_profile', None)
+            if not tin_can and hasattr(brand_channel, 'owner_profile_id') and brand_channel.owner_profile_id:
+                tin_can = db.query(models.Profile).filter(models.Profile.id == brand_channel.owner_profile_id).first()
             if not tin_can:
-                raise Exception("No TinCan Owner assigned to this Brand Channel")
+                tin_can = getattr(brand_channel, 'tin_can_account', None)
+            if not tin_can:
+                raise Exception("No Profile/TinCan Owner assigned to this Brand Channel")
                 
             if tin_can.status != "ACTIVE":
                 raise Exception(f"TinCan Account is {tin_can.status}")
 
             # [DEATH_VALLEY Blocker] Uploads are strictly forbidden in this recovery mode
-            if brand_channel.youtube_channel and brand_channel.youtube_channel.cultivation_strategy == "DEATH_VALLEY":
+            if hasattr(brand_channel, 'youtube_channel') and brand_channel.youtube_channel and getattr(brand_channel.youtube_channel, 'cultivation_strategy', None) == "DEATH_VALLEY":
                 raise Exception("Uploads are blocked during Death Valley recovery. The channel is in pure viewer mode.")
 
-            # --- 2. Stealth Guard (IP Rotation) ---
-            # Only if proxy_config is None (meaning using local/ADB)
-            if not tin_can.proxy_config:
-                current_ip = adb_service.get_current_ip()
-                logger.info(f"Stealth Guard: Current IP {current_ip}, Last Used: {tin_can.last_upload_ip}")
-                
-                if tin_can.last_upload_ip and tin_can.last_upload_ip == current_ip:
-                    logger.warning("IP Match Detected! Initiating Stealth Rotation Protocol...")
-                    
-                    # 1. Try Soft Rotation (Data Toggle)
-                    logger.info("Attempting Soft Rotation (Data Toggle)...")
-                    adb_service.rotate_ip(method='soft')
-                    import time
-                    time.sleep(5) 
-                    current_ip = adb_service.get_current_ip()
-                    
-                    if current_ip == tin_can.last_upload_ip:
-                        logger.warning("Soft Rotation Failed. Retrying Soft Rotation...")
-                        # 2. Try Soft Rotation again instead of Hard
-                        adb_service.rotate_ip(method='soft')
-                        time.sleep(5)
-                        current_ip = adb_service.get_current_ip()
-                    
-                    # 3. Final Verification
-                    if current_ip == tin_can.last_upload_ip:
-                         logger.error("Stealth Failure: IP Rotation unsuccessful. Aborting.")
-                         raise Exception("Stealth Guard: IP Rotation Failed")
-                    
-                    logger.info(f"IP Rotated Successfully: {current_ip}")
-                
-                # Update IP record
-                tin_can.last_upload_ip = current_ip
-                db.commit()
-
-            # --- 3. Auth Headers & Network Binding (STRICT ISOLATION) ---
-            creds = CredentialManager.get_credentials(db, brand_channel.id)
-            
+            # --- 2 & 3. Channel Network Guard & Stealth Proxy Binding (SSOT) ---
+            # 브라우저 자동화 및 보안 접속과 100% 동일한 통합 네트워크 거버넌스 적용 (핸드폰 LTE Every Proxy SOCKS5 또는 ISP 고정 프록시)
+            from app.services.channel_network_guard import ChannelNetworkGuard
+            from urllib.parse import urlparse
+            import socks
             import httplib2
             import google_auth_httplib2
-            
-            # Check if proxy is configured for this account
-            if getattr(tin_can, 'proxy_mode', None) in ['ISP_PROXY', 'DIRECT_LTE'] and getattr(tin_can, 'proxy_host', None):
-                logger.info(f"Stealth Fortress: Binding traffic to SOCKS5 Proxy ({tin_can.proxy_host}:{tin_can.proxy_port})")
-                try:
-                    import socks
-                    
-                    proxy_port = int(tin_can.proxy_port) if getattr(tin_can, 'proxy_port', None) else 1080
-                    proxy_info_kwargs = {
-                        'proxy_type': socks.PROXY_TYPE_SOCKS5,
-                        'proxy_host': tin_can.proxy_host,
-                        'proxy_port': proxy_port,
-                        'proxy_rdns': True
-                    }
-                    if getattr(tin_can, 'proxy_username', None) and getattr(tin_can, 'proxy_password', None):
-                        proxy_info_kwargs['proxy_user'] = tin_can.proxy_username
-                        proxy_info_kwargs['proxy_pass'] = tin_can.proxy_password
-                        
-                    proxy_info = httplib2.ProxyInfo(**proxy_info_kwargs)
-                    bound_http = httplib2.Http(proxy_info=proxy_info, timeout=600)
-                    authorized_http = google_auth_httplib2.AuthorizedHttp(creds, http=bound_http)
-                    service = build("youtube", "v3", http=authorized_http, cache_discovery=False)
-                except ImportError:
-                    logger.error("PySocks module is missing. Cannot route through SOCKS5. ABORTING UPLOAD.")
-                    raise Exception("Stealth Guard: PySocks module is missing. Network isolation failed.")
-                except Exception as e:
-                    logger.error(f"SOCKS5 Binding Failed ({e}). ABORTING UPLOAD to prevent IP exposure.")
-                    raise Exception(f"Stealth Guard: Network isolation failed. ({str(e)})")
-            else:
-                # [Fallback] Bind to specific network interface if tethering is active
-                interface_ip = adb_service.get_tethering_interface_ip()
-                if interface_ip:
-                    logger.info(f"Stealth Fortress: Binding traffic to Mobile Interface ({interface_ip})")
-                    try:
-                        bound_http = httplib2.Http(source_address=(interface_ip, 0), timeout=600)
-                        authorized_http = google_auth_httplib2.AuthorizedHttp(creds, http=bound_http)
-                        service = build("youtube", "v3", http=authorized_http, cache_discovery=False)
-                    except Exception as e:
-                        logger.error(f"Interface Binding Failed ({e}). ABORTING UPLOAD to prevent IP exposure.")
-                        raise Exception("Stealth Guard: Interface binding failed.")
+
+            net_ctx = ChannelNetworkGuard.prepare_network_context(db, channel_id, force_rotation=force_ip_rotation)
+            proxy_url = net_ctx.get("proxy_url")
+            proxy_mode = net_ctx.get("mode", "DIRECT")
+            logger.info(f"🛡️ [YouTubeUploader] ChannelNetworkGuard applied: mode={proxy_mode}, proxy_url={proxy_url}, rotated={net_ctx.get('rotated')}")
+
+            creds = CredentialManager.get_credentials(db, brand_channel.id)
+
+            if proxy_url:
+                p = urlparse(proxy_url)
+                scheme = (p.scheme or '').lower()
+                port = p.port or 1080
+                host = p.hostname or '127.0.0.1'
+                user = p.username
+                pwd = p.password
+
+                if scheme in ['socks5', 'socks5h']:
+                    ptype = socks.PROXY_TYPE_SOCKS5
+                elif scheme in ['socks4', 'socks4a']:
+                    ptype = socks.PROXY_TYPE_SOCKS4
                 else:
-                    logger.warning("No Proxy or Tethering IP found. Proceeding with default route (DANGEROUS).")
-                    service = build("youtube", "v3", credentials=creds, cache_discovery=False)
+                    ptype = socks.PROXY_TYPE_HTTP
+
+                proxy_info = httplib2.ProxyInfo(
+                    proxy_type=ptype,
+                    proxy_host=host,
+                    proxy_port=int(port),
+                    proxy_user=user,
+                    proxy_pass=pwd,
+                    proxy_rdns=True
+                )
+                logger.info(f"🔒 [Stealth Shield] Binding YouTube API traffic to SOCKS5/Proxy ({scheme}://{host}:{port})")
+                bound_http = httplib2.Http(proxy_info=proxy_info, timeout=600)
+                authorized_http = google_auth_httplib2.AuthorizedHttp(creds, http=bound_http)
+                service = build("youtube", "v3", http=authorized_http, cache_discovery=False)
+            else:
+                logger.info("Using Direct/Local Network for Google Data API connection (DIRECT mode).")
+                service = build("youtube", "v3", credentials=creds, cache_discovery=False)
 
             # --- 4. Metadata Preparation (NEW LOGIC) ---
             privacy = yt_config.get('privacy', 'private')
-            
+            scheduled_time = yt_config.get('scheduled_time') or getattr(item, 'scheduled_upload_time', None)
+
+            # Determine privacyStatus and publishAt
+            status_dict = {
+                'selfDeclaredMadeForKids': yt_config.get('made_for_kids', False)
+            }
+
+            # File size in MB for dynamic aging calculation
+            file_mb = 15.0
+            try:
+                if item.video_file_path and os.path.exists(item.video_file_path):
+                    file_mb = os.path.getsize(item.video_file_path) / (1024 * 1024)
+            except Exception:
+                pass
+
+            from datetime import datetime, timedelta
+
+            if privacy in ['scheduled', 'SCHEDULED'] and scheduled_time:
+                # [Custom Scheduled Upload]
+                status_dict['privacyStatus'] = 'private'
+                try:
+                    if isinstance(scheduled_time, str):
+                        clean_time = scheduled_time.replace(' ', 'T')
+                        if not clean_time.endswith('Z') and '+' not in clean_time:
+                            clean_time += 'Z'
+                        dt = datetime.fromisoformat(clean_time.replace('Z', '+00:00'))
+                        status_dict['publishAt'] = dt.strftime('%Y-%m-%dT%H:%M:%SZ')
+                    elif isinstance(scheduled_time, datetime):
+                        status_dict['publishAt'] = scheduled_time.strftime('%Y-%m-%dT%H:%M:%SZ')
+                    logger.info(f"[YouTubeUploader] Custom Scheduled publishAt: {status_dict.get('publishAt')}")
+                except Exception as ex:
+                    logger.warning(f"[YouTubeUploader] Failed to parse scheduled_time ({scheduled_time}): {ex}")
+            elif privacy == 'smart_scheduled':
+                # [대안 B: 지능형 용량 기반 자동 숙성 예약]
+                # 1MB당 ~0.15분 가산, 최소 15분, 최대 30분
+                aging_mins = min(max(15, int(file_mb * 0.15) + 12), 30)
+                target_dt = datetime.utcnow() + timedelta(minutes=aging_mins)
+                status_dict['privacyStatus'] = 'private'
+                status_dict['publishAt'] = target_dt.strftime('%Y-%m-%dT%H:%M:%SZ')
+                logger.info(f"[YouTubeUploader] Smart Aging Schedule applied: {file_mb:.1f}MB -> publishAt {target_dt.isoformat()}Z (+{aging_mins}min)")
+            elif privacy == 'public':
+                # [대안 A: 하이브리드 공개 전략]
+                # 1단계로 비공개 업로드 후 VERIFYING 큐로 이송하여 브라우저 워커가 자동 공개 전환
+                status_dict['privacyStatus'] = 'private'
+                logger.info("[YouTubeUploader] Hybrid strategy active: uploading as private, routing to VERIFYING for browser public switch.")
+            else:
+                status_dict['privacyStatus'] = privacy if privacy in ['private', 'unlisted'] else 'private'
+
             # Construct Description
-            # Append Hashtags to Description
             description = item.description or ""
-            if item.hashtags:
-                # item.hashtags should be a list of strings ["#Shorts", "#Viral"]
-                # Ensure they are joined by space
-                joined_hashtags = " ".join(item.hashtags) if isinstance(item.hashtags, list) else str(item.hashtags)
-                description += f"\n\n{joined_hashtags}"
-            
-            description += "\n\nUploaded via ViraLoop Stealth"
+            raw_hashtags = getattr(item, 'hashtags', None)
+            hashtags_list = []
+            if isinstance(raw_hashtags, list):
+                hashtags_list = raw_hashtags
+            elif isinstance(raw_hashtags, str) and raw_hashtags.strip():
+                try:
+                    parsed = json.loads(raw_hashtags)
+                    if isinstance(parsed, list):
+                        hashtags_list = parsed
+                    else:
+                        hashtags_list = [raw_hashtags]
+                except Exception:
+                    import ast
+                    try:
+                        parsed = ast.literal_eval(raw_hashtags)
+                        if isinstance(parsed, list):
+                            hashtags_list = parsed
+                        else:
+                            hashtags_list = [raw_hashtags]
+                    except Exception:
+                        hashtags_list = [raw_hashtags]
+
+            if hashtags_list:
+                joined_hashtags = " ".join(str(h) for h in hashtags_list if h)
+                if joined_hashtags:
+                    description = f"{description}\n\n{joined_hashtags}".strip()
 
             # Prepare Tags
-            # item.tags is a list (JSON column)
-            final_tags = item.tags if isinstance(item.tags, list) else []
-            # Merge with channel defaults if any
-            if brand_channel.default_tags:
+            raw_tags = getattr(item, 'tags', None)
+            final_tags = []
+            if isinstance(raw_tags, list):
+                final_tags = list(raw_tags)
+            elif isinstance(raw_tags, str) and raw_tags.strip():
                 try:
-                    defaults = json.loads(brand_channel.default_tags)
-                    final_tags = list(set(final_tags + defaults))
-                except: pass
+                    parsed = json.loads(raw_tags)
+                    if isinstance(parsed, list):
+                        final_tags = list(parsed)
+                    else:
+                        final_tags = [raw_tags]
+                except Exception:
+                    import ast
+                    try:
+                        parsed = ast.literal_eval(raw_tags)
+                        if isinstance(parsed, list):
+                            final_tags = list(parsed)
+                        else:
+                            final_tags = [raw_tags]
+                    except Exception:
+                        final_tags = [raw_tags]
+
+            if getattr(brand_channel, 'default_tags', None):
+                try:
+                    defaults = json.loads(brand_channel.default_tags) if isinstance(brand_channel.default_tags, str) else brand_channel.default_tags
+                    if isinstance(defaults, list):
+                        final_tags = list(dict.fromkeys(final_tags + defaults))
+                except Exception:
+                    pass
+
+            # --- [Shorts Algorithm Optimization] Ensure #Shorts in Description ---
+            if '#Shorts' not in description and '#shorts' not in description:
+                description = f"{description}\n\n#Shorts".strip()
 
             body = {
                 'snippet': {
@@ -192,11 +249,51 @@ class YouTubeUploader:
                     'tags': final_tags,
                     'categoryId': yt_config.get('category', '22')
                 },
-                'status': {
-                    'privacyStatus': privacy,
-                    'selfDeclaredMadeForKids': yt_config.get('made_for_kids', False)
-                }
+                'status': status_dict
             }
+
+            # --- [Algorithm Optimization] Auto-detect or Apply Language Codes ---
+            lang_code = yt_config.get('language') or getattr(brand_channel, 'default_language', None)
+            if not lang_code and item.title:
+                import re
+                has_jp = bool(re.search(r'[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]', item.title))
+                has_ko = bool(re.search(r'[\uAC00-\uD7AF\u1100-\u11FF]', item.title))
+                if has_jp and not has_ko:
+                    lang_code = 'ja'
+                elif has_ko:
+                    lang_code = 'ko'
+
+            if lang_code:
+                body['snippet']['defaultLanguage'] = lang_code
+                body['snippet']['defaultAudioLanguage'] = lang_code
+                logger.info(f"🌐 [YouTubeUploader] Language tags applied: {lang_code}")
+
+            # --- 4.5. Channel Mismatch Interlock Guard ---
+            # 구글 API 토큰의 실제 채널과 작업 카드의 목표 채널 ID가 일치하는지 전수 검증
+            try:
+                ch_check = service.channels().list(mine=True, part='id,snippet').execute()
+                items = ch_check.get('items', [])
+                if items:
+                    token_ch_id = items[0]['id']
+                    token_ch_title = items[0]['snippet']['title']
+                    if token_ch_id != channel_id:
+                        err_msg = (
+                            f"🚨 [YouTube API 채널 불일치 차단] 현재 구글 OAuth 토큰의 채널({token_ch_title}, ID: {token_ch_id})이 "
+                            f"업로드 대상 브랜드 채널({brand_channel.title}, ID: {channel_id})과 일치하지 않습니다! "
+                            f"엉뚱한 채널로 영상이 잘못 업로드되는 것을 방지하기 위해 업로드를 즉시 중단했습니다. "
+                            f"프로필 관리에서 Google API 재인증 시 계정 목록에서 반드시 '{brand_channel.title}' 브랜드 계정을 선택해 주세요."
+                        )
+                        logger.error(err_msg)
+                        item.status = "FAILED"
+                        item.last_error = err_msg
+                        db.commit()
+                        raise YouTubeAPIError(err_msg, error_code="CHANNEL_MISMATCH", retryable=False)
+                    else:
+                        logger.info(f"✅ [Channel Guard] Verified YouTube OAuth channel match: {token_ch_title} ({token_ch_id})")
+            except YouTubeAPIError:
+                raise
+            except Exception as ch_verify_err:
+                logger.warning(f"[YouTubeUploader] Pre-upload channel check warning: {ch_verify_err}")
 
             # --- 5. Upload Execution ---
             logger.info(f"Starting Upload for {item.title}...")
@@ -211,7 +308,6 @@ class YouTubeUploader:
             response = request.execute()
 
             # --- 6. Success Handling ---
-            item.status = "COMPLETED"
             item.upload_progress = 100
             item.upload_completed_at = datetime.utcnow()
             
@@ -221,6 +317,19 @@ class YouTubeUploader:
                 urls = item.uploaded_urls or {}
                 urls['youtube'] = f"https://youtu.be/{vid_id}"
                 item.uploaded_urls = urls
+
+                # --- 6.1. Shorts Hook Custom Thumbnail Auto-Upload (API) ---
+                try:
+                    from app.services.browser_uploader import extract_shorts_thumbnail
+                    thumb_file = extract_shorts_thumbnail(item.video_file_path, getattr(item, 'thumbnail_path', None))
+                    if thumb_file and os.path.exists(thumb_file):
+                        logger.info(f"📸 [YouTubeUploader] Setting Shorts hook thumbnail via API for {vid_id}: {thumb_file}")
+                        thumb_media = MediaFileUpload(thumb_file, mimetype='image/jpeg')
+                        service.thumbnails().set(videoId=vid_id, media_body=thumb_media).execute()
+                        logger.info(f"✅ [YouTubeUploader] Custom thumbnail uploaded successfully via API for video {vid_id}")
+                except Exception as thumb_err:
+                    # Note: Unverified channels will return 403 for thumbnails; this is non-fatal for video upload
+                    logger.warning(f"⚠️ [YouTubeUploader] Thumbnail upload skipped/warning (channel verification required for API custom thumbs): {thumb_err}")
             
             # Record successful upload
             priority_manager = get_upload_priority_manager()
@@ -231,9 +340,16 @@ class YouTubeUploader:
                     method=UploadMethod.API,
                     success=True
                 )
-            
+
+            # If target was PUBLIC without publishAt, route to VERIFYING for verification worker (대안 A)
+            if privacy == 'public' and 'publishAt' not in status_dict:
+                item.status = "VERIFYING"
+                logger.info(f"[HYBRID] API Upload complete as private (ID: {vid_id}). Routed to VERIFYING queue for browser review & auto-publish.")
+            else:
+                item.status = "COMPLETED"
+                logger.info(f"Upload Success! ID: {vid_id} (Status: {item.status}, Privacy: {status_dict.get('privacyStatus')}, publishAt: {status_dict.get('publishAt')})")
+
             db.commit()
-            logger.info(f"Upload Success! ID: {vid_id}")
 
         except HttpError as e:
             logger.error(f"Google API Error: {e}")

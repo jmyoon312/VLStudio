@@ -80,7 +80,7 @@ export const SsulObjectInspectorForm: React.FC<SsulObjectInspectorFormProps> = (
                 <span className="text-[9.5px] font-semibold text-muted-foreground block mb-0.5">헤더 타이틀 텍스트</span>
                 <input
                   type="text"
-                  value={header.text}
+                  value={header.text || ''}
                   onChange={(e) => updateHeader({ text: e.target.value })}
                   placeholder="실시간 베스트"
                   className="w-full px-2 py-1 text-xs bg-background border border-border rounded-[2px] focus:outline-hidden focus:ring-1 focus:ring-primary font-bold"
@@ -313,7 +313,7 @@ export const SsulObjectInspectorForm: React.FC<SsulObjectInspectorFormProps> = (
               {meta.showAuthor && (
                 <input
                   type="text"
-                  value={meta.authorText}
+                  value={meta.authorText || ''}
                   onChange={(e) => updateMeta({ authorText: e.target.value })}
                   className="w-full px-2 py-1 text-xs bg-background border border-border rounded-[2px]"
                 />
@@ -334,7 +334,7 @@ export const SsulObjectInspectorForm: React.FC<SsulObjectInspectorFormProps> = (
               {meta.showTime && (
                 <input
                   type="text"
-                  value={meta.timeText}
+                  value={meta.timeText || ''}
                   onChange={(e) => updateMeta({ timeText: e.target.value })}
                   className="w-full px-2 py-1 text-xs bg-background border border-border rounded-[2px]"
                 />
@@ -355,7 +355,7 @@ export const SsulObjectInspectorForm: React.FC<SsulObjectInspectorFormProps> = (
               {meta.showViews && (
                 <input
                   type="text"
-                  value={meta.viewsText}
+                  value={meta.viewsText || ''}
                   onChange={(e) => updateMeta({ viewsText: e.target.value })}
                   className="w-full px-2 py-1 text-xs bg-background border border-border rounded-[2px]"
                 />
