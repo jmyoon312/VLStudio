@@ -1,0 +1,316 @@
+function KB(){
+let[e,t]=(0,c.useState)(KN.hf),[r,a]=(0,c.useState)(KE),[n,s]=(0,c.useState)(KN.W1),[o,l]=(0,c.useState)(KN.Mk.map(e=>e.value)),[d,u]=(0,c.useState)(KN.JF.map(e=>e.value)),[m,p]=(0,c.useState)(""),[h,g]=(0,c.useState)([]),[x,b]=(0,c.useState)(""),[y,v]=(0,c.useState)(KN.m9),[w,j]=(0,c.useState)(KN.nw),[k,C]=(0,c.useState)({
+status:"idle"}
+),S=(0,c.useRef)(null),N=(0,c.useRef)(null),A=(0,KN.hV)(e=>e.jobs),I=(0,KN.hV)(e=>e.openJobIds),$=(0,KN.hV)(e=>e.creditedJobIds),E=(0,KN.hV)(e=>e.totalUsedCredits),T=(0,KN.hV)(e=>e.queueRunning),R=(0,KN.hV)(e=>e.workflowStartedAtMs),F=(0,KN.hV)(e=>e.nowMs),P=(0,KN.hV)(e=>e._hasHydrated),z=(0,KN.hV)(e=>e._resumeQueueOnHydration),D=(0,KN.hV)(e=>e.addJobs),L=(0,KN.hV)(e=>e.exportBatch),O=(0,KN.hV)(e=>e.exportJob),U=(0,KN.hV)(e=>e.markHydrationQueueResumeHandled),B=(0,KN.hV)(e=>e.pauseQueue),V=(0,KN.hV)(e=>e.removeJob),J=(0,KN.hV)(e=>e.resetAll),Y=(0,KN.hV)(e=>e.resetQueue),K=(0,KN.hV)(e=>e.retryJob),q=(0,KN.hV)(e=>e.startQueue),W=(0,KN.hV)(e=>e.toggleJobOpen),H=d.length+h.length,G=(0,c.useMemo)(()=>(0,KN.fH)(x),[x]),X=(0,c.useMemo)(()=>KN.Mk.filter(e=>o.includes(e.value)).map(e=>e.label),[o]),Q=(0,c.useMemo)(()=>[...KN.JF.filter(e=>d.includes(e.value)).map(e=>e.label),...h],[h,d]),{
+estimatedCredits:Z,estimatedSeconds:ee,audioSource:et,counts:er,resultCount:ea,reservedCredits:en,settledCredits:ei,elapsedSeconds:es,totalProgress:eo,estimatedRemainingSeconds:el,targetSourceSummary:ed,exportedCount:ec,exportingCount:eu,canAddJobs:em,hasPausedRunningJobs:ep,canStart:eh,canPause:eg,canBatchExport:ef,hasResettableState:ex}
+=function({
+jobs:e,queueRunning:t,nowMs:r,workflowStartedAtMs:a,totalUsedCredits:n,creditedJobIds:i,scriptDraft:s,titleDraft:o,jobCountDraft:l,selectedSurfaces:d,selectedLanguages:u,customLanguageDraft:m,customLanguages:p,searchLanguageCount:h,candidateUrls:g,targetSourceCountDraft:f,framingModeDraft:x,candidateUrlDraft:b,audioDraft:y}
+){
+var v,w;
+let j=(0,KN.Ip)(s,d.length+.5*Math.max(0,h-1)+.4*Math.max(0,f-KN.m9)),k=(0,KN.RV)(s,d.length+h+f)+45*("loading"===y.status),M="ready"===y.status?y.source:void 0,C=(0,c.useMemo)(()=>e.reduce((e,t)=>(e.total+=1,e[t.status]+=1,e),{
+failed:0,queued:0,running:0,success:0,total:0}
+),[e]),S=C.success+C.failed,N=(0,c.useMemo)(()=>Math.round(10*e.filter(e=>"queued"===e.status||"running"===e.status).reduce((e,t)=>e+t.creditsUsed,0))/10,[e]),A=(0,c.useMemo)(()=>Math.round(10*e.filter(e=>"success"===e.status).reduce((e,t)=>e+t.creditsUsed,0))/10,[e]),I=null===(v={
+jobs:e,nowMs:r,queueRunning:t,workflowStartedAtMs:a}
+).workflowStartedAtMs?0:Math.max(0,((v.queueRunning?v.nowMs:Math.max(v.workflowStartedAtMs,...v.jobs.map(e=>e.completedAtMs??e.updatedAtMs)))-v.workflowStartedAtMs)/1e3),$=e.length>0?Math.round(e.reduce((e,t)=>e+t.progress,0)/e.length):0,E=(0,c.useMemo)(()=>(function(e,t=KN.FE){
+let r=Array.from({
+length:Math.max(1,Math.floor(t))}
+,()=>0);
+for(let t of e.filter(e=>"running"===e.status)){
+let e=Math.max(0,Math.min(100,t.progress)),a=Math.max(0,t.estimatedSeconds*(1-e/100)),n=r.indexOf(Math.min(...r));
+r[n]=a}
+for(let t of e.filter(e=>"queued"===e.status)){
+let e=r.indexOf(Math.min(...r));
+r[e]+=Math.max(0,t.estimatedSeconds)}
+return Math.ceil(Math.max(...r))}
+)(e),[e]),T=(0,c.useMemo)(()=>(function(e,t){
+if(0===e.length)return`${
+t}
+개`;
+let r=e.map(e=>e.targetSourceCount);
+return 1===new Set(r).size?`${
+r[0]}
+개`:`총 ${
+r.reduce((e,t)=>e+t,0)}
+개`}
+)(e,f),[e,f]),R=(0,c.useMemo)(()=>e.filter(e=>"success"===e.status&&"exported"!==e.exportStatus),[e]),F=e.filter(e=>"exported"===e.exportStatus).length,P=e.filter(e=>"exporting"===e.exportStatus).length,z=0!==(w={
+audioStatus:y.status,candidateUrlCount:g.length,script:s,searchLanguageCount:h,selectedSurfaceCount:d.length}
+).script.trim().length&&"loading"!==w.audioStatus&&(w.candidateUrlCount>0||w.selectedSurfaceCount>0&&w.searchLanguageCount>0),_=!t&&e.some(e=>"running"===e.status),D=!t&&e.some(e=>"queued"===e.status||"running"===e.status),L=t&&e.some(e=>"queued"===e.status||"running"===e.status),O=R.length>0&&0===P;
+return{
+estimatedCredits:j,estimatedSeconds:k,audioSource:M,counts:C,resultCount:S,reservedCredits:N,settledCredits:A,elapsedSeconds:I,totalProgress:$,estimatedRemainingSeconds:E,targetSourceSummary:T,exportableJobs:R,exportedCount:F,exportingCount:P,canAddJobs:z,hasPausedRunningJobs:_,canStart:D,canPause:L,canBatchExport:O,hasResettableState:e.length>0||n>0||i.length>0||!!a||o!==KN.hf||s!==KE||l!==KN.W1||f!==KN.m9||x!==KN.nw||b.trim().length>0||m.trim().length>0||p.length>0||d.length!==KN.Mk.length||u.length!==KN.JF.length||"idle"!==y.status}
+}
+({
+jobs:A,queueRunning:T,nowMs:F,workflowStartedAtMs:R,totalUsedCredits:E,creditedJobIds:$,scriptDraft:r,titleDraft:e,jobCountDraft:n,selectedSurfaces:o,selectedLanguages:d,customLanguageDraft:m,customLanguages:h,searchLanguageCount:H,candidateUrls:G,targetSourceCountDraft:y,framingModeDraft:w,candidateUrlDraft:x,audioDraft:k}
+);
+(0,c.useEffect)(()=>{
+var e;
+(e={
+hasHydrated:P,isTauriEnv:(0,iB.isTauri)(),resumeQueueOnHydration:z}
+).isTauriEnv&&e.hasHydrated&&e.resumeQueueOnHydration&&(q(),U())}
+,[P,U,z,q]);
+let eb=(0,c.useCallback)(e=>{
+l(t=>t.includes(e)?t.filter(t=>t!==e):[...t,e])}
+,[]),ey=(0,c.useCallback)(e=>{
+u(t=>t.includes(e)?t.filter(t=>t!==e):[...t,e])}
+,[]),ev=(0,c.useCallback)(()=>{
+let e=m.trim();
+e&&(g(t=>t.some(t=>t.toLowerCase()===e.toLowerCase())?t:[...t,e]),p(""))}
+,[m]),ew=(0,c.useCallback)(e=>{
+g(t=>t.filter(t=>t!==e))}
+,[]),ej=(0,c.useCallback)(async e=>{
+try{
+let t=KR(e);
+await (0,iB.openFile)(t)}
+catch(t){
+let e=t instanceof Error?t.message:"CapCut 초안 폴더를 열 수 없습니다.";
+yu.toast.error(e)}
+}
+,[]),ek=(0,c.useCallback)(async e=>{
+try{
+await (0,iB.revealInFolder)(e)}
+catch(t){
+let e=t instanceof Error?t.message:"CapCut 초안 위치를 열 수 없습니다.";
+yu.toast.error(e)}
+}
+,[]),{
+handleSelectDesktopAudio:eM,handleBrowserAudioChange:eC,handleClearAudio:eS}
+=function({
+audioInputRef:e,selectedLanguages:t,setAudioDraft:r,setScriptDraft:a}
+){
+let n=(0,c.useCallback)(async({
+durationMs:e,file:n,nativePath:i}
+)=>{
+r({
+status:"loading",fileName:n.name}
+);
+try{
+let s=new FormData;
+s.append("audio",n,n.name),s.append("duration",String(Math.max(0,(e??0)/1e3))),s.append("containerOffsetMs","0"),s.append("timingOffsetMs","0"),s.append("language",function(e){
+let[t]=e;
+return t&&["ko","en","zh","ja"].includes(t)?t:"auto"}
+(t));
+let o=await (0,f.authFetch)("/api/stt-v2",{
+method:"POST",body:s,signal:AbortSignal.timeout(32e4)}
+),l=await o.json().catch(()=>({
+error:"STT 응답을 처리할 수 없습니다."}
+));
+if(!o.ok)throw Error("string"==typeof l.error?l.error:"MP3 음성 대본 추출에 실패했습니다.");
+let d=T1({
+data:l,durationMs:e,filename:n.name,path:i}
+);
+a(d.transcript),r({
+status:"ready",source:d}
+)}
+catch(e){
+r({
+status:"error",fileName:n.name,error:e instanceof Error?e.message:"MP3 음성 대본 추출에 실패했습니다."}
+)}
+}
+,[t,r,a]),i=(0,c.useCallback)(async()=>{
+if(!(0,iB.isTauri)())return void e.current?.click();
+let t=await (0,mr.openDesktopFileDialog)({
+multiple:!1,filters:[{
+name:"Audio",extensions:["mp3","m4a","wav","aac","flac","ogg"]}
+]}
+),a=t?.[0];
+if(!a)return;
+let i=(0,mr.getFilenameFromPath)(a);
+r({
+status:"loading",fileName:i}
+);
+try{
+let e,[t,r]=await Promise.all([(0,iB.readFileBinary)(a),(0,mr.probeMediaMetadata)(a)]),s=new File([t],i,{
+type:(e=(0,iB.getMimeTypeFromPath)(a)).startsWith("audio/")?e:"audio/mpeg"}
+);
+await n({
+durationMs:r?.audioDurationMs??r?.durationMs??null,file:s,nativePath:a}
+)}
+catch(e){
+r({
+status:"error",fileName:i,error:e instanceof Error?e.message:"MP3 파일을 읽지 못했습니다."}
+)}
+}
+,[n,r,e]),s=(0,c.useCallback)(async e=>{
+if(!e)return;
+let t=await KT(e);
+await n({
+durationMs:t,file:e}
+)}
+,[n]);
+return(0,c.useEffect)(()=>{
+if(!new URLSearchParams(window.location.search).has("__pixTest"))return;
+let e=window,t=e.__PIX_TEST_API__,r=t?.videoCreative&&"object"==typeof t.videoCreative?t.videoCreative:{
+}
+;
+return e.__PIX_TEST_API__={
+...t,videoCreative:{
+...r,addDownloadedSourcesForTest:async e=>{
+for(let t of e)Jk.useDownloadHistoryStore.getState().addEntry({
+downloadType:"video",durationMs:t.durationMs,filename:t.filename,filePath:t.filePath,sourceTitle:t.sourceTitle??t.filename,sourceUrl:t.sourceUrl,status:"success"}
+)}
+,getCandidateUrlsForTest:async()=>KN.hV.getState().jobs[0]?.candidateUrls??[],failFirstJobForTest:async()=>{
+let e=Date.now();
+KN.hV.setState(t=>{
+let r=t.jobs[0];
+if(!r)throw Error("video creative test job is missing");
+return{
+jobs:t.jobs.map((t,r)=>0===r?{
+...t,completedAtMs:e,error:"테스트 후보 영상을 다운로드하지 못했습니다.",progress:100,stage:"failed",status:"failed",updatedAtMs:e,warning:"테스트 복구 동선을 확인해 주세요."}
+:t),nowMs:e,openJobIds:t.openJobIds.includes(r.id)?t.openJobIds:[...t.openJobIds,r.id],queueRunning:!1,queueResumeRequestedAtMs:null}
+}
+)}
+,clearDownloadQueueForTest:async()=>{
+let e=Jl.iY.getState();
+e.resetRunningToQueued(),e.clearQueue()}
+,getDownloadQueueItemsForTest:async()=>Jl.iY.getState().items.map(e=>({
+groupId:e.groupId,groupLabel:e.groupLabel,groupTotal:e.groupTotal,id:e.id,status:e.status,title:e.title,url:e.url}
+)),getJobsForTest:async()=>KN.hV.getState().jobs.map(e=>({
+candidateUrlCount:e.candidateUrls.length,downloadAttemptedUrlCount:e.downloadAttemptedUrls.length,downloadCurrentAttemptedUrlCount:e.downloadCurrentAttemptedUrls?.length??0,downloadQueueIdCount:e.downloadQueueIds.length,downloadedSourceCount:e.downloadedSources.length,id:e.id,stage:e.stage,status:e.status,targetSourceCount:e.targetSourceCount,title:e.title}
+)),setCandidateUrlsForTest:async e=>{
+let t=KN.hV.getState().jobs[0]?.id;
+if(!t)throw Error("video creative test job is missing");
+KN.hV.getState().setCandidateUrls(t,e)}
+,uploadAudioFileForTest:async({
+bytes:e,name:t,nativePath:r,type:a}
+)=>{
+let i=new File([new Uint8Array(e)],t,{
+type:a}
+),s=await KT(i);
+await n({
+durationMs:s,file:i,nativePath:r}
+)}
+}
+}
+,()=>{
+t?e.__PIX_TEST_API__=t:delete e.__PIX_TEST_API__}
+}
+,[n]),{
+handleSelectDesktopAudio:i,handleBrowserAudioChange:s,handleClearAudio:(0,c.useCallback)(()=>{
+r({
+status:"idle"}
+),e.current&&(e.current.value="")}
+,[r,e])}
+}
+({
+audioInputRef:S,selectedLanguages:d,setAudioDraft:C,setScriptDraft:a}
+),eN=(0,c.useCallback)(e=>{
+let r=new Set(KN.JF.map(e=>e.value)),n=new Set(KN.Mk.map(e=>e.value));
+t(e.title),a(e.script),s(1),b(e.candidateUrls.join("\n")),l(e.searchSurfaceValues.filter(e=>n.has(e))),u(e.searchLanguageValues.filter(e=>r.has(e))),g(e.searchLanguageValues.flatMap((t,a)=>r.has(t)?[]:[e.searchLanguageLabels[a]||t])),p(""),v(e.targetSourceCount),j(e.framingMode??KN.nw),C(e.audioSource?{
+status:"ready",source:e.audioSource}
+:{
+status:"idle"}
+),globalThis.requestAnimationFrame(()=>N.current?.scrollIntoView({
+behavior:"smooth",block:"start"}
+)),yu.toast.success("작업 설정을 입력 영역에 불러왔습니다.")}
+,[]),eA=(0,c.useCallback)(()=>{
+if(!em)return;
+let t=(0,KN.xF)({
+script:r,title:e}
+);
+D({
+audioSource:et,candidateUrls:G,count:n,creditsUsed:Z,estimatedSeconds:ee,framingMode:w,languageCount:H,script:r,searchLanguageLabels:Q,searchLanguageValues:[...d,...h],searchSurfaceLabels:X,searchSurfaceValues:o,sourceCount:o.length,targetSourceCount:y,title:t}
+)}
+,[D,et,em,G,h,Z,ee,w,n,H,r,Q,d,X,o.length,o,y,e]),eI=(0,c.useCallback)(()=>{
+q()}
+,[q]),e$=(0,c.useCallback)(()=>{
+J(),t(KN.hf),a(KE),s(KN.W1),l(KN.Mk.map(e=>e.value)),u(KN.JF.map(e=>e.value)),p(""),g([]),b(""),v(KN.m9),j(KN.nw),C({
+status:"idle"}
+),S.current&&(S.current.value="")}
+,[J]);
+return
+(0,i.jsx)(_.Bc,{
+children:
+(0,i.jsx)("section",{
+"data-pixi-video-creative-batch-tab":!0,className:"min-h-[calc(100dvh-132px)]",children:
+(0,i.jsxs)("div",{
+className:"space-y-3",children:[
+(0,i.jsx)("div",{
+className:"space-y-3",children:
+(0,i.jsxs)("div",{
+ref:N,className:"scroll-mt-32 rounded-lg border border-border bg-background p-4",children:[
+(0,i.jsxs)("div",{
+className:"flex flex-wrap items-start justify-between gap-3",children:[
+(0,i.jsxs)("div",{
+children:[
+(0,i.jsxs)("h2",{
+className:"flex items-center gap-2 font-semibold text-lg",children:[
+(0,i.jsx)(mG.A,{
+className:"h-5 w-5 text-primary"}
+),"영상 창작형"]}
+),
+(0,i.jsx)("div",{
+className:"mt-1 text-muted-foreground text-xs",children:"대본 기반 검색\xb7다운로드\xb7매칭\xb7CapCut 초안"}
+)]}
+),
+(0,i.jsxs)("div",{
+className:"flex flex-wrap items-center gap-2",children:[
+(0,i.jsxs)(m8.Lt,{
+children:[
+(0,i.jsx)(m8.tv,{
+asChild:!0,children:
+(0,i.jsxs)(M.$,{
+type:"button",variant:"outline",size:"sm",disabled:!ex,className:"gap-2","data-pixi-video-creative-reset-all":!0,children:[
+(0,i.jsx)(bs.A,{
+className:"h-4 w-4"}
+),"전체 초기화"]}
+)}
+),
+(0,i.jsxs)(m8.EO,{
+children:[
+(0,i.jsxs)(m8.wd,{
+children:[
+(0,i.jsx)(m8.r7,{
+children:"영상 창작형을 전체 초기화할까요?"}
+),
+(0,i.jsx)(m8.$v,{
+children:"현재 입력한 작업명, 대본, MP3, 후보 URL, 검색 옵션, 작업 큐와 사용 크레딧 기록이 모두 초기화됩니다. 이 작업은 되돌릴 수 없습니다."}
+)]}
+),
+(0,i.jsxs)(m8.ck,{
+children:[
+(0,i.jsx)(m8.Zr,{
+children:"취소"}
+),
+(0,i.jsx)(m8.Rx,{
+onClick:e$,children:"초기화"}
+)]}
+)]}
+)]}
+),
+(0,i.jsxs)("div",{
+className:"rounded-full border border-primary/25 bg-primary/5 px-3 py-1.5 font-medium text-primary text-xs",children:["최대 ",KN.FE,"개 동시 진행"]}
+)]}
+)]}
+),
+(0,i.jsxs)("div",{
+className:"mt-4 grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-6",children:[
+(0,i.jsx)(KA,{
+label:"총 작업",metricId:"total",value:er.total}
+),
+(0,i.jsx)(KA,{
+label:"작업 중",metricId:"running",value:er.running}
+),
+(0,i.jsx)(KA,{
+label:"대기",metricId:"queued",value:er.queued}
+),
+(0,i.jsx)(KA,{
+label:"성공",metricId:"success",value:er.success}
+),
+(0,i.jsx)(KA,{
+label:"실패",metricId:"failed",value:er.failed}
+),
+(0,i.jsx)(KA,{
+label:"경과",metricId:"elapsed",value:(0,KN.oz)(es)}
+)]}
+),
+(0,i.jsx)(KP,{
+titleDraft:e,setTitleDraft:t,scriptDraft:r,setScriptDraft:a,jobCountDraft:n,setJobCountDraft:s,candidateUrlDraft:x,setCandidateUrlDraft:b,candidateUrls:G,selectedSurfaces:o,toggleSurface:eb,selectedLanguages:d,toggleLanguage:ey,customLanguageDraft:m,setCustomLanguageDraft:p,customLanguages:h,handleAddCustomLanguage:ev,handleRemoveCustomLanguage:ew,targetSourceCountDraft:y,setTargetSourceCountDraft:v,framingModeDraft:w,setFramingModeDraft:j,audioDraft:k,audioInputRef:S,handleSelectDesktopAudio:eM,handleBrowserAudioChange:eC,handleClearAudio:eS,canAddJobs:em,handleAddJobs:eA,jobs:A,estimatedCredits:Z,estimatedSeconds:ee,canStart:eh,hasPausedRunningJobs:ep,canPause:eg,handleStartQueue:eI,pauseVideoCreativeQueue:B,resetVideoCreativeQueue:Y}
+)]}
+)}
+),
+(0,i.jsx)(KU,{
+reservedCredits:en,settledCredits:ei,estimatedRemainingSeconds:el,exportedCount:ec,canBatchExport:ef,exportVideoCreativeBatch:L,resultCount:ea,totalUsedCredits:E,selectedSurfaces:o,searchLanguageCount:H,targetSourceSummary:ed,exportingCount:eu,totalProgress:eo,jobs:A,nowMs:F,queueRunning:T,openJobIds:I,toggleVideoCreativeJobOpen:W,retryVideoCreativeJob:K,exportVideoCreativeJob:O,removeVideoCreativeJob:V,handleLoadJobSettings:eN,handleOpenCapcutDraftFolder:ej,handleRevealCapcutDraft:ek}
+)]}
+)}
+)}
+)}
+let KV="IP\xb7기기 정보 등 민감한 사항으로 로그인이 제한되신다면, 별도로 다운로드한 영상 파일로 작업을 진행해 주세요.",KJ="pix_batch_youtube_download_account_notice_v1";

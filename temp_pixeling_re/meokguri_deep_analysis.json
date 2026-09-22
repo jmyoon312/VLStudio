@@ -1,0 +1,294 @@
+{
+  "apis": [
+    "/api/pixi/meokguri/narration/rewrite",
+    "/api/pixi/meokguri/reference-style/analyze",
+    "/api/pixi/meokguri/tts/jobs/"
+  ],
+  "total_data_attrs": 58,
+  "top_data_attrs": [
+    [
+      "data-pixi-meokguri-pair-file",
+      2
+    ],
+    [
+      "data-pixi-meokguri-source-environment",
+      2
+    ],
+    [
+      "data-pixi-meokguri-navigation",
+      2
+    ],
+    [
+      "data-pixi-meokguri-result-gallery",
+      1
+    ],
+    [
+      "data-pixi-meokguri-result-toolbar",
+      1
+    ],
+    [
+      "data-pixi-meokguri-result-search",
+      1
+    ],
+    [
+      "data-pixi-meokguri-result-sort",
+      1
+    ],
+    [
+      "data-pixi-meokguri-result-match",
+      1
+    ],
+    [
+      "data-pixi-meokguri-result-empty",
+      1
+    ],
+    [
+      "data-pixi-meokguri-caption-timing-editor",
+      1
+    ],
+    [
+      "data-pixi-meokguri-applied-settings",
+      1
+    ],
+    [
+      "data-pixi-meokguri-run-confirmation",
+      1
+    ],
+    [
+      "data-pixi-meokguri-credit-breakdown",
+      1
+    ],
+    [
+      "data-pixi-meokguri-reuse-summary",
+      1
+    ],
+    [
+      "data-pixi-meokguri-output-summary",
+      1
+    ],
+    [
+      "data-pixi-meokguri-voice-selection-mode",
+      1
+    ],
+    [
+      "data-pixi-meokguri-selected-voice",
+      1
+    ],
+    [
+      "data-pixi-meokguri-voice-chooser",
+      1
+    ],
+    [
+      "data-pixi-meokguri-change-voice",
+      1
+    ],
+    [
+      "data-pixi-meokguri-settings-summary",
+      1
+    ],
+    [
+      "data-pixi-meokguri-reset-options",
+      1
+    ],
+    [
+      "data-pixi-meokguri-settings-open",
+      1
+    ],
+    [
+      "data-pixi-meokguri-settings-workspace",
+      1
+    ],
+    [
+      "data-pixi-meokguri-hero",
+      1
+    ],
+    [
+      "data-pixi-meokguri-connection-row",
+      1
+    ],
+    [
+      "data-pixi-meokguri-tiktok-connection",
+      1
+    ],
+    [
+      "data-pixi-meokguri-tiktok-connected",
+      1
+    ],
+    [
+      "data-pixi-meokguri-youtube-connection",
+      1
+    ],
+    [
+      "data-pixi-meokguri-youtube-connected",
+      1
+    ],
+    [
+      "data-pixi-meokguri-original-finder",
+      1
+    ],
+    [
+      "data-pixi-meokguri-original-credits",
+      1
+    ],
+    [
+      "data-pixi-meokguri-original-candidates",
+      1
+    ],
+    [
+      "data-pixi-meokguri-source-pair-input",
+      1
+    ],
+    [
+      "data-pixi-meokguri-source-pair-row",
+      1
+    ],
+    [
+      "data-pixi-meokguri-add-source-pair",
+      1
+    ],
+    [
+      "data-pixi-meokguri-pair-import-bar",
+      1
+    ],
+    [
+      "data-pixi-meokguri-source-input",
+      1
+    ],
+    [
+      "data-pixi-meokguri-primary-action",
+      1
+    ],
+    [
+      "data-pixi-meokguri-tone-presets",
+      1
+    ],
+    [
+      "data-pixi-meokguri-tone-presets-toggle",
+      1
+    ],
+    [
+      "data-pixi-meokguri-tone-preset",
+      1
+    ],
+    [
+      "data-pixi-meokguri-onboarding-summary",
+      1
+    ],
+    [
+      "data-pixi-meokguri-credit-disclosure",
+      1
+    ],
+    [
+      "data-pixi-meokguri-source-tools",
+      1
+    ],
+    [
+      "data-pixi-meokguri-stage-rail",
+      1
+    ],
+    [
+      "data-pixi-meokguri-studio-layout",
+      1
+    ],
+    [
+      "data-pixi-meokguri-options-panel",
+      1
+    ],
+    [
+      "data-pixi-meokguri-voice-search",
+      1
+    ],
+    [
+      "data-pixi-meokguri-voice-cards",
+      1
+    ],
+    [
+      "data-pixi-meokguri-option-toggle",
+      1
+    ]
+  ],
+  "total_korean_strings": 426,
+  "sample_korean_strings": [
+    "정밀 스타일 예상 크레딧을 확인하지 못했습니다.",
+    "길이가 레퍼런스와 비슷",
+    "파일 이름으로 찾기",
+    "영상별 자동 선택",
+    "텍스트 클립이 적어 훅/쨉쨉이 밀도가 낮을 수 있습니다.",
+    "인데",
+    "완성본 화면으로 쓰는 영상입니다. 자막이 박히지 않은 쪽을 넣어 주세요.",
+    "이걸 진짜 통째로 굽는다고요?",
+    "누르면 도입 음성과 본편 자막 말투가 한 번에 맞춰집니다.",
+    "스마트 포커스가 원본 영상을 읽지 못했습니다.",
+    "초기화",
+    "프리뷰 편집을 저장하지 못했습니다",
+    "레퍼런스 프레임 형식이 올바르지 않습니다.",
+    ", 아직 이동할 수 없음",
+    "Typecast 공개 샘플이라 Pix 크레딧이 차감되지 않습니다.",
+    "선택 자막 시작 시간",
+    "쨉쨉이 자막",
+    "이 링크로 이동",
+    "변경",
+    "받게 될 완성본과 예상 크레딧을 확인한 뒤 시작하세요.",
+    "자동저장 복구",
+    "보는 사람에게 말 걸듯 놀라며, 짧고 빠르게 갑니다.",
+    "링크가 안 되면 파일 버튼으로 추가하세요",
+    "URL 영상을 가져오지 못했습니다.",
+    "쨉쨉이 자막 문장이 길어 화면 리듬이 늘어질 수 있습니다.",
+    "적용 설정",
+    "불일치",
+    "색상",
+    "을 적용했습니다.`,{description:",
+    "틱톡 원본을 쓰려면 로그인 연결이 필요해요",
+    "개 링크 \\xb7 최대 3개씩 병렬 처리",
+    "원테이크",
+    "레퍼런스 프레임 압축 화면을 만들지 못했습니다.",
+    "틱톡",
+    "자동 선택은 영상의 훅 분위기와 보이스 용도를 보고 작업마다 다르게 고릅니다.",
+    "원본 화면에 레퍼런스의 자막 위치\\xb7색상\\xb7강조를 한국어로 다시 그립니다.",
+    "설정 다시 보기",
+    "가져오기 무료",
+    "레퍼런스 자막 프레임을 추출하지 못했습니다.",
+    "+ 영상 쌍 추가 (",
+    "자동저장 기록을 삭제할까요?",
+    "정밀 스타일 예상 크레딧 응답이 올바르지 않습니다.",
+    "틱톡 로그인이 연결돼 있어요. 링크를 가져올 때 저장된 연결을 자동으로 사용합니다.",
+    "CapCut draft 폴더를 찾지 못했습니다.",
+    "이 냉장고, 버리려던 거였다는데. 안을 열어 본 순간 생각이 바뀌었죠.",
+    "설정 완료",
+    "다시 계산",
+    "비디오 클립이 없어 CapCut 초안 확인이 필요합니다.",
+    "정밀 레퍼런스 스타일 응답이 올바르지 않습니다.",
+    "먹구리 자막\\xb7타이밍 편집기",
+    " 장면 매칭",
+    "첫 음성",
+    "편집 레퍼런스",
+    "레퍼런스 보관 파일 이름을 만들지 못했습니다.",
+    "사용 안 함",
+    "총 ",
+    "자막 디자인과 레퍼런스 분석",
+    "로그인 연결이 저장되면 위의 레퍼런스와 원본을 한 번 자동으로 다시 가져옵니다.",
+    "말투부터 고르고 시작하세요",
+    "영상 추가는 Pix 데스크톱 앱에서 지원합니다.",
+    "다시 연결",
+    "현재 작업으로 돌아가기",
+    "편집본의 자막 위치\\xb7색상\\xb7강조를 분석해 원본 위에 한국어로 다시 그립니다. 세부값과 비용은 만들기 직전에 확인할 수 있어요.",
+    "MP4만 만들며, CapCut은 필요할 때 설정에서 켤 수 있습니다.",
+    "크레딧 내역",
+    "이 환경에서는 클립보드 복사를 사용할 수 없습니다.",
+    "최신순",
+    "저장된 Typecast 음성을 다시 받지 못했습니다.",
+    "31초를 넘는 초안은 쇼츠 템포 검수가 필요합니다.",
+    "Typecast 타임스탬프 자막이 없어 훅 자막 타이밍 검수가 필요합니다.",
+    "분위기와 레퍼런스 음성에 맞춤",
+    "컷 리듬과 목표 길이",
+    "원본 후보 ",
+    "편집 레퍼런스 파일 제거",
+    "자막",
+    ",typecastSpeed:1.06},summary:'해설자가 사건을 전해 주듯 ",
+    "정밀 분석이 취소되었습니다.",
+    ")}`})(e.durationSec),s=(r=e.uploadDate)&&/^\\d{8}$/u.test(r)?`${r.slice(0,4)}.${r.slice(4,6)}.${r.slice(6,8)}`:null,o=(a=e.viewCount)&&a>0?`조회 ${new Intl.NumberFormat(",
+    "궁금증 질문",
+    "복원"
+  ],
+  "rr_snippet_first_3000": "function Rr({youtubeNotice:e}={}){var t,a,n,s,o,l,d,u,m,p,g,x;let b,y,v,w,j,C,S,N,A,I,$,E,T,R,F,P,z,_,D,L,O,U,{data:B}=(0,f.useSession)(),V=(0,c0.Y)(B?.user),[J]=(0,c.useState)(()=>{var e,t;return Re?{jobs:(e=Re.jobs,t=Date.now(),e.map(e=>\"running\"===e.status?{...e,progress:0,status:\"queued\",updatedAtMs:t}:e)),sourcePairDrafts:Re.sourcePairDrafts,selectedRenderedJobId:Re.selectedRenderedJobId,sourceFiles:Re.sourceFiles}:null}),[Y,K]=(0,c.useState)(()=>J?.sourceFiles??[]),q=(0,c.useRef)(Y);q.current=Y;let[W,H]=(0,c.useState)(\"\"),[G,X]=(0,c.useState)(()=>J?.sourcePairDrafts??[Ev()]),[Q,Z]=(0,c.useState)([]),[ee,et]=(0,c.useState)([]),[er,ea]=(0,c.useState)(!1),[en,ei]=(0,c.useState)(null),[es,eo]=(0,c.useState)(0),[el,ed]=(0,c.useState)(()=>J?.jobs??[]),ec=(0,c.useRef)(el);ec.current=el;let[eu,em]=(0,c.useState)(!1),[ep,eh]=(0,c.useState)(!1),[eg,ef]=(0,c.useState)(!1),[ex,eb]=(0,c.useState)(!1),ey=(0,c.useRef)(!1),ev=(0,c.useCallback)(async()=>{for(;ey.current&&!ax.current&&!ak.current;)await new Promise(e=>window.setTimeout(e,250))},[]),[ew,ej]=(0,c.useState)(()=>Date.now()),[ek,eM]=(0,c.useState)(!1),[eC,eS]=(0,c.useState)(!0),[eN,eA]=(0,c.useState)(null),[eI,e$]=(0,c.useState)({error:null,perReference:null,status:\"idle\",total:null}),[eE,eT]=(0,c.useState)(3),[eR,eF]=(0,c.useState)(\"auto\"),[eP,ez]=(0,c.useState)(()=>({...k$})),[e_,eD]=(0,c.useState)(!0),[eL,eO]=(0,c.useState)(Sr),[eU,eB]=(0,c.useState)(Sa),[eV,eJ]=(0,c.useState)(1.08),[eY,eK]=(0,c.useState)(Sh),[eq,eW]=(0,c.useState)(\"word\"),[eH,eG]=(0,c.useState)(MO),[eX,eQ]=(0,c.useState)(\"jua\"),[eZ,e0]=(0,c.useState)([]),[e1,e2]=(0,c.useState)(!1),[e5,e3]=(0,c.useState)(!1),[e4,e6]=(0,c.useState)(\"style\"),[e8,e7]=(0,c.useState)(!1),[e9,te]=(0,c.useState)(!0),[tt,tr]=(0,c.useState)(!0),[ta,tn]=(0,c.useState)(!0),[ti,ts]=(0,c.useState)([]),to=(0,c.useRef)(ti);to.current=ti;let[tl,td]=(0,c.useState)(null),[tc,tu]=(0,c.useState)(55e3),[tm,tp]=(0,c.useState)(null),[th,tg]=(0,c.useState)(\"standard\"),[tf,tx]=(0,c.useState)(\"auto\"),[tb,ty]=(0,c.useState)(Mo),[tv,tw]=(0,c.useState)(!1),[tj,tk]=(0,c.useState)(\"ko\"),[tM,tC]=(0,c.useState)(Mv),[tS,tN]=(0,c.useState)(!0),[tA,tI]=(0,c.useState)(Nk),t$=(t={captionLength:tM,hookVoiceTone:eY,targetDurationReference:tm??\"match\",toneStyle:tA,typecastSpeed:eV},EM.find(e=>e.settings.captionLength===t.captionLength&&e.settings.hookVoiceTone===t.hookVoiceTone&&e.settings.targetDurationReference===t.targetDurationReference&&e.settings.toneStyle===t.toneStyle&&Math.round(100*e.settings.typecastSpeed)===Math.round(100*t.typecastSpeed))?.id??null),tE=(0,c.useCallback)(e=>{let t=EC(e);t&&(tC(t.settings.captionLength),eK(t.settings.hookVoiceTone),tp(t.settings.targetDurationReference),tI(t.settings.toneStyle),eJ(t.settings.typecastSpeed),eD(!0),(0,iE.Te)(`말투를 '${t.label}'로 맞췄습니다. 설정창에서 더 손볼 수 있습니다.`))},[]),[tT,tR]=(0,c.useState)(\"off\"),[tF,tP]=(0,c.useState)(\"computer\"),tz=\"capcut\"===tF,[t_,tD]=(0,c.useState)(\"먹구리\"),[tL,tO]=(0,c.useState)(null),[tU,tB]=(0,c.useState)(nul"
+}

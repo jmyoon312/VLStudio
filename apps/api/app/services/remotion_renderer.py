@@ -143,5 +143,112 @@ class RemotionRenderer:
                 "error": str(e)
             }
 
+    async def render_song_short(
+        self,
+        project_id: str,
+        lyrics: List[Dict[str, Any]],
+        video_source: Optional[str] = None,
+        audio_source: Optional[str] = None,
+        album_cover: Optional[str] = None,
+        song_title: str = "Untitled Song",
+        artist_name: str = "Unknown Artist",
+        visual_theme: str = "vinyl",
+        enable_original: bool = True,
+        enable_pronunciation: bool = True,
+        enable_meaning: bool = True,
+        sync_offset_ms: int = 0,
+        duration_seconds: float = 30.0,
+        fps: int = 30,
+    ) -> Dict[str, Any]:
+        """
+        Renders a 9:16 3-Track Karaoke music short video directly to MP4 using headless Remotion.
+        """
+        output_mp4 = self.export_dir / f"{project_id}.mp4"
+        props_file = self.export_dir / f"{project_id}_props.json"
+
+        props_data = {
+            "songTitle": song_title,
+            "artistName": artist_name,
+            "visualTheme": visual_theme,
+            "enableOriginal": enable_original,
+            "enablePronunciation": enable_pronunciation,
+            "enableMeaning": enable_meaning,
+            "syncOffsetMs": sync_offset_ms,
+            "lyrics": lyrics or [],
+        }
+
+        if video_source and os.path.exists(video_source):
+            props_data["videoSource"] = Path(video_source).as_posix()
+
+        if audio_source and os.path.exists(audio_source):
+            props_data["audioSource"] = Path(audio_source).as_posix()
+
+        if album_cover and os.path.exists(album_cover):
+            props_data["albumCover"] = Path(album_cover).as_posix()
+
+        with open(props_file, "w", encoding="utf-8") as f:
+            json.dump(props_data, f, ensure_ascii=False, indent=2)
+
+        duration_in_frames = int(duration_seconds * fps)
+
+        cmd = [
+            "node",
+            str(self.cli_path),
+            "--composition", "SongKaraokeComposition",
+            "--props", str(props_file),
+            "--output", str(output_mp4),
+            "--durationInFrames", str(duration_in_frames),
+        ]
+
+        logger.info(f"🎵 [RemotionRenderer] Launching SongKaraokeComposition for project '{project_id}'...")
+        logger.info(f"   Command: {' '.join(cmd)}")
+
+        try:
+            process = await asyncio.create_subprocess_exec(
+                *cmd,
+                cwd=str(self.remotion_dir),
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+
+            stdout, stderr = await process.communicate()
+            stdout_text = stdout.decode("utf-8", errors="replace")
+            stderr_text = stderr.decode("utf-8", errors="replace")
+
+            if process.returncode != 0:
+                logger.error(f"❌ [RemotionRenderer] Song render failed (code {process.returncode}):\n{stderr_text}\n{stdout_text}")
+                return {
+                    "success": False,
+                    "error": f"Render process failed with exit code {process.returncode}",
+                    "details": stderr_text or stdout_text
+                }
+
+            if not output_mp4.exists() or output_mp4.stat().st_size == 0:
+                logger.error(f"❌ [RemotionRenderer] Rendered MP4 file missing or empty: {output_mp4}")
+                return {
+                    "success": False,
+                    "error": "Rendered MP4 file missing or 0 bytes",
+                    "details": stdout_text
+                }
+
+            file_size_mb = output_mp4.stat().st_size / (1024 * 1024)
+            logger.info(f"✅ [RemotionRenderer] Song MP4 rendered: {output_mp4} ({file_size_mb:.2f} MB)")
+
+            return {
+                "success": True,
+                "video_path": str(output_mp4),
+                "file_size_bytes": output_mp4.stat().st_size,
+                "duration_seconds": duration_seconds,
+                "props_path": str(props_file),
+            }
+
+        except Exception as e:
+            logger.exception(f"❌ [RemotionRenderer] Exception during song rendering: {e}")
+            return {
+                "success": False,
+                "error": str(e)
+            }
+
 
 remotion_renderer = RemotionRenderer()
+

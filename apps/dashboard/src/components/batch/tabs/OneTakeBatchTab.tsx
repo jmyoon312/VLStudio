@@ -83,6 +83,40 @@ export const EXTRA_CAPTION_PRESETS: ExtraCaptionPreset[] = [
   { id: 'star-accent', name: '별표 강조형', emoji: '⭐', sample: '*충격 실화* / *속보 발생*' },
 ];
 
+// ── 대기열 영구 삭제 관리자 (SSOT 로컬스토리지 보존 및 새로고침 부활 원천 차단) ──
+const DELETED_QUEUE_KEY = 'vlstudio_deleted_queue_job_ids';
+
+export const getDeletedQueueJobIds = (): string[] => {
+  try {
+    const raw = localStorage.getItem(DELETED_QUEUE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+};
+
+export const markJobsAsDeletedInStorage = (ids: (string | number)[]) => {
+  try {
+    const current = getDeletedQueueJobIds();
+    let changed = false;
+    for (const id of ids) {
+      const strId = String(id);
+      const rawNum = strId.replace('queue-sub-', '');
+      if (!current.includes(strId)) {
+        current.push(strId);
+        changed = true;
+      }
+      if (!current.includes(rawNum)) {
+        current.push(rawNum);
+        changed = true;
+      }
+    }
+    if (changed) {
+      localStorage.setItem(DELETED_QUEUE_KEY, JSON.stringify(current));
+    }
+  } catch {}
+};
+
 interface OneTakeBatchTabProps {
   ssulList?: SourceItem[];
   newsList?: SourceItem[];
@@ -241,13 +275,18 @@ export const OneTakeBatchTab: React.FC<OneTakeBatchTabProps> = ({
         try {
           const subJobsRes = await api.get('/ddalkkak/api/subtitle/list');
           const rawJobs = subJobsRes.data?.jobs || (Array.isArray(subJobsRes.data) ? subJobsRes.data : []);
-          const completedJobs = rawJobs.filter((j: any) => j.status === 'completed' || j.status === 'done').slice(0, 6);
+          const deletedIds = getDeletedQueueJobIds();
+          const completedJobs = rawJobs
+            .filter((j: any) => j.status === 'completed' || j.status === 'done')
+            .filter((j: any) => !deletedIds.includes(String(j.id)) && !deletedIds.includes(`queue-sub-${j.id}`))
+            .slice(0, 6);
 
           if (completedJobs.length > 0) {
             const richItems: BatchWorkItem[] = await Promise.all(
               completedJobs.map(async (j: any) => {
                 let primaryAnalysis: any = {};
                 let renderedUrl = j.rendered_video_url || '';
+                let origVideoUrl = j.video_path ? (j.video_path.startsWith('http') || j.video_path.startsWith('/') ? j.video_path : getMediaUrl(j.video_path)) : '';
                 try {
                   if (j.gemini_results) {
                     const parsed = typeof j.gemini_results === 'string' ? JSON.parse(j.gemini_results) : j.gemini_results;
@@ -260,11 +299,13 @@ export const OneTakeBatchTab: React.FC<OneTakeBatchTabProps> = ({
                   if (detail.data?.rendered_video_url) {
                     renderedUrl = detail.data.rendered_video_url;
                   }
+                  if (detail.data?.video_url) {
+                    origVideoUrl = detail.data.video_url;
+                  }
                 } catch (_) {}
 
-                if (!renderedUrl) {
-                  renderedUrl = `/api/ddalkkak/api/subtitle/${j.id}/download/job_${j.id}_classic_test.mp4`;
-                }
+                // 🔴 절대 가짜 파일명(job_X_classic_test.mp4)을 만들지 않음! 렌더링 완성본이 있으면 그것을, 없으면 원본 비디오를 정확히 서빙하여 404 방지
+                const playbackUrl = renderedUrl || origVideoUrl;
 
                 const subs = primaryAnalysis.situation_subtitles || [];
                 const jabs = primaryAnalysis.jjap_jjap_i_subtitles || [];
@@ -281,15 +322,16 @@ export const OneTakeBatchTab: React.FC<OneTakeBatchTabProps> = ({
                   status: 'completed' as const,
                   progress: 100,
                   createdAt: j.created_at ? new Date(j.created_at).toLocaleDateString() : '최근 완료',
-                  videoUrl: renderedUrl,
-                  filePath: renderedUrl,
+                  videoUrl: playbackUrl,
+                  filePath: renderedUrl ? renderedUrl : (j.video_path || ''),
                   thumbnailUrl: j.thumbnail_path,
                   durationSec: j.duration_sec || 30,
-                  sourceOrigin: '자막 생성기 완성본',
+                  sourceOrigin: renderedUrl ? '클래식 렌더링 완성본' : '자막 생성기 완성본',
                   sourceSnippet: primaryAnalysis.summary || finalTitle,
                   scriptContent: primaryAnalysis.full_script || subs.map((s: any) => s.text).join(' '),
                   metadata: {
                     ...j,
+                    isRendered: Boolean(renderedUrl),
                     job: { ...j, primary_analysis: primaryAnalysis },
                     subtitles: subs,
                     situation_subtitles: subs,
@@ -632,9 +674,20 @@ export const OneTakeBatchTab: React.FC<OneTakeBatchTabProps> = ({
     }
   };
 
-  const handleDeleteQueueItem = (id: string | number) => {
+  const handleDeleteQueueItem = async (id: string | number) => {
+    markJobsAsDeletedInStorage([id]);
+    const strId = String(id);
+    if (strId.startsWith('queue-sub-')) {
+      const rawJobId = strId.replace('queue-sub-', '');
+      try {
+        await api.delete(`/ddalkkak/api/subtitle/${rawJobId}`);
+      } catch (e) {
+        console.warn('[OneTakeBatchTab] Subtitle job delete error:', e);
+      }
+    }
     setWorkQueueItems(prev => prev.filter(i => i.id !== id));
     setSelectedQueueIds(prev => prev.filter(i => i !== id));
+    toast({ title: '🗑️ 작업 삭제 완료', description: '선택한 작업이 대기열 및 영구 저장소에서 완전히 삭제되었습니다.' });
   };
 
   const handleBulkExportCapcut = () => {
@@ -650,11 +703,21 @@ export const OneTakeBatchTab: React.FC<OneTakeBatchTabProps> = ({
     });
   };
 
-  const handleBulkDelete = () => {
+  const handleBulkDelete = async () => {
     if (selectedQueueIds.length === 0) return;
+    markJobsAsDeletedInStorage(selectedQueueIds);
+    for (const id of selectedQueueIds) {
+      const strId = String(id);
+      if (strId.startsWith('queue-sub-')) {
+        const rawJobId = strId.replace('queue-sub-', '');
+        try {
+          await api.delete(`/ddalkkak/api/subtitle/${rawJobId}`);
+        } catch (_) {}
+      }
+    }
     setWorkQueueItems(prev => prev.filter(i => !selectedQueueIds.includes(i.id)));
     setSelectedQueueIds([]);
-    toast({ title: '삭제 완료', description: '선택된 작업이 대기열에서 제거되었습니다.' });
+    toast({ title: '🗑️ 일괄 삭제 완료', description: '선택된 작업들이 대기열 및 영구 저장소에서 완전히 삭제되었습니다.' });
   };
 
   // ── 대량 일괄 발주 실행 파이프라인 (N개 소스 x M개 타겟 언어 매트릭스) ──
@@ -782,35 +845,56 @@ export const OneTakeBatchTab: React.FC<OneTakeBatchTabProps> = ({
           });
 
           const resData = renderRes.data;
+          const situationSubs = resData?.subtitles || resData?.pixeling_meta?.subtitles || [];
+          const jjapSubs = resData?.pixeling_meta?.jabs || [];
+          const candidateTitles = resData?.pixeling_meta?.candidate_titles || [workItem.title];
+          const finalTitle = candidateTitles[0] || workItem.title;
+
           setWorkQueueItems(prev => prev.map(item => {
             if (item.id === workItem.id) {
               return {
                 ...item,
+                title: finalTitle,
                 status: 'completed',
                 progress: 100,
-                videoUrl: resData?.stream_url || item.videoUrl,
+                videoUrl: resData?.stream_url || (resData?.video_path ? getMediaUrl(resData.video_path) : item.videoUrl),
                 filePath: resData?.video_path || item.filePath,
                 metadata: {
                   ...item.metadata,
-                  subtitles: resData?.subtitles || [],
+                  subtitles: situationSubs,
+                  situation_subtitles: situationSubs,
+                  jjap_jjap_i_subtitles: jjapSubs,
+                  jabs: jjapSubs,
+                  candidate_titles: candidateTitles,
+                  title_candidates: candidateTitles,
                   pixeling_meta: resData?.pixeling_meta,
                 }
               };
             }
             return item;
           }));
-        } catch (err) {
-          // 로컬 성공 완료 시뮬레이션
+        } catch (err: any) {
+          console.error('[OneTakeBatchTab] Batch render error:', err);
+          const errorMsg = err.response?.data?.detail || err.message || '렌더링 처리 실패';
           setWorkQueueItems(prev => prev.map(item => {
             if (item.id === workItem.id) {
               return {
                 ...item,
-                status: 'completed',
-                progress: 100,
+                status: 'failed',
+                progress: 0,
+                metadata: {
+                  ...item.metadata,
+                  error: errorMsg
+                }
               };
             }
             return item;
           }));
+          toast({
+            variant: 'destructive',
+            title: `'${workItem.title.slice(0, 16)}' 생성 실패`,
+            description: errorMsg
+          });
         }
       }
 

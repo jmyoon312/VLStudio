@@ -140,6 +140,9 @@ async function main() {
   if (inputProps.imageSource && fs.existsSync(inputProps.imageSource)) {
     inputProps.imageSource = mediaServer.registerFile(inputProps.imageSource);
   }
+  if (inputProps.sketchImageSource && fs.existsSync(inputProps.sketchImageSource)) {
+    inputProps.sketchImageSource = mediaServer.registerFile(inputProps.sketchImageSource);
+  }
   if (inputProps.audioSource && fs.existsSync(inputProps.audioSource)) {
     inputProps.audioSource = mediaServer.registerFile(inputProps.audioSource);
   }

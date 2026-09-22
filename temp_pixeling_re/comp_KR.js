@@ -1,0 +1,1 @@
+function KR(e){let t=e.trim().replace(/[\\/]+$/,"");if(!["canonical-project.json","draft_blueprint.json","draft_content.json","draft_document.json","draft_info.json","draft_meta_info.json","manifest.json"].includes(t.split(/[\\/]/).filter(Boolean).at(-1)?.toLowerCase()??""))return t;let r=Math.max(t.lastIndexOf("/"),t.lastIndexOf("\\"));return r<=0?t:t.slice(0,r)}var KF=r(47982);

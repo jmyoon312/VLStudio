@@ -725,7 +725,11 @@ export const ShortsBatchStudio: React.FC = () => {
           />
         )}
         {activeTab === 'song' && (
-          <SongBatchTab onAddBatchJobs={jobs => setBatchResults(prev => [...jobs, ...prev])} />
+          <SongBatchTab
+            videoList={videoList}
+            scriptList={scriptList}
+            onAddBatchJobs={jobs => setBatchResults(prev => [...jobs, ...prev])}
+          />
         )}
         {activeTab === 'long-to-short' && (
           <LongToShortTab onAddBatchJobs={jobs => setBatchResults(prev => [...jobs, ...prev])} />

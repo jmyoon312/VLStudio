@@ -1,310 +1,558 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
-  Tv,
-  Upload,
+  Film,
   Sparkles,
   Clapperboard,
-  Film,
-  SlidersHorizontal,
-  Clock,
+  Tv,
   CheckCircle2,
-  Zap,
-  Volume2,
-  Flame,
-  Maximize2
+  AlertCircle,
+  X,
+  Play,
+  RotateCcw
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/use-toast';
+import {
+  MovieDramaSetupSection,
+  MovieDramaSetupSettings
+} from '../movie_drama/MovieDramaSetupSection';
+import {
+  MovieDramaAnalysisSection,
+  MovieDramaJob
+} from '../movie_drama/MovieDramaAnalysisSection';
+import { MovieDramaResultsSection } from '../movie_drama/MovieDramaResultsSection';
+import {
+  MovieDramaFramingModal,
+  FramingCut
+} from '../movie_drama/MovieDramaFramingModal';
+import { CandidateData } from '../movie_drama/MovieDramaCandidateCard';
 import { cn } from '@/lib/utils';
 
 interface MovieDramaShortsTabProps {
-  onAddBatchJobs: (jobs: any[]) => void;
+  onAddBatchJobs?: (jobs: any[]) => void;
 }
 
 export const MovieDramaShortsTab: React.FC<MovieDramaShortsTabProps> = ({ onAddBatchJobs }) => {
   const { toast } = useToast();
 
-  const [dramaTitle, setDramaTitle] = useState<string>('더 글로리 1화 하이라이트');
-  const [videoFileName, setVideoFileName] = useState<string>('');
-  const [videoSourceUrl, setVideoSourceUrl] = useState<string>('https://www.youtube.com/watch?v=drama-sample');
+  // 3대 워크스페이스 상태 머신 (Po)
+  const [activeStep, setActiveStep] = useState<'setup' | 'analysis' | 'results'>('setup');
 
-  // 씬 컷 감지 및 대사 필터링
-  const [sceneCutThreshold, setSceneCutThreshold] = useState<number>(0.4); // 0.2s ~ 1.0s
-  const [skipNonDialogue, setSkipNonDialogue] = useState<boolean>(true); // 대사 없는 루즈한 장면 자동 스킵
-  const [targetShortsCount, setTargetShortsCount] = useState<number>(3); // 1~5편 연작
+  // 원본 비디오 상태
+  const [selectedVideoPath, setSelectedVideoPath] = useState<string | null>(null);
+  const [selectedVideoName, setSelectedVideoName] = useState<string | null>(null);
+  const [videoInfo, setVideoInfo] = useState<{ duration?: number; size?: number; width?: number; height?: number } | null>(null);
 
-  // 영화 리뷰 스타일
-  const [reviewStyle, setReviewStyle] = useState<'suspense' | 'emotional' | 'action'>('suspense');
-  const [aspectRatioMode, setAspectRatioMode] = useState<'cinematic-scope' | 'full-crop' | 'sandwich'>('cinematic-scope');
-  const [introHookText, setIntroHookText] = useState<string>('방영 직후 전 세계가 경악한 바로 그 장면');
+  // 설정 상태 (Fx)
+  const [settings, setSettings] = useState<MovieDramaSetupSettings>({
+    targetShortsCount: 3,
+    deliveryMode: 'full_tts',
+    layoutPreset: 'full_bleed',
+    seriesMode: true,
+    voiceId: 'ko-KR-SunHiNeural',
+    styleSettings: {}
+  });
 
-  const [isScanning, setIsScanning] = useState<boolean>(false);
-  const [isGenerating, setIsGenerating] = useState<boolean>(false);
+  const [rightsConfirmed, setRightsConfirmed] = useState<boolean>(true);
+  const [isStarting, setIsStarting] = useState<boolean>(false);
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setVideoFileName(file.name);
-      setDramaTitle(file.name.replace(/\.[^/.]+$/, ""));
-      toast({ title: '영상 로드 완료', description: `'${file.name}' 영상이 등록되었습니다.` });
-    }
-  };
+  // 작업 및 후보 데이터
+  const [currentJob, setCurrentJob] = useState<MovieDramaJob | null>(null);
+  const [candidates, setCandidates] = useState<CandidateData[]>([]);
 
-  const handleScanSceneChanges = async () => {
-    setIsScanning(true);
+  // 렌더링 및 출력 상태
+  const [renderingCandidateId, setRenderingCandidateId] = useState<string | null>(null);
+  const [isBatchRendering, setIsBatchRendering] = useState<boolean>(false);
+  const [completedMp4Map, setCompletedMp4Map] = useState<Record<string, string>>({});
+
+  const [exportingCandidateId, setExportingCandidateId] = useState<string | null>(null);
+  const [isBatchExportingCapcut, setIsBatchExportingCapcut] = useState<boolean>(false);
+  const [localDrafts, setLocalDrafts] = useState<Array<{ candidateId: string; draftPath: string; title: string }>>([]);
+
+  const [packingCandidateId, setPackingCandidateId] = useState<string | null>(null);
+  const [isInstallingPack, setIsInstallingPack] = useState<boolean>(false);
+
+  // 프레이밍 모달 상태 (R6)
+  const [framingModalOpen, setFramingModalOpen] = useState<boolean>(false);
+  const [activeFramingCandidate, setActiveFramingCandidate] = useState<CandidateData | null>(null);
+  const [isSavingFraming, setIsSavingFraming] = useState<boolean>(false);
+
+  // 에러 메시지 배너
+  const [errorMessage, setErrorMessage] = useState<{ title: string; message: string } | null>(null);
+
+  const pollingRef = useRef<NodeJS.Timeout | null>(null);
+
+  // 컴포넌트 마운트 시 최근 작업 목록 조회
+  useEffect(() => {
+    fetchRecentJob();
+    return () => {
+      if (pollingRef.current) clearInterval(pollingRef.current);
+    };
+  }, []);
+
+  const fetchRecentJob = async () => {
     try {
-      await new Promise(r => setTimeout(r, 650));
-      toast({
-        title: '🎬 0.4초 씬 컷 전환 감지 완료',
-        description: '루즈한 비대사 구간 8분을 자동 압축하고 긴박한 씬 12개를 검출했습니다.'
-      });
-    } catch (_) {
-      toast({ variant: 'destructive', title: '스캔 실패', description: '씬 감지 중 오류가 발생했습니다.' });
-    } finally {
-      setIsScanning(false);
-    }
-  };
-
-  const handleStartDramaBatch = async () => {
-    setIsGenerating(true);
-    try {
-      const newJobs = Array.from({ length: targetShortsCount }, (_, i) => {
-        const partNum = i + 1;
-        return {
-          id: `drama-shorts-${Date.now()}-${partNum}`,
-          title: `[영화리뷰] ${dramaTitle} - 제 ${partNum}부: ${introHookText}`,
-          sourceType: 'video',
-          archetype: 'classic',
-          tabId: 'movie-drama-shorts',
-          createdAt: new Date().toLocaleTimeString(),
-          status: 'ready',
-          scriptLinesCount: 4,
-          metadata: {
-            dramaTitle,
-            partNum,
-            reviewStyle,
-            aspectRatioMode,
-            sceneCutThreshold,
-            scenes: [
-              { order: 1, narration: `${introHookText}. 사건의 발단은 여기서 시작되었습니다.`, hookJabText: `*제 ${partNum}부*` },
-              { order: 2, narration: `주인공의 결단과 함께 충격적인 진실이 드러납니다.`, hookJabText: `*숨막히는 전개*` },
-              { order: 3, narration: `다음 화에서 이어집니다. 구독하고 기다려주세요.`, hookJabText: `*다음 편 예고*` },
-            ]
+      const resp = await fetch('/api/ve/movie-drama-shorts/jobs');
+      if (resp.ok) {
+        const jobs: MovieDramaJob[] = await resp.json();
+        const active = jobs.find(j => j.status === 'processing') || jobs[0];
+        if (active) {
+          setCurrentJob(active);
+          setSelectedVideoName(active.source?.originalName || null);
+          if (active.source?.canonicalPath) {
+            setSelectedVideoPath(active.source.canonicalPath);
           }
-        };
+          if (active.source?.media) {
+            setVideoInfo(active.source.media);
+          }
+          if (active.status === 'processing') {
+            setActiveStep('analysis');
+            startPolling(active.id);
+          } else if (active.status === 'completed') {
+            loadCandidates(active.id);
+            setActiveStep('results');
+          }
+        }
+      }
+    } catch (_) {
+      // ignore on startup
+    }
+  };
+
+  const loadCandidates = async (jobId: string) => {
+    try {
+      const resp = await fetch(`/api/ve/movie-drama-shorts/jobs/${jobId}/candidates`);
+      if (resp.ok) {
+        const cands: CandidateData[] = await resp.json();
+        setCandidates(cands);
+      }
+    } catch (err: any) {
+      console.error('후보 로드 실패:', err);
+    }
+  };
+
+  const startPolling = (jobId: string) => {
+    if (pollingRef.current) clearInterval(pollingRef.current);
+
+    pollingRef.current = setInterval(async () => {
+      try {
+        const resp = await fetch(`/api/ve/movie-drama-shorts/jobs/${jobId}`);
+        if (!resp.ok) return;
+
+        const job: MovieDramaJob = await resp.json();
+        setCurrentJob(job);
+
+        if (job.status === 'completed') {
+          if (pollingRef.current) clearInterval(pollingRef.current);
+          await loadCandidates(jobId);
+          setActiveStep('results');
+          toast({
+            title: '🎬 영화·드라마 쇼츠 분석 완료',
+            description: `이야기 후보 ${job.settings?.targetShortsCount || 3}편이 준비되었습니다.`
+          });
+        } else if (job.status === 'failed' || job.status === 'canceled') {
+          if (pollingRef.current) clearInterval(pollingRef.current);
+        }
+      } catch (_) {
+        // network retry
+      }
+    }, 1500);
+  };
+
+  const handleSelectVideoFile = (file: File) => {
+    // 브라우저 File 객체로부터 이름 및 크기 반영
+    setSelectedVideoName(file.name);
+    // Electron 또는 로컬 파일 시스템 경로가 있을 경우 주입
+    const localPath = (file as any).path || file.name;
+    setSelectedVideoPath(localPath);
+    setVideoInfo({
+      size: file.size,
+      duration: 120.0
+    });
+    setErrorMessage(null);
+    toast({
+      title: '영상 파일 등록',
+      description: `'${file.name}' (${(file.size / (1024 * 1024)).toFixed(1)}MB) 파일이 로드되었습니다.`
+    });
+  };
+
+  const handleStartAnalysis = async () => {
+    if (!selectedVideoPath) {
+      toast({ variant: 'destructive', title: '영상 필요', description: '먼저 원본 영상을 선택해주세요.' });
+      return;
+    }
+
+    setIsStarting(true);
+    setErrorMessage(null);
+
+    try {
+      const resp = await fetch('/api/ve/movie-drama-shorts/jobs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          videoPath: selectedVideoPath,
+          targetShortsCount: settings.targetShortsCount,
+          deliveryMode: settings.deliveryMode,
+          layoutPreset: settings.layoutPreset,
+          seriesMode: settings.seriesMode,
+          rightsConfirmed,
+          styleSettings: {
+            voiceId: settings.voiceId,
+            ...settings.styleSettings
+          }
+        })
       });
 
-      onAddBatchJobs(newJobs);
+      if (!resp.ok) {
+        const errData = await resp.json().catch(() => ({ detail: '작업 생성 실패' }));
+        throw new Error(errData.detail || '작업 생성에 실패했습니다.');
+      }
+
+      const job: MovieDramaJob = await resp.json();
+      setCurrentJob(job);
+      setActiveStep('analysis');
+      startPolling(job.id);
+
       toast({
-        title: '🎬 영화·드라마 쇼츠 연작 일괄 생성 완료',
-        description: `총 ${targetShortsCount}개의 리뷰 쇼츠 프로젝트가 하단 대기열에 추가되었습니다.`
+        title: '🎬 씬 컷 감지 및 서사 분석 시작',
+        description: 'FFmpeg 씬 체인지 및 Faster-Whisper 분석 파이프라인이 가동되었습니다.'
       });
-    } catch (e: any) {
-      toast({ variant: 'destructive', title: '생성 실패', description: e.message || '오류가 발생했습니다.' });
+    } catch (err: any) {
+      setErrorMessage({
+        title: '작업 시작 실패',
+        message: err.message || '서버와의 통신에 실패했습니다.'
+      });
+      toast({ variant: 'destructive', title: '분석 시작 오류', description: err.message });
     } finally {
-      setIsGenerating(false);
+      setIsStarting(false);
     }
+  };
+
+  const handleCancelJob = async (jobId: string) => {
+    try {
+      await fetch('/api/ve/movie-drama-shorts/cancel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jobId })
+      });
+      if (pollingRef.current) clearInterval(pollingRef.current);
+      toast({ title: '작업 취소', description: '분석 작업이 중단되었습니다.' });
+      setActiveStep('setup');
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: '취소 실패', description: err.message });
+    }
+  };
+
+  const handleRenderMp4 = async (candidateId: string) => {
+    if (!currentJob) return;
+    setRenderingCandidateId(candidateId);
+    try {
+      const resp = await fetch(`/api/ve/movie-drama-shorts/jobs/${currentJob.id}/candidates/${candidateId}/render`, {
+        method: 'POST'
+      });
+      if (!resp.ok) throw new Error('MP4 렌더링에 실패했습니다.');
+      const res = await resp.json();
+      setCompletedMp4Map(prev => ({ ...prev, [candidateId]: res.savedPath }));
+      toast({
+        title: '🎬 9:16 완성 MP4 렌더링 완료',
+        description: `05_Exports 폴더에 비디오가 성공적으로 저장되었습니다.`
+      });
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: '렌더링 실패', description: err.message });
+    } finally {
+      setRenderingCandidateId(null);
+    }
+  };
+
+  const handleRenderAllMp4 = async () => {
+    if (!currentJob || candidates.length === 0) return;
+    setIsBatchRendering(true);
+    let successCount = 0;
+    try {
+      for (const cand of candidates) {
+        try {
+          const resp = await fetch(`/api/ve/movie-drama-shorts/jobs/${currentJob.id}/candidates/${cand.id}/render`, {
+            method: 'POST'
+          });
+          if (resp.ok) {
+            const res = await resp.json();
+            setCompletedMp4Map(prev => ({ ...prev, [cand.id]: res.savedPath }));
+            successCount += 1;
+          }
+        } catch (_) {}
+      }
+      toast({
+        title: '전체 MP4 렌더링 완료',
+        description: `총 ${successCount}/${candidates.length}개의 쇼츠 MP4가 완성되었습니다.`
+      });
+    } finally {
+      setIsBatchRendering(false);
+    }
+  };
+
+  const handleExportCapcut = async (candidateId: string) => {
+    if (!currentJob) return;
+    setExportingCandidateId(candidateId);
+    try {
+      const resp = await fetch(`/api/ve/movie-drama-shorts/jobs/${currentJob.id}/candidates/${candidateId}/capcut`, {
+        method: 'POST'
+      });
+      if (!resp.ok) throw new Error('CapCut 초안 생성 실패');
+      const res = await resp.json();
+      const cand = candidates.find(c => c.id === candidateId);
+      setLocalDrafts(prev => [
+        ...prev.filter(d => d.candidateId !== candidateId),
+        { candidateId, draftPath: res.draftPath, title: cand?.title || 'CapCut 프로젝트' }
+      ]);
+      toast({
+        title: 'CapCut 초안 생성 완료',
+        description: `CapCut 4대 레이어 프로젝트가 준비되었습니다.`
+      });
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: 'CapCut 내보내기 오류', description: err.message });
+    } finally {
+      setExportingCandidateId(null);
+    }
+  };
+
+  const handleExportAllCapcut = async () => {
+    if (!currentJob || candidates.length === 0) return;
+    setIsBatchExportingCapcut(true);
+    try {
+      for (const cand of candidates) {
+        await handleExportCapcut(cand.id);
+      }
+    } finally {
+      setIsBatchExportingCapcut(false);
+    }
+  };
+
+  const handleCreatePortablePack = async (candidateId: string) => {
+    if (!currentJob) return;
+    setPackingCandidateId(candidateId);
+    try {
+      const resp = await fetch(`/api/ve/movie-drama-shorts/jobs/${currentJob.id}/candidates/${candidateId}/portable-pack`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({})
+      });
+      if (!resp.ok) throw new Error('이동 패키지 생성 실패');
+      const res = await resp.json();
+      toast({
+        title: '이동 패키지 (ZIP) 생성 완료',
+        description: `다른 PC로 이동할 수 있는 패키지가 생성되었습니다.`
+      });
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: '패키징 실패', description: err.message });
+    } finally {
+      setPackingCandidateId(null);
+    }
+  };
+
+  const handleSaveFraming = async (newFraming: FramingCut[]) => {
+    if (!currentJob || !activeFramingCandidate) return;
+    setIsSavingFraming(true);
+    try {
+      const resp = await fetch(
+        `/api/ve/movie-drama-shorts/jobs/${currentJob.id}/candidates/${activeFramingCandidate.id}/framing`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ framing: newFraming })
+        }
+      );
+      if (!resp.ok) throw new Error('프레이밍 저장 실패');
+      setCandidates(prev =>
+        prev.map(c =>
+          c.id === activeFramingCandidate.id
+            ? { ...c, qualityBreakdown: { ...c.qualityBreakdown, framing: newFraming as any } }
+            : c
+        )
+      );
+      toast({ title: '화면 조정 저장', description: '9:16 인물 중심 프레이밍이 저장되었습니다.' });
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: '저장 실패', description: err.message });
+    } finally {
+      setIsSavingFraming(false);
+    }
+  };
+
+  const handleRevealFolder = (path: string) => {
+    toast({
+      title: '폴더 위치 확인',
+      description: path
+    });
   };
 
   return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-        {/* 좌측 (4칸): 소스 등록 및 씬 컷 감지 파라미터 */}
-        <div className="lg:col-span-4 bg-card border border-border rounded-xl p-4 space-y-4 shadow-xs">
-          <div className="flex items-center justify-between border-b border-border pb-2">
-            <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
-              <Tv className="w-3.5 h-3.5 text-primary" />
-              영화·드라마 씬 감지 엔진
+    <div className="space-y-4">
+      {/* 1. 상단 글로벌 헤더 (Story Studio) */}
+      <header className="relative overflow-hidden rounded-2xl bg-neutral-950 px-5 py-4 text-white shadow-xl border border-neutral-800">
+        <div className="pointer-events-none absolute -right-24 -top-28 size-72 rounded-full bg-primary/25 blur-3xl" />
+        <div className="relative flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3">
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-white text-neutral-950 shadow-md">
+              <Film className="size-5" />
             </span>
-            <Badge variant="outline" className="text-[10px] bg-primary/10 text-primary border-primary/20 font-mono">
-              SCENE CUT 0.4s
-            </Badge>
-          </div>
-
-          {/* 영상 업로드 / 링크 */}
-          <div className="space-y-2">
-            <label className="text-[11px] font-bold text-muted-foreground block">작품 원본 영상 등록</label>
-            <label className="flex items-center justify-center gap-2 p-2.5 rounded-lg border border-dashed border-border bg-muted/20 hover:bg-muted/40 cursor-pointer text-xs text-foreground transition">
-              <Upload className="w-4 h-4 text-primary" />
-              <span className="truncate">{videoFileName || '영화/드라마 영상 파일'}</span>
-              <input type="file" accept="video/*" onChange={handleFileUpload} className="hidden" />
-            </label>
-            <input
-              type="text"
-              value={videoSourceUrl}
-              onChange={e => setVideoSourceUrl(e.target.value)}
-              placeholder="https://www.youtube.com/..."
-              className="w-full text-xs p-2 rounded-lg border border-border bg-background"
-            />
-          </div>
-
-          {/* 작품명 및 훅 제목 */}
-          <div className="space-y-2 pt-2 border-t border-border">
             <div>
-              <label className="text-[10px] font-bold text-muted-foreground block mb-1">작품명 / 에피소드</label>
-              <input
-                type="text"
-                value={dramaTitle}
-                onChange={e => setDramaTitle(e.target.value)}
-                className="w-full text-xs p-2 rounded-lg border border-border bg-background font-bold"
-              />
-            </div>
-            <div>
-              <label className="text-[10px] font-bold text-muted-foreground block mb-1">도입부 킬러 훅 문구</label>
-              <input
-                type="text"
-                value={introHookText}
-                onChange={e => setIntroHookText(e.target.value)}
-                className="w-full text-xs p-2 rounded-lg border border-border bg-background text-primary font-semibold"
-              />
-            </div>
-          </div>
-
-          {/* 씬 컷 감지 민감도 슬라이더 */}
-          <div className="space-y-2 pt-2 border-t border-border text-xs">
-            <div className="flex justify-between">
-              <span className="font-bold text-foreground">씬 체인지 감지 임계치:</span>
-              <span className="font-mono text-primary font-bold">{sceneCutThreshold}초</span>
-            </div>
-            <input
-              type="range"
-              min="0.2"
-              max="1.0"
-              step="0.1"
-              value={sceneCutThreshold}
-              onChange={e => setSceneCutThreshold(Number(e.target.value))}
-              className="w-full accent-primary cursor-pointer"
-            />
-            <div className="flex items-center justify-between pt-1">
-              <span className="font-bold text-foreground">비대사 구간 자동 스킵</span>
-              <input
-                type="checkbox"
-                checked={skipNonDialogue}
-                onChange={e => setSkipNonDialogue(e.target.checked)}
-                className="w-4 h-4 accent-primary cursor-pointer"
-              />
-            </div>
-          </div>
-
-          <Button
-            type="button"
-            disabled={isScanning}
-            onClick={handleScanSceneChanges}
-            className="w-full h-9 text-xs font-bold gap-1.5 border border-primary/30 bg-primary/10 text-primary hover:bg-primary/20"
-          >
-            <Clapperboard className="w-3.5 h-3.5" />
-            <span>0.4초 씬 컷 체인지 스캔 실행</span>
-          </Button>
-        </div>
-
-        {/* 중앙 및 우측 (8칸): 시네마틱 스타일 & 연작 일괄 생성 */}
-        <div className="lg:col-span-8 bg-card border border-border rounded-xl p-4 space-y-4 shadow-xs flex flex-col justify-between">
-          <div className="space-y-4">
-            <div className="flex items-center justify-between border-b border-border pb-2">
               <div className="flex items-center gap-2">
-                <Film className="w-4 h-4 text-primary" />
-                <span className="text-xs font-bold text-foreground">시네마틱 리뷰 톤앤매너 & 화면 비율 설정</span>
+                <span className="font-extrabold tracking-wider text-xs">STORY STUDIO</span>
+                <Badge variant="secondary" className="text-[10px] bg-white/10 text-white border-0 font-medium">
+                  영화·드라마 쇼츠
+                </Badge>
               </div>
-              <Badge variant="outline" className="text-[10px] text-muted-foreground font-mono">
-                MULTI-EPISODE
-              </Badge>
-            </div>
-
-            {/* 3대 리뷰 서사 톤 */}
-            <div className="space-y-2">
-              <label className="text-[11px] font-bold text-muted-foreground block">리뷰 서사 스타일</label>
-              <div className="grid grid-cols-3 gap-2">
-                {[
-                  { id: 'suspense', label: '스릴러 / 긴장감', desc: '빠른 컷 전환과 긴박한 덕킹', icon: Flame },
-                  { id: 'emotional', label: '감성 / 스토리', desc: '대사 중심의 깊은 서사 전달', icon: Sparkles },
-                  { id: 'action', label: '액션 / 쾌감', desc: '0.3초 타격감 중심 줌 컷', icon: Zap },
-                ].map(st => {
-                  const Icon = st.icon;
-                  const isSel = reviewStyle === st.id;
-                  return (
-                    <button
-                      key={st.id}
-                      type="button"
-                      onClick={() => setReviewStyle(st.id as any)}
-                      className={cn(
-                        "p-3 rounded-xl border text-left transition cursor-pointer space-y-1",
-                        isSel ? "bg-primary/10 border-primary text-primary font-bold shadow-2xs" : "border-border hover:bg-muted/40"
-                      )}
-                    >
-                      <div className="flex items-center gap-1.5">
-                        <Icon className="w-3.5 h-3.5" />
-                        <span className="text-xs">{st.label}</span>
-                      </div>
-                      <p className="text-[10px] text-muted-foreground font-normal">{st.desc}</p>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* 화면 구도 및 레터박스 */}
-            <div className="space-y-2 pt-2 border-t border-border">
-              <label className="text-[11px] font-bold text-muted-foreground block">시네마틱 화면 구도</label>
-              <div className="grid grid-cols-3 gap-2">
-                {[
-                  { id: 'cinematic-scope', label: '2.39:1 시네마 스코프', desc: '정통 영화 레터박스 + 중앙 집중' },
-                  { id: 'full-crop', label: '9:16 풀스크린 크롭', desc: '화면을 꽉 채우는 몰입감' },
-                  { id: 'sandwich', label: '상하 2단 분할', desc: '상단 본편 + 하단 자막/리뷰' },
-                ].map(ar => (
-                  <button
-                    key={ar.id}
-                    type="button"
-                    onClick={() => setAspectRatioMode(ar.id as any)}
-                    className={cn(
-                      "p-2.5 rounded-xl border text-left transition cursor-pointer",
-                      aspectRatioMode === ar.id ? "bg-primary/10 border-primary text-primary font-bold" : "border-border hover:bg-muted/40"
-                    )}
-                  >
-                    <div className="text-xs">{ar.label}</div>
-                    <div className="text-[10px] text-muted-foreground font-normal mt-0.5">{ar.desc}</div>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* 연작 개수 선택 */}
-            <div className="space-y-2 pt-2 border-t border-border">
-              <label className="text-[11px] font-bold text-foreground block">쇼츠 연작 에피소드 분할 개수</label>
-              <div className="grid grid-cols-5 gap-1.5">
-                {[1, 2, 3, 4, 5].map(cnt => (
-                  <button
-                    key={cnt}
-                    type="button"
-                    onClick={() => setTargetShortsCount(cnt)}
-                    className={cn(
-                      "p-2 rounded-lg border text-center text-xs font-mono font-bold transition cursor-pointer",
-                      targetShortsCount === cnt
-                        ? "bg-primary text-primary-foreground border-primary shadow-xs"
-                        : "border-border hover:bg-muted/40 text-foreground"
-                    )}
-                  >
-                    {cnt}부작
-                  </button>
-                ))}
-              </div>
+              <p className="mt-0.5 text-xs text-white/70">
+                {currentJob?.source?.originalName || '내 작품을 3~5부작 킬러 쇼츠 시리즈로 완성하세요'}
+              </p>
             </div>
           </div>
 
-          {/* 일괄 생성 실행 버튼 */}
-          <div className="pt-4 border-t border-border">
+          <div className="flex items-center gap-2">
+            {currentJob && (
+              <span className="rounded-full bg-emerald-500/20 text-emerald-300 px-2.5 py-1 text-[11px] font-bold border border-emerald-500/30">
+                작업 저장됨
+              </span>
+            )}
             <Button
               type="button"
-              disabled={isGenerating}
-              onClick={handleStartDramaBatch}
-              className="w-full h-11 text-xs font-black gap-2 bg-primary text-primary-foreground hover:bg-primary/90 shadow-md transition cursor-pointer"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setActiveStep('setup');
+                setCurrentJob(null);
+                setCandidates([]);
+              }}
+              className="h-8 rounded-lg border-white/20 bg-white/10 text-white hover:bg-white/20 text-xs font-bold gap-1"
             >
-              <Clapperboard className="w-4 h-4" />
-              <span>영화·드라마 쇼츠 연작 {targetShortsCount}편 일괄 생성 (대기열 등록)</span>
+              <RotateCcw className="size-3" />
+              <span>새 작업</span>
             </Button>
           </div>
         </div>
-      </div>
+      </header>
+
+      {/* 에러 안내 배너 */}
+      {errorMessage && (
+        <div className="rounded-xl border border-destructive/30 bg-destructive/[0.08] p-3 text-xs flex items-start justify-between gap-3">
+          <div className="flex items-start gap-2 text-destructive">
+            <AlertCircle className="size-4 shrink-0 mt-0.5" />
+            <div>
+              <p className="font-bold">{errorMessage.title}</p>
+              <p className="mt-0.5 text-muted-foreground">{errorMessage.message}</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setErrorMessage(null)}
+            className="text-muted-foreground hover:text-foreground"
+          >
+            <X className="size-4" />
+          </button>
+        </div>
+      )}
+
+      {/* 2. 3-Step 워크스페이스 상단 네비게이션 (Po) */}
+      <nav className="mx-auto flex w-full max-w-xl items-center gap-1 rounded-2xl bg-card border border-border p-1.5 shadow-xs">
+        {[
+          { id: 'setup', step: '01', label: '원본·설정' },
+          { id: 'analysis', step: '02', label: '작품 분석' },
+          { id: 'results', step: '03', label: '결과 확인' }
+        ].map(st => {
+          const isActive = activeStep === st.id;
+          const isDisabled = st.id === 'results' && candidates.length === 0 && !currentJob;
+          return (
+            <button
+              key={st.id}
+              type="button"
+              disabled={isDisabled}
+              onClick={() => setActiveStep(st.id as any)}
+              className={cn(
+                "flex-1 py-2 px-3 rounded-xl text-center font-bold text-xs transition-all cursor-pointer flex items-center justify-center gap-2",
+                isActive
+                  ? "bg-neutral-950 text-white dark:bg-white dark:text-neutral-950 shadow-xs"
+                  : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
+                isDisabled && "opacity-40 cursor-not-allowed"
+              )}
+            >
+              <span className="text-[10px] font-mono opacity-60">{st.step}</span>
+              <span>{st.label}</span>
+            </button>
+          );
+        })}
+      </nav>
+
+      {/* 3. 단계별 뷰 마운트 */}
+      <main className="min-h-[500px]">
+        {activeStep === 'setup' && (
+          <MovieDramaSetupSection
+            selectedVideoPath={selectedVideoPath}
+            selectedVideoName={selectedVideoName}
+            videoInfo={videoInfo}
+            onSelectVideoFile={handleSelectVideoFile}
+            onSelectVideoPath={setSelectedVideoPath}
+            settings={settings}
+            onSettingsChange={patch => setSettings(prev => ({ ...prev, ...patch }))}
+            rightsConfirmed={rightsConfirmed}
+            onRightsConfirmedChange={setRightsConfirmed}
+            isStarting={isStarting}
+            onStartAnalysis={handleStartAnalysis}
+            existingJob={currentJob}
+            onStartNewJob={() => {
+              setCurrentJob(null);
+              setCandidates([]);
+            }}
+          />
+        )}
+
+        {activeStep === 'analysis' && currentJob && (
+          <MovieDramaAnalysisSection
+            job={currentJob}
+            onCancelJob={handleCancelJob}
+            onRetry={handleStartAnalysis}
+          />
+        )}
+
+        {activeStep === 'results' && (
+          <MovieDramaResultsSection
+            candidates={candidates}
+            onRenderMp4={handleRenderMp4}
+            renderingCandidateId={renderingCandidateId}
+            onRenderAllMp4={handleRenderAllMp4}
+            isBatchRendering={isBatchRendering}
+            onOpenFramingModal={cand => {
+              setActiveFramingCandidate(cand);
+              setFramingModalOpen(true);
+            }}
+            onExportCapcut={handleExportCapcut}
+            onExportAllCapcut={handleExportAllCapcut}
+            exportingCandidateId={exportingCandidateId}
+            isBatchExportingCapcut={isBatchExportingCapcut}
+            onCreatePortablePack={handleCreatePortablePack}
+            packingCandidateId={packingCandidateId}
+            onInstallPortablePack={() => {
+              toast({ title: '이동 패키지 설치', description: '이동 패키지(ZIP) 가져오기 다이얼로그를 준비 중입니다.' });
+            }}
+            isInstallingPack={isInstallingPack}
+            localDrafts={localDrafts}
+            completedMp4Map={completedMp4Map}
+            onRevealFolder={handleRevealFolder}
+          />
+        )}
+      </main>
+
+      {/* 4. 프레이밍 조정 모달 (R6) */}
+      {activeFramingCandidate && (
+        <MovieDramaFramingModal
+          open={framingModalOpen}
+          onOpenChange={setFramingModalOpen}
+          candidateTitle={activeFramingCandidate.title}
+          sourceCuts={activeFramingCandidate.sourceCuts}
+          currentFraming={activeFramingCandidate.qualityBreakdown?.framing || []}
+          onSaveFraming={handleSaveFraming}
+          isSaving={isSavingFraming}
+        />
+      )}
     </div>
   );
 };

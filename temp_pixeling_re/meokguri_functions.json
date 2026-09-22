@@ -1,0 +1,782 @@
+[
+  {
+    "name": "$_",
+    "args": "e",
+    "korean": [],
+    "attrs": [],
+    "snippet": "function $_(e){return`pix-review:meokguri:${e.jobId}:${function(e){let t=0x811c9dc5;for(let r=0;r<e.length;r+=1)t^=e.charCodeAt(r),t=Math.imul(t,0x1000193);return(t>>>0).toString(16).padStart(8,\"0\")}("
+  },
+  {
+    "name": "$D",
+    "args": "e,t",
+    "korean": [],
+    "attrs": [],
+    "snippet": "function $D(e,t){return(0,hD.v2)($_(e),t)}var $L=r(39096),$O=r(71980),$U=r(63250),$B=r(92874),$V=r(11668),$J=r(69472),$Y=r(80072),$K=r(93169),$q=r(88036),$W=r(84965),$H=r(65937),$G=r(51834),$X=r(76694"
+  },
+  {
+    "name": "$2",
+    "args": "e",
+    "korean": [],
+    "attrs": [],
+    "snippet": "function $2(e){return\"text\"===e.kind&&\"role\"in e.clip&&(\"caption\"===e.clip.role||\"hook\"===e.clip.role)}function $5(e,t,r){return Math.round(Math.min(r,Math.max(t,e)))}function $3(e,t){e.value=(t/1e3)."
+  },
+  {
+    "name": "$5",
+    "args": "e,t,r",
+    "korean": [],
+    "attrs": [],
+    "snippet": "function $5(e,t,r){return Math.round(Math.min(r,Math.max(t,e)))}function $3(e,t){e.value=(t/1e3).toFixed(3)}function $4({currentMs:e,durationMs:t,elements:r,lockedKeys:a,onPatchElement:n,onPatchTiming"
+  },
+  {
+    "name": "$3",
+    "args": "e,t",
+    "korean": [],
+    "attrs": [],
+    "snippet": "function $3(e,t){e.value=(t/1e3).toFixed(3)}function $4({currentMs:e,durationMs:t,elements:r,lockedKeys:a,onPatchElement:n,onPatchTimings:s,onSelectElements:o,selectedElements:l}){let[d,u]=(0,c.useSta"
+  },
+  {
+    "name": "$4",
+    "args": "{currentMs:e,durationMs:t,elements:r,lockedKeys:a,onPatchElement:n,onPatchTimings:s,onSelectElements:o,selectedElements:l}",
+    "korean": [],
+    "attrs": [],
+    "snippet": "function $4({currentMs:e,durationMs:t,elements:r,lockedKeys:a,onPatchElement:n,onPatchTimings:s,onSelectElements:o,selectedElements:l}){let[d,u]=(0,c.useState)(\"all\"),m=(0,c.useMemo)(()=>r.filter($2),"
+  },
+  {
+    "name": "$6",
+    "args": "{deferredTtsConfirmation:e,onResetConfirmationOpenChange:t,onResetDraft:r,onSettleDeferredTts:a,resetConfirmationOpen:n}",
+    "korean": [
+      "편집을",
+      "모두",
+      "바꾼",
+      "자막",
+      "사라집니다"
+    ],
+    "attrs": [],
+    "snippet": "function $6({deferredTtsConfirmation:e,onResetConfirmationOpenChange:t,onResetDraft:r,onSettleDeferredTts:a,resetConfirmationOpen:n}){return(0,i.jsxs)(i.Fragment,{children:[(0,i.jsx)(m8.Lt,{open:n,onO"
+  },
+  {
+    "name": "$8",
+    "args": "e",
+    "korean": [],
+    "attrs": [],
+    "snippet": "function $8(e){let{data:t}=(0,f.useSession)(),r=(0,c0.Y)(t?.user);return((0,c.useEffect)(()=>{e.open&&!r&&e.onOpenChange(!1)},[r,e.onOpenChange,e.open]),r)?(0,i.jsx)($7,{...e}):null}function $7({open:"
+  },
+  {
+    "name": "$7",
+    "args": "{open:e,onOpenChange:t,onReviewPreviewPlaybackError:a,source:n,jobs:s,exportJobId:o,capcutBatchExportActive:l,onExportCapcut:d,prepareFinalProject:u,reviewProject:m,reviewPreviewUrl:p,reviewLanguagePanel:h,reviewSourceFilePath:g,reviewSourceHasAudio:f,reviewFingerprint:x,reviewSurfaceLabel:b=\"ONE TAKE\",reviewTitle:y=\"결과 검수 스튜디오\",reviewDescription:v=\"완성된 원테이크 결과의 자막, 제목, 폰트, 위치, 댓글 이미지를 편집합니다.\",reviewPreparing:w=!1,reviewCapcutDisabledReason:k,reviewMp4FilenameSuffix:M=\"원테이크\"}",
+    "korean": [
+      "제목",
+      "결과",
+      "원테이크",
+      "댓글",
+      "자막"
+    ],
+    "attrs": [],
+    "snippet": "function $7({open:e,onOpenChange:t,onReviewPreviewPlaybackError:a,source:n,jobs:s,exportJobId:o,capcutBatchExportActive:l,onExportCapcut:d,prepareFinalProject:u,reviewProject:m,reviewPreviewUrl:p,revi"
+  },
+  {
+    "name": "$9",
+    "args": "{capcutExporting:e,generationFingerprint:t,job:r,onExportCapcut:a,onPrepareFinalProject:n,onOpenChange:s,open:o,project:l,source:d}",
+    "korean": [
+      "편집",
+      "프리뷰",
+      "먹구리형"
+    ],
+    "attrs": [],
+    "snippet": "function $9({capcutExporting:e,generationFingerprint:t,job:r,onExportCapcut:a,onPrepareFinalProject:n,onOpenChange:s,open:o,project:l,source:d}){let c=$_({generationFingerprint:t,jobId:r.id}),u=\"u\">ty"
+  },
+  {
+    "name": "Et",
+    "args": "{rows:e}",
+    "korean": [],
+    "attrs": [
+      "data-pixi-meokguri-applied-settings"
+    ],
+    "snippet": "function Et({rows:e}){return 0===e.length?null:(0,i.jsxs)(\"details\",{className:\"group/settings rounded-[16px] bg-muted/30 ring-1 ring-border/60\",\"data-pixi-meokguri-applied-settings\":!0,children:[(0,i"
+  },
+  {
+    "name": "Er",
+    "args": "{appliedSettings:e,displayedTypecastVoiceOptions:t,editReconstructionMode:r,hasPaidTypecastRequest:a,isRunCreditEstimateBlocking:n,isRunCreditEstimatePending:s,isRunning:o,onOpenTypecastVoiceChooser:l,onSelectTypecastVoice:d,pendingRunScope:c,runConfirmationPlan:u,runConfirmationSummary:m,runCreditBreakdown:p,runCreditEstimate:h,runOutputDurationLabel:g,runTypecastDetail:f,selectedTypecastVoicePreview:x,setPendingRunScope:b,setRunCreditEstimateRetryKey:y,setTypecastVoiceChooserOpen:v,startQueue:w,startCaptionReanalysis:j,startVisibleQueue:C,subtitleLanguage:S,targetDurationLabel:N,targetDurationMs:A,typecastEnabled:I,typecastVoiceChooserOpen:$,typecastVoiceDisplayLabel:E,typecastVoiceId:T,typecastVoiceLoading:R,typecastVoiceWasManuallySelected:F,typecastSpeed:P}",
+    "korean": [],
+    "attrs": [],
+    "snippet": "function Er({appliedSettings:e,displayedTypecastVoiceOptions:t,editReconstructionMode:r,hasPaidTypecastRequest:a,isRunCreditEstimateBlocking:n,isRunCreditEstimatePending:s,isRunning:o,onOpenTypecastVo"
+  },
+  {
+    "name": "En",
+    "args": "{disabled:e,items:t,onSectionChange:r,onReset:a,usesRecommendedOptions:n}",
+    "korean": [],
+    "attrs": [
+      "data-pixi-meokguri-settings-summary"
+    ],
+    "snippet": "function En({disabled:e,items:t,onSectionChange:r,onReset:a,usesRecommendedOptions:n}){return(0,i.jsxs)(\"section\",{className:\"group/settings relative isolate overflow-hidden rounded-[26px] bg-white da"
+  },
+  {
+    "name": "Ei",
+    "args": "{disabled:e,onReset:t,onSectionChange:r,section:a,sections:n,usesRecommendedOptions:s}",
+    "korean": [],
+    "attrs": [
+      "data-pixi-meokguri-settings-workspace"
+    ],
+    "snippet": "function Ei({disabled:e,onReset:t,onSectionChange:r,section:a,sections:n,usesRecommendedOptions:s}){let[o,l]=(0,c.useState)(\"style\"),d=a??o;return(0,i.jsxs)(cQ.tU,{value:d,onValueChange:e=>{l(e),r?.(e"
+  },
+  {
+    "name": "El",
+    "args": "{accent:e=!1,caption:t,label:r}",
+    "korean": [],
+    "attrs": [],
+    "snippet": "function El({accent:e=!1,caption:t,label:r}){return(0,i.jsxs)(\"div\",{className:\"min-w-0 flex-1\",children:[(0,i.jsxs)(\"div\",{className:[\"relative mx-auto aspect-[9/16] w-full max-w-[48px] overflow-hidd"
+  },
+  {
+    "name": "Ed",
+    "args": "",
+    "korean": [],
+    "attrs": [
+      "data-pixi-meokguri-hero"
+    ],
+    "snippet": "function Ed(){return(0,i.jsxs)(\"header\",{className:\"group/hero flex flex-wrap items-center justify-between gap-5 px-1 py-1\",\"data-pixi-meokguri-hero\":!0,children:[(0,i.jsxs)(\"div\",{className:\"flex min"
+  },
+  {
+    "name": "Ec",
+    "args": "{failedSingleTikTokUrl:e,failedSourcePairTikTokUrl:t,isTauriApp:r,openYoutubeLogin:a,setTiktokConnectionOpen:n,setYoutubeConnectionOpen:s,tiktokConnectionOpen:o,tiktokLogin:l,youtubeConnectionOpen:d,youtubeLoginLoading:c,youtubeLoginRecoveryAvailable:u,youtubeLoginStatus:m}",
+    "korean": [],
+    "attrs": [
+      "data-pixi-meokguri-connection-row"
+    ],
+    "snippet": "function Ec({failedSingleTikTokUrl:e,failedSourcePairTikTokUrl:t,isTauriApp:r,openYoutubeLogin:a,setTiktokConnectionOpen:n,setYoutubeConnectionOpen:s,tiktokConnectionOpen:o,tiktokLogin:l,youtubeConnec"
+  },
+  {
+    "name": "Ex",
+    "args": "e",
+    "korean": [],
+    "attrs": [],
+    "snippet": "function Ex(e){return e.replace(/\\.+$/u,\"\").toLowerCase()}function Eb(e){if(!e||!/^\\d{8}$/u.test(e))return null;let t=Date.parse(`${e.slice(0,4)}-${e.slice(4,6)}-${e.slice(6,8)}T00:00:00Z`);return Num"
+  },
+  {
+    "name": "Eb",
+    "args": "e",
+    "korean": [],
+    "attrs": [],
+    "snippet": "function Eb(e){if(!e||!/^\\d{8}$/u.test(e))return null;let t=Date.parse(`${e.slice(0,4)}-${e.slice(4,6)}-${e.slice(6,8)}T00:00:00Z`);return Number.isFinite(t)?t:null}function Ey({disabled:e,referenceUr"
+  },
+  {
+    "name": "Ey",
+    "args": "{disabled:e,referenceUrl:t}",
+    "korean": [],
+    "attrs": [],
+    "snippet": "function Ey({disabled:e,referenceUrl:t}){let[a,n]=(0,c.useState)(!1),[s,o]=(0,c.useState)(null),[l,d]=(0,c.useState)([]),[u,m]=(0,c.useState)([]),[p,h]=(0,c.useState)(null),g=(0,c.useRef)(0),f=async()"
+  },
+  {
+    "name": "Ev",
+    "args": "e=\"pair-1\"",
+    "korean": [
+      "넣거",
+      "사용할",
+      "영상",
+      "링크를",
+      "또는"
+    ],
+    "attrs": [],
+    "snippet": "function Ev(e=\"pair-1\"){return{cleanOriginalPath:\"\",cleanOriginalPathName:\"\",cleanOriginalUrl:\"\",editedReferencePath:\"\",editedReferencePathName:\"\",editedReferenceUrl:\"\",id:e}}function Ew(e,t,r){let a="
+  },
+  {
+    "name": "Ew",
+    "args": "e,t,r",
+    "korean": [
+      "주세요",
+      "선택해",
+      "파일을",
+      "사용할",
+      "영상"
+    ],
+    "attrs": [],
+    "snippet": "function Ew(e,t,r){let a=r?.trim();if(a)return{ok:!0,side:{kind:\"path\",path:a}};let n=(0,hN.JU)(t);return n?(0,hN.yu)(n)?{ok:!0,side:{kind:\"url\",url:n}}:{message:\"http 또는 https 영상 링크만 사용할 수 있습니다.\",ok:"
+  },
+  {
+    "name": "Ej",
+    "args": "{clearPairSideFile:e,clearUrlDownloadError:t,editedReferenceUrlInputRef:r,handleImportSourcePair:a,handlePickPairSideFile:n,isTauriApp:s,isTauriResolved:o,setFailedSourcePairUrls:l,setSourcePairDrafts:d,sourceInputsLocked:c,sourcePairDrafts:u,sourcePairReadyCount:m,urlDownloading:p,youtubeLoginRecoveryAvailable:h,youtubeLoginStatus:g}",
+    "korean": [],
+    "attrs": [],
+    "snippet": "function Ej({clearPairSideFile:e,clearUrlDownloadError:t,editedReferenceUrlInputRef:r,handleImportSourcePair:a,handlePickPairSideFile:n,isTauriApp:s,isTauriResolved:o,setFailedSourcePairUrls:l,setSour"
+  },
+  {
+    "name": "EC",
+    "args": "e",
+    "korean": [],
+    "attrs": [],
+    "snippet": "function EC(e){return EM.find(t=>t.id===e)??null}let ES={cider:{activeCard:\"border-[#2864dc] bg-[#f5f8ff] dark:border-[#8db5ff] dark:bg-[#8db5ff]/[0.08]\",chip:\"bg-[#eef3fb] text-[#2864dc] dark:bg-[#8d"
+  },
+  {
+    "name": "EN",
+    "args": "{activePresetId:e,open:t=!0,onSelect:r,onToggleOpen:a}",
+    "korean": [
+      "조정됨",
+      "직접",
+      "적용됨"
+    ],
+    "attrs": [],
+    "snippet": "function EN({activePresetId:e,open:t=!0,onSelect:r,onToggleOpen:a}){let n=EC(e),s=n?`${n.label} 적용됨`:\"직접 조정됨\";return(0,i.jsxs)(\"section\",{className:\"overflow-hidden rounded-[24px] border border-[#dce3"
+  },
+  {
+    "name": "EA",
+    "args": "{activeTonePresetId:e,applyTonePreset:t,cancelUrlDownload:r,clearPairSideFile:a,clearUrlDownloadError:n,editedReferenceUrlInputRef:s,failedSingleTikTokUrl:o,failedSourcePairTikTokUrl:l,failedSourceUrlSummaries:d,handleImportSourcePair:u,handlePickPairSideFile:m,isTauriApp:p,isTauriResolved:h,openYoutubeLogin:g,setFailedSourcePairUrls:f,setSourceEntryViewOpen:x,setSourcePairDrafts:b,setTiktokConnectionOpen:y,setYoutubeConnectionOpen:v,sourceFiles:w,sourceInputsLocked:j,sourcePairDrafts:k,sourcePairReadyCount:C,tiktokConnectionOpen:S,tiktokLogin:N,urlDownloadError:A,urlDownloadProgress:I,urlDownloading:$,youtubeConnectionOpen:E,youtubeLoginLoading:T,youtubeLoginRecoveryAvailable:R,youtubeLoginStatus:F}",
+    "korean": [],
+    "attrs": [],
+    "snippet": "function EA({activeTonePresetId:e,applyTonePreset:t,cancelUrlDownload:r,clearPairSideFile:a,clearUrlDownloadError:n,editedReferenceUrlInputRef:s,failedSingleTikTokUrl:o,failedSourcePairTikTokUrl:l,fai"
+  },
+  {
+    "name": "E$",
+    "args": "{autosaveAvailable:e,cancelUrlDownload:t,clearAutosavedRecipe:r,clearQueue:a,clearUrlDownloadError:n,failedSourceUrlSummaries:s,handleImportUrl:o,isTauriApp:l,jobs:d,openYoutubeLogin:c,pathListOpen:u,recipeInputRef:m,relinkDesktopSources:p,restoreAutosavedRecipe:h,setFailedSourceUrls:g,setPathListOpen:f,setSourceEntryViewOpen:x,setSourceToolsOpen:b,setSourceUrl:y,sourceFiles:v,sourceInputsLocked:w,sourceToolsOpen:j,sourceUrl:C,sourceUrlCount:S,urlDownloadError:N,urlDownloadProgress:A,urlDownloading:I,youtubeLoginLoading:$,youtubeLoginRecoveryAvailable:E,youtubeLoginStatus:T}",
+    "korean": [],
+    "attrs": [],
+    "snippet": "function E$({autosaveAvailable:e,cancelUrlDownload:t,clearAutosavedRecipe:r,clearQueue:a,clearUrlDownloadError:n,failedSourceUrlSummaries:s,handleImportUrl:o,isTauriApp:l,jobs:d,openYoutubeLogin:c,pat"
+  },
+  {
+    "name": "ET",
+    "args": "{current:e,onSelect:t,reachable:r}",
+    "korean": [
+      "제작",
+      "단계",
+      "먹구리형"
+    ],
+    "attrs": [
+      "data-pixi-meokguri-stage-rail"
+    ],
+    "snippet": "function ET({current:e,onSelect:t,reachable:r}){let a=EE.findIndex(t=>t.id===e);return(0,i.jsx)(\"nav\",{\"aria-label\":\"먹구리형 제작 단계\",className:\"relative grid grid-cols-3 gap-1 rounded-[18px] bg-[#e6ecf5] "
+  },
+  {
+    "name": "EP",
+    "args": "{actionBar:e,inspector:t,inspectorSummary:r,inspectorOpenRequest:a=0,inspectorLabel:n=\"설정\",layout:s,main:o,notices:l,onInspectorOpenChange:d,shellRef:u,steps:m,toolbar:p}",
+    "korean": [
+      "설정"
+    ],
+    "attrs": [],
+    "snippet": "function EP({actionBar:e,inspector:t,inspectorSummary:r,inspectorOpenRequest:a=0,inspectorLabel:n=\"설정\",layout:s,main:o,notices:l,onInspectorOpenChange:d,shellRef:u,steps:m,toolbar:p}){let[h,g]=(0,c.us"
+  },
+  {
+    "name": "Ez",
+    "args": "e",
+    "korean": [],
+    "attrs": [],
+    "snippet": "function Ez(e){return e.normalize(\"NFC\").toLowerCase().replace(/\\s+/g,\" \").trim()}let E_=[\"bg-gradient-to-br from-indigo-500/80 to-sky-400/70 text-white\",\"bg-gradient-to-br from-fuchsia-500/80 to-rose"
+  },
+  {
+    "name": "ED",
+    "args": "e",
+    "korean": [],
+    "attrs": [],
+    "snippet": "function ED(e){return e.displayName||e.name||e.id}function EL({voice:e}){let t=e.imageUrl?.trim();return(0,i.jsx)(\"span\",{className:`relative flex size-12 shrink-0 items-center justify-center overflow"
+  },
+  {
+    "name": "EL",
+    "args": "{voice:e}",
+    "korean": [],
+    "attrs": [],
+    "snippet": "function EL({voice:e}){let t=e.imageUrl?.trim();return(0,i.jsx)(\"span\",{className:`relative flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-[15px] bg-cover bg-center font-bol"
+  },
+  {
+    "name": "EO",
+    "args": "{isRunning:e,selectTypecastVoice:t,subtitleLanguageLabel:r,typecastVoiceId:a,typecastVoiceWasManuallySelected:n,voices:s}",
+    "korean": [],
+    "attrs": [],
+    "snippet": "function EO({isRunning:e,selectTypecastVoice:t,subtitleLanguageLabel:r,typecastVoiceId:a,typecastVoiceWasManuallySelected:n,voices:s}){let[o,l]=(0,c.useState)(\"\"),d=o.trim(),u=(0,c.useMemo)(()=>{let e"
+  },
+  {
+    "name": "EU",
+    "args": "{changeTypecastEnabled:e,displayedTypecastVoiceOptions:t,isRunning:r,matchReferenceCaptionStyle:a,openTypecastVoiceChooser:n,selectTypecastVoice:s,selectedTypecastVoicePreview:o,subtitleLanguage:l,subtitleLanguageLabel:d,onTypecastSettingsChange:u,setTypecastSpeed:m,hookVoiceTone:p,setHookVoiceTone:h,setTypecastTimestampGranularity:g,typecastEnabled:f,ttsCaptionColor:x,ttsCaptionFont:b,onTtsCaptionColorChange:y,onTtsCaptionFontChange:v,typecastSpeed:w,typecastTimestampGranularity:j,typecastVoiceChooserOpen:C,typecastVoiceDisplayLabel:S,typecastVoiceId:N,typecastVoiceLoading:A,typecastVoiceWasManuallySelected:I}",
+    "korean": [],
+    "attrs": [],
+    "snippet": "function EU({changeTypecastEnabled:e,displayedTypecastVoiceOptions:t,isRunning:r,matchReferenceCaptionStyle:a,openTypecastVoiceChooser:n,selectTypecastVoice:s,selectedTypecastVoicePreview:o,subtitleLa"
+  },
+  {
+    "name": "EG",
+    "args": "",
+    "korean": [],
+    "attrs": [],
+    "snippet": "function EG(){let[e,t]=(0,c.useState)(!1),[r,a]=(0,c.useState)(null),[n,i]=(0,c.useState)(null),[s,o]=(0,c.useState)(!1),{ytLoggedIn:l,ytLoginLoading:d,ytLoginStatus:u,handleYoutubeLogin:m}=(0,ul.CF)("
+  },
+  {
+    "name": "EX",
+    "args": "e,t=50",
+    "korean": [],
+    "attrs": [],
+    "snippet": "function EX(e,t=50){let r=Math.max(0,Math.floor(t));if(0===r)return[];let a=new Set;for(let t of e.split(/[\\s,，]+/u)){let e=(0,hN.JU)(t);if(!(!e||a.has(e))&&(a.add(e),a.size>=r))break}return[...a]}asy"
+  },
+  {
+    "name": "EQ",
+    "args": "e",
+    "korean": [],
+    "attrs": [],
+    "snippet": "function EQ(e){let t=Math.max(1,Math.min(3,Math.floor(e.parallelism??3))),r=Array.from({length:e.urls.length},()=>null),a=[],n=0,i=0,s=0,o=0,l=()=>e.onProgress?.({active:i,completed:s,failed:o,total:e"
+  },
+  {
+    "name": "E5",
+    "args": "e,t,r",
+    "korean": [
+      "가로",
+      "위치",
+      "크기",
+      "세로",
+      "기본"
+    ],
+    "attrs": [],
+    "snippet": "function E5(e,t,r){return`크기 ${Math.round(e)}%${0!==t||0!==r?` \\xb7 위치 가로 ${t>0?\"+\":\"\"}${Math.round(t)}% 세로 ${r>0?\"+\":\"\"}${Math.round(r)}%`:\" \\xb7 기본 위치\"}`}function E3(e){let t=\"visible\"===e.scope?\"vi"
+  },
+  {
+    "name": "E3",
+    "args": "e",
+    "korean": [],
+    "attrs": [],
+    "snippet": "function E3(e){let t=\"visible\"===e.scope?\"visible-\":\"\",r=(e.now??new Date).toISOString().slice(0,19).replace(/[:T]/g,\"-\");return`${e.prefix}-${t}${r}.${e.extension}`}function E4(e){if(\"u\"<typeof docum"
+  },
+  {
+    "name": "E4",
+    "args": "e",
+    "korean": [],
+    "attrs": [],
+    "snippet": "function E4(e){if(\"u\"<typeof document||\"function\"!=typeof URL?.createObjectURL)return!1;let t=e.withBom?`\\uFEFF${e.content}`:e.content,r=URL.createObjectURL(new Blob([t],{type:e.mimeType}));try{let t="
+  },
+  {
+    "name": "E6",
+    "args": "e",
+    "korean": [
+      "환경에서는",
+      "사용할",
+      "클립보드",
+      "없습니다",
+      "수"
+    ],
+    "attrs": [],
+    "snippet": "function E6(e){if(\"u\"<typeof navigator||!navigator.clipboard?.writeText)throw Error(\"이 환경에서는 클립보드 복사를 사용할 수 없습니다.\");await navigator.clipboard.writeText(e)}async function E8(e){let t=e.nowMs??Date.now,"
+  },
+  {
+    "name": "E8",
+    "args": "e",
+    "korean": [
+      "못했습니다",
+      "경로가",
+      "초안",
+      "원본",
+      "필요합니다"
+    ],
+    "attrs": [],
+    "snippet": "function E8(e){let t=e.nowMs??Date.now,a=null;try{let n=NK(e.job,{allowTypecastFallback:!0,sttTranslationEnabled:e.sttTranslationEnabled,typecastEnabled:e.typecastEnabled});if(n)throw Error(n);let i=e"
+  },
+  {
+    "name": "E9",
+    "args": "e",
+    "korean": [
+      "은데",
+      "더니",
+      "인데",
+      "는데",
+      "데"
+    ],
+    "attrs": [],
+    "snippet": "function E9(e){if(!e?.length)return null;let t=[...e].filter(e=>e.startMs<2e4).sort((e,t)=>e.startMs-t.startMs).map(e=>e.text.replace(/\\s+/gu,\" \").trim()).filter(Boolean),r=\"\";for(let e of t){let t=r?"
+  },
+  {
+    "name": "Tr",
+    "args": "e",
+    "korean": [],
+    "attrs": [],
+    "snippet": "function Tr(e){var t,r,a,n;let i,s,o=e.fallbackText.trim(),l=\"ko\"===(t=e.language)||\"ja\"===t?t:null,d=(r=e.sourceText,(i=r?.replace(/\\s+/gu,\" \").trim()??\"\").length>600?\"\":i),c=NM(e.toneStyle??void 0),"
+  },
+  {
+    "name": "Ta",
+    "args": "e",
+    "korean": [],
+    "attrs": [],
+    "snippet": "function Ta(e){let t=e.nowMs??Date.now,r=e.delayBetweenStagesMs??90,a=new Map(e.jobs.map(e=>[e.id,e])),n=e.enabledStages,i=!1,s=!1,o=(t,r)=>{let n=a.get(t),i=\"function\"==typeof r?n?r(n):{}:r;!function"
+  },
+  {
+    "name": "Tn",
+    "args": "e",
+    "korean": [],
+    "attrs": [],
+    "snippet": "function Tn(e){return e&&\"object\"==typeof e&&!Array.isArray(e)?e:null}function Ti(e){for(let t of e){let e=function(e){if(\"number\"==typeof e)return Number.isFinite(e)?e:null;if(\"string\"!=typeof e||!e."
+  },
+  {
+    "name": "Ti",
+    "args": "e",
+    "korean": [],
+    "attrs": [],
+    "snippet": "function Ti(e){for(let t of e){let e=function(e){if(\"number\"==typeof e)return Number.isFinite(e)?e:null;if(\"string\"!=typeof e||!e.trim())return null;let t=Number(e);return Number.isFinite(t)?t:null}(t"
+  },
+  {
+    "name": "Ts",
+    "args": "e,t",
+    "korean": [],
+    "attrs": [],
+    "snippet": "function Ts(e,t){return Ti(\"start\"===t?[e.startMs,e.startTime,e.start,e.start_ms,e.start_time]:[e.endMs,e.endTime,e.end,e.end_ms,e.end_time])}let To={maxReadableCueSpeechMs:3400,maxSpeechRunMs:3200,pa"
+  },
+  {
+    "name": "Tl",
+    "args": "e,t={}",
+    "korean": [],
+    "attrs": [],
+    "snippet": "function Tl(e,t={}){if(!Array.isArray(e))return[];let r=Mw[t.captionLength??\"short\"],a={maxReadableCueSpeechMs:r.maxReadableCueSpeechMs,maxSpeechRunMs:r.maxSpeechRunMs,pauseSplitMs:r.minCueSplitPauseM"
+  },
+  {
+    "name": "Tm",
+    "args": "e,t",
+    "korean": [
+      "완료된",
+      "또",
+      "음성"
+    ],
+    "attrs": [],
+    "snippet": "function Tm(e,t){let r,a=t.audioUrl?.trim(),n=function(e){let t=e?.trim();if(!t)return null;let r=t.match(/^data:([^;,]+)?;base64,(.+)$/iu);if(!r)return{base64:t};let a=r[2]?.trim();return a?{base64:a"
+  },
+  {
+    "name": "Tf",
+    "args": "e",
+    "korean": [],
+    "attrs": [],
+    "snippet": "function Tf(e){return e.trim().toLowerCase()}function Tx(e,t){return!(\"number\"==typeof e&&Number.isFinite(e))||!(e>0)||\"number\"==typeof t&&Number.isFinite(t)&&t===e}function Tb(e,t){return!(\"number\"=="
+  },
+  {
+    "name": "Tx",
+    "args": "e,t",
+    "korean": [],
+    "attrs": [],
+    "snippet": "function Tx(e,t){return!(\"number\"==typeof e&&Number.isFinite(e))||!(e>0)||\"number\"==typeof t&&Number.isFinite(t)&&t===e}function Tb(e,t){return!(\"number\"==typeof e&&Number.isFinite(e))||!(e>0)||\"numbe"
+  },
+  {
+    "name": "Tb",
+    "args": "e,t",
+    "korean": [],
+    "attrs": [],
+    "snippet": "function Tb(e,t){return!(\"number\"==typeof e&&Number.isFinite(e))||!(e>0)||\"number\"==typeof t&&Number.isFinite(t)&&250>=Math.abs(t-e)}function Ty(e){let t=[{expectedMetadata:e.metadata,expectedSize:e.s"
+  },
+  {
+    "name": "Ty",
+    "args": "e",
+    "korean": [
+      "레퍼런스",
+      "편집"
+    ],
+    "attrs": [],
+    "snippet": "function Ty(e){let t=[{expectedMetadata:e.metadata,expectedSize:e.size,kind:\"source\",name:e.name,path:e.nativePath?.trim()??\"\"}];return\"style-reference-pair\"===e.workflow&&t.push({expectedMetadata:e.s"
+  },
+  {
+    "name": "Tv",
+    "args": "e,t",
+    "korean": [],
+    "attrs": [],
+    "snippet": "function Tv(e,t){if(!t||e.expectedSize>0&&(!(\"number\"==typeof t.fileSizeBytes&&Number.isFinite(t.fileSizeBytes))||t.fileSizeBytes!==e.expectedSize))return!1;let r=e.expectedMetadata;return!r||Tb(r.dur"
+  },
+  {
+    "name": "Tw",
+    "args": "e,t",
+    "korean": [],
+    "attrs": [],
+    "snippet": "function Tw(e,t){let r=Ty(e),a=await Promise.all(r.map(async e=>{if(!e.path)return!1;try{return Tv(e,await t(e.path))}catch{return!1}}));return r.filter((e,t)=>!a[t])}async function Tj(e,t){let r=Ty(e"
+  },
+  {
+    "name": "Tj",
+    "args": "e,t",
+    "korean": [],
+    "attrs": [],
+    "snippet": "function Tj(e,t){let r=Ty(e),a=await Promise.all(r.map(async e=>{if(!e.path)return!1;try{return!!await t(e.path)}catch{return!1}}));return r.filter((e,t)=>!a[t])}function Tk(e,t){if(Tf(e.name)!==Tf(t."
+  },
+  {
+    "name": "Tk",
+    "args": "e,t",
+    "korean": [],
+    "attrs": [],
+    "snippet": "function Tk(e,t){if(Tf(e.name)!==Tf(t.name)||e.size<=0||t.size!==e.size)return!1;let r=e.metadata,a=t.metadata;return!r||!!a&&Tb(r.durationMs,a.durationMs)&&Tx(r.width,a.width)&&Tx(r.height,a.height)&"
+  },
+  {
+    "name": "TM",
+    "args": "e,t",
+    "korean": [
+      "경로가",
+      "레퍼런스",
+      "영구",
+      "없습니다",
+      "보관할"
+    ],
+    "attrs": [],
+    "snippet": "function TM(e,t){return{lastModified:e.lastModified,metadata:e.metadata,name:e.name,nativePath:e.nativePath,size:e.size,sourceUrl:t,type:e.type}}async function TC(e){let{isTauri:t}=await Promise.resol"
+  },
+  {
+    "name": "TC",
+    "args": "e",
+    "korean": [
+      "경로가",
+      "레퍼런스",
+      "영구",
+      "없습니다",
+      "보관할"
+    ],
+    "attrs": [],
+    "snippet": "function TC(e){let{isTauri:t}=await Promise.resolve().then(r.bind(r,55237));if(!t())return e;let a=e.nativePath?.trim();if(!a)throw Error(\"영구 보관할 레퍼런스 파일 경로가 없습니다.\");let[{downloadDir:n,join:i},{BaseDi"
+  },
+  {
+    "name": "TN",
+    "args": "e,t",
+    "korean": [],
+    "attrs": [],
+    "snippet": "function TN(e,t){return!!e&&!!(t&&(t.nativePath?.trim()||\"u\">typeof File&&t instanceof File))&&(e.translatedCaptions?.length??0)>0}async function TA(e,t){let r=Math.max(0,Math.round(t.x*e.width)),a=Ma"
+  },
+  {
+    "name": "TA",
+    "args": "e,t",
+    "korean": [
+      "얻지",
+      "화면을",
+      "만들",
+      "자막",
+      "조각을"
+    ],
+    "attrs": [],
+    "snippet": "function TA(e,t){let r=Math.max(0,Math.round(t.x*e.width)),a=Math.max(0,Math.round(t.y*e.height)),n=Math.max(8,Math.round(t.width*e.width)),i=Math.max(8,Math.round(t.height*e.height)),s=Math.max(1,Mat"
+  },
+  {
+    "name": "TI",
+    "args": "e",
+    "korean": [
+      "레퍼런스",
+      "못했습니다",
+      "프레임",
+      "인코딩하지",
+      "올바르지"
+    ],
+    "attrs": [],
+    "snippet": "function TI(e){return new Promise((t,r)=>{let a=new FileReader;a.onerror=()=>r(Error(\"레퍼런스 프레임을 인코딩하지 못했습니다.\")),a.onload=()=>{let e=\"string\"==typeof a.result?a.result:\"\",n=e.indexOf(\",\");n<0?r(Error(\""
+  },
+  {
+    "name": "T$",
+    "args": "e",
+    "korean": [
+      "레퍼런스",
+      "못했습니다",
+      "화면을",
+      "프레임",
+      "압축"
+    ],
+    "attrs": [],
+    "snippet": "function T$(e){let t=new Blob([e],{type:\"image/webp\"});if(t.size<=491520)return TI(t);let r=await createImageBitmap(t);try{let e=Math.min(1,1280/Math.max(r.width,r.height));for(let t of[.72,.58,.44]){"
+  },
+  {
+    "name": "TE",
+    "args": "e",
+    "korean": [],
+    "attrs": [],
+    "snippet": "function TE(e){let t,a=function(e){let t=e.filter(e=>e.textBoxes.length>0&&Number.isFinite(e.timestamp)).map(e=>({area:SW(e),timestamp:Math.max(0,Math.round(e.timestamp))})).filter(e=>e.area>0),r=new "
+  },
+  {
+    "name": "TT",
+    "args": "e",
+    "korean": [],
+    "attrs": [],
+    "snippet": "function TT(e){let{frames:t,paletteHints:r}=await TE(e),a=await (0,f.authFetch)(\"/api/pixi/meokguri/reference-style/analyze\",{body:JSON.stringify({captionHints:e.frameResults.flatMap(e=>{let t=e.frame"
+  },
+  {
+    "name": "TR",
+    "args": "e,t",
+    "korean": [
+      "못했습니다",
+      "크레딧을",
+      "스타일",
+      "예상",
+      "정밀"
+    ],
+    "attrs": [],
+    "snippet": "function TR(e,t){let r=await (0,f.authFetch)(\"/api/pixi/meokguri/reference-style/analyze\",{body:JSON.stringify({mode:\"estimate\",referenceCount:Math.max(1,Math.min(3,Math.round(e)))}),headers:{\"Content"
+  },
+  {
+    "name": "T_",
+    "args": "e,t",
+    "korean": [],
+    "attrs": [],
+    "snippet": "function T_(e,t){let r=Math.max(1,t.frameWidth??0),a=Math.max(1,t.frameHeight??0),[n,i,s,o]=e.bbox;return{height:o/a,width:s/r,x:n/r,y:i/a}}function TD(e){let t=e.replace(/[^A-Z]/giu,\"\");if(t.length<2"
+  },
+  {
+    "name": "TD",
+    "args": "e",
+    "korean": [],
+    "attrs": [],
+    "snippet": "function TD(e){let t=e.replace(/[^A-Z]/giu,\"\");if(t.length<2)return!1;let r=t.match(/[AEIOU]/giu)?.length??0;return 0!==r&&!(r/t.length<.2)&&(t.length<=3||t===t.toLocaleUpperCase()||t===t.toLocaleLowe"
+  },
+  {
+    "name": "TL",
+    "args": "e",
+    "korean": [],
+    "attrs": [],
+    "snippet": "function TL(e){let t=e.text.match(/[A-Z]/giu)?.length??0,r=e.text.match(/[0-9]/gu)?.length??0,a=/^\\+[A-Z][a-z]{2}\\d$/u.test(e.text.trim()),n=e.text.match(/[A-Z]+/giu)??[],i=n.filter(TD).length;return{"
+  },
+  {
+    "name": "TO",
+    "args": "e,t",
+    "korean": [],
+    "attrs": [],
+    "snippet": "function TO(e,t){let r=T_(e,t),a=r.x+r.width/2,n=r.y+r.height/2;return a>=.1&&a<=.9&&n>=.18&&n<=.86&&r.height>=.012&&r.width>=.04}function TU(e){return e.text.toLocaleUpperCase().replace(/[^A-Z0-9]/gu"
+  },
+  {
+    "name": "TU",
+    "args": "e",
+    "korean": [
+      "초"
+    ],
+    "attrs": [],
+    "snippet": "function TU(e){return e.text.toLocaleUpperCase().replace(/[^A-Z0-9]/gu,\"\")}function TB(e){return e.normalize(\"NFKC\").toLocaleLowerCase(\"ko-KR\").replace(/[^\\p{L}\\p{N}]/gu,\"\")}function TV(e,t,r=8){let a"
+  },
+  {
+    "name": "TB",
+    "args": "e",
+    "korean": [
+      "초"
+    ],
+    "attrs": [],
+    "snippet": "function TB(e){return e.normalize(\"NFKC\").toLocaleLowerCase(\"ko-KR\").replace(/[^\\p{L}\\p{N}]/gu,\"\")}function TV(e,t,r=8){let a=e.filter(({inspection:e})=>\"match\"===t?!e.matched:!e.readable);if(0===a.le"
+  },
+  {
+    "name": "TV",
+    "args": "e,t,r=8",
+    "korean": [
+      "초",
+      "읽힌",
+      "한글",
+      "글자",
+      "상자"
+    ],
+    "attrs": [],
+    "snippet": "function TV(e,t,r=8){let a=e.filter(({inspection:e})=>\"match\"===t?!e.matched:!e.readable);if(0===a.length)return\"\";let n=a.slice(0,r).map(({caption:e,inspection:r})=>{let a=`${(e.startMs/1e3).toFixed("
+  },
+  {
+    "name": "TY",
+    "args": "",
+    "korean": [
+      "스마트",
+      "취소되었습니다",
+      "분석이",
+      "포커스"
+    ],
+    "attrs": [],
+    "snippet": "function TY(){return Promise.all([r.e(25626),r.e(3869)]).then(r.bind(r,3245))}async function TK(e,t){if(t?.aborted)throw new DOMException(\"스마트 포커스 분석이 취소되었습니다.\",\"AbortError\");let r=document.createElem"
+  },
+  {
+    "name": "TK",
+    "args": "e,t",
+    "korean": [
+      "스마트",
+      "취소되었습니다",
+      "분석이",
+      "포커스"
+    ],
+    "attrs": [],
+    "snippet": "function TK(e,t){if(t?.aborted)throw new DOMException(\"스마트 포커스 분석이 취소되었습니다.\",\"AbortError\");let r=document.createElement(\"video\");return r.muted=!0,r.playsInline=!0,r.preload=\"auto\",await new Promise(("
+  },
+  {
+    "name": "Tq",
+    "args": "e,t={}",
+    "korean": [
+      "와",
+      "힣",
+      "이",
+      "은",
+      "이라고"
+    ],
+    "attrs": [],
+    "snippet": "function Tq(e,t={}){let r=function(e){let t=Math.max(0,Math.round(e.durationMs)),r=Cy(Math.floor(e.maxRequests??12),1,24),a=e.captions.flatMap(e=>{let r,a,n=`${e.text} ${e.sourceText??\"\"}`.trim(),i=fu"
+  },
+  {
+    "name": "TW",
+    "args": "e,t=0,r=1",
+    "korean": [],
+    "attrs": [],
+    "snippet": "function TW(e,t=0,r=1){return Math.min(r,Math.max(t,e))}function TH(e){return Array.from(e,e=>Number.isFinite(e)?Math.abs(e):0)}function TG(e){return\"number\"==typeof e&&Number.isFinite(e)&&e>0?Math.ro"
+  },
+  {
+    "name": "TH",
+    "args": "e",
+    "korean": [],
+    "attrs": [],
+    "snippet": "function TH(e){return Array.from(e,e=>Number.isFinite(e)?Math.abs(e):0)}function TG(e){return\"number\"==typeof e&&Number.isFinite(e)&&e>0?Math.round(e):null}function TX(e){if(!e)return null;let t=e.nam"
+  },
+  {
+    "name": "TG",
+    "args": "e",
+    "korean": [],
+    "attrs": [],
+    "snippet": "function TG(e){return\"number\"==typeof e&&Number.isFinite(e)&&e>0?Math.round(e):null}function TX(e){if(!e)return null;let t=e.name?.trim().toLocaleLowerCase(\"ko-KR\")??\"\",r=TG(e.size);return t&&null!==r"
+  },
+  {
+    "name": "TX",
+    "args": "e",
+    "korean": [],
+    "attrs": [],
+    "snippet": "function TX(e){if(!e)return null;let t=e.name?.trim().toLocaleLowerCase(\"ko-KR\")??\"\",r=TG(e.size);return t&&null!==r?JSON.stringify([t,r,TG(e.metadata?.durationMs),TG(e.metadata?.width),TG(e.metadata?"
+  },
+  {
+    "name": "TQ",
+    "args": "e",
+    "korean": [],
+    "attrs": [],
+    "snippet": "function TQ(e){return e.identity?JSON.stringify([1,e.identity,e.language,e.premium,Math.round(e.budget.intervalMs),Math.round(e.budget.maxFrames)]):null}let TZ=function(e=8){let t=new Map;return{clear"
+  },
+  {
+    "name": "T0",
+    "args": "e",
+    "korean": [],
+    "attrs": [],
+    "snippet": "function T0(e){for(let t of e){let e=function(e){if(\"number\"==typeof e)return Number.isFinite(e)?e:null;if(\"string\"!=typeof e)return null;let t=e.trim();if(!t)return null;let r=Number(t);return Number"
+  },
+  {
+    "name": "T1",
+    "args": "e",
+    "korean": [],
+    "attrs": [],
+    "snippet": "function T1(e){var t;let r=\"object\"==typeof e.data&&null!==e.data?e.data:{},a=function(e,t={}){if(!Array.isArray(e))return[];let r=e.flatMap((e,t)=>{let r,a,n=\"string\"==typeof e.text?e.text.trim():\"\","
+  },
+  {
+    "name": "T3",
+    "args": "e",
+    "korean": [],
+    "attrs": [],
+    "snippet": "function T3(e){return Np(e.frameResults)||Nm(e.frameResults)||Nc(e)}function T4(e){return JSON.stringify([Mt(e),e.nativePath?.trim()??null,e.size,e.lastModified,e.styleReference?.nativePath?.trim()??n"
+  },
+  {
+    "name": "T4",
+    "args": "e",
+    "korean": [],
+    "attrs": [],
+    "snippet": "function T4(e){return JSON.stringify([Mt(e),e.nativePath?.trim()??null,e.size,e.lastModified,e.styleReference?.nativePath?.trim()??null,e.styleReference?.size??null,e.styleReference?.lastModified??nul"
+  },
+  {
+    "name": "T6",
+    "args": "e",
+    "korean": [],
+    "attrs": [],
+    "snippet": "function T6(e){let{cancelVideoTranscodeNative:t,transcodeVideoProxyNative:a}=await Promise.resolve().then(r.bind(r,67630)),n=`meokguri-reference-ocr-${crypto.randomUUID()}`,i=()=>{t(n)};e.abortSignal."
+  },
+  {
+    "name": "T8",
+    "args": "e",
+    "korean": [],
+    "attrs": [],
+    "snippet": "function T8(e){try{let t=await (0,f.authFetch)(`/api/pixi/meokguri/tts/jobs/${encodeURIComponent(e)}/cancel`,{keepalive:!0,method:\"POST\"});t.ok||404===t.status||409===t.status||console.warn(\"[Meokguri"
+  },
+  {
+    "name": "T7",
+    "args": "e,t=3",
+    "korean": [],
+    "attrs": [],
+    "snippet": "function T7(e,t=3){let r=Math.max(1,Math.min(8,Math.round(t))),a=[];for(let t=0;t<e.length;t+=r){let n=e.slice(t,t+r),i=await Promise.all(n.map(async e=>{let t=await function(e){return\"u\"<typeof docum"
+  },
+  {
+    "name": "Rt",
+    "args": "e,t",
+    "korean": [],
+    "attrs": [],
+    "snippet": "function Rt(e,t){return\"ja\"===e&&!!t.trim()}function Rr({youtubeNotice:e}={}){var t,a,n,s,o,l,d,u,m,p,g,x;let b,y,v,w,j,C,S,N,A,I,$,E,T,R,F,P,z,_,D,L,O,U,{data:B}=(0,f.useSession)(),V=(0,c0.Y)(B?.user"
+  },
+  {
+    "name": "Rr",
+    "args": "{youtubeNotice:e}={}",
+    "korean": [],
+    "attrs": [],
+    "snippet": "function Rr({youtubeNotice:e}={}){var t,a,n,s,o,l,d,u,m,p,g,x;let b,y,v,w,j,C,S,N,A,I,$,E,T,R,F,P,z,_,D,L,O,U,{data:B}=(0,f.useSession)(),V=(0,c0.Y)(B?.user),[J]=(0,c.useState)(()=>{var e,t;return Re?"
+  }
+]

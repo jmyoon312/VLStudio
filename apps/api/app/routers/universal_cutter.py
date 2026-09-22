@@ -27,13 +27,17 @@ class SplitEpisodesRequest(BaseModel):
     video_path: Optional[str] = None
     video_title: Optional[str] = "미제 영상"
     srt_content: Optional[str] = None
+    script_content: Optional[str] = None      # 롱폼 원본 대본 텍스트
     preset_id: str = "gutavari"  # gutavari, k_cider, b_trilogy, longform_docu, custom
     target_lang: str = "ko"       # ko, en, ja, de, es, zh-tw
-    episode_count: int = 10       # 쇼츠 생성 수량 (예: 10개)
+    episode_count: int = 5        # 쇼츠 생성 수량 (예: 3개, 5개, 10개)
     target_duration_type: str = "shorts" # "shorts" (1분 미만) or "longform" (10/20/30분)
     target_minutes: int = 20      # 롱폼일 경우 목표 분수
+    segmentation_mode: str = "topic" # topic (주제별), speaker (화자별), retention (시청지속률 피크)
+    auto_archetype_distribution: bool = True # 4대 폼팩터 자동 순환 분배
     enable_speaker_diarization: bool = False
     custom_prompt: Optional[str] = None
+
 
 class GeneratePresetRequest(BaseModel):
     prompt: str

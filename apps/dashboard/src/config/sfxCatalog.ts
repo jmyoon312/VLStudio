@@ -802,3 +802,6 @@ export function playSynthesizedSfx(sfxId: string) {
     console.warn('Web Audio SFX playback error:', e);
   }
 }
+
+export const playSfxWebAudio = playSynthesizedSfx;
+

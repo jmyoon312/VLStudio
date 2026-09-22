@@ -1,0 +1,1 @@
+function KY(e){try{let t=new URL(e,"https://pixeling.local");if(!t.pathname.includes("/pixi-one-take-batch"))return null;return py(t.searchParams.get("pixiTab")??t.searchParams.get("tab"))}catch{return null}}

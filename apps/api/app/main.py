@@ -169,7 +169,8 @@ from app.routers import (
     health_deployment, ml_ab_search, operations, network,
     douyin_shorts_router, capcut_remote, presets, trend_radar, fsd_mission,
     pipeline_router, universal_cutter, analytics, community, shorts_production,
-    media_intelligence, viral_intelligence, discovery, bgm_router
+    media_intelligence, viral_intelligence, discovery, bgm_router, ranking_shorts,
+    long_to_short
 )
 from app import job_queue, crud, models, scheduler
 from app.utils.path_utils import normalize_path
@@ -640,6 +641,8 @@ app.include_router(bridge_api.router, prefix="/api/bridge")
 app.include_router(bridge_config_v2.router, prefix="/api/bridge/config/v2")
 app.include_router(bridge_search.router, prefix="/api/bridge/search")
 
+app.include_router(ranking_shorts.router, prefix="/api/ranking", tags=["ranking-shorts"])
+
 # New Phase 7-10 Routers
 app.include_router(queue_management.router)
 app.include_router(processing_verification.router)
@@ -652,6 +655,7 @@ app.include_router(beats_editor.router, prefix="/api/beats", tags=["elite-studio
 app.include_router(operations.router, prefix="/api/operations", tags=["elite-studio"])
 app.include_router(pipeline_router.router)
 app.include_router(universal_cutter.router)
+app.include_router(long_to_short.router)
 app.include_router(analytics.router, prefix="/api", tags=["analytics"])
 app.include_router(community.router, prefix="/api", tags=["community"])
 app.include_router(viral_intelligence.router, prefix="/api")

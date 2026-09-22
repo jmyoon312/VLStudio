@@ -1,0 +1,1 @@
+function KT(e){return new Promise(t=>{let r=document.createElement("audio"),a=URL.createObjectURL(e),n=!1,i=e=>{n||(n=!0,globalThis.clearTimeout(s),URL.revokeObjectURL(a),t(e))},s=globalThis.setTimeout(()=>i(null),5e3);r.preload="metadata",r.onloadedmetadata=()=>{i(Number.isFinite(r.duration)?Math.round(1e3*r.duration):null)},r.onerror=()=>i(null),r.src=a})}

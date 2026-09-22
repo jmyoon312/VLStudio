@@ -102,6 +102,12 @@ export interface CapCutProjectExportOptions {
     vignette?: number;
   };
   subtitles: CapCutSubtitleExportItem[];
+  songMode?: boolean;
+  song3Tracks?: {
+    original: CapCutSubtitleExportItem[];
+    pronunciation?: CapCutSubtitleExportItem[];
+    translation: CapCutSubtitleExportItem[];
+  };
   commentCard?: {
     enabled: boolean;
     author: string;
@@ -206,6 +212,9 @@ export function buildFullCapCutProjectBundle(opts: CapCutProjectExportOptions) {
   const topTitleTrack = { id: generateId(), type: 'text', name: 'T1 Top Title Track', flag: 0, segments: [] as any[] };
   const jabTrack = { id: generateId(), type: 'text', name: 'T2 Jab Hook Track', flag: 0, segments: [] as any[] };
   const subtitleTrack = { id: generateId(), type: 'text', name: 'SUB Subtitles Track', flag: 2, segments: [] as any[] };
+  const songSourceTrack = { id: generateId(), type: 'text', name: 'pixi-song-source', flag: 2, segments: [] as any[] };
+  const songPronTrack = { id: generateId(), type: 'text', name: 'pixi-song-pron', flag: 0, segments: [] as any[] };
+  const songKoreanTrack = { id: generateId(), type: 'text', name: 'pixi-song-korean', flag: 0, segments: [] as any[] };
   const sourceTrack = { id: generateId(), type: 'text', name: 'Source Credit Track', flag: 0, segments: [] as any[] };
   const commentCardTrack = { id: generateId(), type: 'text', name: 'T3 Comment Card Track', flag: 0, segments: [] as any[] };
   const bgmTrack = { id: generateId(), type: 'audio', name: 'A1 BGM Track', flag: 0, segments: [] as any[] };
@@ -478,6 +487,151 @@ export function buildFullCapCutProjectBundle(opts: CapCutProjectExportOptions) {
   }
 
   // -------------------------------------------------------------
+  // [D-2] 노래형 3중 가사 트랙 매핑 (Module 31819 & Module 72385 규격)
+  // -------------------------------------------------------------
+  if (opts.songMode && opts.song3Tracks) {
+    const { original = [], pronunciation = [], translation = [] } = opts.song3Tracks;
+
+    // 1) pixi-song-source: 원어 가사 (상단: Y 60%, 화이트 볼드, 크기 7.5)
+    original.forEach((item, idx) => {
+      if (!item.text?.trim()) return;
+      const matId = generateId();
+      const segId = generateId();
+      const coord = toCapCutCoord(item.xPct || 50, item.yPct || 60, 1, 32, canvasWidth, canvasHeight);
+      const startUs = toMicros((item.startMs || 0) / 1000);
+      const durUs = toMicros(Math.max(300, (item.endMs - item.startMs) || 2000) / 1000);
+      const fontSize = toCapcutFontSize(item.fontSize, 7.5, canvasHeight);
+
+      materials.texts.push({
+        id: matId,
+        name: `Song Original #${idx + 1}`,
+        type: 'subtitle',
+        content: JSON.stringify({
+          text: item.text,
+          styles: [
+            {
+              fill: { content: { render_type: 'solid', solid: { color: [1.0, 1.0, 1.0] } } },
+              size: fontSize,
+              bold: true,
+              range: [0, item.text.length],
+            },
+          ],
+        }),
+        font_name: item.fontFamily || 'Pretendard',
+        font_size: fontSize,
+        alignment: 1,
+        border_color: '#000000',
+        border_width: 0.12,
+        border_mode: 1,
+        shadow_color: 'rgba(0,0,0,0.85)',
+        shadow_alpha: 0.8,
+        shadow_distance: 3.0,
+      });
+
+      songSourceTrack.segments.push({
+        id: segId,
+        material_id: matId,
+        render_index: 2100 + idx,
+        target_timerange: { start: startUs, duration: durUs },
+        type: 'text',
+        clip: { transform: { x: coord.transform_x, y: coord.transform_y } },
+        extra_material_refs: [matId],
+      });
+    });
+
+    // 2) pixi-song-pron: 한글 발음 표기 (중단: Y 68%, 에메랄드 그린, 크기 6.0)
+    pronunciation.forEach((item, idx) => {
+      if (!item.text?.trim()) return;
+      const matId = generateId();
+      const segId = generateId();
+      const coord = toCapCutCoord(item.xPct || 50, item.yPct || 68, 1, 26, canvasWidth, canvasHeight);
+      const startUs = toMicros((item.startMs || 0) / 1000);
+      const durUs = toMicros(Math.max(300, (item.endMs - item.startMs) || 2000) / 1000);
+      const fontSize = toCapcutFontSize(item.fontSize, 6.0, canvasHeight);
+
+      materials.texts.push({
+        id: matId,
+        name: `Song Pronunciation #${idx + 1}`,
+        type: 'subtitle',
+        content: JSON.stringify({
+          text: item.text,
+          styles: [
+            {
+              fill: { content: { render_type: 'solid', solid: { color: [0.2, 0.85, 0.6] } } },
+              size: fontSize,
+              bold: true,
+              range: [0, item.text.length],
+            },
+          ],
+        }),
+        font_name: 'SF Mono',
+        font_size: fontSize,
+        alignment: 1,
+        border_color: '#000000',
+        border_width: 0.1,
+        border_mode: 1,
+      });
+
+      songPronTrack.segments.push({
+        id: segId,
+        material_id: matId,
+        render_index: 2200 + idx,
+        target_timerange: { start: startUs, duration: durUs },
+        type: 'text',
+        clip: { transform: { x: coord.transform_x, y: coord.transform_y } },
+        extra_material_refs: [matId],
+      });
+    });
+
+    // 3) pixi-song-korean: 한국어 뜻 번역 (하단: Y 76%, 골든 옐로우, 크기 8.5)
+    translation.forEach((item, idx) => {
+      if (!item.text?.trim()) return;
+      const matId = generateId();
+      const segId = generateId();
+      const coord = toCapCutCoord(item.xPct || 50, item.yPct || 76, 1, 36, canvasWidth, canvasHeight);
+      const startUs = toMicros((item.startMs || 0) / 1000);
+      const durUs = toMicros(Math.max(300, (item.endMs - item.startMs) || 2000) / 1000);
+      const fontSize = toCapcutFontSize(item.fontSize, 8.5, canvasHeight);
+
+      materials.texts.push({
+        id: matId,
+        name: `Song Translation #${idx + 1}`,
+        type: 'subtitle',
+        content: JSON.stringify({
+          text: item.text,
+          styles: [
+            {
+              fill: { content: { render_type: 'solid', solid: { color: [1.0, 0.85, 0.0] } } },
+              size: fontSize,
+              bold: true,
+              range: [0, item.text.length],
+            },
+          ],
+        }),
+        font_name: item.fontFamily || 'Pretendard',
+        font_size: fontSize,
+        alignment: 1,
+        border_color: '#000000',
+        border_width: 0.14,
+        border_mode: 1,
+        shadow_color: 'rgba(0,0,0,0.9)',
+        shadow_alpha: 0.9,
+        shadow_distance: 3.5,
+      });
+
+      songKoreanTrack.segments.push({
+        id: segId,
+        material_id: matId,
+        render_index: 2300 + idx,
+        target_timerange: { start: startUs, duration: durUs },
+        type: 'text',
+        clip: { transform: { x: coord.transform_x, y: coord.transform_y } },
+        extra_material_refs: [matId],
+      });
+    });
+  }
+
+  // -------------------------------------------------------------
   // [E] 하단 출처 표기 매핑 (100% 무누락)
   // -------------------------------------------------------------
   if (opts.source && opts.source.enabled && opts.source.text.trim()) {
@@ -620,6 +774,9 @@ export function buildFullCapCutProjectBundle(opts: CapCutProjectExportOptions) {
   if (topTitleTrack.segments.length > 0) activeTracks.push(topTitleTrack);
   if (jabTrack.segments.length > 0) activeTracks.push(jabTrack);
   if (subtitleTrack.segments.length > 0) activeTracks.push(subtitleTrack);
+  if (songSourceTrack.segments.length > 0) activeTracks.push(songSourceTrack);
+  if (songPronTrack.segments.length > 0) activeTracks.push(songPronTrack);
+  if (songKoreanTrack.segments.length > 0) activeTracks.push(songKoreanTrack);
   if (sourceTrack.segments.length > 0) activeTracks.push(sourceTrack);
   if (commentCardTrack.segments.length > 0) activeTracks.push(commentCardTrack);
   if (bgmTrack.segments.length > 0) activeTracks.push(bgmTrack);
@@ -902,3 +1059,140 @@ export async function exportCapCutFullProject(opts: CapCutProjectExportOptions):
     message: `전체 CapCut 프로젝트 압축 파일(${folderName}.zip)이 다운로드되었습니다. 압축 해제 후 캡컷 프로젝트 폴더에 넣으면 모든 자막·단어강조·타이틀·쨉쨉이가 1:1로 완벽히 열립니다.`,
   };
 }
+
+// ── 픽셀링 역공학 SSOT: 스톡모션(Stock Motion) CapCut 1:1 초안 내보내기 ──
+
+export interface StockMotionJobInput {
+  id: string;
+  title: string;
+  sourceName: string;
+  sourcePath?: string;
+  sourceUrl?: string;
+  stylePreset: 'bw-sketch' | 'ink-doodle' | 'paper-cutout';
+  frameCount: number;
+  holdSeconds: number;
+  includeSfx: boolean;
+  includeCaption: boolean;
+}
+
+export interface StockMotionExportOptions {
+  projectName?: string;
+  jobs: StockMotionJobInput[];
+}
+
+export async function exportStockMotionCapCutProject(opts: StockMotionExportOptions): Promise<{
+  success: boolean;
+  mode: 'electron' | 'backend' | 'zip';
+  targetPath?: string;
+  folderName?: string;
+  message?: string;
+}> {
+  const jobs = opts.jobs || [];
+  if (jobs.length === 0) {
+    throw new Error('내보낼 스톡모션 작업이 없습니다.');
+  }
+
+  // 1개 작업 기준 또는 첫 번째 작업 기준으로 CapCut 프로젝트 빌드
+  const primaryJob = jobs[0];
+  const sourceActionMs = 900;
+  const holdMs = Math.max(800, Math.round(1000 * primaryJob.holdSeconds));
+  const frameMs = 160;
+  const clampedFrameCount = Math.max(4, Math.min(20, primaryJob.frameCount));
+  const totalDurationMs = sourceActionMs + holdMs + frameMs * clampedFrameCount;
+
+  const styleName =
+    primaryJob.stylePreset === 'ink-doodle'
+      ? '잉크 낙서'
+      : primaryJob.stylePreset === 'paper-cutout'
+      ? '종이 컷아웃'
+      : '흑백 스케치';
+
+  // 자막 세그먼트
+  const subtitles: CapCutSubtitleExportItem[] = [
+    {
+      id: `${primaryJob.id}-sub-1`,
+      startMs: 0,
+      endMs: sourceActionMs,
+      text: primaryJob.title,
+      fontSize: 32,
+      textColor: '#FFFFFF',
+      outlineColor: '#000000',
+      outlineSize: 6,
+      yPct: 15,
+    },
+  ];
+
+  if (primaryJob.includeCaption) {
+    subtitles.push({
+      id: `${primaryJob.id}-freeze-marker`,
+      startMs: sourceActionMs,
+      endMs: sourceActionMs + holdMs,
+      text: `✏️ ${styleName} 프리즈`,
+      fontSize: 26,
+      textColor: '#111827',
+      boxColor: '#F8FAFC',
+      boxOpacity: 0.95,
+      useBox: true,
+      yPct: 82,
+    });
+    subtitles.push({
+      id: `${primaryJob.id}-motion-marker`,
+      startMs: sourceActionMs + holdMs,
+      endMs: totalDurationMs,
+      text: '⚡ 스톡모션 변환',
+      fontSize: 26,
+      textColor: '#111827',
+      boxColor: '#F8FAFC',
+      boxOpacity: 0.95,
+      useBox: true,
+      yPct: 82,
+    });
+  }
+
+  // 쨉쨉이 훅
+  const jabs = [
+    {
+      enabled: true,
+      text: `*${styleName.toUpperCase()} IMPACT*`,
+      fontSize: 24,
+      textColor: '#FFE500',
+      badgeColor: '#000000',
+      rotationDeg: -3,
+      xPct: 50,
+      yPct: 22,
+      startMs: 0,
+      endMs: Math.min(2400, totalDurationMs),
+    },
+  ];
+
+  // 상단 2단 헤드라인
+  const topTitle = {
+    enabled: true,
+    line1: primaryJob.title,
+    line2: `${styleName} 모션 쇼츠`,
+    mode: 'single' as const,
+    line1Color: '#FFFFFF',
+    line2Color: '#FFE500',
+    fontSize: 36,
+    fontFamily: 'Pretendard',
+    yPct: 10,
+  };
+
+  const projectExportOptions: CapCutProjectExportOptions = {
+    aspectRatio: '9:16',
+    projectName: opts.projectName || `StockMotion_${primaryJob.title}`,
+    durationMs: totalDurationMs,
+    video: {
+      path: primaryJob.sourcePath || 'video.mp4',
+      durationMs: totalDurationMs,
+      scale: 104, // 스톱모션 살짝 줌
+    },
+    topTitle,
+    jabs,
+    subtitles,
+    audios: [],
+  };
+
+  return await exportCapCutFullProject(projectExportOptions);
+}
+

@@ -1,0 +1,1 @@
+function KK(e,t){try{let r=new URL(e,"https://pixeling.local");if(!r.pathname.includes("/pixi-one-take-batch"))return null;return r.searchParams.set("pixiTab",t),r.searchParams.delete("tab"),{browserHref:`${r.pathname}${r.search}${r.hash}`,workspaceHref:`${(0,ua.tq)(r.pathname,r.searchParams)}${r.hash}`,workspaceId:r.searchParams.get(ua.PZ)}}catch{return null}}

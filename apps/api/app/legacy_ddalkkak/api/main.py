@@ -7646,8 +7646,247 @@ async def shorts_delete(job_id: int,
     return {"ok": True}
 
 
-# ===== Static frontend (PWA) =====
+# =============================================================================
+# 🎵 ViraLoop 주권 노래형 일괄 3-Track API (Module 31819 & Module 72385 규격)
+# =============================================================================
+@app.post("/api/song/transcribe-3track")
+async def api_song_transcribe_3track(
+    file: Optional[UploadFile] = File(default=None),
+    file_path: Optional[str] = Form(default=None),
+    source_url: Optional[str] = Form(default=None),
+    source_name: Optional[str] = Form(default=None),
+    language: str = Form(default="auto"),
+    translation_lang: str = Form(default="ko"),
+    custom_instruction: Optional[str] = Form(default=None),
+):
+    """로컬 Faster-Whisper + DB Settings LLM 기반 노래 가사 3-Track (원어 + 발음 + 한국어 번역) 생성."""
+    from app.services.song_engine import process_song_source
+    from app.core.config import app_settings
 
+    target_file = None
+    target_name = source_name or "song"
+
+    # 1. 업로드된 파일이 있는 경우
+    if file and file.filename:
+        target_name = file.filename
+        temp_dir = Path(app_settings.TEMP_DIR)
+        temp_dir.mkdir(parents=True, exist_ok=True)
+        safe_name = sanitize_filename(file.filename)
+        saved_path = temp_dir / f"song_up_{uuid.uuid4().hex[:8]}_{safe_name}"
+        content = await file.read()
+        with open(saved_path, "wb") as f:
+            f.write(content)
+        target_file = str(saved_path)
+
+    # 2. 로컬 파일 경로가 전달된 경우
+    elif file_path and os.path.exists(file_path):
+        target_file = file_path
+        target_name = Path(file_path).name
+
+    # 3. 유튜브 URL이 전달된 경우 yt-dlp로 오디오 다운로드
+    elif source_url and ("youtube.com" in source_url or "youtu.be" in source_url):
+        from app.services.youtube_downloader import download_youtube_audio
+        download_dir = Path(app_settings.DOWNLOADS_DIR) / "Songs"
+        download_dir.mkdir(parents=True, exist_ok=True)
+        try:
+            dl_res = await download_youtube_audio(source_url, output_dir=str(download_dir))
+            target_file = dl_res.get("file_path")
+            target_name = dl_res.get("title", "youtube_song")
+        except Exception as e:
+            # yt-dlp subprocess fallback
+            safe_id = uuid.uuid4().hex[:8]
+            out_tmpl = str(download_dir / f"yt_song_{safe_id}.%(ext)s")
+            cmd = ["yt-dlp", "-x", "--audio-format", "mp3", "-o", out_tmpl, source_url]
+            proc = subprocess.run(cmd, capture_output=True, text=True)
+            cand = list(download_dir.glob(f"yt_song_{safe_id}.*"))
+            if cand and cand[0].exists():
+                target_file = str(cand[0])
+                target_name = cand[0].name
+            else:
+                raise HTTPException(400, f"YouTube audio download failed: {proc.stderr or str(e)}")
+
+    if not target_file or not os.path.exists(target_file):
+        raise HTTPException(400, "유효한 음원/영상 파일이나 유튜브 URL을 제공해야 합니다.")
+
+    try:
+        result = await process_song_source(
+            file_path=target_file,
+            source_name=target_name,
+            language=language,
+            translation_lang=translation_lang,
+            custom_instruction=custom_instruction,
+        )
+        return {"ok": True, "data": result}
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(500, f"노래형 가사 3-Track 분석 중 오류 발생: {str(e)}")
+
+
+@app.post("/api/song/render-song-shorts")
+async def api_song_render_song_shorts(
+    project_id: str = Form(...),
+    song_title: str = Form(default="Untitled Song"),
+    artist_name: str = Form(default="Unknown Artist"),
+    visual_theme: str = Form(default="vinyl"),
+    lyrics_json: str = Form(...),
+    video_source: Optional[str] = Form(default=None),
+    audio_source: Optional[str] = Form(default=None),
+    album_cover: Optional[str] = Form(default=None),
+    enable_original: bool = Form(default=True),
+    enable_pronunciation: bool = Form(default=True),
+    enable_meaning: bool = Form(default=True),
+    sync_offset_ms: int = Form(default=0),
+    duration_seconds: float = Form(default=30.0),
+):
+    """Remotion 3-Track 가라오케 컴포지션을 통해 실제 1080x1920 MP4 비디오 렌더링."""
+    from app.services.remotion_renderer import remotion_renderer
+
+    try:
+        lyrics = json.loads(lyrics_json)
+    except Exception as e:
+        raise HTTPException(400, f"Invalid lyrics_json format: {e}")
+
+    render_res = await remotion_renderer.render_song_short(
+        project_id=project_id,
+        lyrics=lyrics,
+        video_source=video_source,
+        audio_source=audio_source,
+        album_cover=album_cover,
+        song_title=song_title,
+        artist_name=artist_name,
+        visual_theme=visual_theme,
+        enable_original=enable_original,
+        enable_pronunciation=enable_pronunciation,
+        enable_meaning=enable_meaning,
+        sync_offset_ms=sync_offset_ms,
+        duration_seconds=duration_seconds,
+    )
+
+    if not render_res.get("success"):
+        raise HTTPException(500, f"노래형 쇼츠 MP4 렌더링 실패: {render_res.get('error')}")
+
+    return {
+        "ok": True,
+        "video_path": render_res.get("video_path"),
+        "file_size_bytes": render_res.get("file_size_bytes"),
+        "duration_seconds": duration_seconds,
+    }
+
+
+# =============================================================================
+# 🎬 ViraLoop 주권 영화·드라마 쇼츠 API (픽셀링 z4 / Story Studio 1:1 완벽 대체)
+# =============================================================================
+@app.post("/api/ve/movie-drama-shorts/jobs")
+async def api_movie_drama_create_job(payload: Dict[str, Any] = Body(...)):
+    """신규 영화·드라마 쇼츠 분석 작업 생성 및 백그라운드 발주"""
+    from app.services.movie_drama_service import movie_drama_service
+    video_path = payload.get("videoPath") or payload.get("video_path")
+    if not video_path:
+        raise HTTPException(status_code=400, detail="videoPath가 필요합니다.")
+    
+    target_count = payload.get("targetShortsCount", 3)
+    delivery_mode = payload.get("deliveryMode", "full_tts")
+    layout_preset = payload.get("layoutPreset", "full_bleed")
+    series_mode = payload.get("seriesMode", True)
+    rights_confirmed = payload.get("rightsConfirmed", True)
+    style_settings = payload.get("styleSettings", {})
+
+    job = await movie_drama_service.create_job(
+        video_path_str=video_path,
+        target_shorts_count=target_count,
+        delivery_mode=delivery_mode,
+        layout_preset=layout_preset,
+        series_mode=series_mode,
+        rights_confirmed=rights_confirmed,
+        style_settings=style_settings
+    )
+    return job
+
+@app.get("/api/ve/movie-drama-shorts/jobs")
+async def api_movie_drama_list_jobs():
+    """영화·드라마 쇼츠 작업 목록 조회"""
+    from app.services.movie_drama_service import movie_drama_service
+    return movie_drama_service.list_jobs()
+
+@app.get("/api/ve/movie-drama-shorts/jobs/{job_id}")
+async def api_movie_drama_get_job(job_id: str):
+    """영화·드라마 쇼츠 작업 상세 및 진행 상태 조회"""
+    from app.services.movie_drama_service import movie_drama_service
+    job = movie_drama_service.get_job(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="작업을 찾을 수 없습니다.")
+    return job
+
+@app.get("/api/ve/movie-drama-shorts/jobs/{job_id}/candidates")
+async def api_movie_drama_get_candidates(job_id: str):
+    """영화·드라마 쇼츠 작업의 후보(Candidate) 목록 조회"""
+    from app.services.movie_drama_service import movie_drama_service
+    return movie_drama_service.get_candidates(job_id)
+
+@app.get("/api/ve/movie-drama-shorts/jobs/{job_id}/frame-sheet")
+async def api_movie_drama_get_frame_sheet(job_id: str):
+    """픽셀링 zY 패턴 프레임 시트 이미지 서빙"""
+    from app.services.movie_drama_service import MOVIE_DRAMA_WORK_DIR
+    sheet_file = MOVIE_DRAMA_WORK_DIR / job_id / "frame_sheet.jpg"
+    if not sheet_file.exists():
+        raise HTTPException(status_code=404, detail="프레임 시트를 찾을 수 없습니다.")
+    return FileResponse(str(sheet_file), media_type="image/jpeg")
+
+@app.post("/api/ve/movie-drama-shorts/jobs/{job_id}/candidates/{candidate_id}/framing")
+async def api_movie_drama_save_framing(job_id: str, candidate_id: str, payload: Dict[str, Any] = Body(...)):
+    """16:9 -> 9:16 인물 중심 프레이밍 오프셋 저장"""
+    from app.services.movie_drama_service import movie_drama_service
+    framing = payload.get("framing", [])
+    success = await movie_drama_service.save_candidate_framing(job_id, candidate_id, framing)
+    if not success:
+        raise HTTPException(status_code=404, detail="후보를 찾을 수 없습니다.")
+    return {"success": True}
+
+@app.post("/api/ve/movie-drama-shorts/jobs/{job_id}/candidates/{candidate_id}/render")
+async def api_movie_drama_render_mp4(job_id: str, candidate_id: str):
+    """후보 9:16 완성 MP4 즉시 렌더링"""
+    from app.services.movie_drama_service import movie_drama_service
+    try:
+        mp4_path = await movie_drama_service.render_final_mp4(job_id, candidate_id)
+        return {"success": True, "savedPath": mp4_path, "downloadUrl": f"/api/system/media/view?path={mp4_path}"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/ve/movie-drama-shorts/jobs/{job_id}/candidates/{candidate_id}/capcut")
+async def api_movie_drama_export_capcut(job_id: str, candidate_id: str):
+    """CapCut 4대 레이어 초안 프로젝트 내보내기"""
+    from app.services.movie_drama_service import movie_drama_service
+    try:
+        draft_path = await movie_drama_service.export_capcut_draft(job_id, candidate_id)
+        return {"success": True, "draftPath": draft_path}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/ve/movie-drama-shorts/jobs/{job_id}/candidates/{candidate_id}/portable-pack")
+async def api_movie_drama_create_portable_pack(job_id: str, candidate_id: str, payload: Dict[str, Any] = Body(...)):
+    """이동 패키지(Portable Pack) ZIP 파일 생성"""
+    from app.services.movie_drama_service import movie_drama_service, EXPORTS_DIR
+    out_dir = payload.get("outputParent") or str(EXPORTS_DIR / "PortablePacks")
+    try:
+        pack_path = await movie_drama_service.create_portable_pack(job_id, candidate_id, out_dir)
+        return {"success": True, "packPath": pack_path}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/ve/movie-drama-shorts/cancel")
+async def api_movie_drama_cancel_job(payload: Dict[str, Any] = Body(...)):
+    """영화·드라마 쇼츠 작업 취소"""
+    from app.services.movie_drama_service import movie_drama_service
+    job_id = payload.get("jobId")
+    if job_id:
+        movie_drama_service.cancel_job(job_id)
+    return {"success": True}
+
+
+# =============================================================================
+# 🌐 정적 프론트엔드 서빙 마운트
+# =============================================================================
 def _get_frontend_dir() -> Path:
     # 1. PyInstaller bundled temp folder
     if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):

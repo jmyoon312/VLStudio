@@ -344,10 +344,11 @@ export const OneTakeSourceSection: React.FC<OneTakeSourceSectionProps> = ({
             {filteredPool.map(item => {
               const isSelected = selectedSourceIds.includes(item.id);
               const meta = item.metadata || {};
-              const thumbUrl = meta.thumbnail_path || meta.thumbnail_url || item.snippet;
-              const videoPath = meta.file_path || meta.video_path || item.snippet;
-              const resolvedThumb = thumbUrl && (thumbUrl.startsWith('http') || thumbUrl.startsWith('/') ? thumbUrl : getMediaUrl(thumbUrl));
-              const resolvedVideo = videoPath && (videoPath.startsWith('http') || videoPath.startsWith('/') ? videoPath : getMediaUrl(videoPath));
+              const rawThumb = meta.thumbnail_path || meta.thumbnail_url || '';
+              const rawVideo = meta.file_path || meta.video_path || '';
+              const isInvalidStr = (s: string) => !s || s.trim() === '' || s.includes(' · ') || s.includes('07_Downloads ·');
+              const resolvedThumb = !isInvalidStr(rawThumb) ? (rawThumb.startsWith('http') || rawThumb.startsWith('/') ? rawThumb : getMediaUrl(rawThumb)) : '';
+              const resolvedVideo = !isInvalidStr(rawVideo) ? (rawVideo.startsWith('http') || rawVideo.startsWith('/') ? rawVideo : getMediaUrl(rawVideo)) : '';
               const durationSec = meta.duration || 30;
               const viewsCount = meta.view_count || meta.views || 281730;
               const channelName = meta.channel_name || meta.uploader || item.sourceOrigin || '07_Downloads';
@@ -369,7 +370,7 @@ export const OneTakeSourceSection: React.FC<OneTakeSourceSectionProps> = ({
                 >
                   {/* 16:9 비디오 썸네일 및 호버 재생 영역 */}
                   <div className="relative aspect-video w-full bg-slate-950 overflow-hidden flex items-center justify-center">
-                    {resolvedThumb && (
+                    {resolvedThumb ? (
                       <img
                         src={resolvedThumb}
                         alt={item.title}
@@ -378,10 +379,14 @@ export const OneTakeSourceSection: React.FC<OneTakeSourceSectionProps> = ({
                           isHovered && resolvedVideo ? "opacity-0" : "opacity-100"
                         )}
                         onError={(e) => {
-                          // 썸네일 로딩 실패 시 플레이스홀더
                           (e.target as HTMLElement).style.display = 'none';
                         }}
                       />
+                    ) : (
+                      <div className="w-full h-full flex flex-col items-center justify-center bg-muted/20 text-muted-foreground/40 gap-1">
+                        <Film className="w-8 h-8 stroke-1" />
+                        <span className="text-[10px] font-medium tracking-tight">동영상 미디어</span>
+                      </div>
                     )}
 
                     {/* 마우스 호버 시 비디오 자동 재생 프리뷰 */}

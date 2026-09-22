@@ -4,6 +4,17 @@ import {
   ViraShortComposition,
   ViraShortProps,
 } from "./compositions/ViraShortComposition";
+import {
+  SongKaraokeComposition,
+  SongKaraokeProps,
+  defaultSongKaraokeProps,
+} from "./compositions/SongKaraokeComposition";
+
+import {
+  StockMotionComposition,
+  StockMotionProps,
+  defaultStockMotionProps,
+} from "./compositions/StockMotionComposition";
 
 const defaultProps: ViraShortProps = {
   hasTopHeader: true,
@@ -41,6 +52,26 @@ export const RemotionRoot: React.FC = () => {
         height={1920}
         defaultProps={defaultProps}
       />
+      <Composition
+        id="SongKaraokeComposition"
+        component={SongKaraokeComposition}
+        durationInFrames={900} // Default 30s @ 30fps
+        fps={30}
+        width={1080}
+        height={1920}
+        defaultProps={defaultSongKaraokeProps}
+      />
+      <Composition
+        id="StockMotionComposition"
+        component={StockMotionComposition}
+        durationInFrames={120} // ~4s default @ 30fps
+        fps={30}
+        width={1080}
+        height={1920}
+        defaultProps={defaultStockMotionProps}
+      />
     </>
   );
 };
+
+

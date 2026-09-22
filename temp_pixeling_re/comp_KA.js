@@ -1,0 +1,1 @@
+function KA({label:e,metricId:t,value:r}){return(0,i.jsxs)("div",{className:"rounded-md border border-border bg-muted/20 px-3 py-2","data-pixi-video-creative-metric":t,children:[(0,i.jsx)("div",{className:"text-muted-foreground text-xs",children:e}),(0,i.jsx)("div",{className:"font-semibold tabular-nums",children:r})]})}
