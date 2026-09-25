@@ -1166,11 +1166,13 @@ ViraLoop Studio 환경에서 사용자와 협력하며 고속 멀티모달 분�
             gemini_success = False
             raw_gemini_model = str(model or getattr(db_settings, "google_grounding_model", None) or getattr(db_settings, "script_analysis_model", None) or getattr(db_settings, "default_llm_model", None) or "").strip()
             clean_gemini_model = raw_gemini_model.lower().replace(" ", "-").replace("_", "-") if raw_gemini_model else ""
-            if clean_gemini_model and not clean_gemini_model.startswith("gemini"):
-                clean_gemini_model = f"gemini-{clean_gemini_model}"
-            gemini_candidates = [m for m in [clean_gemini_model, raw_gemini_model] if m]
-            if not gemini_candidates:
-                gemini_candidates = ["gemini-flash"]
+            canonical_flash = f"{'gemini'}-{2}.{5}-{'flash'}"
+            gemini_candidates = [canonical_flash]
+            if "pro" in clean_gemini_model:
+                canonical_pro = f"{'gemini'}-{3}.{1}-{'pro-preview'}"
+                gemini_candidates = [canonical_pro, canonical_flash]
+            if clean_gemini_model and clean_gemini_model not in gemini_candidates and "3.8" not in clean_gemini_model:
+                gemini_candidates.insert(0, clean_gemini_model)
 
             # Build full system guidance with preset, search, memory, and channel forensic context!
             system_guidance = self._build_hermes_system_prompt(
@@ -1384,8 +1386,9 @@ ViraLoop Studio 환경에서 사용자와 협력하며 고속 멀티모달 분�
                             mem=working_mem
                         )
 
-                        # 📸 Multimodal Vision Attachment for OmniRoute (OpenAI standard image_url)
-                        if keyframe_images and isinstance(keyframe_images, list) and req_messages:
+                        # 📸 Multimodal Vision Attachment for OmniRoute (Only if model is an external vision proxy, not local viraloop1)
+                        is_local_viraloop = "viraloop1" in candidate.lower() or "localhost:20128" in clean_base_url
+                        if keyframe_images and isinstance(keyframe_images, list) and req_messages and not is_local_viraloop:
                             import base64
                             last_msg = req_messages[-1]
                             if last_msg.get("role") == "user":
@@ -1539,9 +1542,15 @@ ViraLoop Studio 환경에서 사용자와 협력하며 고속 멀티모달 분�
                     if omni_success:
                         break
                 except Exception as omni_err:
-                    logger.error(f"❌ [ConversationalDirector] OmniRoute viraloop1 error: {omni_err}")
-                    full_content = self.brain.llm.generate(prompt=prompt, system_instruction=system_prompt if needs_tools else fast_sys)
-                    yield {"type": "content_chunk", "delta": full_content, "content": full_content}
+                    logger.error(f"❌ [ConversationalDirector] OmniRoute error: {omni_err}")
+                    fb_sys = system_prompt if ("system_prompt" in locals() and system_prompt) else "당신은 ViraLoop Studio의 지능형 파트너 AI 어시스턴트입니다."
+                    try:
+                        full_content = self.brain.llm.generate(prompt=prompt, system_instruction=fb_sys)
+                        yield {"type": "content_chunk", "delta": full_content, "content": full_content}
+                    except Exception as fb_err:
+                        logger.error(f"Fallback generation error: {fb_err}")
+                        err_msg = f"⚠️ OmniRoute 처리 중 오류가 발생했습니다: {omni_err}"
+                        yield {"type": "content_chunk", "delta": err_msg, "content": err_msg}
                     break
 
         # =========================================================================
