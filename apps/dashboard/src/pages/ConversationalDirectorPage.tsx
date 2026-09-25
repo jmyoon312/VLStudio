@@ -63,6 +63,7 @@ import { EmbeddedVideoPlayer } from '@/components/director/EmbeddedVideoPlayer';
 import { ProviderAccountModal } from '@/components/director/ProviderAccountModal';
 import { IntegratedSettingsModal } from '@/components/director/IntegratedSettingsModal';
 import { DirectorRightPanel, ActiveVideoView } from '@/components/director/DirectorRightPanel';
+import { CommandLogItem, BrowserSnapshotData, VisionForensicData, CrossVerifyData } from '@/components/director/LiveAutonomousWorkspacePanel';
 import { ModelSelectorPopover, ReasoningEffort } from '@/components/director/ModelSelectorPopover';
 import { DirectorThreadSidebar } from '@/components/director/DirectorThreadSidebar';
 import { SidecarBrowserView } from '@/components/director/SidecarBrowserView';
@@ -224,6 +225,41 @@ export const ConversationalDirectorPage: React.FC = () => {
             ...prev,
             [msgId]: !prev[msgId]
         }));
+    };
+
+    // Autonomous Local OS Controller & Forensic State
+    const [commandLogs, setCommandLogs] = useState<CommandLogItem[]>([]);
+    const [browserSnapshot, setBrowserSnapshot] = useState<BrowserSnapshotData | null>(null);
+    const [visionData, setVisionData] = useState<VisionForensicData | null>(null);
+    const [crossVerifyData, setCrossVerifyData] = useState<CrossVerifyData | null>(null);
+    const [governanceMode, setGovernanceMode] = useState<'copilot' | 'full_auto'>('full_auto');
+
+    const handleExecuteManualCommand = async (cmd: string) => {
+        try {
+            const res = await fetch('/api/agent/execute-command', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ cmd, timeout_sec: 60 })
+            });
+            if (res.ok) {
+                const data = await res.json();
+                const logItem: CommandLogItem = {
+                    id: `cmd_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+                    cmd: data.cmd || cmd,
+                    stdout: data.stdout || '',
+                    stderr: data.stderr || (data.error || ''),
+                    exit_code: data.exit_code ?? (data.success ? 0 : 1),
+                    duration_ms: data.duration_ms || 0,
+                    workdir: data.workdir,
+                    timestamp: Date.now()
+                };
+                setCommandLogs(prev => [...prev, logItem]);
+            } else {
+                toast.error('명령어 실행 요청 실패');
+            }
+        } catch (e: any) {
+            toast.error(`명령어 실행 오류: ${e.message}`);
+        }
     };
 
     // AI Providers connection indicators (7 choices)
@@ -897,6 +933,41 @@ export const ConversationalDirectorPage: React.FC = () => {
                             if (data.type === 'browser_navigate' && data.url) {
                                 setBrowserActiveUrl(data.url);
                                 setSidecarBrowserOpen(true);
+                            }
+
+                            // Command log side effect from local_os_controller
+                            if (data.type === 'command_log') {
+                                const logItem: CommandLogItem = {
+                                    id: `cmd_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+                                    cmd: data.cmd || '',
+                                    stdout: data.stdout || '',
+                                    stderr: data.stderr || '',
+                                    exit_code: data.exit_code ?? 0,
+                                    duration_ms: data.duration_ms || 0,
+                                    workdir: data.workdir,
+                                    timestamp: Date.now()
+                                };
+                                setCommandLogs(prev => [...prev, logItem]);
+                                setRightPanelOpen(true);
+                            }
+
+                            // Browser snapshot side effect from Playwright
+                            if (data.type === 'browser_snapshot') {
+                                const snap = data.snapshot || data;
+                                setBrowserSnapshot(snap);
+                                setRightPanelOpen(true);
+                            }
+
+                            // Vision forensic inspection result
+                            if (data.type === 'vision_result') {
+                                setVisionData(data);
+                                setRightPanelOpen(true);
+                            }
+
+                            // Cross verification hybrid preset result
+                            if (data.type === 'cross_verify_result') {
+                                setCrossVerifyData(data);
+                                setRightPanelOpen(true);
                             }
 
                             // Completed deliverable
@@ -1783,6 +1854,13 @@ export const ConversationalDirectorPage: React.FC = () => {
                         path: f.path
                     }]);
                 }}
+                commandLogs={commandLogs}
+                browserSnapshot={browserSnapshot}
+                visionData={visionData}
+                crossVerifyData={crossVerifyData}
+                governanceMode={governanceMode}
+                onToggleGovernanceMode={() => setGovernanceMode(prev => prev === 'copilot' ? 'full_auto' : 'copilot')}
+                onExecuteManualCommand={handleExecuteManualCommand}
             />
 
             {/* Modals */}

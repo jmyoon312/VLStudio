@@ -1575,4 +1575,74 @@ class ChannelDNAService:
         finally:
             db.close()
 
+    @classmethod
+    def synthesize_hybrid_preset(
+        cls,
+        channel_url: str,
+        astra_dna: Dict[str, Any],
+        gemini_dna: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
+        Synthesizes a Sovereign Hybrid Preset combining Astra's qualitative narrative/hook insights
+        with Gemini's physical visual/cadence measurements.
+        """
+        import time
+        handle = channel_url.split("@")[-1].split("/")[0] if "@" in channel_url else "channel"
+        clean_name = f"하이브리드_{handle}_소버린"
+        preset_id = f"hybrid_{handle}_{int(time.time())}"
+
+        # Qualitative rules from Astra
+        astra_rules = astra_dna.get("content_rules") or astra_dna.get("rules") or [
+            "3초 내 충격적인 반전 질문 훅으로 시작",
+            "빠른 정보 전달과 펀치라인 자막 강조",
+            "시청자 이탈 방지를 위한 2.5초 호흡 전환"
+        ]
+
+        # Physical metrics from Gemini
+        gemini_style = gemini_dna.get("style") or gemini_dna.get("blueprint") or {
+            "output": {"size": "1080x1920", "fps": 30},
+            "top_bar": {"height_pct": 12.0, "bg_color": "#000000"},
+            "caption": {"size_px": 64, "color": "#FFFFFF", "outline_px": 7, "outline_color": "#000000", "safe_zone": "화면 하단 72%"},
+            "pacing": {"avg_cut_sec": 2.8, "opening_hook_zoom": 1.15}
+        }
+
+        # Save to DB ShortsTemplate
+        from app.database import SessionLocal
+        from app.models import ShortsTemplate
+        db = SessionLocal()
+        try:
+            tmpl = ShortsTemplate(
+                id=preset_id,
+                name=clean_name,
+                description=f"아스트라(스토리텔링 훅) ⊕ 제미나이(물리 실측 컷/자막) 하이브리드 소버린 프리셋 (@{handle})",
+                archetype="classic",
+                aspect_ratio="9:16",
+                is_system=False,
+                layout=gemini_style,
+                manifest={"content_rules": astra_rules, "blueprint": gemini_style}
+            )
+            db.add(tmpl)
+            db.commit()
+            logger.info(f"✅ [ChannelDNAService] Successfully synthesized hybrid preset: {clean_name}")
+            return {
+                "success": True,
+                "id": preset_id,
+                "name": clean_name,
+                "rules": astra_rules,
+                "style": gemini_style
+            }
+        except Exception as e:
+            db.rollback()
+            logger.error(f"Failed to synthesize hybrid preset: {e}")
+            return {
+                "success": False,
+                "id": preset_id,
+                "name": clean_name,
+                "rules": astra_rules,
+                "style": gemini_style,
+                "error": str(e)
+            }
+        finally:
+            db.close()
+
 

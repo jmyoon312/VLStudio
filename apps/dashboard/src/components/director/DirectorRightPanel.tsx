@@ -27,6 +27,14 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 
+import {
+    CommandLogItem,
+    BrowserSnapshotData,
+    VisionForensicData,
+    CrossVerifyData
+} from './LiveAutonomousWorkspacePanel';
+import { Sparkles, Shield, GitCompare, Eye } from 'lucide-react';
+
 export interface ActiveVideoView {
     filename: string;
     videoUrl: string;
@@ -41,9 +49,17 @@ interface DirectorRightPanelProps {
     onClearActiveVideo?: () => void;
     onSelectVideo?: (video: ActiveVideoView) => void;
     onAttachFile?: (file: { name: string; path: string }) => void;
+    commandLogs?: CommandLogItem[];
+    browserSnapshot?: BrowserSnapshotData | null;
+    visionData?: VisionForensicData | null;
+    crossVerifyData?: CrossVerifyData | null;
+    governanceMode?: 'copilot' | 'full_auto';
+    onToggleGovernanceMode?: () => void;
+    onExecuteManualCommand?: (cmd: string) => Promise<void>;
+    defaultTab?: DockTab;
 }
 
-type DockTab = 'menu' | 'preview' | 'files' | 'browser' | 'local_pc' | 'terminal' | 'backlot';
+export type DockTab = 'menu' | 'preview' | 'files' | 'browser' | 'vision' | 'local_pc' | 'terminal' | 'backlot' | 'cross_diff';
 
 export const DirectorRightPanel: React.FC<DirectorRightPanelProps> = ({
     open,
@@ -52,12 +68,23 @@ export const DirectorRightPanel: React.FC<DirectorRightPanelProps> = ({
     onClearActiveVideo,
     onSelectVideo,
     onAttachFile,
+    commandLogs = [],
+    browserSnapshot,
+    visionData,
+    crossVerifyData,
+    governanceMode = 'full_auto',
+    onToggleGovernanceMode,
+    onExecuteManualCommand,
+    defaultTab = 'terminal',
 }) => {
-    const [activeDockTab, setActiveDockTab] = useState<DockTab>('menu');
+    const [activeDockTab, setActiveDockTab] = useState<DockTab>(defaultTab);
+    const [manualCmd, setManualCmd] = useState('');
+    const [isExecutingCmd, setIsExecutingCmd] = useState(false);
     const [isMaximized, setIsMaximized] = useState(false);
     const [isPlaying, setIsPlaying] = useState(false);
     const [copied, setCopied] = useState(false);
     const videoRef = useRef<HTMLVideoElement>(null);
+    const terminalBottomRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Dynamic data states
@@ -65,6 +92,7 @@ export const DirectorRightPanel: React.FC<DirectorRightPanelProps> = ({
     const [exportsList, setExportsList] = useState<any[]>([]);
     const [terminalLogs, setTerminalLogs] = useState<string[]>([]);
     const [browserUrl, setBrowserUrl] = useState('http://localhost:20128');
+    const [browserMode, setBrowserMode] = useState<'snapshot' | 'live'>('snapshot');
     const [searchFilter, setSearchFilter] = useState('');
     const [loading, setLoading] = useState(false);
 
@@ -74,6 +102,41 @@ export const DirectorRightPanel: React.FC<DirectorRightPanelProps> = ({
             setActiveDockTab('preview');
         }
     }, [activeVideo]);
+
+    // Auto-switch to vision or cross_diff when autonomous data arrives
+    useEffect(() => {
+        if (visionData) {
+            setActiveDockTab('vision');
+        }
+    }, [visionData]);
+
+    useEffect(() => {
+        if (crossVerifyData) {
+            setActiveDockTab('cross_diff');
+        }
+    }, [crossVerifyData]);
+
+    // Auto-scroll terminal
+    useEffect(() => {
+        if (activeDockTab === 'terminal') {
+            terminalBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+        }
+    }, [commandLogs, terminalLogs, activeDockTab]);
+
+    const handleCommandSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!manualCmd.trim() || isExecutingCmd) return;
+        const cmdToSend = manualCmd.trim();
+        setManualCmd('');
+        setIsExecutingCmd(true);
+        try {
+            if (onExecuteManualCommand) {
+                await onExecuteManualCommand(cmdToSend);
+            }
+        } finally {
+            setIsExecutingCmd(false);
+        }
+    };
 
     // Fetch exports
     const fetchExports = async () => {
@@ -197,8 +260,32 @@ export const DirectorRightPanel: React.FC<DirectorRightPanelProps> = ({
                     )}
                 </div>
 
-                {/* 5 Header Action Icons: +, ⤢, -, ❐, ✕ */}
-                <div className="flex items-center gap-1">
+                {/* Governance Switch & Action Icons */}
+                <div className="flex items-center gap-1.5">
+                    {onToggleGovernanceMode && (
+                        <button
+                            type="button"
+                            onClick={onToggleGovernanceMode}
+                            title={`현재 거버넌스: ${governanceMode === 'copilot' ? 'Co-Pilot (안전 결재형)' : 'Full-Auto (초광속 직행형)'}`}
+                            className={`flex items-center gap-1 px-2 py-0.5 text-[10px] font-semibold rounded-full border transition-all ${
+                                governanceMode === 'copilot'
+                                    ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30'
+                                    : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 shadow-2xs'
+                            }`}
+                        >
+                            {governanceMode === 'copilot' ? (
+                                <>
+                                    <Shield className="w-3 h-3 text-amber-500" />
+                                    <span>Co-Pilot</span>
+                                </>
+                            ) : (
+                                <>
+                                    <Sparkles className="w-3 h-3 text-emerald-500" />
+                                    <span>Full-Auto</span>
+                                </>
+                            )}
+                        </button>
+                    )}
                     <button
                         type="button"
                         onClick={() => setActiveDockTab('menu')}
@@ -238,6 +325,58 @@ export const DirectorRightPanel: React.FC<DirectorRightPanelProps> = ({
             <div className="px-3 py-1.5 border-b border-border/40 bg-muted/10 flex items-center gap-1 overflow-x-auto text-xs scrollbar-none">
                 <button
                     type="button"
+                    onClick={() => setActiveDockTab('terminal')}
+                    className={`px-2 py-0.5 rounded-md flex items-center gap-1 text-[11px] font-medium transition-colors shrink-0 ${
+                        activeDockTab === 'terminal' ? 'bg-primary text-primary-foreground font-bold' : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                >
+                    <Terminal className="w-3 h-3 text-sky-400" />
+                    터미널
+                    {commandLogs.length > 0 && (
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse ml-0.5" />
+                    )}
+                </button>
+                <button
+                    type="button"
+                    onClick={() => setActiveDockTab('browser')}
+                    className={`px-2 py-0.5 rounded-md flex items-center gap-1 text-[11px] font-medium transition-colors shrink-0 ${
+                        activeDockTab === 'browser' ? 'bg-primary text-primary-foreground font-bold' : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                >
+                    <Globe className="w-3 h-3 text-emerald-400" />
+                    브라우저
+                    {browserSnapshot && (
+                        <span className="w-1.5 h-1.5 rounded-full bg-blue-500 ml-0.5" />
+                    )}
+                </button>
+                <button
+                    type="button"
+                    onClick={() => setActiveDockTab('vision')}
+                    className={`px-2 py-0.5 rounded-md flex items-center gap-1 text-[11px] font-medium transition-colors shrink-0 ${
+                        activeDockTab === 'vision' ? 'bg-primary text-primary-foreground font-bold' : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                >
+                    <Eye className="w-3 h-3 text-amber-400" />
+                    비전 실측
+                    {visionData && (
+                        <span className="w-1.5 h-1.5 rounded-full bg-purple-500 ml-0.5" />
+                    )}
+                </button>
+                <button
+                    type="button"
+                    onClick={() => setActiveDockTab('cross_diff')}
+                    className={`px-2 py-0.5 rounded-md flex items-center gap-1 text-[11px] font-medium transition-colors shrink-0 ${
+                        activeDockTab === 'cross_diff' ? 'bg-primary text-primary-foreground font-bold' : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                >
+                    <GitCompare className="w-3 h-3 text-pink-400" />
+                    AI 크로스
+                    {crossVerifyData && (
+                        <span className="w-1.5 h-1.5 rounded-full bg-pink-500 ml-0.5" />
+                    )}
+                </button>
+                <button
+                    type="button"
                     onClick={() => setActiveDockTab('files')}
                     className={`px-2 py-0.5 rounded-md flex items-center gap-1 text-[11px] font-medium transition-colors shrink-0 ${
                         activeDockTab === 'files' ? 'bg-primary text-primary-foreground font-bold' : 'text-muted-foreground hover:text-foreground'
@@ -248,40 +387,12 @@ export const DirectorRightPanel: React.FC<DirectorRightPanelProps> = ({
                 </button>
                 <button
                     type="button"
-                    onClick={() => setActiveDockTab('browser')}
-                    className={`px-2 py-0.5 rounded-md flex items-center gap-1 text-[11px] font-medium transition-colors shrink-0 ${
-                        activeDockTab === 'browser' ? 'bg-primary text-primary-foreground font-bold' : 'text-muted-foreground hover:text-foreground'
-                    }`}
-                >
-                    <Globe className="w-3 h-3" />
-                    브라우저
-                </button>
-                <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="px-2 py-0.5 rounded-md flex items-center gap-1 text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors shrink-0"
-                >
-                    <Folder className="w-3 h-3" />
-                    PC 열기
-                </button>
-                <button
-                    type="button"
-                    onClick={() => setActiveDockTab('terminal')}
-                    className={`px-2 py-0.5 rounded-md flex items-center gap-1 text-[11px] font-medium transition-colors shrink-0 ${
-                        activeDockTab === 'terminal' ? 'bg-primary text-primary-foreground font-bold' : 'text-muted-foreground hover:text-foreground'
-                    }`}
-                >
-                    <Terminal className="w-3 h-3" />
-                    터미널
-                </button>
-                <button
-                    type="button"
                     onClick={() => setActiveDockTab('backlot')}
                     className={`px-2 py-0.5 rounded-md flex items-center gap-1 text-[11px] font-medium transition-colors shrink-0 ${
                         activeDockTab === 'backlot' ? 'bg-primary text-primary-foreground font-bold' : 'text-muted-foreground hover:text-foreground'
                     }`}
                 >
-                    <Film className="w-3 h-3" />
+                    <Film className="w-3 h-3 text-purple-400" />
                     결과물 보관함
                 </button>
                 {activeVideo && (
@@ -444,7 +555,7 @@ export const DirectorRightPanel: React.FC<DirectorRightPanelProps> = ({
                     </div>
                 )}
 
-                {/* 3. Browser Tab */}
+                {/* 3. Browser Tab (Playwright Snapshot Mirror + Live Web) */}
                 {activeDockTab === 'browser' && (
                     <div className="flex-1 flex flex-col space-y-3">
                         <div className="flex items-center gap-2">
@@ -466,42 +577,136 @@ export const DirectorRightPanel: React.FC<DirectorRightPanelProps> = ({
                             </button>
                         </div>
 
-                        {/* Quick Port Shortcuts */}
-                        <div className="flex items-center gap-1.5 text-[11px]">
-                            <button
-                                type="button"
-                                onClick={() => setBrowserUrl('http://localhost:20128')}
-                                className="px-2 py-0.5 rounded-md bg-muted/60 text-muted-foreground hover:text-foreground text-[10px]"
-                            >
-                                OmniRoute (20128)
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => setBrowserUrl('https://www.youtube.com/shorts')}
-                                className="px-2 py-0.5 rounded-md bg-muted/60 text-muted-foreground hover:text-foreground text-[10px]"
-                            >
-                                YouTube Shorts
-                            </button>
+                        {/* Mode Toggle & Quick Port Shortcuts */}
+                        <div className="flex items-center justify-between text-[11px]">
+                            <div className="flex items-center gap-1.5">
+                                <button
+                                    type="button"
+                                    onClick={() => setBrowserMode('snapshot')}
+                                    className={`px-2 py-0.5 rounded-md text-[10px] font-medium transition-colors ${
+                                        browserMode === 'snapshot' ? 'bg-primary text-primary-foreground font-bold' : 'bg-muted/60 text-muted-foreground hover:text-foreground'
+                                    }`}
+                                >
+                                    스냅샷 미러 {browserSnapshot && '●'}
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setBrowserMode('live')}
+                                    className={`px-2 py-0.5 rounded-md text-[10px] font-medium transition-colors ${
+                                        browserMode === 'live' ? 'bg-primary text-primary-foreground font-bold' : 'bg-muted/60 text-muted-foreground hover:text-foreground'
+                                    }`}
+                                >
+                                    실시간 프레임
+                                </button>
+                            </div>
+                            <div className="flex items-center gap-1">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setBrowserUrl('http://localhost:20128');
+                                        setBrowserMode('live');
+                                    }}
+                                    className="px-2 py-0.5 rounded-md bg-muted/60 text-muted-foreground hover:text-foreground text-[10px]"
+                                >
+                                    OmniRoute (20128)
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setBrowserUrl('https://www.youtube.com/shorts');
+                                        setBrowserMode('live');
+                                    }}
+                                    className="px-2 py-0.5 rounded-md bg-muted/60 text-muted-foreground hover:text-foreground text-[10px]"
+                                >
+                                    Shorts
+                                </button>
+                            </div>
                         </div>
 
-                        {/* Embedded Web View */}
-                        <div className="flex-1 rounded-xl border border-border/80 overflow-hidden bg-background">
-                            <iframe 
-                                src={browserUrl}
-                                className="w-full h-full border-none"
-                                title="Embedded Browser Frame"
-                            />
-                        </div>
+                        {/* Snapshot Mirror View */}
+                        {browserMode === 'snapshot' && (
+                            <div className="flex-1 overflow-y-auto space-y-3">
+                                {browserSnapshot ? (
+                                    <>
+                                        <div className="flex items-center gap-2 px-3 py-1.5 bg-muted rounded-lg border border-border text-xs">
+                                            <Search className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                                            <span className="font-mono text-muted-foreground truncate flex-1 text-[11px]">
+                                                {browserSnapshot.url}
+                                            </span>
+                                            <a
+                                                href={browserSnapshot.url}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                className="text-primary hover:underline flex items-center gap-0.5 text-[11px]"
+                                            >
+                                                <ExternalLink className="w-3 h-3" />
+                                            </a>
+                                        </div>
+
+                                        {browserSnapshot.screenshot_data_url && (
+                                            <div className="border border-border rounded-xl overflow-hidden shadow-2xs bg-black">
+                                                <div className="px-2.5 py-1 bg-zinc-900 text-zinc-400 text-[10px] flex items-center justify-between border-b border-zinc-800">
+                                                    <span>Playwright Headless Window (1280x800)</span>
+                                                    <span className="truncate max-w-[200px]">{browserSnapshot.title}</span>
+                                                </div>
+                                                <img
+                                                    src={browserSnapshot.screenshot_data_url}
+                                                    alt="Browser Live Screen"
+                                                    className="w-full h-auto object-contain max-h-72"
+                                                />
+                                            </div>
+                                        )}
+
+                                        {browserSnapshot.search_results && browserSnapshot.search_results.length > 0 && (
+                                            <div className="space-y-1.5">
+                                                <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                                                    🔍 수집된 실시간 검색 결과 ({browserSnapshot.search_results.length}건)
+                                                </span>
+                                                <div className="space-y-1.5">
+                                                    {browserSnapshot.search_results.map((res, i) => (
+                                                        <div key={i} className="p-2.5 rounded-lg bg-card border border-border/80 text-xs space-y-0.5">
+                                                            <a href={res.url} target="_blank" rel="noreferrer" className="font-semibold text-primary hover:underline truncate block">
+                                                                {res.title}
+                                                            </a>
+                                                            <p className="text-muted-foreground text-[11px] line-clamp-2 leading-relaxed">
+                                                                {res.snippet}
+                                                            </p>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </>
+                                ) : (
+                                    <div className="text-center py-12 text-muted-foreground border border-dashed border-border rounded-xl">
+                                        <Globe className="w-8 h-8 mx-auto mb-2 opacity-40" />
+                                        <p className="text-xs font-semibold">AI 브라우징 스냅샷 대기 중</p>
+                                        <p className="text-[11px] mt-0.5">에이전트가 웹 검색이나 페이지를 탐색하면 실제 화면이 여기에 캡처됩니다.</p>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* Live iframe View */}
+                        {browserMode === 'live' && (
+                            <div className="flex-1 rounded-xl border border-border/80 overflow-hidden bg-background min-h-[300px]">
+                                <iframe 
+                                    src={browserUrl}
+                                    className="w-full h-full border-none"
+                                    title="Embedded Browser Frame"
+                                />
+                            </div>
+                        )}
                     </div>
                 )}
 
-                {/* 4. Terminal Tab: Live execution logs */}
+                {/* 4. Terminal Tab: Live interactive console & logs */}
                 {activeDockTab === 'terminal' && (
-                    <div className="flex-1 flex flex-col space-y-2">
+                    <div className="flex-1 flex flex-col space-y-2 h-full">
                         <div className="flex items-center justify-between text-xs">
                             <span className="font-bold text-foreground flex items-center gap-1.5">
                                 <Terminal className="w-3.5 h-3.5 text-sky-500" />
-                                시스템 실행 터미널
+                                PowerShell Core (UTF-8) • Host Sandbox
                             </span>
                             <div className="flex items-center gap-1">
                                 <button
@@ -522,13 +727,220 @@ export const DirectorRightPanel: React.FC<DirectorRightPanelProps> = ({
                             </div>
                         </div>
 
-                        <div className="flex-1 bg-neutral-950 text-neutral-200 font-mono text-[11px] p-3 rounded-xl border border-neutral-800 overflow-y-auto space-y-1 select-text">
-                            {terminalLogs.map((log, idx) => (
-                                <div key={idx} className="leading-relaxed whitespace-pre-wrap break-all">
-                                    {log}
+                        {/* Terminal Body */}
+                        <div className="flex-1 bg-neutral-950 text-neutral-200 font-mono text-[11px] p-3 rounded-xl border border-neutral-800 overflow-y-auto space-y-2 select-text min-h-[240px]">
+                            {commandLogs.length > 0 ? (
+                                commandLogs.map((log) => (
+                                    <div key={log.id} className="space-y-1">
+                                        <div className="flex items-center justify-between text-zinc-400 bg-zinc-900/60 px-2 py-1 rounded">
+                                            <span className="flex items-center gap-1.5 text-emerald-400">
+                                                <span className="text-zinc-500">$</span>
+                                                <span className="font-semibold break-all">{log.cmd}</span>
+                                            </span>
+                                            <span className="flex items-center gap-2 text-[10px] shrink-0 ml-2">
+                                                <span className={log.exit_code === 0 ? 'text-emerald-400' : 'text-red-400'}>
+                                                    exit {log.exit_code}
+                                                </span>
+                                                <span className="text-zinc-500">{log.duration_ms}ms</span>
+                                            </span>
+                                        </div>
+                                        {log.stdout && (
+                                            <pre className="text-zinc-300 pl-3 border-l-2 border-zinc-800 whitespace-pre-wrap break-all leading-relaxed max-h-48 overflow-y-auto">
+                                                {log.stdout}
+                                            </pre>
+                                        )}
+                                        {log.stderr && (
+                                            <pre className="text-rose-400 pl-3 border-l-2 border-rose-900/50 whitespace-pre-wrap break-all leading-relaxed max-h-32 overflow-y-auto">
+                                                {log.stderr}
+                                            </pre>
+                                        )}
+                                    </div>
+                                ))
+                            ) : terminalLogs.length > 0 ? (
+                                terminalLogs.map((log, idx) => (
+                                    <div key={idx} className="leading-relaxed whitespace-pre-wrap break-all">
+                                        {log}
+                                    </div>
+                                ))
+                            ) : (
+                                <div className="text-zinc-500 py-8 text-center">
+                                    <Terminal className="w-8 h-8 mx-auto mb-2 opacity-40" />
+                                    <p className="font-semibold">AI 에이전트 쉘 명령어 대기 중</p>
+                                    <p className="text-[10px] mt-1 text-zinc-600">아스트라, 제미나이, 옴니루트의 실시간 쉘 실행이 여기에 출력됩니다.</p>
                                 </div>
-                            ))}
+                            )}
+                            <div ref={terminalBottomRef} />
                         </div>
+
+                        {/* Interactive Human Takeover Terminal Input */}
+                        <form onSubmit={handleCommandSubmit} className="p-2 bg-neutral-900 rounded-xl border border-neutral-800 flex items-center gap-2">
+                            <span className="text-emerald-400 font-bold pl-1 text-xs">&gt;</span>
+                            <input
+                                type="text"
+                                value={manualCmd}
+                                onChange={(e) => setManualCmd(e.target.value)}
+                                placeholder="명령어 직접 실행 (예: yt-dlp --version, ffmpeg -version, dir)"
+                                disabled={isExecutingCmd}
+                                className="flex-1 bg-transparent border-0 text-neutral-100 placeholder:text-neutral-600 focus:outline-hidden text-xs font-mono"
+                            />
+                            <button
+                                type="submit"
+                                disabled={!manualCmd.trim() || isExecutingCmd}
+                                className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-medium text-xs disabled:opacity-40 transition-colors flex items-center gap-1 cursor-pointer"
+                            >
+                                <Play className="w-3 h-3 fill-white" />
+                                <span>실행</span>
+                            </button>
+                        </form>
+                    </div>
+                )}
+
+                {/* 5. Vision Forensic Canvas Tab */}
+                {activeDockTab === 'vision' && (
+                    <div className="flex-1 flex flex-col space-y-3 overflow-y-auto">
+                        <div className="flex items-center justify-between text-xs font-bold text-foreground">
+                            <span className="flex items-center gap-1.5">
+                                <Eye className="w-3.5 h-3.5 text-amber-500" />
+                                AI 비전 포렌식 캔버스
+                            </span>
+                        </div>
+
+                        {visionData ? (
+                            <div className="space-y-3">
+                                {/* Vertical 9:16 Video Frame with SVG Neon Overlay */}
+                                <div className="relative border border-border rounded-xl overflow-hidden bg-black flex items-center justify-center p-2">
+                                    {visionData.frame_data_url ? (
+                                        <div className="relative inline-block w-full max-w-[240px]">
+                                            <img
+                                                src={visionData.frame_data_url}
+                                                alt="Forensic Frame"
+                                                className="w-full h-auto block rounded-lg"
+                                            />
+                                            {/* SVG Neon Bounding Boxes */}
+                                            <svg className="absolute inset-0 w-full h-full pointer-events-none">
+                                                {visionData.bounding_boxes?.map((b, i) => {
+                                                    const [x1, y1, x2, y2] = b.box;
+                                                    return (
+                                                        <g key={i}>
+                                                            <rect
+                                                                x={`${x1 * 100}%`}
+                                                                y={`${y1 * 100}%`}
+                                                                width={`${(x2 - x1) * 100}%`}
+                                                                height={`${(y2 - y1) * 100}%`}
+                                                                fill="none"
+                                                                stroke={b.color}
+                                                                strokeWidth="2"
+                                                                strokeDasharray="4 2"
+                                                            />
+                                                            <text
+                                                                x={`${x1 * 100}%`}
+                                                                y={`${Math.max(5, y1 * 100 - 2)}%`}
+                                                                fill={b.color}
+                                                                fontSize="10"
+                                                                fontWeight="bold"
+                                                            >
+                                                                {b.label}
+                                                            </text>
+                                                        </g>
+                                                    );
+                                                })}
+                                            </svg>
+                                        </div>
+                                    ) : (
+                                        <div className="py-8 text-center text-xs text-muted-foreground">
+                                            프레임 이미지를 로드할 수 없습니다.
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Visual Metrics Cards */}
+                                {visionData.visual_metrics && (
+                                    <div className="grid grid-cols-2 gap-2 text-xs">
+                                        <div className="p-2.5 bg-card border border-border rounded-xl">
+                                            <span className="text-muted-foreground block text-[10px]">평균 컷 전환 주기</span>
+                                            <span className="font-bold text-foreground text-sm">{visionData.visual_metrics.avg_cut_sec || 2.8}초</span>
+                                        </div>
+                                        <div className="p-2.5 bg-card border border-border rounded-xl">
+                                            <span className="text-muted-foreground block text-[10px]">0초 훅 오프닝 줌</span>
+                                            <span className="font-bold text-foreground text-sm">
+                                                +{Math.round(((visionData.visual_metrics.opening_hook_zoom || 1.15) - 1.0) * 100)}%
+                                            </span>
+                                        </div>
+                                        <div className="p-2.5 bg-card border border-border rounded-xl">
+                                            <span className="text-muted-foreground block text-[10px]">상단 볼드 타이틀</span>
+                                            <span className="font-bold text-foreground text-sm">상단 {visionData.visual_metrics.title_top_pct || 12}% 위치</span>
+                                        </div>
+                                        <div className="p-2.5 bg-card border border-border rounded-xl">
+                                            <span className="text-muted-foreground block text-[10px]">자막 Safe Zone</span>
+                                            <span className="font-bold text-foreground text-sm">하단 {visionData.visual_metrics.caption_bottom_pct || 70}% 위치</span>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        ) : (
+                            <div className="text-center py-12 text-muted-foreground border border-dashed border-border rounded-xl">
+                                <Eye className="w-8 h-8 mx-auto mb-2 opacity-40" />
+                                <p className="text-xs font-semibold">비전 실측 캔버스 대기 중</p>
+                                <p className="text-[11px] mt-0.5">레퍼런스 영상이나 이미지를 분석하면 네온 바운딩 박스와 측정값이 렌더링됩니다.</p>
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* 6. Multi-AI Cross Checking Diff Tab */}
+                {activeDockTab === 'cross_diff' && (
+                    <div className="flex-1 flex flex-col space-y-3 overflow-y-auto">
+                        <div className="flex items-center justify-between text-xs font-bold text-foreground">
+                            <span className="flex items-center gap-1.5">
+                                <GitCompare className="w-3.5 h-3.5 text-pink-500" />
+                                AI 크로스 체킹 (Astra ⊕ Gemini)
+                            </span>
+                        </div>
+
+                        {crossVerifyData ? (
+                            <div className="space-y-3">
+                                <div className="grid grid-cols-2 gap-2 text-xs">
+                                    {/* Left: Astra Narrative DNA */}
+                                    <div className="p-3 bg-card border border-primary/40 rounded-xl space-y-2">
+                                        <div className="font-bold text-primary flex items-center gap-1">
+                                            <span>🧠 아스트라 지능 추론</span>
+                                        </div>
+                                        <div className="text-muted-foreground text-[11px] leading-relaxed">
+                                            {crossVerifyData.astra_analysis?.recipe || '스토리텔링 기승전결 훅 및 대본 반전 구조 정밀 분석'}
+                                        </div>
+                                    </div>
+
+                                    {/* Right: Gemini Physical Metrics */}
+                                    <div className="p-3 bg-card border border-emerald-500/40 rounded-xl space-y-2">
+                                        <div className="font-bold text-emerald-500 flex items-center gap-1">
+                                            <span>📐 제미나이 물리 실측</span>
+                                        </div>
+                                        <div className="text-muted-foreground text-[11px] leading-relaxed">
+                                            {crossVerifyData.gemini_analysis?.caption?.safe_zone || '평균 컷 2.8초, 자막 70% Safe Zone, 76px 볼드 타이틀'}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Hybrid Preset Result */}
+                                {crossVerifyData.hybrid_preset && (
+                                    <div className="p-3 bg-emerald-500/10 border border-emerald-500/40 rounded-xl text-xs space-y-1.5">
+                                        <div className="flex items-center gap-1.5 font-bold text-emerald-600 dark:text-emerald-400">
+                                            <Check className="w-4 h-4 text-emerald-500" />
+                                            <span>하이브리드 소버린 프리셋 합성 완료</span>
+                                        </div>
+                                        <div className="text-foreground font-semibold">
+                                            {crossVerifyData.hybrid_preset.name}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        ) : (
+                            <div className="text-center py-12 text-muted-foreground border border-dashed border-border rounded-xl">
+                                <GitCompare className="w-8 h-8 mx-auto mb-2 opacity-40" />
+                                <p className="text-xs font-semibold">AI 크로스 체킹 결과 대기 중</p>
+                                <p className="text-[11px] mt-0.5">아스트라의 서사 분석과 제미나이의 물리 실측을 교차 합성한 결과가 표시됩니다.</p>
+                            </div>
+                        )}
                     </div>
                 )}
 

@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
+from typing import Optional, List, Dict, Any
 from .. import database, crud
 
 from ..llm_manager import LLMClient
@@ -385,4 +386,55 @@ async def speak_text(req: SpeakRequest):
     except Exception as e:
         logger.error(f"[Loopie Speak] Supertonic TTS failed: {e}")
         raise HTTPException(status_code=500, detail=f"TTS generation failed: {str(e)}")
+
+
+class ExecuteCommandRequest(BaseModel):
+    cmd: str
+    workdir: Optional[str] = None
+    timeout_sec: int = 60
+
+@router.post("/execute-command")
+async def execute_local_command(req: ExecuteCommandRequest):
+    """
+    Executes a shell command directly on the host machine for human takeover or agent tool execution.
+    """
+    from app.services.local_os_controller import local_os_controller
+    res = local_os_controller.execute_command(cmd=req.cmd, workdir=req.workdir, timeout=req.timeout_sec)
+    return res
+
+class BrowserSearchRequest(BaseModel):
+    query: Optional[str] = None
+    url: Optional[str] = None
+    take_screenshot: bool = True
+
+@router.post("/browser-search")
+async def execute_browser_search(req: BrowserSearchRequest):
+    """
+    Executes Playwright web search or page browse.
+    """
+    from app.services.local_os_controller import local_os_controller
+    return await local_os_controller.browser_search_and_browse(query=req.query, url=req.url, take_screenshot=req.take_screenshot)
+
+@router.get("/files-list")
+async def list_workspace_files(folder: str = "downloads"):
+    """
+    Lists media files in 05_Exports or 07_Downloads.
+    """
+    from app.services.local_os_controller import local_os_controller, DOWNLOADS_DIR, EXPORTS_DIR
+    target = DOWNLOADS_DIR if folder == "downloads" else EXPORTS_DIR
+    return local_os_controller.file_manager(operation="list", path=str(target))
+
+class OpenFolderRequest(BaseModel):
+    folder: str = "downloads"
+
+@router.post("/open-folder")
+async def open_workspace_folder(req: OpenFolderRequest):
+    """
+    Opens downloads or exports folder in Windows Explorer.
+    """
+    from app.services.local_os_controller import local_os_controller, DOWNLOADS_DIR, EXPORTS_DIR
+    target = DOWNLOADS_DIR if req.folder == "downloads" else EXPORTS_DIR
+    return local_os_controller.open_folder(custom_path=str(target))
+
+
 

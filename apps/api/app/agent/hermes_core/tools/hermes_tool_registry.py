@@ -258,6 +258,92 @@ HERMES_OPENAI_TOOLS: List[Dict[str, Any]] = [
                 "properties": {}
             }
         }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "exec_command",
+            "description": "로컬 윈도우 PowerShell 또는 쉘 명령어를 직접 실행합니다. yt-dlp 영상 다운로드, FFmpeg 미디어 변환, 디렉토리 탐색 등 컴퓨터를 제어할 수 있습니다.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "cmd": {"type": "string", "description": "실행할 쉘 명령어 (예: 'yt-dlp --version', 'dir', 'ffmpeg -i ...')"},
+                    "workdir": {"type": "string", "description": "실행할 작업 디렉토리 절대경로 (선택)"},
+                    "timeout_sec": {"type": "integer", "description": "타임아웃(초)", "default": 60}
+                },
+                "required": ["cmd"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "browser_search_and_browse",
+            "description": "Playwright 헤드리스 브라우저를 구동하여 구글 검색을 수행하고 웹페이지를 직접 방문하여 본문 텍스트와 실시간 스크린샷을 수집합니다.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "구글 검색어 (예: '2026 틱톡 해외 쇼핑 트렌드', '다이슨 에어랩 숏폼 기획')"},
+                    "url": {"type": "string", "description": "직접 방문할 웹페이지 URL (선택)"},
+                    "take_screenshot": {"type": "boolean", "description": "화면 스크린샷 캡처 여부", "default": True}
+                }
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "vision_inspect_media",
+            "description": "이미지 또는 비디오 영상의 키프레임을 AI 비전 엔진으로 분석하여 상단 타이틀 위치, 자막 Safe Zone, 얼굴 영역의 바운딩 박스를 정밀 계측합니다.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "media_path_or_url": {"type": "string", "description": "분석할 미디어 파일 경로 또는 URL"},
+                    "focus_areas": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "분석 영역 (예: ['subtitles', 'top_title', 'character_face'])"
+                    }
+                },
+                "required": ["media_path_or_url"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "system_file_manager",
+            "description": "로컬 파일시스템을 제어합니다. 파일 목록 조회, 파일 읽기/생성, 윈도우 파일 탐색기 열기를 수행합니다.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "operation": {
+                        "type": "string",
+                        "enum": ["list", "read", "write", "open_in_explorer"],
+                        "description": "수행할 작업"
+                    },
+                    "path": {"type": "string", "description": "대상 디렉토리 또는 파일 절대경로"},
+                    "content": {"type": "string", "description": "write 작업 시 파일에 기록할 텍스트"}
+                },
+                "required": ["operation", "path"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "cross_verify_channel_dna",
+            "description": "아스트라(Astra)의 스토리텔링 연출 가설과 제미나이(Gemini)의 물리 컷/자막 실측 수치를 교차 검증(Side-by-Side Diff)하여 최상의 하이브리드 소버린 프리셋을 합성 등록합니다.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "channel_url": {"type": "string", "description": "대상 유튜브 채널 URL"},
+                    "astra_hypotheses": {"type": "object", "description": "아스트라가 도출한 스토리텔링/훅 연출 지침"},
+                    "gemini_physical_metrics": {"type": "object", "description": "제미나이가 실측한 물리 컷 지속시간 및 자막 좌표"}
+                },
+                "required": ["channel_url"]
+            }
+        }
     }
 ]
 
@@ -614,6 +700,118 @@ class HermesToolDispatcher:
                 "tool_name": tool_name,
                 "environment": env,
                 "message": "로컬 멀티미디어 환경 진단이 완료되었습니다."
+            }
+
+        # 10. Autonomous Terminal Shell: exec_command
+        elif tool_name == "exec_command":
+            cmd = arguments.get("cmd", "")
+            workdir = arguments.get("workdir")
+            timeout_sec = arguments.get("timeout_sec", 60)
+            res = local_os_controller.execute_command(
+                cmd=cmd,
+                workdir=workdir,
+                timeout=timeout_sec
+            )
+            return {
+                "success": res.get("success", False),
+                "tool_name": tool_name,
+                "cmd": cmd,
+                "exit_code": res.get("exit_code", -1),
+                "stdout": res.get("stdout", ""),
+                "stderr": res.get("stderr", ""),
+                "duration_ms": res.get("duration_ms", 0),
+                "workdir": res.get("workdir", ""),
+                "message": f"터미널 명령어 실행 완료 (코드 {res.get('exit_code', -1)}): {cmd[:40]}"
+            }
+
+        # 11. Autonomous Web Browser: browser_search_and_browse
+        elif tool_name == "browser_search_and_browse":
+            query = arguments.get("query")
+            url = arguments.get("url")
+            take_screenshot = arguments.get("take_screenshot", True)
+            res = await local_os_controller.browser_search_and_browse(
+                query=query,
+                url=url,
+                take_screenshot=take_screenshot
+            )
+            return {
+                "success": res.get("success", False),
+                "tool_name": tool_name,
+                "title": res.get("title", ""),
+                "url": res.get("url", ""),
+                "extracted_text": res.get("extracted_text", ""),
+                "search_results": res.get("search_results", []),
+                "screenshot_path": res.get("screenshot_path"),
+                "screenshot_data_url": res.get("screenshot_data_url"),
+                "message": res.get("message", "브라우징 완료")
+            }
+
+        # 12. Autonomous Vision Inspector: vision_inspect_media
+        elif tool_name == "vision_inspect_media":
+            media_path_or_url = arguments.get("media_path_or_url", "")
+            focus_areas = arguments.get("focus_areas")
+            res = local_os_controller.vision_inspect(
+                media_path_or_url=media_path_or_url,
+                focus_areas=focus_areas
+            )
+            return {
+                "success": res.get("success", False),
+                "tool_name": tool_name,
+                "media_path": res.get("media_path"),
+                "frame_path": res.get("frame_path"),
+                "frame_data_url": res.get("frame_data_url"),
+                "aspect_ratio": res.get("aspect_ratio", "9:16"),
+                "bounding_boxes": res.get("bounding_boxes", []),
+                "visual_metrics": res.get("visual_metrics", {}),
+                "message": res.get("message", "비전 실측 완료")
+            }
+
+        # 13. Autonomous File Manager: system_file_manager
+        elif tool_name == "system_file_manager":
+            operation = arguments.get("operation", "list")
+            path = arguments.get("path", str(local_os_controller.EXPORTS_DIR))
+            content = arguments.get("content")
+            res = local_os_controller.file_manager(
+                operation=operation,
+                path=path,
+                content=content
+            )
+            return {
+                "success": res.get("success", False),
+                "tool_name": tool_name,
+                "operation": operation,
+                "path": path,
+                "result": res,
+                "message": f"파일시스템 [{operation}] 작업이 완료되었습니다."
+            }
+
+        # 14. Multi-AI Cross Verification: cross_verify_channel_dna
+        elif tool_name == "cross_verify_channel_dna":
+            channel_url = arguments.get("channel_url", "")
+            astra_hypotheses = arguments.get("astra_hypotheses") or {}
+            gemini_physical_metrics = arguments.get("gemini_physical_metrics") or {}
+
+            # If gemini physical metrics not supplied, run forensic analysis
+            if not gemini_physical_metrics:
+                from app.services.channel_dna_service import ChannelDNAService
+                phys = ChannelDNAService.analyze_channel(channel_url=channel_url, sample_count=6)
+                gemini_physical_metrics = phys.get("forensic_dna", {})
+
+            # Synthesize hybrid preset
+            from app.services.channel_dna_service import ChannelDNAService
+            hybrid = ChannelDNAService.synthesize_hybrid_preset(
+                channel_url=channel_url,
+                astra_dna=astra_hypotheses,
+                gemini_dna=gemini_physical_metrics
+            )
+            return {
+                "success": True,
+                "tool_name": tool_name,
+                "channel_url": channel_url,
+                "astra_analysis": astra_hypotheses,
+                "gemini_analysis": gemini_physical_metrics,
+                "hybrid_preset": hybrid,
+                "message": f"아스트라와 제미나이의 장점을 결합한 하이브리드 소버린 프리셋이 합성되었습니다! ({hybrid.get('name')})"
             }
 
         else:

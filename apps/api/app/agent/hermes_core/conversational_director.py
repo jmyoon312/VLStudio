@@ -472,6 +472,31 @@ ViraLoop Studio 환경에서 사용자와 협력하며 고속 멀티모달 분�
                 "title": "🚀 CapCut 데스크톱 앱 연동 실행",
                 "detail": "생성된 프로젝트를 CapCut으로 연동하고 있습니다...",
                 "is_auto": False
+            },
+            "exec_command": {
+                "title": "💻 로컬 터미널 쉘 자율 제어",
+                "detail": "로컬 시스템에서 명령어를 실행하고 실시간 출력을 수집하고 있습니다...",
+                "is_auto": False
+            },
+            "browser_search_and_browse": {
+                "title": "🌐 실시간 웹 브라우징 & 구글 검색",
+                "detail": "Playwright 브라우저로 웹을 검색하고 실시간 화면을 캡처하고 있습니다...",
+                "is_auto": False
+            },
+            "vision_inspect_media": {
+                "title": "👁️ AI 비전 레이아웃 & 바운딩 박스 실측",
+                "detail": "영상 키프레임의 상단 타이틀, 자막 세이프존, 비주얼 구도를 계측하고 있습니다...",
+                "is_auto": False
+            },
+            "system_file_manager": {
+                "title": "📁 파일시스템 자율 제어",
+                "detail": "로컬 미디어 파일 및 디렉토리를 탐색·관리하고 있습니다...",
+                "is_auto": False
+            },
+            "cross_verify_channel_dna": {
+                "title": "⚖️ 아스트라 ⊕ 제미나이 크로스 체킹",
+                "detail": "두 AI의 지능과 물리 계측을 교차 비교하여 하이브리드 프리셋을 합성하고 있습니다...",
+                "is_auto": False
             }
         }
         return mapping.get(fn_name, {
@@ -479,6 +504,83 @@ ViraLoop Studio 환경에서 사용자와 협력하며 고속 멀티모달 분�
             "detail": f"{fn_name} 실행 중...",
             "is_auto": fn_name.startswith("system_inspect") or fn_name.startswith("pixeling_status") or ("status" in fn_name)
         })
+
+    async def _yield_tool_side_effects(self, fn_name: str, tool_res: Dict[str, Any]) -> AsyncGenerator[Dict[str, Any], None]:
+        """
+        Emits rich real-time side-effect events for the frontend Right-Hand Live Workspace:
+        - command_log: Terminal command execution & stdout/stderr stream
+        - browser_snapshot: Real-time Playwright web browsing & search snapshot
+        - vision_result: Visual layout bounding boxes & forensic measurements
+        - file_event: Local filesystem file changes & exports
+        - cross_verify_result: Multi-AI Side-by-Side cross checking diff
+        """
+        # 1. Terminal Command Log
+        if fn_name == "exec_command" or tool_res.get("cmd"):
+            yield {
+                "type": "command_log",
+                "cmd": tool_res.get("cmd", ""),
+                "stdout": tool_res.get("stdout", ""),
+                "stderr": tool_res.get("stderr", ""),
+                "exit_code": tool_res.get("exit_code", 0),
+                "duration_ms": tool_res.get("duration_ms", 0),
+                "workdir": tool_res.get("workdir", "")
+            }
+
+        # 2. Browser Search & Browse Snapshot
+        if fn_name == "browser_search_and_browse" or tool_res.get("screenshot_data_url"):
+            yield {
+                "type": "browser_snapshot",
+                "title": tool_res.get("title", "웹 브라우저 화면"),
+                "url": tool_res.get("url", ""),
+                "search_results": tool_res.get("search_results", []),
+                "extracted_text": tool_res.get("extracted_text", ""),
+                "screenshot_data_url": tool_res.get("screenshot_data_url")
+            }
+
+        # 3. Vision Inspector Result
+        if fn_name == "vision_inspect_media" or tool_res.get("bounding_boxes"):
+            yield {
+                "type": "vision_result",
+                "media_path": tool_res.get("media_path", ""),
+                "frame_path": tool_res.get("frame_path"),
+                "frame_data_url": tool_res.get("frame_data_url"),
+                "aspect_ratio": tool_res.get("aspect_ratio", "9:16"),
+                "bounding_boxes": tool_res.get("bounding_boxes", []),
+                "visual_metrics": tool_res.get("visual_metrics", {})
+            }
+
+        # 4. System File Manager Event
+        if fn_name == "system_file_manager" or tool_res.get("operation"):
+            yield {
+                "type": "file_event",
+                "operation": tool_res.get("operation", "list"),
+                "path": tool_res.get("path", ""),
+                "result": tool_res.get("result", {})
+            }
+
+        # 5. Multi-AI Cross Verify Diff
+        if fn_name == "cross_verify_channel_dna" or tool_res.get("hybrid_preset"):
+            yield {
+                "type": "cross_verify_result",
+                "channel_url": tool_res.get("channel_url", ""),
+                "astra_analysis": tool_res.get("astra_analysis", {}),
+                "gemini_analysis": tool_res.get("gemini_analysis", {}),
+                "hybrid_preset": tool_res.get("hybrid_preset", {})
+            }
+
+        # 6. Audio Deliverable
+        if tool_res.get("audio_path"):
+            a_path = tool_res["audio_path"]
+            stream_url = f"/api/stream?path={urllib.parse.quote(a_path)}"
+            yield {
+                "type": "audio_deliverable",
+                "audio_path": a_path,
+                "audio_url": stream_url,
+                "engine": tool_res.get("engine", "gemini"),
+                "voice_id": tool_res.get("voice_id", "Charon"),
+                "duration_s": tool_res.get("duration_s", 15.0),
+                "message": tool_res.get("message")
+            }
 
     def _resolve_openai_model_candidates(self, model: Optional[str]) -> List[str]:
         """
@@ -1130,19 +1232,10 @@ ViraLoop Studio 환경에서 사용자와 협력하며 고속 멀티모달 분�
                                                 "elapsed_seconds": 1,
                                                 "summary": tool_res.get("message", "완료되었습니다.")
                                             }
-                                            if tool_res.get("audio_path"):
-                                                a_path = tool_res["audio_path"]
-                                                stream_url = f"/api/stream?path={urllib.parse.quote(a_path)}"
-                                                yield {
-                                                    "type": "audio_deliverable",
-                                                    "audio_path": a_path,
-                                                    "audio_url": stream_url,
-                                                    "engine": tool_res.get("engine", "gemini"),
-                                                    "voice_id": tool_res.get("voice_id", "Charon"),
-                                                    "duration_s": tool_res.get("duration_s", 15.0),
-                                                    "message": tool_res.get("message")
-                                                }
-                                                has_yielded_audio = True
+                                            async for evt in self._yield_tool_side_effects(fn_name, tool_res):
+                                                if evt.get("type") == "audio_deliverable":
+                                                    has_yielded_audio = True
+                                                yield evt
                                             gemini_success = True
                                 except Exception:
                                     pass
@@ -1325,19 +1418,11 @@ ViraLoop Studio 환경에서 사용자와 협력하며 고속 멀티모달 분�
                                     yield {"type": "item_complete", "item_index": 0, "total_items": 1, "deliverable": tool_res["deliverable"]}
                                 if tool_res.get("preset"):
                                     yield {"type": "preset_registered", "preset": tool_res["preset"]}
-                                if tool_res.get("audio_path"):
-                                    a_path = tool_res["audio_path"]
-                                    stream_url = f"/api/stream?path={urllib.parse.quote(a_path)}"
-                                    yield {
-                                        "type": "audio_deliverable",
-                                        "audio_path": a_path,
-                                        "audio_url": stream_url,
-                                        "engine": tool_res.get("engine", "gemini"),
-                                        "voice_id": tool_res.get("voice_id", "Charon"),
-                                        "duration_s": tool_res.get("duration_s", 15.0),
-                                        "message": tool_res.get("message")
-                                    }
-                                    has_yielded_audio = True
+
+                                async for evt in self._yield_tool_side_effects(fn_name, tool_res):
+                                    if evt.get("type") == "audio_deliverable":
+                                        has_yielded_audio = True
+                                    yield evt
 
                                 tool_output_str = json.dumps(tool_res, ensure_ascii=False)
                                 executed_tool_messages.append({

@@ -77,11 +77,37 @@ def montage_save_preset(
     }
 
 @sovereign_mcp.tool()
-def montage_list_presets() -> list:
+def exec_command(cmd: str, workdir: str = None, timeout_sec: int = 60) -> dict:
     """
-    바이럴루프 시스템에 등록된 모든 쇼츠 프리셋 목록과 17대 프로덕션 가이드라인을 조회합니다.
+    로컬 윈도우 쉘 또는 PowerShell 명령어를 직접 실행합니다.
+    yt-dlp, FFmpeg, 파일 목록 등 로컬 컴퓨터를 자율 제어합니다.
     """
-    return sovereign_preset_engine.list_all_presets()
+    from app.services.local_os_controller import local_os_controller
+    return local_os_controller.execute_command(cmd=cmd, workdir=workdir, timeout=timeout_sec)
+
+@sovereign_mcp.tool()
+async def browser_search_and_browse(query: str = None, url: str = None, take_screenshot: bool = True) -> dict:
+    """
+    Playwright 헤드리스 브라우저로 구글 검색을 수행하고 웹페이지를 방문하여 텍스트 및 스크린샷을 수집합니다.
+    """
+    from app.services.local_os_controller import local_os_controller
+    return await local_os_controller.browser_search_and_browse(query=query, url=url, take_screenshot=take_screenshot)
+
+@sovereign_mcp.tool()
+def vision_inspect_media(media_path_or_url: str, focus_areas: list = None) -> dict:
+    """
+    영상 또는 이미지의 키프레임을 분석하여 상단 타이틀, 자막 세이프존, 얼굴 바운딩 박스를 정밀 계측합니다.
+    """
+    from app.services.local_os_controller import local_os_controller
+    return local_os_controller.vision_inspect(media_path_or_url=media_path_or_url, focus_areas=focus_areas)
+
+@sovereign_mcp.tool()
+def system_file_manager(operation: str, path: str, content: str = None) -> dict:
+    """
+    로컬 파일시스템(목록 조회 list, 파일 읽기 read, 파일 쓰기 write, 탐색기 열기 open_in_explorer)을 제어합니다.
+    """
+    from app.services.local_os_controller import local_os_controller
+    return local_os_controller.file_manager(operation=operation, path=path, content=content)
 
 if __name__ == "__main__":
     # Standard I/O MCP transport for OpenAI Codex CLI
