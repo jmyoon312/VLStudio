@@ -825,14 +825,28 @@ export const DirectorRightPanel: React.FC<DirectorRightPanelProps> = ({
 
                         {/* Live iframe View (Clean Google Universal Frame) */}
                         {browserMode === 'live' && (
-                            <div className="flex-1 rounded-xl border border-border/80 overflow-hidden bg-background min-h-[340px]">
-                                <iframe 
-                                    src={browserUrl.startsWith('http') ? browserUrl : `https://www.google.com/search?igu=1&q=${encodeURIComponent(browserUrl)}`}
-                                    className="w-full h-full border-none min-h-[340px]"
-                                    title="Embedded Browser Frame"
-                                    allow="clipboard-read; clipboard-write"
-                                    referrerPolicy="no-referrer"
-                                />
+                            <div className="flex-1 flex flex-col space-y-1.5 min-h-[340px]">
+                                <div className="px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-[11px] text-emerald-600 dark:text-emerald-400 flex items-center justify-between">
+                                    <span className="truncate">
+                                        🔒 <strong>소연 계정 연동 완료</strong>: 실시간 프레임은 웹 보안상 제3자 iframe으로 표시되며, 실제 로그인 세션 탐색은 <strong>[스냅샷 미러]</strong>에서 완벽 동작합니다.
+                                    </span>
+                                    <button 
+                                        type="button"
+                                        onClick={() => setBrowserMode('snapshot')}
+                                        className="text-primary hover:underline font-bold shrink-0 ml-2 text-[10px]"
+                                    >
+                                        스냅샷 미러 전환 →
+                                    </button>
+                                </div>
+                                <div className="flex-1 rounded-xl border border-border/80 overflow-hidden bg-background min-h-[320px]">
+                                    <iframe 
+                                        src={browserUrl.startsWith('http') ? browserUrl : `https://www.google.com/search?igu=1&q=${encodeURIComponent(browserUrl)}`}
+                                        className="w-full h-full border-none min-h-[320px]"
+                                        title="Embedded Browser Frame"
+                                        allow="clipboard-read; clipboard-write"
+                                        referrerPolicy="no-referrer"
+                                    />
+                                </div>
                             </div>
                         )}
                     </div>
