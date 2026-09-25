@@ -206,18 +206,40 @@ class ChannelDNAService:
                         except Exception as ff_err:
                             logger.debug(f"[ChannelDNA] Batch cut measure error: {ff_err}")
 
-                    # 7) 대표 영상에서 6개 씬 체인지 키프레임 자동 추출
+                    # 7) 2축 앵커 키프레임 추출 (최신 대표 3장 + 역대 최고 인기 3장 = 총 6장)
+                    # 이를 통해 채널의 템플릿 변천사 및 최근 피벗(Pivot) 개선 템플릿을 정밀 비교 분석
                     extracted_keyframes = []
-                    primary_vid = downloaded_video_paths[0] if downloaded_video_paths else None
-                    if primary_vid and os.path.exists(primary_vid):
-                        kf_dir = local_appdata / "ViraLoop Studio" / "media" / "03_Assets" / "presets" / "keyframes" / f"channel_{clean_folder_title}"
-                        kf_dir.mkdir(parents=True, exist_ok=True)
-                        for idx_kf, t_sec in enumerate([0.5, 3.0, 6.5, 10.0, 14.0, 18.0]):
-                            kf_dest = kf_dir / f"kf_{idx_kf+1}_{t_sec}s.jpg"
+                    recent_vid_path = None
+                    popular_vid_path = None
+
+                    for r_entry in recent_6_entries:
+                        p = r_entry.get("local_path")
+                        if p and os.path.exists(p) and os.path.getsize(p) > 50000:
+                            recent_vid_path = p
+                            break
+
+                    for p_entry in popular_6_entries:
+                        p = p_entry.get("local_path")
+                        if p and os.path.exists(p) and os.path.getsize(p) > 50000:
+                            popular_vid_path = p
+                            break
+
+                    if not recent_vid_path and downloaded_video_paths:
+                        recent_vid_path = downloaded_video_paths[0]
+                    if not popular_vid_path and downloaded_video_paths:
+                        popular_vid_path = downloaded_video_paths[-1]
+
+                    kf_dir = local_appdata / "ViraLoop Studio" / "media" / "03_Assets" / "presets" / "keyframes" / f"channel_{clean_folder_title}"
+                    kf_dir.mkdir(parents=True, exist_ok=True)
+
+                    # 최신 1위 영상 키프레임 3장 추출 (오프닝 0.5s, 전개 5.0s, 후반 12.0s)
+                    if recent_vid_path and os.path.exists(recent_vid_path):
+                        for idx_kf, t_sec in enumerate([0.5, 5.0, 12.0]):
+                            kf_dest = kf_dir / f"kf_recent_{idx_kf+1}_{t_sec}s.jpg"
                             if not kf_dest.exists() or kf_dest.stat().st_size < 1000:
                                 kf_cmd = [
                                     "ffmpeg", "-y", "-ss", str(t_sec),
-                                    "-i", primary_vid,
+                                    "-i", recent_vid_path,
                                     "-vframes", "1",
                                     "-vf", "scale=540:960:force_original_aspect_ratio=decrease",
                                     "-q:v", "4",
@@ -226,7 +248,41 @@ class ChannelDNAService:
                                 subprocess.run(kf_cmd, capture_output=True, timeout=10)
                             if kf_dest.exists() and kf_dest.stat().st_size > 1000:
                                 extracted_keyframes.append(str(kf_dest.resolve()))
-                        logger.info(f"[ChannelDNA] Extracted {len(extracted_keyframes)} keyframes for {clean_folder_title}")
+
+                    # 역대 최고 인기 1위 영상 키프레임 3장 추출 (오프닝 0.5s, 전개 5.0s, 후반 12.0s)
+                    if popular_vid_path and os.path.exists(popular_vid_path) and popular_vid_path != recent_vid_path:
+                        for idx_kf, t_sec in enumerate([0.5, 5.0, 12.0]):
+                            kf_dest = kf_dir / f"kf_popular_{idx_kf+1}_{t_sec}s.jpg"
+                            if not kf_dest.exists() or kf_dest.stat().st_size < 1000:
+                                kf_cmd = [
+                                    "ffmpeg", "-y", "-ss", str(t_sec),
+                                    "-i", popular_vid_path,
+                                    "-vframes", "1",
+                                    "-vf", "scale=540:960:force_original_aspect_ratio=decrease",
+                                    "-q:v", "4",
+                                    str(kf_dest)
+                                ]
+                                subprocess.run(kf_cmd, capture_output=True, timeout=10)
+                            if kf_dest.exists() and kf_dest.stat().st_size > 1000:
+                                extracted_keyframes.append(str(kf_dest.resolve()))
+                    elif len(extracted_keyframes) < 6 and recent_vid_path:
+                        # 동일 영상일 경우 추가 3개 시점(3.0s, 10.0s, 18.0s) 보완
+                        for idx_kf, t_sec in enumerate([3.0, 10.0, 18.0]):
+                            kf_dest = kf_dir / f"kf_ext_{idx_kf+1}_{t_sec}s.jpg"
+                            if not kf_dest.exists() or kf_dest.stat().st_size < 1000:
+                                kf_cmd = [
+                                    "ffmpeg", "-y", "-ss", str(t_sec),
+                                    "-i", recent_vid_path,
+                                    "-vframes", "1",
+                                    "-vf", "scale=540:960:force_original_aspect_ratio=decrease",
+                                    "-q:v", "4",
+                                    str(kf_dest)
+                                ]
+                                subprocess.run(kf_cmd, capture_output=True, timeout=10)
+                            if kf_dest.exists() and kf_dest.stat().st_size > 1000:
+                                extracted_keyframes.append(str(kf_dest.resolve()))
+
+                    logger.info(f"[ChannelDNA] Extracted {len(extracted_keyframes)} dual-anchor keyframes (Recent vs Popular) for {clean_folder_title}")
 
             except Exception as e:
                 logger.warning(f"[ChannelDNA] Real-time yt-dlp scan failed: {e}. Falling back to cached benchmark if available.")

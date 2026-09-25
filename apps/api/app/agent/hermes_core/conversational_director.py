@@ -2228,24 +2228,25 @@ ViraLoop Studio 환경에서 사용자와 협력하며 고속 멀티모달 분�
                 top_h2 = vg.get("top_header_lines", [{}])[-1] if vg.get("top_header_lines") else {}
                 has_jab = vg.get("jab_hook", {}).get("enabled", False)
 
-                # 실시간 스캔된 12편 영상 목록 마크다운 표 생성
+                # 실시간 스캔된 12편 영상 목록 마크다운 표 생성 (최신 6편 vs 역대 최고 인기 6편 구분)
                 video_rows = []
                 for idx, v in enumerate(videos[:12], 1):
                     vt = v.get('title', '제목 미상')
                     vid = v.get('id', '')
                     vurl = f"https://www.youtube.com/shorts/{vid}" if vid else "#"
                     vcount = f"{v.get('view_count', 0):,}회" if v.get('view_count') else "-"
-                    video_rows.append(f"| {idx} | [{vt}]({vurl}) | `{vid}` | {vcount} |")
-                video_table = "\n".join(video_rows) if video_rows else "| 1 | 실시간 12편 스캔 완료 | - | - |"
+                    vtype = v.get('selection_type', '최신 쇼츠' if idx <= 6 else '역대 최고 인기')
+                    video_rows.append(f"| {idx} | [{vt}]({vurl}) | `{vid}` | **{vtype}** | {vcount} |")
+                video_table = "\n".join(video_rows) if video_rows else "| 1 | 실시간 12편 스캔 완료 | - | - | - |"
 
                 channel_forensic_context = f"""
 채널명: {c_title}
 분석 대상 쇼츠 편수: {len(videos)}편
 실측 대표 영상 로컬 다운로드 성공 편수: {dl_count}편 (경로: {dna_res.get('downloaded_video_path') or '07_Downloads 로컬 저장'})
 
-[스캔 및 실측된 대표 쇼츠 12편 실제 제목 및 조회수 목록]
-| # | 영상 제목 | 비디오 ID | 실시간 조회수 |
-|---|---|---|---|
+[스캔 및 실측된 대표 쇼츠 12편 실제 제목 및 조회수 목록 (최신 6편 vs 역대 최고 인기 6편)]
+| # | 영상 제목 | 비디오 ID | 구분 | 실시간 조회수 |
+|---|---|---|---|---|
 {video_table}
 
 [정밀 역공학 4대 Blueprint 실측 수치]
@@ -2265,9 +2266,17 @@ ViraLoop Studio 환경에서 사용자와 협력하며 고속 멀티모달 분�
 4. Narrative DNA:
    - 오프닝 훅 공식: {nd.get('opening_hook_type', '직타 훅')}
 
-[CRITICAL 채널 정체성 절대 분석 지침 (Zero Hallucination Law)]
-1. 반드시 위 [스캔 및 실측된 대표 쇼츠 12편 목록]의 실제 영상 제목들과 실측 수치, 첨부된 실제 영상 프레임 이미지만을 근거로 채널의 진짜 콘텐츠 정체성(예: 감동 실화 스토리텔링, 영화/드라마 씬 요약 해설 등)을 분석하십시오.
-2. 채널 이름의 단어 뜻만 보고 K-POP 발라드, 음악 리릭 비디오 등으로 임의 추측하거나 소설(환각)을 작성하는 행위를 엄격히 영구 금지합니다.
+[CRITICAL 채널 정체성 및 템플릿 변천사/피벗 정밀 판정 지침 (Pivot & Momentum Intelligence)]
+1. [역대 조회수 1위 영상의 함정 주의]:
+   - 역대 누적 조회수 1위 영상은 1~2년 전에 업로드되어 단순 시간 누적으로 조회수가 높을 뿐, 지금의 알고리즘이나 채널의 최근 전략과는 거리가 먼 '과거의 구형 스타일'일 가능성이 높습니다. 무조건 역대 1위 영상의 템플릿만을 정답으로 간주하지 마십시오.
+2. [최근 템플릿 변경 및 성과 모멘텀(Momentum) 추적]:
+   - 채널 운영자가 최근 템플릿(상단 캡슐 바, 2단 테이프 라벨, 노란색 2-Tone 자막 강조, 컷 편집 리듬 등)을 새로 변경하여 집중적으로 밀고 있는지 확인하십시오.
+   - 비록 최신 영상들의 절대 조회수가 오랜 기간 누적된 역대 1위 영상보다 낮더라도, 최근 일관되게 채택되어 높은 호응을 얻고 있는 **'최근 정착형 떡상 템플릿(Recent Winning Template)'**을 우선적으로 식별하십시오.
+3. [최종 프리셋 권장 기준]:
+   - '과거 역대 1위의 구형 스타일' vs '최근 채널 성장을 견인하고 있는 신규 템플릿'의 차이점을 분석 리포트에서 명확히 비교·설명하고,
+   - **현재 가장 유효한 최신 고성과 템플릿을 메인 프리셋으로 발골**하십시오.
+4. [Zero Hallucination]:
+   - 반드시 첨부된 실제 영상 목록과 프레임 이미지만을 근거로 분석하고, 이름만 보고 리릭/음악 비디오 등으로 추측하지 마십시오.
 """
                 yield {
                     "type": "channel_dna_ready", 
