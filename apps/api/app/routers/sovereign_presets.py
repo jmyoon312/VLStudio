@@ -62,6 +62,140 @@ class PresetCloneRequest(BaseModel):
     style: Optional[Dict[str, Any]] = None
 
 
+class PresetFolderRequest(BaseModel):
+    name: str
+    icon: Optional[str] = "📁"
+    desc: Optional[str] = ""
+    tab: Optional[str] = "user"
+
+
+FOLDERS_FILE = PRESETS_DIR / "preset_folders.json"
+
+DEFAULT_PRESET_FOLDERS = [
+    {"id": "interview", "name": "인터뷰 / 해외 토크쇼", "tab": "user", "icon": "🎙️", "desc": "올뉴띵킹, 토크쇼, 육성 직타형"},
+    {"id": "entertainment", "name": "연예 / K-POP 정보", "tab": "user", "icon": "🎬", "desc": "패션탐정냥, 아이돌, 연예 비하인드"},
+    {"id": "ranking", "name": "랭킹 / 팩트 체크", "tab": "user", "icon": "📊", "desc": "TOP 5, 미스터리, 사건 브리핑"},
+    {"id": "knowledge", "name": "지식 / 교양 / 비하인드", "tab": "user", "icon": "💡", "desc": "역사, 과학, 심층 해설 스토리"},
+    {"id": "ssul", "name": "커뮤니티 / 썰형 스토리", "tab": "user", "icon": "💬", "desc": "썰형 누적 자막, 네이트판, 유머"},
+    {"id": "user", "name": "내 커스텀 프리셋", "tab": "user", "icon": "📁", "desc": "개인 커스텀 전용 기본 보관함"},
+    {"id": "favorites", "name": "즐겨찾기 보관함", "tab": "favorites", "icon": "⭐", "desc": "빠른 제작을 위한 최우선 픽"}
+]
+
+
+def _read_preset_folders() -> List[Dict[str, Any]]:
+    if not FOLDERS_FILE.exists():
+        try:
+            with open(FOLDERS_FILE, "w", encoding="utf-8") as f:
+                json.dump(DEFAULT_PRESET_FOLDERS, f, indent=2, ensure_ascii=False)
+        except Exception as e:
+            logger.warning(f"Failed to create default preset folders: {e}")
+        return list(DEFAULT_PRESET_FOLDERS)
+    try:
+        with open(FOLDERS_FILE, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            if isinstance(data, list) and data:
+                return data
+    except Exception as e:
+        logger.warning(f"Failed to read preset folders: {e}")
+    return list(DEFAULT_PRESET_FOLDERS)
+
+
+def _write_preset_folders(folders: List[Dict[str, Any]]) -> None:
+    with open(FOLDERS_FILE, "w", encoding="utf-8") as f:
+        json.dump(folders, f, indent=2, ensure_ascii=False)
+
+
+@router.get("/folders")
+def get_preset_folders() -> List[Dict[str, Any]]:
+    """Retrieve all configurable preset folders/categories."""
+    return _read_preset_folders()
+
+
+@router.post("/folders")
+def create_preset_folder(req: PresetFolderRequest) -> Dict[str, Any]:
+    """Create a new custom preset folder."""
+    import hashlib
+    clean_name = req.name.strip()
+    if not clean_name:
+        raise HTTPException(status_code=400, detail="보관함 이름을 입력해 주세요.")
+
+    folders = _read_preset_folders()
+    # Check duplicate name
+    if any(f["name"] == clean_name for f in folders):
+        raise HTTPException(status_code=400, detail="이미 동일한 이름의 보관함이 존재합니다.")
+
+    folder_id = f"f_{hashlib.md5(clean_name.encode()).hexdigest()[:6]}"
+    new_folder = {
+        "id": folder_id,
+        "name": clean_name,
+        "tab": req.tab or "user",
+        "icon": req.icon or "📁",
+        "desc": req.desc or f"{clean_name} 보관함"
+    }
+    folders.append(new_folder)
+    _write_preset_folders(folders)
+    logger.info(f"Created new preset folder: {clean_name} ({folder_id})")
+    return {"success": True, "folder": new_folder, "folders": folders}
+
+
+@router.put("/folders/{folder_id}")
+def update_preset_folder(folder_id: str, req: PresetFolderRequest) -> Dict[str, Any]:
+    """Update name, icon, or description of a preset folder."""
+    clean_name = req.name.strip()
+    if not clean_name:
+        raise HTTPException(status_code=400, detail="보관함 이름을 입력해 주세요.")
+
+    folders = _read_preset_folders()
+    target_idx = next((i for i, f in enumerate(folders) if f["id"] == folder_id), None)
+    if target_idx is None:
+        raise HTTPException(status_code=404, detail="해당 보관함을 찾을 수 없습니다.")
+
+    folders[target_idx]["name"] = clean_name
+    if req.icon:
+        folders[target_idx]["icon"] = req.icon
+    if req.desc is not None:
+        folders[target_idx]["desc"] = req.desc
+
+    _write_preset_folders(folders)
+    logger.info(f"Updated preset folder {folder_id} -> {clean_name}")
+    return {"success": True, "folder": folders[target_idx], "folders": folders}
+
+
+@router.delete("/folders/{folder_id}")
+def delete_preset_folder(folder_id: str) -> Dict[str, Any]:
+    """Delete a custom preset folder and safely migrate its presets to 'user' folder."""
+    if folder_id in ["user", "favorites"]:
+        raise HTTPException(status_code=400, detail="기본 보관함은 삭제할 수 없습니다.")
+
+    folders = _read_preset_folders()
+    target = next((f for f in folders if f["id"] == folder_id), None)
+    if not target:
+        raise HTTPException(status_code=404, detail="해당 보관함을 찾을 수 없습니다.")
+
+    # Remove folder
+    folders = [f for f in folders if f["id"] != folder_id]
+    _write_preset_folders(folders)
+
+    # Safely migrate existing presets in this category to 'user'
+    migrated_count = 0
+    for p_file in PRESETS_DIR.glob("*.json"):
+        if p_file.name == "preset_folders.json":
+            continue
+        try:
+            with open(p_file, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            if data.get("category") == folder_id:
+                data["category"] = "user"
+                with open(p_file, "w", encoding="utf-8") as f:
+                    json.dump(data, f, indent=2, ensure_ascii=False)
+                migrated_count += 1
+        except Exception as mig_err:
+            logger.debug(f"Preset category migration notice: {mig_err}")
+
+    logger.info(f"Deleted preset folder {folder_id} and safely migrated {migrated_count} presets to 'user'")
+    return {"success": True, "deleted_id": folder_id, "migrated_count": migrated_count, "folders": folders}
+
+
 @router.get("")
 @router.get("/")
 def list_sovereign_presets(
@@ -113,12 +247,32 @@ def list_sovereign_presets(
                         "pacing_dna": data.get("pacing_dna", {})
                     }
 
-                    # Filter by category_tab if specified
+                    # Filter by high-level category_tab or detailed folder
                     if category and category != "all":
-                        if category == "favorites" and not preset_item.get("is_favorite"):
-                            continue
-                        elif category in ["personal", "community", "pixeling"] and preset_item.get("category_tab") != category:
-                            continue
+                        if category == "favorites":
+                            if not (preset_item.get("is_favorite") or preset_item.get("category") == "favorites"):
+                                continue
+                        elif category in ["personal", "user"]:
+                            # Matches user-created presets
+                            is_user_preset = (
+                                preset_item.get("category_tab") in ["personal", "user"] or
+                                preset_item.get("source") in ["user", "viraloop_user", "omniroute_vision_interleaving"] or
+                                preset_item.get("category") in ["user", "interview", "entertainment", "ranking", "knowledge", "ssul"]
+                            )
+                            if not is_user_preset:
+                                continue
+                        elif category in ["pixeling", "official"]:
+                            is_official = (
+                                preset_item.get("category_tab") == "pixeling" or
+                                preset_item.get("source") in ["pixeling_official", "viraloop_official"] or
+                                "official" in pid
+                            )
+                            if not is_official:
+                                continue
+                        else:
+                            # Specific folder filtering (e.g. entertainment, interview, ranking, knowledge, ssul)
+                            if preset_item.get("category") != category and preset_item.get("category_tab") != category:
+                                continue
 
                     # Filter by search query
                     if q:

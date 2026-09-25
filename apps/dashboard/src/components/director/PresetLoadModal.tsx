@@ -21,11 +21,14 @@ import {
     Check, 
     ChevronRight,
     SlidersHorizontal,
-    Edit3
+    Edit3,
+    Plus,
+    X
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { SovereignPreset } from '../presets/PresetLibraryModal';
 import { PresetCustomizeModal } from '../presets/PresetCustomizeModal';
+import { PresetFolderItem, DEFAULT_PRESET_FOLDERS } from '../presets/SavePresetToFolderModal';
 
 interface PresetLoadModalProps {
     open: boolean;
@@ -34,7 +37,9 @@ interface PresetLoadModalProps {
     onSelectPreset: (preset: SovereignPreset) => void;
 }
 
-type TabType = 'favorites' | 'personal' | 'community' | 'pixeling';
+export const PRESET_FOLDERS = DEFAULT_PRESET_FOLDERS;
+
+type TabType = 'all' | 'personal' | 'pixeling' | 'favorites';
 type ViewMode = 'big_card' | 'small_card' | 'list';
 
 export const PresetLoadModal: React.FC<PresetLoadModalProps> = ({
@@ -43,7 +48,8 @@ export const PresetLoadModal: React.FC<PresetLoadModalProps> = ({
     activePresetId,
     onSelectPreset,
 }) => {
-    const [activeTab, setActiveTab] = useState<TabType>('community');
+    const [activeTab, setActiveTab] = useState<TabType>('all');
+    const [selectedFolder, setSelectedFolder] = useState<string>('all');
     const [viewMode, setViewMode] = useState<ViewMode>('small_card');
     const [searchQuery, setSearchQuery] = useState('');
     const [sortBy, setSortBy] = useState<'latest' | 'popular' | 'views'>('latest');
@@ -51,15 +57,73 @@ export const PresetLoadModal: React.FC<PresetLoadModalProps> = ({
     const [loading, setLoading] = useState(false);
     const [hoveredPresetId, setHoveredPresetId] = useState<string | null>(null);
 
+    // Dynamic Folders State
+    const [folders, setFolders] = useState<PresetFolderItem[]>(DEFAULT_PRESET_FOLDERS);
+    const [isAddingFolder, setIsAddingFolder] = useState(false);
+    const [newFolderName, setNewFolderName] = useState('');
+
     // Inspector modal state
     const [inspectPreset, setInspectPreset] = useState<SovereignPreset | null>(null);
     const [inspectOpen, setInspectOpen] = useState(false);
+
+    const fetchFolders = async () => {
+        try {
+            const res = await fetch('/api/sovereign-presets/folders');
+            if (res.ok) {
+                const data = await res.json();
+                if (Array.isArray(data) && data.length > 0) {
+                    setFolders(data);
+                }
+            }
+        } catch (e) {
+            console.debug('Failed to fetch folders:', e);
+        }
+    };
+
+    const handleCreateFolder = async () => {
+        if (!newFolderName.trim()) {
+            toast.error('보관함 이름을 입력해 주세요.');
+            return;
+        }
+
+        try {
+            const res = await fetch('/api/sovereign-presets/folders', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name: newFolderName.trim(),
+                    icon: '📁',
+                    desc: '사용자 추가 커스텀 보관함'
+                })
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                toast.success(`[${newFolderName.trim()}] 새 보관함이 생성되었습니다.`);
+                setFolders(data.folders || [...folders, data.folder]);
+                setSelectedFolder(data.folder?.id || selectedFolder);
+                setNewFolderName('');
+                setIsAddingFolder(false);
+                window.dispatchEvent(new CustomEvent('presets-folders-updated'));
+            } else {
+                const err = await res.json().catch(() => ({}));
+                toast.error(err.detail || '보관함 생성 실패');
+            }
+        } catch {
+            toast.error('보관함 생성 통신 오류');
+        }
+    };
 
     const fetchPresets = async () => {
         setLoading(true);
         try {
             const params = new URLSearchParams();
-            if (activeTab) params.append('category', activeTab);
+            // Category priority: if a specific folder is selected, use that; otherwise use activeTab
+            if (selectedFolder && selectedFolder !== 'all') {
+                params.append('category', selectedFolder);
+            } else if (activeTab && activeTab !== 'all') {
+                params.append('category', activeTab);
+            }
             if (searchQuery.trim()) params.append('q', searchQuery.trim());
             if (sortBy) params.append('sort', sortBy);
 
@@ -76,10 +140,21 @@ export const PresetLoadModal: React.FC<PresetLoadModalProps> = ({
     };
 
     useEffect(() => {
+        const handleFoldersUpdated = () => {
+            fetchFolders();
+        };
+        window.addEventListener('presets-folders-updated', handleFoldersUpdated);
+        return () => {
+            window.removeEventListener('presets-folders-updated', handleFoldersUpdated);
+        };
+    }, []);
+
+    useEffect(() => {
         if (open) {
+            fetchFolders();
             fetchPresets();
         }
-    }, [open, activeTab, sortBy]);
+    }, [open, activeTab, selectedFolder, sortBy]);
 
     const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
         if (e.key === 'Enter') {
@@ -94,10 +169,10 @@ export const PresetLoadModal: React.FC<PresetLoadModalProps> = ({
     };
 
     const tabs: { id: TabType; label: string; desc: string }[] = [
+        { id: 'all', label: '전체 프리셋', desc: '모든 보관함의 프리셋을 한눈에 볼 수 있어요.' },
+        { id: 'personal', label: '내 커스텀', desc: '발골/저장한 대표님의 맞춤형 제작 기준이에요.' },
+        { id: 'pixeling', label: '픽셀링 공식', desc: '픽셀링이 기본으로 제공하는 검증된 제작 기준이에요.' },
         { id: 'favorites', label: '즐겨찾기', desc: '자주 쓰는 프리셋을 모아 볼 수 있어요.' },
-        { id: 'personal', label: '내 프리셋', desc: '직접 저장한 제작 기준이에요.' },
-        { id: 'community', label: '공용 프리셋', desc: '사용자들이 공유한 제작 기준을 모으는 공간이에요.' },
-        { id: 'pixeling', label: '픽셀링 프리셋', desc: '픽셀링이 기본으로 제공하는 제작 기준 공간이에요.' },
     ];
 
     return (
@@ -106,22 +181,39 @@ export const PresetLoadModal: React.FC<PresetLoadModalProps> = ({
                 <DialogContent className="max-w-4xl p-0 gap-0 overflow-hidden bg-card border-border/80 shadow-2xl rounded-2xl max-h-[88vh] flex flex-col">
                     {/* Header */}
                     <div className="px-6 pt-5 pb-3 border-b border-border/60">
-                        <DialogTitle className="text-xl font-bold text-foreground">
-                            프리셋 불러오기
-                        </DialogTitle>
-                        <DialogDescription className="text-xs text-muted-foreground mt-1">
-                            고른 제작 기준은 다음에 보내는 메시지에 실려요. 저장된 원본은 그대로 유지됩니다.
-                        </DialogDescription>
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <DialogTitle className="text-xl font-bold text-foreground">
+                                    프리셋 불러오기
+                                </DialogTitle>
+                                <DialogDescription className="text-xs text-muted-foreground mt-1">
+                                    저장 위치별 폴더 또는 대분류 탭을 선택하여 원하는 제작 기준을 즉시 대화창에 연결합니다.
+                                </DialogDescription>
+                            </div>
 
-                        {/* 4 Tabs */}
-                        <div className="flex items-center justify-between mt-4">
+                            <button
+                                type="button"
+                                onClick={fetchPresets}
+                                disabled={loading}
+                                className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1.5 transition-colors shrink-0"
+                            >
+                                <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-primary' : ''}`} />
+                                {loading ? '새로고침 중…' : '새로고침'}
+                            </button>
+                        </div>
+
+                        {/* High-level Tabs */}
+                        <div className="flex items-center gap-1.5 mt-3">
                             <div className="inline-flex items-center gap-1.5 p-1 bg-muted/60 rounded-xl border border-border/50">
                                 {tabs.map((tab) => (
                                     <button
                                         key={tab.id}
                                         type="button"
-                                        onClick={() => setActiveTab(tab.id)}
-                                        className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                                        onClick={() => {
+                                            setActiveTab(tab.id);
+                                            setSelectedFolder('all'); // Reset subfolder on high-level tab change
+                                        }}
+                                        className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all ${
                                             activeTab === tab.id
                                                 ? 'bg-background text-foreground shadow-xs'
                                                 : 'text-muted-foreground hover:text-foreground'
@@ -131,16 +223,91 @@ export const PresetLoadModal: React.FC<PresetLoadModalProps> = ({
                                     </button>
                                 ))}
                             </div>
+                        </div>
 
+                        {/* 📁 Folder Category Chips (1:1 synced with SavePresetToFolderModal) */}
+                        <div className="flex items-center gap-1.5 overflow-x-auto pt-2.5 pb-1 scrollbar-thin">
+                            <span className="text-[11px] font-bold text-muted-foreground shrink-0 mr-1 flex items-center gap-1">
+                                📁 폴더별:
+                            </span>
+
+                            {/* 'All' chip */}
                             <button
                                 type="button"
-                                onClick={fetchPresets}
-                                disabled={loading}
-                                className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1.5 transition-colors"
+                                onClick={() => setSelectedFolder('all')}
+                                className={`px-2.5 py-1 text-[11px] font-medium rounded-lg shrink-0 transition-all flex items-center gap-1 cursor-pointer ${
+                                    selectedFolder === 'all'
+                                        ? 'bg-primary text-primary-foreground font-bold shadow-2xs'
+                                        : 'bg-muted/40 hover:bg-muted text-muted-foreground hover:text-foreground border border-border/60'
+                                }`}
                             >
-                                <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-primary' : ''}`} />
-                                {loading ? '새로고침 중…' : '새로고침'}
+                                <span>✨</span>
+                                <span>전체 폴더</span>
                             </button>
+
+                            {/* Dynamic folder chips */}
+                            {folders.map((folder) => {
+                                const isSelected = selectedFolder === folder.id;
+                                return (
+                                    <button
+                                        key={folder.id}
+                                        type="button"
+                                        onClick={() => setSelectedFolder(folder.id)}
+                                        className={`px-2.5 py-1 text-[11px] font-medium rounded-lg shrink-0 transition-all flex items-center gap-1 cursor-pointer ${
+                                            isSelected
+                                                ? 'bg-primary text-primary-foreground font-bold shadow-2xs'
+                                                : 'bg-muted/40 hover:bg-muted text-muted-foreground hover:text-foreground border border-border/60'
+                                        }`}
+                                        title={folder.desc}
+                                    >
+                                        <span>{folder.icon || '📁'}</span>
+                                        <span>{folder.name}</span>
+                                    </button>
+                                );
+                            })}
+
+                            {/* Add Folder Inline Toggle */}
+                            {isAddingFolder ? (
+                                <div className="flex items-center gap-1 shrink-0 ml-1">
+                                    <Input
+                                        value={newFolderName}
+                                        onChange={(e) => setNewFolderName(e.target.value)}
+                                        placeholder="새 보관함명..."
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') handleCreateFolder();
+                                            if (e.key === 'Escape') setIsAddingFolder(false);
+                                        }}
+                                        className="h-6 w-28 text-[11px] px-2 py-0 bg-background border-primary"
+                                        autoFocus
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={handleCreateFolder}
+                                        className="w-6 h-6 rounded bg-primary text-primary-foreground flex items-center justify-center hover:bg-primary/90 text-xs"
+                                        title="생성"
+                                    >
+                                        <Check className="w-3 h-3" />
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsAddingFolder(false)}
+                                        className="w-6 h-6 rounded bg-muted text-muted-foreground flex items-center justify-center hover:bg-muted/80 text-xs"
+                                        title="취소"
+                                    >
+                                        <X className="w-3 h-3" />
+                                    </button>
+                                </div>
+                            ) : (
+                                <button
+                                    type="button"
+                                    onClick={() => setIsAddingFolder(true)}
+                                    className="px-2 py-1 text-[11px] font-semibold rounded-lg shrink-0 transition-all flex items-center gap-1 bg-muted/30 hover:bg-muted text-muted-foreground hover:text-foreground border border-dashed border-border/70 cursor-pointer ml-1"
+                                    title="새 보관함 추가"
+                                >
+                                    <Plus className="w-3 h-3" />
+                                    <span>추가</span>
+                                </button>
+                            )}
                         </div>
                     </div>
 
@@ -249,6 +416,20 @@ export const PresetLoadModal: React.FC<PresetLoadModalProps> = ({
                                                         playsInline
                                                         className="w-full h-full object-cover"
                                                     />
+                                                ) : (preset.thumbnail_url || (preset as any).sample_thumbnail) ? (
+                                                    <div className="w-full h-full relative overflow-hidden bg-neutral-950 flex items-center justify-center">
+                                                        <img
+                                                            src={preset.thumbnail_url || (preset as any).sample_thumbnail}
+                                                            alt={preset.name}
+                                                            className="w-full h-full object-cover"
+                                                            onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                                                        />
+                                                        <div className="absolute inset-0 bg-black/20 hover:bg-transparent transition-colors flex items-center justify-center">
+                                                            <div className="w-6 h-6 rounded-full bg-black/50 text-white flex items-center justify-center backdrop-blur-xs group-hover:scale-110 transition-transform">
+                                                                <Play className="w-3 h-3 text-white fill-white ml-0.5" />
+                                                            </div>
+                                                        </div>
+                                                    </div>
                                                 ) : (
                                                     <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-neutral-800 to-neutral-950 p-2 text-center select-none">
                                                         {preset.style?.title?.enabled && (
@@ -268,10 +449,15 @@ export const PresetLoadModal: React.FC<PresetLoadModalProps> = ({
                                                     </div>
                                                 )}
 
-                                                {/* Top Badge: Version */}
-                                                <div className="absolute top-2 left-2 z-10">
-                                                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0 bg-black/60 text-white border-0 backdrop-blur-xs">
-                                                        버전 {preset.version || 1}
+                                                {/* Top Badge: Folder Category & Version */}
+                                                <div className="absolute top-2 left-2 z-10 flex items-center gap-1 flex-wrap max-w-[80%]">
+                                                    {preset.category && (
+                                                        <Badge variant="secondary" className="text-[9.5px] px-1.5 py-0.5 bg-primary/90 text-primary-foreground border-0 backdrop-blur-xs font-bold shadow-2xs">
+                                                            {folders.find(f => f.id === preset.category)?.icon || '📁'} {folders.find(f => f.id === preset.category)?.name.split('/')[0].trim() || preset.category}
+                                                        </Badge>
+                                                    )}
+                                                    <Badge variant="secondary" className="text-[9px] px-1.5 py-0.5 bg-black/60 text-white border-0 backdrop-blur-xs">
+                                                        v{preset.version || 1}
                                                     </Badge>
                                                 </div>
 
