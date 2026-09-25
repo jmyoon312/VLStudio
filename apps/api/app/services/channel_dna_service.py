@@ -362,9 +362,91 @@ class ChannelDNAService:
                 "chars_per_min": 410,
                 "bgm_gain_db": -24.0
             }
+            # 🎯 [Source Targeting DNA] 원천 소스 영상 소싱을 위한 타겟팅 프로필 발골
+            all_titles_text = " ".join([v.get("title", "") for v in analyzed_videos])
+            chan_low = (actual_channel_title + " " + all_titles_text).lower()
+
+            target_domain = "시네마/드라마"
+            target_sub_genres = ["감동/눈물실화"]
+            required_media_type = "movie_clip"
+
+            if any(k in chan_low for k in ["패션", "아이돌", "연예인", "걸그룹", "케이팝", "사복", "착장"]):
+                target_domain = "아이돌/연예인"
+                target_sub_genres = ["아이돌 패션", "직캠/사복", "연예 이슈"]
+                required_media_type = "fancam"
+            elif any(k in chan_low for k in ["정치", "시사", "뉴스", "국회", "대통령", "국정", "검찰", "선거"]):
+                target_domain = "이슈/시사/정치"
+                target_sub_genres = ["국회/정치 인터뷰", "시사 논평", "속보"]
+                required_media_type = "news_interview"
+            elif any(k in chan_low for k in ["애니", "만화", "웹툰", "오타쿠", "서브컬처", "캐릭터"]):
+                target_domain = "서브컬처/애니"
+                target_sub_genres = ["애니 명장면", "서브컬처 분석", "극장판 클립"]
+                required_media_type = "anime_clip"
+            elif any(k in chan_low for k in ["축구", "야구", "농구", "골프", "손흥민", "메시", "스포츠", "피트니스"]):
+                target_domain = "스포츠/피트니스"
+                target_sub_genres = ["스포츠 명장면", "경기 하이라이트", "골 장면"]
+                required_media_type = "sports_clip"
+            elif any(k in chan_low for k in ["예능", "코미디", "개그", "무한도전", "유재석", "웃긴", "웃긴영상"]):
+                target_domain = "예능/코미디"
+                target_sub_genres = ["예능 레전드", "유머 클립", "토크쇼"]
+                required_media_type = "variety_clip"
+            elif any(k in chan_low for k in ["썰", "네이트판", "디시", "블라인드", "사연", "커뮤니티"]):
+                target_domain = "커뮤니티/썰"
+                target_sub_genres = ["커뮤니티 레전드 썰", "익명 사연", "실화 괴담"]
+                required_media_type = "meme_ssul"
+            elif any(k in chan_low for k in ["역사", "다큐", "과학", "지식", "철학", "경제", "우주"]):
+                target_domain = "지식/교양/다큐"
+                target_sub_genres = ["다큐멘터리 클립", "역사적 사건", "지식 인서트"]
+                required_media_type = "documentary_clip"
+            else:
+                target_domain = "시네마/드라마"
+                target_sub_genres = ["감동/눈물실화", "명작 영화", "휴먼드라마"]
+                required_media_type = "movie_clip"
+
+            import re
+            from collections import Counter
+            words = re.findall(r'[가-힣a-zA-Z0-9]{2,12}', all_titles_text)
+            stopwords = {"이유", "이거", "진짜", "결국", "충격", "현재", "쇼츠", "shorts", "영상", "때문", "어떻게", "이유는", "대한", "관련"}
+            filtered_words = [w for w in words if w not in stopwords and len(w) >= 2]
+            common_entities = [item[0] for item in Counter(filtered_words).most_common(8)]
+
+            search_queries = []
+            if target_domain == "시네마/드라마":
+                search_queries = [
+                    f"{actual_channel_title} 감동 실화 영화 명장면 1080p",
+                    "눈물 쏟아지는 명작 영화 하이라이트 클립",
+                    "실화 바탕 인생 감동 영화 명장면 모음",
+                    "가장 슬픈 영화 결말 씬 1080p",
+                    "가족 사랑 감동 영화 명장면 클린존"
+                ]
+            elif target_domain == "아이돌/연예인":
+                search_queries = [
+                    f"{actual_channel_title} 아이돌 사복 패션 착장 고화질 직캠",
+                    "여자 아이돌 레전드 무대 착장 패션 분석 1080p",
+                    "연예인 공항 패션 실물 클립",
+                    "아이돌 무대 비하인드 4k 직캠"
+                ]
+            else:
+                search_queries = [
+                    f"{actual_channel_title} {target_sub_genres[0]} 1080p",
+                    f"{' '.join(common_entities[:3])} 고화질 클립",
+                    f"{target_domain} 레전드 명장면 모음"
+                ]
+
+            source_targeting_dna = {
+                "target_domain": target_domain,
+                "target_sub_genres": target_sub_genres,
+                "target_entities": common_entities,
+                "source_search_queries": search_queries,
+                "required_media_type": required_media_type,
+                "min_resolution": "1080p",
+                "clean_zone_threshold": 80
+            }
+
             source_origin_dna = {
                 "primary_platforms": ["YouTube Shorts", actual_channel_title],
-                "analyzed_videos_sample": analyzed_videos
+                "analyzed_videos_sample": analyzed_videos,
+                "source_targeting": source_targeting_dna
             }
 
             # 12편 배치 계측된 평균 컷 주기(ASL) 반영
@@ -445,6 +527,8 @@ class ChannelDNAService:
                     }
                 }
             ]
+
+            visual_dna["source_targeting"] = source_targeting_dna
 
             benchmark = models.ChannelDNABenchmark(
                 channel_url=channel_url,

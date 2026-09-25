@@ -171,7 +171,7 @@ from app.routers import (
     pipeline_router, universal_cutter, analytics, community, shorts_production,
     media_intelligence, viral_intelligence, discovery, bgm_router, ranking_shorts,
     long_to_short, meokguri, video_creative, movie_drama_shorts, song_shorts, sns_trend,
-    ai_accounts, director_sessions
+    ai_accounts, director_sessions, sourcing_center
 )
 from app import job_queue, crud, models, scheduler
 from app.utils.path_utils import normalize_path
@@ -688,6 +688,7 @@ app.include_router(sns_trend.router)
 app.include_router(sovereign_presets.router, prefix="/api", tags=["sovereign_presets"])
 app.include_router(ai_accounts.router, prefix="/api", tags=["ai_accounts"])
 app.include_router(director_sessions.router, prefix="/api", tags=["director_sessions"])
+app.include_router(sourcing_center.router, tags=["sourcing_center"])
 
 # New Phase 7-10 Routers
 app.include_router(queue_management.router)

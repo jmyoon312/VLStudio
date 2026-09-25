@@ -43,7 +43,8 @@ import {
     Flame,
     MessageSquare,
     Dna,
-    LayoutTemplate
+    LayoutTemplate,
+    Film
 } from 'lucide-react';
 
 export interface MenuItem {
@@ -84,6 +85,7 @@ export const getMenuGroups = (captainId: string | null): MenuGroup[] => [
         mode: "DISCOVERY",
         defaultExpanded: true,
         items: [
+            { name: '소싱 센터', path: '/sourcing-center', icon: Film, highlight: true },
             { name: '바이럴 인텔리전스', path: '/viral-intelligence', icon: Flame, highlight: true },
             { name: '바이럴 스카우터', path: '/trend-radar', icon: TrendingUp, highlight: true },
             { name: 'SNS 바이럴 퀀트 레이더', path: '/sns-radar', icon: Smartphone, highlight: true },

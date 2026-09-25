@@ -185,9 +185,78 @@ class ConversationalDirector:
 - 0~2.5초 오프닝 훅 줌: {int((ep.get('opening_hook_zoom', 1.0) - 1.0) * 100)}%
 - 평균 컷 전환 주기: {ep.get('avg_cut_sec', 3.8)}초
 
-4. 🎙️ Audio DSP (음향 및 보컬 엔지니어링):
-- 발화 속도(WPM): 분당 {ad.get('wpm', 410)}자 (0.15초 이하 극단적 무음 점프컷)
-- BGM 볼륨: {ad.get('bgm_volume_db', -24.0)}dB
+        vs = ad.get("voice_signature") or full_preset.get("voice_signature") or {}
+        vs_role = vs.get("voice_role", "신뢰감 있는 전문 내레이터")
+        vs_tone = vs.get("tone_summary", "몰입감 높은 전문 내레이션 톤")
+        vs_gemini = vs.get("gemini_voice", "Charon")
+        vs_supertonic = vs.get("supertonic_voice", "supertonic_male_deep")
+        vs_prompt = vs.get("emotion_prompt", "시청자의 몰입을 유도하는 자연스러운 톤으로 읽어주세요.")
+
+        bgm = ad.get("bgm_signature") or full_preset.get("bgm_signature") or {}
+        bgm_genre = bgm.get("genre", "다큐멘터리/시네마틱 앰비언트")
+        bgm_mood = bgm.get("mood", "몰입감 있고 긴장감 있는 분위기")
+        bgm_bpm = bgm.get("bpm_range", "70-90 BPM")
+        bgm_ducking = bgm.get("ducking_db", ad.get("bgm_volume_db", -20.0))
+
+        sfx = ad.get("sfx_signature") or full_preset.get("sfx_signature") or {}
+        sfx_hook = sfx.get("hook_sfx", "0~3초 훅 임팩트 히트(Impact Hit) + Whoosh")
+        sfx_trans = sfx.get("transition_sfx", "컷 전환 시 날카로운 스위시(Sharp Swish)")
+        sfx_accent = sfx.get("accent_sfx", "핵심 자막/키워드 팝(Pop) / 서브우퍼 베이스 드롭")
+        sfx_climax = sfx.get("climax_sfx", "클라이맥스 반전 타격음 및 텐션 라이저")
+
+        return f"""
+[🎬 현재 활성화된 소버린 프리셋 공식 프로덕션 블루프린트 v2 & 17대 바이블 스펙]:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. 프리셋 등록 메타데이터:
+- 프리셋 식별자(ID): {p_id}
+- 공식 프리셋명: {p_name}
+- 카테고리/장르: {p_category}
+- 핵심 스타일 레시피: {p_recipe}
+- 공식 콘텐츠 룰(Content Rules):
+{rules_str}
+
+2. 📐 Visual Geometry (9:16 비주얼 레이아웃):
+- 화면 규격: {size} (세로 9:16 최적화, {fps} FPS)
+- 레이아웃 폼팩터 형태: {container_type}
+- [Layer 1: 상단 헤더 바]: 높이 {top_bar.get('height_pct', 18.0)}%, 배경색 {top_bar.get('bg_color', '#000000')}
+- [Layer 2: 2단 헤더 타이틀]:
+  * 1단 서브헤더: "{h1.get('text', '')}" (크기 {h1.get('size_px', 14)}px, 색상 {h1.get('color', '#94A3B8')})
+  * 2단 메인헤더: "{h2.get('text', '')}" (크기 {h2.get('size_px', 24)}px, 색상 {h2.get('color', '#F8FAFC')})
+- [Layer 3: 2개국어 본문 자막]:
+  * 영문/국문 병기: {'사용' if cap.get('bilingual_enabled', False) else '국문 단독'}
+  * 영문 라인: "{cap.get('en_text', '')}" (색상 {cap.get('en_color', '#94A3B8')})
+  * 국문 라인: "{cap.get('ko_text', '')}" (색상 {cap.get('ko_color', '#FFFFFF')})
+  * 자막 세이프존 마진: 하단에서 {cap.get('margin_v_pct', 14)}% Safe-Zone
+- [Layer 4: 고정 핀 스티커 (Sub-tape)]:
+  * 활성화: {'사용' if sub_tape.get('enabled', False) else '미사용'}
+  * 라벨 문구: "{sub_tape.get('text', '')}"
+- [Layer 5: 잽 훅(Jab Hook) 주기적 각성 장치]:
+  * 활성화: {'사용' if jab.get('enabled', False) else '미사용'}
+  * 주기: {jab.get('avg_interval_sec', 4.5)}초 평균
+{f"- [Layer 6: 하단 배경 바]: 높이 {vg.get('bottom_bar', {}).get('height_pct', 6.0)}%, 배경색 {vg.get('bottom_bar', {}).get('bg_color', '#000000')}" if vg.get('bottom_bar', {}).get('enabled') else "- [Layer 6: 하단 배경 바]: 미사용 (풀스크린)"}
+
+3. ⏱️ Editing Pacing (타임라인 편집 호흡):
+- 0~2.5초 오프닝 훅 줌: {int((ep.get('opening_hook_zoom', 1.0) - 1.0) * 100)}%
+- 실측 평균 컷 전환 주기: {ep.get('avg_cut_sec', 3.8)}초
+
+4. 🎙️ Audio DSP, Voice DNA & Sound Design (음향, TTS 및 사운드 디자인 3화음):
+- 실측 발화 속도(WPM): 분당 {ad.get('wpm', 360)}자 (0.15초 이하 극단적 무음 점프컷)
+- 🌟 Voice Signature (음성 정체성 & 최적 TTS 프로바이더 매칭 가이드):
+  * 음성 역할(Role): {vs_role}
+  * 음성 톤(Tone): {vs_tone}
+  * Gemini 3.8 Flash TTS 추천 보이스: {vs_gemini}
+  * Supertonic Local TTS 추천 보이스: {vs_supertonic}
+  * Gemini 3.8 감정 연출 프롬프트(Emotion Instruction): "{vs_prompt}"
+- 🎵 BGM Signature (배경음악 가이드라인 & 오디오 더킹):
+  * 장르/스타일: {bgm_genre} ({bgm_bpm})
+  * 무드/분위기: {bgm_mood}
+  * 자동 더킹(Audio Ducking): 목소리 발화 시 {bgm_ducking}dB (멘트 공백 시 +6dB 복원)
+- 💥 SFX Cues (사운드 디자인 핵심 큐 포인트):
+  * 0~3초 오프닝 훅: {sfx_hook}
+  * 장면 전환(Cut Transition): {sfx_trans}
+  * 핵심 키워드 강조(Accent): {sfx_accent}
+  * 클라이맥스/결말: {sfx_climax}
+  ※ 연출 지시: 대화창에서 영상 제작 시, 사용자가 선택한 TTS 프로바이더(Gemini 3.8, Supertonic 등)에 맞추어 보이스와 감정 연출 프롬프트를 자율 반영하고, BGM 무드와 4대 SFX 큐 포인트를 대본 지시문에 자동 편성할 것!
 
 5. ✍️ Narrative DNA (대본 아키텍처):
 - 오프닝 훅 공식: {nd.get('opening_hook_type', '직타 인터뷰 질문 훅 (0~2초 내 즉시 시작)')}
@@ -238,6 +307,14 @@ class ConversationalDirector:
   * 타이틀 크기: {t_size}px
   * 타이틀 글자 색상: {t_color}
   * 배경 박스 색상: {t_box}
+
+3. 🎙️ Audio DSP, Voice DNA & Sound Design:
+- 실측 발화 속도(WPM): 분당 {ad.get('wpm', 360)}자
+- 음성 역할(Role): {vs_role} ({vs_tone})
+- Gemini 3.8 보이스: {vs_gemini} / Supertonic: {vs_supertonic}
+- Gemini 3.8 감정 연출 프롬프트: "{vs_prompt}"
+- 추천 BGM: {bgm_genre} ({bgm_bpm}, 더킹 {bgm_ducking}dB)
+- 핵심 SFX 큐: {sfx_hook} | {sfx_accent}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 """
 
@@ -874,10 +951,62 @@ ViraLoop Studio 환경에서 사용자와 협력하며 고속 멀티모달 분�
                 "content": msg,
                 "action_chips": ["📁 캡컷 프로젝트 폴더 열기", "📂 결과물 폴더 열기"]
             }
-            return
-
-
-
+        if any(k in clean_prompt for k in [
+            "소스 영상 찾아줘", "소스영상 찾아줘", "소스 영상 수집", "소스 수집", "영상 찾아줘", "영상 수집해줘", "영상 찾아", "영상 수집", "소스 찾아줘", "관련 영상 찾아줘", "어울리는 영상", "어울리는 소스", "영화 영상 찾아", "감동 영상 찾아"
+        ]):
+            p_name = preset.get("name") if preset else "현재 프리셋"
+            p_id = preset.get("id") if preset else None
+            yield {
+                "type": "step",
+                "item_index": 0,
+                "total_items": 1,
+                "step_id": "source_scout_search",
+                "title": f"🔍 [{p_name}] 원천 소스 영상 및 비전 실측 발굴 중...",
+                "status": "in_progress",
+                "detail": "YouTube, TMDB 메타데이터 및 오픈 라이브러리에서 1080p 고화질 클립과 비전 안전영역을 정밀 스카우팅 중입니다..."
+            }
+            try:
+                from app.services.universal_sourcing_service import universal_sourcing_service
+                candidates = await universal_sourcing_service.scout_candidate_videos(
+                    query=prompt,
+                    preset_id=p_id,
+                    max_results=3
+                )
+                yield {
+                    "type": "step",
+                    "item_index": 0,
+                    "total_items": 1,
+                    "step_id": "source_scout_search",
+                    "title": f"✅ [{p_name}] 원천 소스 영상 {len(candidates)}편 발굴 완비",
+                    "status": "completed",
+                    "detail": "1080p 해상도 및 클린존 비전 분석 완료. 프리셋 맞춤 60초 대본 초안 생성 완료."
+                }
+                yield {
+                    "type": "source_candidates",
+                    "query": prompt,
+                    "preset_id": p_id,
+                    "preset_name": p_name,
+                    "candidates": candidates
+                }
+                msg = (
+                    f"🎬 **{p_name} 스타일에 어울리는 최적의 원천 소스 영상 {len(candidates)}편을 발굴하고 실시간 비전 적합도 분석을 완료했습니다.**\n\n"
+                    f"각 영상의 썸네일, 클린존(자막 없는 안전영역) 적합도, 그리고 프리셋 연출 공식에 맞춘 **60초 나레이션 초안**을 아래 카드에서 확인하실 수 있습니다.\n\n"
+                    f"- **[⚡ 지금 숏폼 제작]**을 누르면 원본 영상이 즉시 다운로드되어 프리셋 스타일로 원테이크 렌더링됩니다.\n"
+                    f"- **[📁 소싱 센터에 영구 저장]**을 누르면 `📊 트렌드 소싱 > 소싱 센터`에 등록되어 언제든 다시 제작에 투입할 수 있습니다."
+                )
+                yield {"type": "content_chunk", "delta": msg, "content": msg}
+                yield {
+                    "type": "chat_response",
+                    "content": msg,
+                    "action_chips": ["📊 소싱 센터 이동", "다른 감동 실화 영상 더 찾아줘", "정치/시사 영상 찾아줘"]
+                }
+                return
+            except Exception as se:
+                logger.error(f"❌ [ConversationalDirector] Source scouting error: {se}", exc_info=True)
+                err_msg = f"⚠️ 원천 소스 영상 탐색 중 오류가 발생했습니다: {se}"
+                yield {"type": "content_chunk", "delta": err_msg, "content": err_msg}
+                yield {"type": "chat_response", "content": err_msg}
+                return
 
         session_timer_start = time.time()
         clean_p = prompt.strip().lower()

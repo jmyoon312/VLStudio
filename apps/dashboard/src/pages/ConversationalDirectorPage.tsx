@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { SourceCandidateCard, SourceCandidate } from '@/components/director/SourceCandidateCard';
 import { 
     Send, 
     Sparkles, 
@@ -130,6 +131,7 @@ interface ChatMessage {
     audio_url?: string;
     audio_engine?: string;
     audio_voice_id?: string;
+    source_candidates?: SourceCandidate[];
     timestamp: number;
 }
 
@@ -149,6 +151,7 @@ const QUICK_PROMPTS = [
 
 export const ConversationalDirectorPage: React.FC = () => {
     const navigate = useNavigate();
+    const location = useLocation();
 
     // Chat states
     // Project Folders & Thread Sessions State
@@ -165,6 +168,25 @@ export const ConversationalDirectorPage: React.FC = () => {
     // Selected Preset & Attachments (Chat-Centric Chips)
     const [activePreset, setActivePreset] = useState<SovereignPreset | null>(null);
     const [attachedFiles, setAttachedFiles] = useState<AttachedMedia[]>([]);
+
+    // Auto-attach videos if redirected from Sourcing Center (Route B)
+    useEffect(() => {
+        const state = location.state as { attachedMediaPaths?: string[] } | undefined;
+        if (state?.attachedMediaPaths && state.attachedMediaPaths.length > 0) {
+            const newAttached: AttachedMedia[] = state.attachedMediaPaths.map((p, idx) => ({
+                id: `sourced_${Date.now()}_${idx}`,
+                name: p.split(/[\\/]/).pop() || `원천영상_${idx + 1}.mp4`,
+                path: p,
+                isUrl: false
+            }));
+            setAttachedFiles(prev => {
+                const existingPaths = new Set(prev.map(item => item.path));
+                const uniqueNew = newAttached.filter(item => !existingPaths.has(item.path));
+                return [...prev, ...uniqueNew];
+            });
+            toast.success(`소싱 센터에서 선택된 원천 영상 ${newAttached.length}편이 대화창에 첨부되었습니다.`);
+        }
+    }, [location.state]);
 
     // Model & Security selections
     const [selectedProvider, setSelectedProvider] = useState<'codex' | 'chatgpt_web' | 'gemini' | 'claude' | 'grok' | 'omniroute'>('codex');
@@ -771,6 +793,19 @@ export const ConversationalDirectorPage: React.FC = () => {
                                             ...m,
                                             benchmark_id: data.benchmark_id,
                                             staged_preset_name: data.preset_name
+                                        };
+                                    }
+                                    return m;
+                                }));
+                            }
+
+                            // Source candidates event (Video-First Sourcing Hub)
+                            if (data.type === 'source_candidates') {
+                                setMessages(prev => prev.map(m => {
+                                    if (m.id === assistantMsgId) {
+                                        return {
+                                            ...m,
+                                            source_candidates: data.candidates
                                         };
                                     }
                                     return m;
@@ -1408,6 +1443,29 @@ export const ConversationalDirectorPage: React.FC = () => {
                                                             <BookmarkPlus className="w-3.5 h-3.5" />
                                                             <span>💾 이 스타일 프리셋 저장</span>
                                                         </button>
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* Sourced Video Candidates Cards (Route C) */}
+                                            {msg.source_candidates && msg.source_candidates.length > 0 && (
+                                                <div className="space-y-3 my-4">
+                                                    <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground px-1">
+                                                        <Film className="w-4 h-4 text-primary" />
+                                                        <span>발굴된 원천 소스 영상 ({msg.source_candidates.length}편) & 60초 대본 초안</span>
+                                                    </div>
+                                                    <div className="grid grid-cols-1 gap-3.5">
+                                                        {msg.source_candidates.map((cand, cIdx) => (
+                                                            <SourceCandidateCard
+                                                                key={cIdx}
+                                                                candidate={cand}
+                                                                presetId={activePreset?.id}
+                                                                presetName={activePreset?.name}
+                                                                onProduceNow={(selectedCand) => {
+                                                                    handleSendMessage(`발굴된 영상 "${selectedCand.title}" 소스로 지금 숏폼 영상 제작해줘`);
+                                                                }}
+                                                            />
+                                                        ))}
                                                     </div>
                                                 </div>
                                             )}

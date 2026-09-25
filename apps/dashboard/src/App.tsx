@@ -73,6 +73,7 @@ const SubtitleToolStudio = lazy(() => import('./pages/tools/SubtitleToolStudio')
 const TtsDubToolStudio = lazy(() => import('./pages/tools/TtsDubToolStudio'));
 const ClipEditToolStudio = lazy(() => import('./pages/tools/ClipEditToolStudio'));
 const ConversationalDirectorPage = lazy(() => import('./pages/ConversationalDirectorPage').then(m => ({ default: m.ConversationalDirectorPage })));
+const SourcingCenterPage = lazy(() => import('./pages/SourcingCenterPage'));
 
 const PlaceholderPage = ({ title }: { title: string }) => (
     <div className="flex items-center justify-center h-full w-full p-10 mt-20">
@@ -195,6 +196,7 @@ function MainAppContent() {
                 <Routes>
                     <Route path="/" element={<RouteErrorBoundary><Home /></RouteErrorBoundary>} />
                     <Route path="/channel-dna-studio" element={<RouteErrorBoundary><ChannelDnaStudio /></RouteErrorBoundary>} />
+                    <Route path="/sourcing-center" element={<RouteErrorBoundary><SourcingCenterPage /></RouteErrorBoundary>} />
                     <Route path="/douyin-search" element={<RouteErrorBoundary><SmartDouyinSearch /></RouteErrorBoundary>} />
                     <Route path="/research-concept-lab" element={<RouteErrorBoundary><ResearchConceptLab /></RouteErrorBoundary>} />
                     <Route path="/shorts-production-studio" element={<RouteErrorBoundary><ShortsProductionStudio /></RouteErrorBoundary>} />

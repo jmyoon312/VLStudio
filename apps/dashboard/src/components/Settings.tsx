@@ -2149,6 +2149,8 @@ const Settings = () => {
 
             elevenlabs_api_keys: formData.elevenlabs_api_keys ?? [],
 
+            huggingface_api_keys: formData.huggingface_api_keys ?? [],
+
             typecast_api_keys: formData.typecast_api_keys ?? [],
 
             supertone_local_enabled: formData.supertone_local_enabled !== false,
@@ -2304,6 +2306,8 @@ const Settings = () => {
                     script_analysis_model: rawSettings.script_analysis_model,
 
                     elevenlabs_api_keys: Array.isArray(rawSettings.elevenlabs_api_keys) ? rawSettings.elevenlabs_api_keys : undefined,
+
+            huggingface_api_keys: Array.isArray(rawSettings.huggingface_api_keys) ? rawSettings.huggingface_api_keys : undefined,
 
                     typecast_api_keys: Array.isArray(rawSettings.typecast_api_keys) ? rawSettings.typecast_api_keys : undefined,
 
@@ -3285,6 +3289,18 @@ const Settings = () => {
                                             keys={formData.typecast_api_keys || []}
 
                                             onChange={k => setFormData({ ...formData, typecast_api_keys: k })}
+
+                                        />
+
+                                        <KeyListInput
+
+                                            label="Hugging Face API Keys (무료 AI BGM MusicGen용)"
+
+                                            keys={formData.huggingface_api_keys || []}
+
+                                            onChange={k => setFormData({ ...formData, huggingface_api_keys: k })}
+
+                                            placeholder="hf_..."
 
                                         />
 

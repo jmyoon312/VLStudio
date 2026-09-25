@@ -446,6 +446,7 @@ class Settings(Base):
     fal_api_keys = Column(JSON, default=list)          # fal.ai
     replicate_api_keys = Column(JSON, default=list)    # Replicate
     muapi_api_keys = Column(JSON, default=list)        # Higgsfield / AI Gen
+    huggingface_api_keys = Column(JSON, default=list)  # Hugging Face (MusicGen & AI Audio)
     fal_api_key = Column(String, nullable=True)        # [Legacy Support]
     n8n_base_url = Column(String, default="http://localhost:5678")
     
@@ -1852,3 +1853,54 @@ class DirectorMessage(Base):
     created_at = Column(DateTime, default=datetime.now)
 
     thread = relationship("DirectorThread", back_populates="messages")
+
+
+# ── 🎬 소싱 센터 원천 영상 자산 & 프리셋별 자동 수집 캠페인 모델 (viral_loop.db 단일 진실 공급원) ──
+class SourcingAsset(Base):
+    __tablename__ = "sourcing_assets"
+
+    id = Column(String, primary_key=True, index=True)  # asset_movie_hachi_1987
+    category_major = Column(String, index=True, default="시네마/드라마")  # 시네마/드라마 | K-POP/연예 | 정치/시사 | 애니 | 예능 | 스포츠 | 썰
+    category_mid = Column(String, index=True, default="감동/눈물 실화")
+    category_minor = Column(String, index=True, default="하치 이야기")
+    asset_type = Column(String, default="video_clip")  # video_clip | movie_info | script_draft
+    title = Column(String, index=True)
+    summary = Column(Text, nullable=True)
+    source_url = Column(String, nullable=True)
+    local_media_path = Column(String, nullable=True)  # 로컬 다운로드된 MP4 절대 경로
+    thumbnail_path = Column(String, nullable=True)
+    resolution = Column(String, default="1080p")
+    duration_sec = Column(Float, default=0.0)
+    file_size_mb = Column(Float, default=0.0)
+    clean_zone_score = Column(Float, default=95.0)  # 자막/워터마크 클린존 점수 (0~100)
+    vision_score = Column(Float, default=90.0)      # 비전 실측 종합 점수 (0~100)
+    script_draft = Column(Text, nullable=True)      # AI 사전 기획 나레이션 대본
+    keyframes_json = Column(JSON, default=list)     # 1fps 키프레임 및 감정 피크 타임코드
+    meta_info_json = Column(JSON, default=dict)     # TMDB 영화 정보, 개봉연도, 평점 등
+    linked_preset_id = Column(String, nullable=True, index=True)  # channel_눈물한가득_시그니처 등
+    status = Column(String, default="ready")        # ready(미사용) | in_progress(제작중) | completed(제작완료)
+    created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+
+
+class SourcingCampaign(Base):
+    __tablename__ = "sourcing_campaigns"
+
+    id = Column(String, primary_key=True, index=True)  # campaign_channel_눈물한가득_시그니처
+    preset_id = Column(String, unique=True, index=True)
+    preset_name = Column(String)
+    genre_domain = Column(String, default="cinema")  # cinema | celeb | politics | anime | entertainment | sports | knowledge | ssul
+    is_active = Column(Boolean, default=True)
+    interval_hours = Column(Integer, default=24)     # 수집 주기 (시간)
+    quota_per_run = Column(Integer, default=3)       # 1회 수집 목표 편수 (3~5편)
+    auto_download = Column(Boolean, default=True)    # 고화질 MP4 자동 다운로드 여부
+    min_resolution = Column(String, default="1080p")
+    min_clean_score = Column(Float, default=80.0)
+    search_keywords = Column(JSON, default=list)     # 키워드 화이트리스트
+    last_run_at = Column(DateTime, nullable=True)
+    next_run_at = Column(DateTime, nullable=True)
+    last_collected_count = Column(Integer, default=0)
+    last_status_msg = Column(String, default="대기 중")
+    created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+

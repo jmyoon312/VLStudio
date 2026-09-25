@@ -232,6 +232,7 @@ export interface Settings {
     fal_api_keys: string[];
     replicate_api_keys: string[];
     muapi_api_keys: string[];
+    huggingface_api_keys?: string[];
     n8n_base_url?: string;
     kie_api_key: string | null;
     default_model: string;

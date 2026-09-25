@@ -313,6 +313,7 @@ class SettingsBase(BaseModel):
     fal_api_keys: Optional[List[str]] = []
     replicate_api_keys: Optional[List[str]] = []
     muapi_api_keys: Optional[List[str]] = []
+    huggingface_api_keys: Optional[List[str]] = []  # [NEW] Hugging Face Multi-Key Support
     n8n_base_url: Optional[str] = "http://localhost:5678"
     
     supertone_project_key: Optional[str] = None

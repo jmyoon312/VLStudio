@@ -159,6 +159,13 @@ export const PresetCustomizeModal: React.FC<PresetCustomizeModalProps> = ({
     const [captionBgBoxColor, setCaptionBgBoxColor] = useState<string>('rgba(0,0,0,0.65)');
     const [textShadowBlur, setTextShadowBlur] = useState<number>(4);
 
+    // 🎯 7. Source Targeting DNA (원천 소스 소싱 타겟팅 프로필 - Zero Contamination Dynamic Resolution)
+    const [targetDomain, setTargetDomain] = useState<string>('시네마/드라마');
+    const [targetSubGenre, setTargetSubGenre] = useState<string>('');
+    const [targetEntities, setTargetEntities] = useState<string>('');
+    const [sourceSearchQueries, setSourceSearchQueries] = useState<string>('');
+    const [cleanZoneThreshold, setCleanZoneThreshold] = useState<number>(80);
+
     // Clone Modal/Field
     const [cloneName, setCloneName] = useState('');
     const [saving, setSaving] = useState(false);
@@ -359,6 +366,96 @@ export const PresetCustomizeModal: React.FC<PresetCustomizeModalProps> = ({
         setSilenceCutS(ad.silence_cut_threshold_s ?? 0.15);
         setBgmVolumeDb(ad.bgm_volume_db ?? -20.0);
         setVocalDucking(ad.vocal_ducking ?? true);
+
+        // 10. Source Targeting DNA - 프리셋별 고유 정체성 동적 바인딩 (Zero Cross-Preset Contamination)
+        const st = style.source_targeting || rawPreset.source_targeting || vg.source_targeting;
+        if (st && st.target_domain) {
+            setTargetDomain(st.target_domain || '시네마/드라마');
+            setTargetSubGenre((st.target_sub_genres && st.target_sub_genres[0]) || '');
+            setTargetEntities((st.target_entities && st.target_entities.join(', ')) || '');
+            setSourceSearchQueries((st.source_search_queries && st.source_search_queries.join('\n')) || '');
+            setCleanZoneThreshold(st.clean_zone_threshold || 80);
+        } else {
+            const pName = (preset.name || '').trim();
+            const pCat = (preset.category || '').trim();
+            const pId = (preset.id || (rawPreset as any).preset_id || '').toLowerCase();
+            const fullKey = `${pName} ${pCat} ${pId} ${style.recipe || ''}`.toLowerCase();
+
+            let resolvedDomain = '시네마/드라마';
+            let resolvedSub = '영화/드라마 명장면';
+            let resolvedEntities: string[] = [];
+            let resolvedQueries: string[] = [];
+
+            if (fullKey.includes('닭강정') || fullKey.includes('커뮤니티') || fullKey.includes('썰') || fullKey.includes('사연') || fullKey.includes('네이트판') || fullKey.includes('블라인드')) {
+                resolvedDomain = '커뮤니티/썰';
+                resolvedSub = '화제 사연/실화 썰';
+                resolvedEntities = ['익명 사연', '레전드 썰', pName.replace(/\(쇼츠\)|v\d+/g, '').trim()];
+                resolvedQueries = [
+                    `${pName} 레전드 실화 사연 클립`,
+                    '커뮤니티 화제 사연 감동 썰 1080p',
+                    '역대급 사이다 네이트판 썰 모음'
+                ];
+            } else if (fullKey.includes('패션') || fullKey.includes('아이돌') || fullKey.includes('연예') || fullKey.includes('걸그룹') || fullKey.includes('탐정')) {
+                resolvedDomain = '아이돌/연예인';
+                resolvedSub = '아이돌 패션/착장';
+                resolvedEntities = ['아이돌 사복', '공항 패션', '무대 직캠'];
+                resolvedQueries = [
+                    `${pName} 고화질 직캠 1080p`,
+                    '여자 아이돌 레전드 사복 패션 착장',
+                    '연예인 실물 비율 무대 비하인드'
+                ];
+            } else if (fullKey.includes('눈물') || fullKey.includes('영화') || fullKey.includes('시네마') || fullKey.includes('감동')) {
+                resolvedDomain = '시네마/드라마';
+                resolvedSub = '감동/눈물실화';
+                resolvedEntities = ['하치이야기', '인생은 아름다워', '포레스트 검프'];
+                resolvedQueries = [
+                    '감동 실화 영화 명장면 1080p',
+                    '눈물 쏟아지는 명작 영화 하이라이트 클립',
+                    '실화 바탕 인생 감동 영화 명장면 모음'
+                ];
+            } else if (fullKey.includes('군림보') || fullKey.includes('게임') || fullKey.includes('배그') || fullKey.includes('롤') || fullKey.includes('fps')) {
+                resolvedDomain = '스포츠/피트니스';
+                resolvedSub = '게임/e스포츠 하이라이트';
+                resolvedEntities = ['배틀그라운드', 'FPS 클러치', '레전드 킬'];
+                resolvedQueries = [
+                    `${pName} 레전드 플레이 명장면 1080p`,
+                    'FPS 슈퍼 플레이 하이라이트 60fps',
+                    '게임 명장면 클러치 씬 모음'
+                ];
+            } else if (fullKey.includes('정치') || fullKey.includes('시사') || fullKey.includes('뉴스') || fullKey.includes('국회')) {
+                resolvedDomain = '이슈/시사/정치';
+                resolvedSub = '국회/정치 인터뷰';
+                resolvedEntities = ['청문회 발언', '시사 논평', '속보 인터뷰'];
+                resolvedQueries = [
+                    `${pName} 주요 발언 사이다 하이라이트`,
+                    '국회 청문회 핵심 쟁점 인터뷰 1080p'
+                ];
+            } else if (fullKey.includes('애니') || fullKey.includes('만화') || fullKey.includes('서브컬처')) {
+                resolvedDomain = '서브컬처/애니';
+                resolvedSub = '애니메이션 명장면';
+                resolvedEntities = ['작화 명장면', '극장판 애니'];
+                resolvedQueries = [
+                    `${pName} 작화 폭발 명장면 1080p`,
+                    '극장판 애니 감동 명대사 씬'
+                ];
+            } else {
+                const cleanPName = pName.replace(/\(쇼츠\)|v\d+/g, '').trim() || '원천 소스';
+                resolvedDomain = pCat || '커뮤니티/썰';
+                resolvedSub = `${cleanPName} 관련 영상`;
+                resolvedEntities = [cleanPName];
+                resolvedQueries = [
+                    `${cleanPName} 고화질 1080p 클립`,
+                    `${cleanPName} 레전드 하이라이트`,
+                    `${cleanPName} 관련 명장면 모음`
+                ];
+            }
+
+            setTargetDomain(resolvedDomain);
+            setTargetSubGenre(resolvedSub);
+            setTargetEntities(resolvedEntities.filter(Boolean).join(', '));
+            setSourceSearchQueries(resolvedQueries.join('\n'));
+            setCleanZoneThreshold(80);
+        }
     }, [preset, open]);
 
     // 🌟 Self-Healing: 비동기 프리셋 온전 데이터(17대 바이블, 실측 키프레임) 자동 하이드레이션
@@ -549,8 +646,19 @@ export const PresetCustomizeModal: React.FC<PresetCustomizeModalProps> = ({
             vocal_ducking: vocalDucking,
         };
 
+        const sourceTargetingPayload = {
+            target_domain: targetDomain,
+            target_sub_genres: [targetSubGenre],
+            target_entities: targetEntities.split(',').map(s => s.trim()).filter(Boolean),
+            source_search_queries: sourceSearchQueries.split('\n').map(s => s.trim()).filter(Boolean),
+            required_media_type: targetDomain === '시네마/드라마' ? 'movie_clip' : targetDomain === '아이돌/연예인' ? 'fancam' : 'general_clip',
+            min_resolution: '1080p',
+            clean_zone_threshold: cleanZoneThreshold,
+        };
+
         return {
             ...baseStyle,
+            source_targeting: sourceTargetingPayload,
             schema_version: 2,
             blueprint_name: name,
             output: { size: '1080x1920', fps: 30, aspect_ratio: '9:16' },
@@ -800,7 +908,7 @@ export const PresetCustomizeModal: React.FC<PresetCustomizeModalProps> = ({
                     {/* Left: 4-Axis Inspector Tabs (7 cols) */}
                     <div className="lg:col-span-7 space-y-4">
                         <Tabs value={inspectorTab} onValueChange={(v: any) => setInspectorTab(v)} className="w-full">
-                            <TabsList className="grid grid-cols-4 h-9 bg-muted/80 p-1 rounded-xl">
+                            <TabsList className="grid grid-cols-5 h-9 bg-muted/80 p-1 rounded-xl">
                                 <TabsTrigger value="visual" className="text-xs gap-1 data-[state=active]:bg-background data-[state=active]:text-primary font-bold">
                                     <Layers className="w-3.5 h-3.5" />
                                     시각 레이어
@@ -813,9 +921,13 @@ export const PresetCustomizeModal: React.FC<PresetCustomizeModalProps> = ({
                                     <Volume2 className="w-3.5 h-3.5" />
                                     사운드 DSP
                                 </TabsTrigger>
+                                <TabsTrigger value="sourcing" className="text-xs gap-1 data-[state=active]:bg-background data-[state=active]:text-blue-500 font-bold">
+                                    <Film className="w-3.5 h-3.5" />
+                                    원천 소스 DNA
+                                </TabsTrigger>
                                 <TabsTrigger value="bible" className="text-xs gap-1 data-[state=active]:bg-background data-[state=active]:text-indigo-500 font-bold">
                                     <BookOpen className="w-3.5 h-3.5" />
-                                    제작 가이드라인
+                                    제작 가이드
                                 </TabsTrigger>
                             </TabsList>
 
@@ -1619,6 +1731,109 @@ export const PresetCustomizeModal: React.FC<PresetCustomizeModalProps> = ({
                                         제작 가이드라인이 준비되었습니다. 상단 [현재 프리셋에 덮어쓰기 저장]을 누르면 가이드라인이 저장됩니다.
                                     </div>
                                 )}
+                            </TabsContent>
+
+                            {/* TAB 4: Source Targeting DNA (원천 소스 소싱 타겟팅 프로필) */}
+                            <TabsContent value="sourcing" className="space-y-4 pt-3">
+                                <div className="p-3.5 rounded-2xl border border-border/80 bg-muted/30 space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                                            <Film className="w-3.5 h-3.5 text-primary" />
+                                            원천 소스 영상 타겟팅 DNA (소싱 기준 프로필)
+                                        </span>
+                                        <Badge variant="outline" className="text-[10px] bg-primary/10 text-primary border-primary/30">
+                                            1080p 무자막 클린존
+                                        </Badge>
+                                    </div>
+                                    <p className="text-[11px] text-muted-foreground leading-relaxed">
+                                        소싱 센터 및 총괄 연출 대화창에서 원천 영상을 자동 발굴할 때 기준으로 삼을 메이저 도메인, 세부 소분류, 타겟 작품/인물명, 검색 쿼리를 정의합니다.
+                                    </p>
+
+                                    {/* 1. 도메인 및 소분류 선택 */}
+                                    <div className="grid grid-cols-2 gap-3 pt-2 border-t border-border/40">
+                                        <div>
+                                            <label className="text-[11px] font-bold text-foreground block mb-1">타겟 메이저 도메인</label>
+                                            <select
+                                                value={targetDomain}
+                                                onChange={(e) => setTargetDomain(e.target.value)}
+                                                className="w-full h-8 text-xs bg-background border border-border/80 rounded-lg px-2 text-foreground font-semibold"
+                                            >
+                                                <option value="시네마/드라마">🎬 시네마/드라마</option>
+                                                <option value="아이돌/연예인">✨ 아이돌/연예인</option>
+                                                <option value="이슈/시사/정치">⚖️ 이슈/시사/정치</option>
+                                                <option value="서브컬처/애니">🎌 서브컬처/애니</option>
+                                                <option value="스포츠/피트니스">⚽ 스포츠/피트니스</option>
+                                                <option value="예능/코미디">🤣 예능/코미디</option>
+                                                <option value="커뮤니티/썰">💬 커뮤니티/썰</option>
+                                                <option value="지식/교양/다큐">📚 지식/교양/다큐</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="text-[11px] font-bold text-foreground block mb-1">세부 장르 소분류</label>
+                                            <Input
+                                                value={targetSubGenre}
+                                                onChange={(e) => setTargetSubGenre(e.target.value)}
+                                                placeholder="예: 감동/눈물실화, 사복패션, 국회청문회"
+                                                className="h-8 text-xs bg-background border-border/80 font-medium"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* 2. 타겟 핵심 작품/인물명 (엔티티) */}
+                                    <div className="pt-2 border-t border-border/40">
+                                        <label className="text-[11px] font-bold text-foreground block mb-1">
+                                            타겟 핵심 작품/인물명 (엔티티 - 쉼표로 구분)
+                                        </label>
+                                        <Input
+                                            value={targetEntities}
+                                            onChange={(e) => setTargetEntities(e.target.value)}
+                                            placeholder="예: 하치이야기, 인생은 아름다워, 포레스트 검프, 세 얼간이"
+                                            className="h-8 text-xs bg-background border-border/80"
+                                        />
+                                        <span className="text-[10px] text-muted-foreground mt-0.5 block">
+                                            스카우터가 해당 작품/인물의 고화질 클립을 우선적으로 추적합니다.
+                                        </span>
+                                    </div>
+
+                                    {/* 3. 소싱 탐색 검색 쿼리 목록 */}
+                                    <div className="pt-2 border-t border-border/40">
+                                        <label className="text-[11px] font-bold text-foreground block mb-1">
+                                            소싱 탐색 정밀 검색 쿼리 (줄바꿈으로 구분)
+                                        </label>
+                                        <Textarea
+                                            value={sourceSearchQueries}
+                                            onChange={(e) => setSourceSearchQueries(e.target.value)}
+                                            rows={3}
+                                            placeholder="줄바꿈으로 검색 쿼리를 입력하세요"
+                                            className="text-xs bg-background border-border/80 font-mono leading-relaxed"
+                                        />
+                                    </div>
+
+                                    {/* 4. 클린존 적합도 기준 */}
+                                    <div className="pt-2 border-t border-border/40 flex items-center justify-between">
+                                        <div>
+                                            <label className="text-[11px] font-bold text-foreground block">
+                                                최소 클린존(자막 없는 안전영역) 적합도 기준
+                                            </label>
+                                            <span className="text-[10px] text-muted-foreground">
+                                                화면 상하단에 타사 자막이나 로고가 없는 깨끗한 영상만 필터링합니다.
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <Slider
+                                                min={70}
+                                                max={95}
+                                                step={5}
+                                                value={[cleanZoneThreshold]}
+                                                onValueChange={([v]) => setCleanZoneThreshold(v)}
+                                                className="w-28"
+                                            />
+                                            <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 font-mono">
+                                                {cleanZoneThreshold}% 이상
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
                             </TabsContent>
                         </Tabs>
 

@@ -667,3 +667,38 @@ async def stream_sfx(
         
     return FileResponse(path=str(preview_path), media_type="audio/wav", filename=f"{target_id}.wav")
 
+
+class GenerateAiBgmRequest(BaseModel):
+    prompt: str
+    duration_sec: Optional[int] = 15
+    model_name: Optional[str] = "facebook/musicgen-small"
+
+
+class TestHfKeyRequest(BaseModel):
+    api_key: str
+
+
+@router.post("/generate-ai")
+async def generate_ai_bgm(req: GenerateAiBgmRequest):
+    """Generate high quality BGM from prompt via Hugging Face MusicGen (100% Free)."""
+    try:
+        from ..services.huggingface_music_service import huggingface_music_service
+        result = await huggingface_music_service.generate_bgm(
+            prompt=req.prompt,
+            model_name=req.model_name or "facebook/musicgen-small",
+            duration_sec=req.duration_sec or 15
+        )
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Failed to generate AI BGM: {e}")
+        raise HTTPException(status_code=500, detail=f"BGM 생성 실패: {str(e)}")
+
+
+@router.post("/test-huggingface-key")
+async def test_huggingface_key(req: TestHfKeyRequest):
+    """Test validity of a Hugging Face API key."""
+    from ..services.huggingface_music_service import huggingface_music_service
+    return await huggingface_music_service.test_key(req.api_key)
+

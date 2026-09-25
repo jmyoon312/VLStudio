@@ -214,18 +214,48 @@ def list_sovereign_presets(
                 data = json.load(f)
                 if isinstance(data, dict) and "style" in data:
                     pid = data.get("id", file.stem)
-                    sample_file = Path(LOCAL_APPDATA) / "ViraLoop Studio" / "media" / "03_Assets" / "presets" / "samples" / f"{pid}.mp4"
-                    if sample_file.exists():
-                        preview_url = f"/api/files/stream?path={sample_file}"
-                    else:
-                        preview_url = None
+                    import urllib.parse
+                    
+                    # 1. Preview video resolution (check source_video_path, Presets_Reference, and samples)
+                    video_path = data.get("source_video_path")
+                    if not video_path or not Path(video_path).exists():
+                        ref_cand = Path(LOCAL_APPDATA) / "ViraLoop Studio" / "media" / "07_Downloads" / "Presets_Reference" / pid / "reference_clip.mp4"
+                        if ref_cand.exists():
+                            video_path = str(ref_cand)
+                    if not video_path or not Path(video_path).exists():
+                        sample_cand = Path(LOCAL_APPDATA) / "ViraLoop Studio" / "media" / "03_Assets" / "presets" / "samples" / f"{pid}.mp4"
+                        if sample_cand.exists():
+                            video_path = str(sample_cand)
+                            
+                    preview_url = f"/api/files/stream?path={urllib.parse.quote(str(video_path))}" if video_path and Path(video_path).exists() else None
 
-                    # Check thumbnail file
-                    thumb_candidate = PRESETS_DIR / "thumbnails" / f"{pid}.jpg"
-                    if thumb_candidate.exists():
-                        thumb_url = f"/api/files/stream?path={thumb_candidate}"
+                    # 2. Keyframes & Thumbnail resolution
+                    kfs = data.get("keyframes") or []
+                    kf_dir = PRESETS_DIR / "keyframes" / pid
+                    if not kfs and kf_dir.exists():
+                        kfs = []
+                        for kf_file in sorted(kf_dir.glob("*.jpg")):
+                            kfs.append({
+                                "index": len(kfs),
+                                "label": f"씬 {len(kfs)+1} ({kf_file.stem})",
+                                "url": f"/api/files/stream?path={urllib.parse.quote(str(kf_file))}",
+                                "local_path": str(kf_file)
+                            })
+                    
+                    raw_thumb = data.get("thumbnail_url")
+                    thumb_url = None
+                    if raw_thumb and raw_thumb.startswith("/api/files/stream"):
+                        thumb_url = raw_thumb
+                    elif kfs:
+                        thumb_url = kfs[0]["url"]
+                    elif raw_thumb and not raw_thumb.startswith("/media/"):
+                        thumb_url = raw_thumb
                     else:
-                        thumb_url = data.get("thumbnail_url") or data.get("sample_thumbnail") or ""
+                        thumb_candidate = PRESETS_DIR / "thumbnails" / f"{pid}.jpg"
+                        if thumb_candidate.exists():
+                            thumb_url = f"/api/files/stream?path={urllib.parse.quote(str(thumb_candidate))}"
+                        elif kfs:
+                            thumb_url = kfs[0]["url"]
 
                     # Extract primary colors & typography
                     style_obj = data.get("style", {})
@@ -248,7 +278,14 @@ def list_sovereign_presets(
                         "version": data.get("version", 1),
                         "preview_video_url": preview_url,
                         "thumbnail_url": thumb_url,
-                        "source_video_path": data.get("source_video_path", None),
+                        "keyframes": kfs,
+                        "source_video_path": video_path or data.get("source_video_path", None),
+                        "voice_signature": data.get("voice_signature") or style_obj.get("audio_dsp", {}).get("voice_signature") or {},
+                        "bgm_signature": data.get("bgm_signature") or style_obj.get("audio_dsp", {}).get("bgm_signature") or {},
+                        "sfx_signature": data.get("sfx_signature") or style_obj.get("audio_dsp", {}).get("sfx_signature") or {},
+                        "source_targeting": data.get("source_targeting") or style_obj.get("source_targeting") or {},
+                        "editing_pacing": style_obj.get("editing_pacing") or data.get("editing_pacing") or {},
+                        "audio_dsp": style_obj.get("audio_dsp") or data.get("audio_dsp") or {},
                         "channel_url": data.get("channel_url"),
                         "channel_title": data.get("channel_title") or data.get("channel_name"),
                         "is_favorite": data.get("is_favorite", False),
@@ -793,16 +830,21 @@ def get_sovereign_preset(preset_id: str) -> Dict[str, Any]:
                 if kfs:
                     data["keyframes"] = kfs
                     data["extracted_keyframes"] = kfs
-                    if not data.get("thumbnail_url"):
+                    curr_thumb = data.get("thumbnail_url", "")
+                    if not curr_thumb or curr_thumb.startswith("/media/") or "_thumb.jpg" in curr_thumb:
                         data["thumbnail_url"] = kfs[0]["url"]
                     break
 
-    # Ensure production_bible_17 is at top-level
-    if not data.get("production_bible_17"):
-        style_bible = (data.get("style") or {}).get("production_bible_17")
-        manifest_bible = (data.get("manifest") or {}).get("production_bible_17")
-        layout_bible = (data.get("layout") or {}).get("production_bible_17")
-        data["production_bible_17"] = style_bible or manifest_bible or layout_bible or {}
+    # Ensure preview_video_url is resolved
+    if not data.get("preview_video_url"):
+        v_cand = data.get("source_video_path")
+        if not v_cand or not Path(v_cand).exists():
+            ref_cand = Path(LOCAL_APPDATA) / "ViraLoop Studio" / "media" / "07_Downloads" / "Presets_Reference" / preset_id / "reference_clip.mp4"
+            if ref_cand.exists():
+                v_cand = str(ref_cand)
+        if v_cand and Path(v_cand).exists():
+            data["preview_video_url"] = f"/api/files/stream?path={urllib.parse.quote(str(v_cand))}"
+            data["source_video_path"] = str(v_cand)
 
     return data
 
