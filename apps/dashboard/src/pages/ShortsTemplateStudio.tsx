@@ -556,9 +556,9 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
 
   // 🎙️ TTS 설정
   const [ttsConfig, setTtsConfig] = useState<TTSConfig>({
-    engine: 'edge_tts',
-    language: 'ko-KR',
-    voice_id: 'ko-KR-SunHiNeural',
+    engine: 'supertone-local',
+    language: 'ko',
+    voice_id: 'F1',
     speed: 1.0,
     pitch: 0,
     use_silence_removal: true,
@@ -3568,7 +3568,7 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
               <div className="space-y-3">
                 <label className="text-[11px] font-bold block">AI 나레이션 음성 엔진</label>
                 <div className="p-2.5 rounded-[3px] border border-border bg-muted/20 space-y-2">
-                  <span className="text-[10px] text-muted-foreground">기본 엔진: Edge TTS (한국어 SunHi/InJoon)</span>
+                  <span className="text-[10px] text-muted-foreground">기본 엔진: Supertonic Local AI (한국어 서연 F1 / 민준 M1)</span>
                   <div className="space-y-1">
                     <div className="flex justify-between text-[10px]">
                       <span>발화 배속 ({ttsConfig.speed}x)</span>

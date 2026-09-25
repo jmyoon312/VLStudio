@@ -4383,7 +4383,7 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
         title: currentProjectDisplayName || topTitleText || '편집 프로젝트',
         script: subtitles.map(s => s.text).join(' '),
         archetype: sovereignMode || layoutTemplateMode || 'ssul',
-        voice_engine: ttsConfig.engine === 'edge_tts' ? 'supertone-local' : ttsConfig.engine,
+        voice_engine: ttsConfig.engine || 'supertone-local',
         voice_id: ttsConfig.voice_id || 'F1',
         speech_speed: ttsConfig.speed || 1.05,
         scenes: subtitles.map(s => ({ text: s.text })),

@@ -363,7 +363,7 @@ export default function GuideCenter() {
             icon: Mic,
             iconBg: "from-violet-600 to-pink-600",
             titleOverride: "AI 다국어 목소리 합성 (Multi TTS)",
-            overview: "Supertonic Local, Qwen3, ElevenLabs, Edge TTS 등 최첨단 다국어 음성 합성 엔진으로 자연스러운 나레이션을 생성하고, 무음 제거 및 자막(SRT) 추출을 원스톱으로 처리합니다.",
+            overview: "Supertonic Local, Typecast, ElevenLabs, Kokoro 등 최첨단 다국어 음성 합성 엔진으로 자연스러운 나레이션을 생성하고, 무음 제거 및 자막(SRT) 추출을 원스톱으로 처리합니다.",
             features: [
                 {
                     icon: Mic,

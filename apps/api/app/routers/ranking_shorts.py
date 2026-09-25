@@ -12,6 +12,7 @@ from app.services.ranking_pipeline import (
     generate_ranking_script,
     suggest_ranking_style,
     process_ranking_job,
+    background_render_ranking_job,
     get_db_connection
 )
 
@@ -68,10 +69,20 @@ async def api_style_suggestions(payload: Dict[str, Any] = Body(...)):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/jobs")
-async def api_create_job(payload: Dict[str, Any] = Body(...)):
-    """랭킹 쇼츠 생성 작업 등록 및 CapCut 초안 조립 실행"""
+async def api_create_job(payload: Dict[str, Any] = Body(...), background_tasks: BackgroundTasks = BackgroundTasks()):
+    """랭킹 쇼츠 생성 작업 등록 및 CapCut 초안 조립 실행 (비동기 MP4 렌더링 백그라운드 처리)"""
     try:
-        result = process_ranking_job(payload)
+        # 1. CapCut 초안 즉시 조립 (sync_render=False → 30초 타임아웃 박멸)
+        result = process_ranking_job(payload, sync_render=False)
+        # 2. 백그라운드에서 FFmpeg MP4 렌더링 비동기 실행
+        job_id = result.get("jobId", payload.get("id", ""))
+        capcut_draft_path = result.get("capcutDraftPath", "")
+        background_tasks.add_task(
+            background_render_ranking_job,
+            payload,
+            job_id,
+            capcut_draft_path
+        )
         return result
     except Exception as e:
         logger.error(f"[Ranking API] Create job error: {e}", exc_info=True)
@@ -84,9 +95,10 @@ async def api_list_jobs():
         conn = get_db_connection()
         cur = conn.cursor()
         cur.execute("""
-            SELECT id, batch_id, source_type, archetype, status, created_at, metadata, result_video_path
-            FROM work_queue
-            WHERE source_type = 'ranking-shorts' OR tab_id = 'ranking-shorts'
+            SELECT id, batch_id, topic, criteria, headline, subtitle,
+                   status, progress, creation_mode, item_count,
+                   capcut_draft_path, video_file_path, payload, created_at, completed_at
+            FROM ranking_jobs
             ORDER BY created_at DESC
             LIMIT 50
         """)
@@ -98,10 +110,16 @@ async def api_list_jobs():
             jobs.append({
                 "id": r["id"],
                 "batchId": r["batch_id"],
+                "topic": r["topic"],
+                "headline": r["headline"],
+                "subtitle": r["subtitle"],
                 "status": r["status"],
+                "progress": r["progress"],
+                "itemCount": r["item_count"],
+                "capcutDraftPath": r["capcut_draft_path"],
+                "videoFilePath": r["video_file_path"],
                 "createdAt": r["created_at"],
-                "resultVideoPath": r["result_video_path"],
-                "metadata": json.loads(r["metadata"]) if r["metadata"] else {}
+                "completedAt": r["completed_at"]
             })
         return {"success": True, "jobs": jobs}
     except Exception as e:
@@ -115,8 +133,10 @@ async def api_get_job(job_id: str):
         conn = get_db_connection()
         cur = conn.cursor()
         cur.execute("""
-            SELECT id, batch_id, source_type, archetype, status, created_at, metadata, result_video_path
-            FROM work_queue
+            SELECT id, batch_id, topic, criteria, headline, subtitle,
+                   status, progress, creation_mode, item_count,
+                   capcut_draft_path, video_file_path, payload, created_at, completed_at
+            FROM ranking_jobs
             WHERE id = ?
         """, (job_id,))
         row = cur.fetchone()
@@ -130,10 +150,17 @@ async def api_get_job(job_id: str):
             "job": {
                 "id": row["id"],
                 "batchId": row["batch_id"],
+                "topic": row["topic"],
+                "headline": row["headline"],
+                "subtitle": row["subtitle"],
                 "status": row["status"],
+                "progress": row["progress"],
+                "itemCount": row["item_count"],
+                "capcutDraftPath": row["capcut_draft_path"],
+                "videoFilePath": row["video_file_path"],
                 "createdAt": row["created_at"],
-                "resultVideoPath": row["result_video_path"],
-                "metadata": json.loads(row["metadata"]) if row["metadata"] else {}
+                "completedAt": row["completed_at"],
+                "payload": json.loads(row["payload"]) if row["payload"] else {}
             }
         }
     except HTTPException:
@@ -141,3 +168,4 @@ async def api_get_job(job_id: str):
     except Exception as e:
         logger.error(f"[Ranking API] Get job error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
+

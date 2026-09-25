@@ -53,6 +53,7 @@ const ViralLabPage = lazy(() => import('./pages/ViralLabPage'));
 const ViralIntelligenceCenter = lazy(() => import('./pages/ViralIntelligenceCenter'));
 const CommunityManagerPage = lazy(() => import('./pages/CommunityManagerPage'));
 const ChannelDnaStudio = lazy(() => import('./pages/ChannelDnaStudio'));
+const SnsRadarStudio = lazy(() => import('./pages/SnsRadarStudio'));
 const ShortsTemplateStudio = lazy(() => import('./pages/ShortsTemplateStudio'));
 const ShortsProductionStudio = lazy(() => import('./pages/ShortsProductionStudio'));
 const ShortsEditorStudio = lazy(() => import('./pages/ShortsEditorStudio'));
@@ -71,6 +72,7 @@ const SsulTemplateStudio = lazy(() => import('./pages/templates/SsulTemplateStud
 const SubtitleToolStudio = lazy(() => import('./pages/tools/SubtitleToolStudio'));
 const TtsDubToolStudio = lazy(() => import('./pages/tools/TtsDubToolStudio'));
 const ClipEditToolStudio = lazy(() => import('./pages/tools/ClipEditToolStudio'));
+const ConversationalDirectorPage = lazy(() => import('./pages/ConversationalDirectorPage').then(m => ({ default: m.ConversationalDirectorPage })));
 
 const PlaceholderPage = ({ title }: { title: string }) => (
     <div className="flex items-center justify-center h-full w-full p-10 mt-20">
@@ -196,6 +198,10 @@ function MainAppContent() {
                     <Route path="/douyin-search" element={<RouteErrorBoundary><SmartDouyinSearch /></RouteErrorBoundary>} />
                     <Route path="/research-concept-lab" element={<RouteErrorBoundary><ResearchConceptLab /></RouteErrorBoundary>} />
                     <Route path="/shorts-production-studio" element={<RouteErrorBoundary><ShortsProductionStudio /></RouteErrorBoundary>} />
+                    {/* 대화형 총괄 연출 스튜디오 (Conversational Director Studio) */}
+                    <Route path="/director" element={<RouteErrorBoundary><ConversationalDirectorPage /></RouteErrorBoundary>} />
+                    <Route path="/conversational-director" element={<Navigate to="/director" replace />} />
+
                     {/* 올인원 일괄 생성 */}
                     <Route path="/shorts-batch" element={<RouteErrorBoundary><ShortsBatchStudio /></RouteErrorBoundary>} />
 
@@ -256,6 +262,7 @@ function MainAppContent() {
 
                     <Route path="/channels" element={<RouteErrorBoundary><ChannelManager /></RouteErrorBoundary>} />
                     <Route path="/trend-radar" element={<RouteErrorBoundary><TrendRadarPage /></RouteErrorBoundary>} />
+                    <Route path="/sns-radar" element={<RouteErrorBoundary><SnsRadarStudio /></RouteErrorBoundary>} />
 
                     {/* Captain Management */}
                     <Route path="/captain/dashboard" element={<RouteErrorBoundary><CaptainQuarters /></RouteErrorBoundary>} />

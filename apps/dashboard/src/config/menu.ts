@@ -68,6 +68,7 @@ export const getMenuGroups = (captainId: string | null): MenuGroup[] => [
         mode: "AI_ORCHESTRATION",
         defaultExpanded: true,
         items: [
+            { name: '대화형 총괄 연출', path: '/director', icon: Sparkles, highlight: true },
             { name: '인스턴트 제작', path: '/instant-studio', icon: Zap, highlight: true },
             { name: '스튜디오 관제', path: '/war-room', icon: Cpu, highlight: true },
             { name: '제작 파이프라인', path: '/pipeline-builder', icon: GitBranch, highlight: true },
@@ -85,6 +86,7 @@ export const getMenuGroups = (captainId: string | null): MenuGroup[] => [
         items: [
             { name: '바이럴 인텔리전스', path: '/viral-intelligence', icon: Flame, highlight: true },
             { name: '바이럴 스카우터', path: '/trend-radar', icon: TrendingUp, highlight: true },
+            { name: 'SNS 바이럴 퀀트 레이더', path: '/sns-radar', icon: Smartphone, highlight: true },
             { name: '채널 DNA 분석', path: '/channel-dna-studio', icon: Dna, highlight: true },
             { name: '채널 영상 수집', path: '/channels', icon: ListVideo },
             { name: '더우인 쇼츠 수집', path: '/douyin-search', icon: Globe, highlight: true },

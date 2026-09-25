@@ -13,7 +13,7 @@ def get_settings(db: Session):
         settings = models.Settings(
             root_download_path="",
             cookies_path=None,
-            default_tts_engine="google",
+            default_tts_engine="supertonic",
             
             # [FIX] Use new plural fields with empty lists
             gemini_api_keys=[],

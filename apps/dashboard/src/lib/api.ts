@@ -614,4 +614,164 @@ export const restoreExcludedChannel = async (excludedId: number) => {
     )).data;
 };
 
+// === SNS Trend & Viral Scouter API ===
+export interface SnsTrendVideoItem {
+    id: string;
+    platform: 'TIKTOK' | 'INSTAGRAM';
+    video_url: string;
+    title: string;
+    creator_handle: string;
+    creator_name: string;
+    thumbnail_url: string;
+    duration_sec: number;
+    view_count: number;
+    like_count: number;
+    comment_count: number;
+    share_count?: number;
+    upload_date?: string | null;
+    viral_score: number;
+    outlier_ratio?: number;
+    velocity_score?: number;
+    score?: number;
+    reason?: string;
+    category?: string;
+    country?: string;
+    download_status?: 'IDLE' | 'DOWNLOADING' | 'COMPLETED' | 'FAILED';
+    local_file_path?: string | null;
+}
+
+export interface SnsSearchResult {
+    status: string;
+    platform: string;
+    country?: string;
+    category?: string;
+    count: number;
+    items: SnsTrendVideoItem[];
+}
+
+export interface SnsTelemetry {
+    is_running: boolean;
+    interval_seconds: number;
+    auto_download: boolean;
+    last_patrol_time: string;
+    next_patrol_time: string;
+    current_target: string;
+    total_harvested_count: number;
+    daily_harvested_count: number;
+    mega_hit_count: number;
+    avg_outlier_ratio: number;
+    mega_hit_ratio: number;
+    hourly_velocity: number;
+    scan_rate_per_hour?: number;
+    harvest_rate_per_min?: number;
+    ticker_feed: Array<{
+        time: string;
+        platform: string;
+        title: string;
+        creator: string;
+        outlier: number;
+        views: number;
+        url: string;
+        auto_downloaded: boolean;
+    }>;
+}
+
+export interface OriginalFinderResult {
+    success: boolean;
+    message?: string;
+    creators?: {
+        handle: string;
+        platform: string;
+        profileUrls: string[];
+        source: string;
+    }[];
+    candidate_count?: number;
+    candidates?: SnsTrendVideoItem[];
+}
+
+export const searchSnsTrend = async (params: {
+    platform: 'TIKTOK' | 'INSTAGRAM' | 'ALL';
+    query?: string;
+    country?: string;
+    category?: string;
+    search_type?: 'TRENDING' | 'HASHTAG' | 'CREATOR';
+    sort_order?: 'popular' | 'latest';
+    limit?: number;
+    force_refresh?: boolean;
+    max_per_creator?: number;
+}): Promise<SnsSearchResult> => {
+    return (await api.post<SnsSearchResult>('/sns-trend/search', params)).data;
+};
+
+export const batchHarvestSns = async (params: {
+    platform: 'TIKTOK' | 'INSTAGRAM' | 'ALL';
+    country: string;
+    categories?: string[];
+    limit: number;
+}): Promise<{
+    status: string;
+    platform: string;
+    country: string;
+    requested_limit: number;
+    harvested_count: number;
+    items: SnsTrendVideoItem[];
+}> => {
+    return (await api.post('/sns-trend/batch-harvest', params)).data;
+};
+
+export const getSnsTelemetry = async (): Promise<SnsTelemetry> => {
+    return (await api.get<SnsTelemetry>('/sns-trend/telemetry')).data;
+};
+
+export const startSnsPatrol = async () => {
+    return (await api.post<{ status: string; is_running: boolean; message: string }>('/sns-trend/patrol/start')).data;
+};
+
+export const stopSnsPatrol = async () => {
+    return (await api.post<{ status: string; is_running: boolean; message: string }>('/sns-trend/patrol/stop')).data;
+};
+
+export const triggerSnsPatrolNow = async (params?: {
+    country?: string;
+    category?: string;
+    limit?: number;
+}) => {
+    return (await api.post('/sns-trend/patrol/trigger', null, { params })).data;
+};
+
+export const configSnsPatrol = async (params: {
+    auto_download?: boolean;
+    interval_seconds?: number;
+}) => {
+    return (await api.post('/sns-trend/patrol/config', params)).data;
+};
+
+export const findOriginalByReference = async (params: {
+    reference_url: string;
+    title?: string;
+    description?: string;
+    limit?: number;
+}): Promise<OriginalFinderResult> => {
+    return (await api.post<OriginalFinderResult>('/sns-trend/find-original', params)).data;
+};
+
+export const downloadSnsToGallery = async (urls: string[], categoryId?: number) => {
+    return (await api.post<{
+        status: string;
+        total: number;
+        success_count: number;
+        results: any[];
+    }>('/sns-trend/download', { urls, category_id: categoryId })).data;
+};
+
+export const getSnsPopularPresets = async () => {
+    return (await api.get<{
+        categories: { id: string; label: string; icon: string }[];
+        countries: { code: string; name: string; flag: string }[];
+        tiktok: { label: string; query: string; type: string }[];
+        instagram: { label: string; query: string; type: string }[];
+    }>('/sns-trend/popular-presets')).data;
+};
+
 export default api;
+

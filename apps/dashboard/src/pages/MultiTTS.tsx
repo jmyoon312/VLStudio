@@ -274,7 +274,7 @@ const MultiTTS = () => {
                     effectiveVoiceId = "sohee";
                 }
             } else {
-                effectiveVoiceId = voiceId || (language === 'ko' ? 'ko-KR-SunHiNeural' : 'en-US-AriaNeural');
+                effectiveVoiceId = voiceId || (language === 'ko' ? 'F1' : 'en-US-AriaNeural');
             }
             formData.append("voice_id", effectiveVoiceId);
 
@@ -512,7 +512,7 @@ const MultiTTS = () => {
                         <span>AI 다국어 목소리 합성</span>
                     </h1>
                     <p className="text-[11px] sm:text-xs text-muted-foreground mt-0.5">
-                        일레븐랩스, Supertone, Edge-TTS 등 고품질 AI 음성 엔진으로 글로벌 다국어 나레이션 생성
+                        일레븐랩스, Supertonic, Typecast, Kokoro 등 고품질 AI 음성 엔진으로 글로벌 다국어 나레이션 생성
                     </p>
                 </div>
             </div>
@@ -541,12 +541,6 @@ const MultiTTS = () => {
                             </div>
                         </div>
 
-                        {/* Generic Presets (Google / Edge) */}
-                        {(engine === 'google' || engine === 'edge') && (
-                            <div className="space-y-4 pt-2">
-                            </div>
-                        )}
-
                         {/* Favorites (Moved Up) */}
                         <VoicePresetList
                             currentConfig={{
@@ -556,7 +550,7 @@ const MultiTTS = () => {
                         />
 
                         {/* Recommended Presets (Redesigned) */}
-                        {engine === 'google' || engine === 'edge' ? (
+                        {engine === 'google' || engine === 'supertone-local' ? (
                             <div className="space-y-3 pt-2">
                                 <Label className="text-sm font-semibold text-foreground flex items-center gap-2">
                                     <Zap className="w-4 h-4 text-amber-500" />
@@ -613,10 +607,9 @@ const MultiTTS = () => {
                                 >
                                     <option value="supertone-local" className="bg-card text-foreground">Supertonic (Local AI)</option>
                                     <option value="typecast" className="bg-card text-foreground">Typecast (API)</option>
-                                    <option value="qwen" className="bg-card text-foreground">Qwen 2.5 (Remote)</option>
-                                    <option value="google" className="bg-card text-foreground">Google Cloud TTS</option>
-                                    <option value="edge" className="bg-card text-foreground">Edge TTS (Free)</option>
                                     <option value="elevenlabs" className="bg-card text-foreground">ElevenLabs (Pro)</option>
+                                    <option value="kokoro" className="bg-card text-foreground">Kokoro (Local Neural)</option>
+                                    <option value="google" className="bg-card text-foreground">Google Cloud TTS</option>
                                 </select>
                             </div>
 

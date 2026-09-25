@@ -7,7 +7,7 @@ import {
   Flame, TrendingUp, Layers, Video, Award, Clock,
   Check, Info, Monitor, Smartphone, SlidersHorizontal,
   Split, EyeOff, MoveVertical, Move, ArrowLeftRight,
-  Maximize2, Layers3
+  Maximize2, Layers3, Trash2
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -20,6 +20,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/components/ui/use-toast';
 import api from '@/lib/api';
 import ShortsTemplateStudio, { ShortsLayoutState, defaultLayoutState } from './ShortsTemplateStudio';
+import { PresetCustomizeModal } from '@/components/presets/PresetCustomizeModal';
+import { SovereignPreset } from '@/components/presets/PresetLibraryModal';
 
 // 8대 유튜브/쇼츠 대표 상용 무료 폰트 에셋
 const AVAILABLE_FONTS = [
@@ -35,7 +37,13 @@ export const ChannelDnaStudio: React.FC = () => {
   const { toast } = useToast();
   
   // Tab State
-  const [activeTab, setActiveTab] = useState<'analysis' | 'suggestions' | 'layout' | 'deploy'>('analysis');
+  const [activeTab, setActiveTab] = useState<'analysis' | 'presets' | 'suggestions' | 'layout' | 'deploy'>('analysis');
+
+  // Presets State
+  const [presetsList, setPresetsList] = useState<SovereignPreset[]>([]);
+  const [loadingPresets, setLoadingPresets] = useState<boolean>(false);
+  const [selectedPresetForEdit, setSelectedPresetForEdit] = useState<SovereignPreset | null>(null);
+  const [isCustomizeModalOpen, setIsCustomizeModalOpen] = useState<boolean>(false);
 
   // Analysis Inputs & State
   const [channelUrl, setChannelUrl] = useState('https://www.youtube.com/@FashionDetectiveNyan');
@@ -229,6 +237,73 @@ export const ChannelDnaStudio: React.FC = () => {
     }
   };
 
+  const [isExportingPreset, setIsExportingPreset] = useState(false);
+
+  const handleExportToSovereignPreset = async () => {
+    if (!benchmarkData?.id) return;
+    setIsExportingPreset(true);
+    try {
+      const res = await api.post(`/channel-dna/benchmarks/${benchmarkData.id}/export-to-preset`);
+      toast({
+        title: '⚡ 소버린 프리셋 공식 등록 완료!',
+        description: res.data?.message || '대화형 총괄 디렉터 및 프리셋 보관함에 성공적으로 등록되었습니다.'
+      });
+      fetchPresets();
+    } catch (e: any) {
+      toast({
+        title: '프리셋 등록 실패',
+        description: e.message || '프리셋 등록 중 오류가 발생했습니다.',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsExportingPreset(false);
+    }
+  };
+
+  const fetchPresets = async () => {
+    setLoadingPresets(true);
+    try {
+      const res = await api.get('/sovereign-presets');
+      const list = Array.isArray(res.data) ? res.data : (res.data?.presets || []);
+      setPresetsList(list);
+    } catch (e) {
+      console.debug('Failed to fetch presets in ChannelDnaStudio:', e);
+    } finally {
+      setLoadingPresets(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchPresets();
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === 'presets') {
+      fetchPresets();
+    }
+  }, [activeTab]);
+
+  const handleDeletePreset = async (presetId: string, presetName: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (!window.confirm(`'${presetName}' 프리셋을 정말 영구 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`)) return;
+
+    try {
+      await api.delete(`/sovereign-presets/${presetId}`);
+      toast({
+        title: '🗑️ 프리셋 삭제 완료',
+        description: `'${presetName}' 프리셋이 성공적으로 삭제되었습니다.`
+      });
+      fetchPresets();
+    } catch (err: any) {
+      toast({
+        title: '삭제 실패',
+        description: err.response?.data?.detail || err.message || '프리셋 삭제 중 오류가 발생했습니다.',
+        variant: 'destructive'
+      });
+    }
+  };
+
+
   const handleCreateBrandChannel = async () => {
     if (!benchmarkData?.id) return;
     try {
@@ -331,19 +406,28 @@ export const ChannelDnaStudio: React.FC = () => {
         </div>
 
         {benchmarkData && (
-          <div className="flex items-center gap-2.5 bg-muted/60 px-4 py-2.5 rounded-2xl border border-border/80 shrink-0 shadow-2xs">
+          <div className="flex items-center gap-2.5 bg-muted/60 px-4 py-2.5 rounded-2xl border border-border/80 shrink-0 shadow-2xs flex-wrap sm:flex-nowrap">
             <span className="text-xs text-muted-foreground font-medium">분석 타겟:</span>
             <span className="text-xs sm:text-sm font-black text-foreground">{benchmarkData.channel_title}</span>
             <Badge className="bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-[11px] ml-1 font-bold border-emerald-500/30">
               ✓ DNA 추출 완료
             </Badge>
+            <Button
+              size="sm"
+              onClick={handleExportToSovereignPreset}
+              disabled={isExportingPreset}
+              className="ml-2 bg-gradient-to-r from-amber-500 to-indigo-600 hover:from-amber-600 hover:to-indigo-700 text-white font-bold shadow-xs text-xs h-8 rounded-xl cursor-pointer"
+            >
+              <Sparkles className="w-3.5 h-3.5 mr-1" />
+              {isExportingPreset ? '프리셋 등록 중...' : '소버린 프리셋 공식 등록'}
+            </Button>
           </div>
         )}
       </div>
 
-      {/* 2. 4대 핵심 파이프라인 탭 바 (Full Width 25% Grid) */}
+      {/* 2. 5대 핵심 파이프라인 탭 바 (Full Width Grid) */}
       <Tabs value={activeTab} onValueChange={(v: any) => setActiveTab(v)} className="w-full space-y-6">
-        <TabsList className="grid grid-cols-2 md:grid-cols-4 w-full bg-muted/50 border border-border/80 p-1.5 rounded-2xl h-auto gap-2 shadow-2xs">
+        <TabsList className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 w-full bg-muted/50 border border-border/80 p-1.5 rounded-2xl h-auto gap-2 shadow-2xs">
           <TabsTrigger 
             value="analysis" 
             className="data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-sm text-xs sm:text-sm py-3 rounded-xl font-bold flex items-center justify-center gap-2 cursor-pointer transition-all border border-transparent data-[state=active]:border-border/60"
@@ -352,25 +436,32 @@ export const ChannelDnaStudio: React.FC = () => {
             <span>1. 12편 정밀 분석실</span>
           </TabsTrigger>
           <TabsTrigger 
+            value="presets" 
+            className="data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-sm text-xs sm:text-sm py-3 rounded-xl font-bold flex items-center justify-center gap-2 cursor-pointer transition-all border border-transparent data-[state=active]:border-border/60"
+          >
+            <Layers className="w-4 h-4 text-indigo-500 shrink-0" />
+            <span>2. 🎯 시그니처 프리셋 보관함</span>
+          </TabsTrigger>
+          <TabsTrigger 
             value="suggestions" 
             className="data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-sm text-xs sm:text-sm py-3 rounded-xl font-bold flex items-center justify-center gap-2 cursor-pointer transition-all border border-transparent data-[state=active]:border-border/60"
           >
             <Sparkles className="w-4 h-4 text-amber-500 shrink-0" />
-            <span>2. AI 성장 제안실</span>
+            <span>3. AI 성장 제안실</span>
           </TabsTrigger>
           <TabsTrigger 
             value="layout" 
             className="data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-sm text-xs sm:text-sm py-3 rounded-xl font-bold flex items-center justify-center gap-2 cursor-pointer transition-all border border-transparent data-[state=active]:border-border/60"
           >
             <Layout className="w-4 h-4 text-sky-500 shrink-0" />
-            <span>3. 쇼츠 화면 디자인 스튜디오</span>
+            <span>4. 쇼츠 캔버스 디자인</span>
           </TabsTrigger>
           <TabsTrigger 
             value="deploy" 
             className="data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-sm text-xs sm:text-sm py-3 rounded-xl font-bold flex items-center justify-center gap-2 cursor-pointer transition-all border border-transparent data-[state=active]:border-border/60"
           >
             <Shield className="w-4 h-4 text-emerald-500 shrink-0" />
-            <span>4. 내 채널 등록 & 사령탑 배속</span>
+            <span>5. 내 채널 등록 & 사령탑 배속</span>
           </TabsTrigger>
         </TabsList>
 
@@ -634,7 +725,264 @@ export const ChannelDnaStudio: React.FC = () => {
           </div>
         </TabsContent>
 
-        {/* ─── TAB 2: AI 성장 아이디어 제안실 ─── */}
+        {/* ─── TAB 2: 🎯 시그니처 프리셋 보관함 (제작 가이드라인 연동) ─── */}
+        <TabsContent value="presets" className="w-full min-h-[600px] space-y-6 pt-2">
+          {/* 가이드 & 통계 상단 바 */}
+          <div className="w-full bg-card/80 border border-border/80 p-5 rounded-3xl text-card-foreground shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-2xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
+                <Layers className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm sm:text-base font-black text-foreground">
+                  시그니처 스타일 프리셋 보관함
+                </h3>
+                <p className="text-xs text-muted-foreground pt-0.5">
+                  12편 분석을 통해 추출된 채널 DNA 및 제작 가이드라인이 담긴 템플릿을 열람하고 세부 스타일을 조율합니다.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="border-indigo-500/30 text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 text-xs font-bold px-3 py-1 rounded-full">
+                총 {presetsList.length}개 프리셋 등록됨
+              </Badge>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={fetchPresets}
+                disabled={loadingPresets}
+                className="h-8 text-xs gap-1 border-border/80 rounded-xl cursor-pointer"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${loadingPresets ? 'animate-spin' : ''}`} />
+                새로고침
+              </Button>
+            </div>
+          </div>
+
+          {/* 프리셋 카드 그리드 */}
+          {loadingPresets ? (
+            <div className="w-full py-20 flex flex-col items-center justify-center space-y-3">
+              <RefreshCw className="w-8 h-8 text-primary animate-spin" />
+              <p className="text-xs text-muted-foreground">쇼츠 스타일 프리셋 보관함을 동기화하는 중...</p>
+            </div>
+          ) : presetsList.length === 0 ? (
+            <div className="w-full py-20 flex flex-col items-center justify-center space-y-3 bg-muted/20 border border-dashed border-border/80 rounded-3xl text-center p-6">
+              <Layers className="w-10 h-10 text-muted-foreground/60" />
+              <h4 className="text-sm font-bold text-foreground">등록된 시그니처 프리셋이 없습니다.</h4>
+              <p className="text-xs text-muted-foreground max-w-md">
+                상단 [12편 정밀 분석실]에서 채널 URL을 입력하고 분석을 완료한 뒤 [소버린 프리셋 공식 등록] 버튼을 누르면 이곳에 스타일 프리셋이 자동 등록됩니다.
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5 items-stretch">
+              {presetsList.map((presetItem) => {
+                const style = presetItem.style || {};
+                const vg = style.visual_geometry || {};
+                const ep = style.editing_pacing || {};
+                const ad = style.audio_dsp || {};
+                const topHeader = style.top_header || {};
+                const hLines = vg.top_header_lines || [];
+
+                const line1 = topHeader.line1?.text || hLines[0]?.text_example || hLines[0]?.text || presetItem.name;
+                const line1Color = topHeader.line1?.color || hLines[0]?.color || '#FFFFFF';
+                const line2 = topHeader.line2?.text || hLines[1]?.text_example || hLines[1]?.text || '핵심 훅 명사';
+                const line2Color = topHeader.line2?.color || hLines[1]?.color || '#FFE838';
+
+                const bilingual = style.bilingual_caption || {};
+                const isBilingual = Boolean(bilingual.enabled || bilingual.primary_en);
+
+                const hasBible = Boolean(style.production_bible_17 || (presetItem as any).production_bible_17 || presetItem.version === 2);
+                const thumbImg = (presetItem as any).thumbnail_url || (presetItem as any).sample_image_url || '';
+                const videoBg = style.video_bg_url || '';
+
+                const topBarBg = topHeader.bar_bg || vg.top_bar?.bg_color || '#000000';
+                const topBarHeight = topHeader.height_pct || vg.top_bar?.height_pct || 18.0;
+
+                return (
+                  <Card 
+                    key={presetItem.id} 
+                    className="bg-card border border-border/80 rounded-3xl shadow-xs overflow-hidden flex flex-col justify-between hover:border-primary/60 transition-all hover:shadow-lg group"
+                  >
+                    {/* 상단 미니 바: 배지 + 삭제 버튼 */}
+                    <div className="p-3 pb-2.5 flex items-center justify-between gap-1.5 border-b border-border/40 bg-muted/20">
+                      <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                        <Badge className={`text-[9.5px] font-bold px-2 py-0.5 shrink-0 ${
+                          presetItem.category === 'channel_dna' 
+                            ? 'bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 border-indigo-500/30' 
+                            : 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-500/30'
+                        }`}>
+                          {presetItem.category === 'channel_dna' ? '시그니처' : presetItem.category}
+                        </Badge>
+                        {hasBible && (
+                          <Badge variant="outline" className="text-[9px] bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30 font-semibold px-1.5 py-0.5 truncate">
+                            제작 규칙 완비
+                          </Badge>
+                        )}
+                      </div>
+
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => handleDeletePreset(presetItem.id, presetItem.name, e)}
+                        className="h-6.5 w-6.5 p-0 text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-lg cursor-pointer transition-colors shrink-0"
+                        title="프리셋 삭제"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
+
+                    {/* 중앙: 진짜 9:16 쇼츠 스마트폰 프레임 캔버스 */}
+                    {/* 9:16 스마트폰 프레임 카드 뷰어 */}
+                    <div className="p-3 flex justify-center bg-muted/10">
+                      <div className="w-full aspect-[9/16] rounded-2xl bg-black border-2 border-neutral-800 relative overflow-hidden flex flex-col justify-between select-none shadow-inner group-hover:border-primary/50 transition-colors">
+                        {thumbImg ? (
+                          /* 🌟 1. 실물 9:16 원본 캡처가 있는 경우: 글자 겹침 방지를 위해 순수 캡처 이미지 단독 노출 */
+                          <div className="w-full h-full relative overflow-hidden">
+                            <img 
+                              src={thumbImg} 
+                              alt={presetItem.name} 
+                              className="w-full h-full object-cover pointer-events-none select-none" 
+                              onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                            />
+                            {/* 은은한 엣지 비네트 */}
+                            <div className="absolute inset-0 pointer-events-none bg-gradient-to-t from-black/20 via-transparent to-black/10" />
+                          </div>
+                        ) : (
+                          /* 🌟 2. 썸네일 이미지가 없는 순수 생성형 프리셋인 경우: 가상 지오메트리 레이어 렌더링 */
+                          <>
+                            {/* 16:9 와이드 영상 윈도우 */}
+                            {videoBg && (
+                              <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 aspect-[16/9] bg-neutral-900 border-y border-neutral-800 overflow-hidden flex items-center justify-center">
+                                <img 
+                                  src={videoBg} 
+                                  alt="Video Frame" 
+                                  className="w-full h-full object-cover" 
+                                  onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                                />
+                              </div>
+                            )}
+
+                            {/* Layer 1: 상단 2단 헤더 바 */}
+                            <div 
+                              className="w-full z-10 flex flex-col items-center justify-center px-1.5 py-1 text-center transition-all"
+                              style={{ 
+                                backgroundColor: topBarBg, 
+                                minHeight: `${topBarHeight}%` 
+                              }}
+                            >
+                              <span 
+                                className="font-bold block truncate w-full text-[10.5px] leading-tight" 
+                                style={{ color: line1Color, textShadow: '0 1px 3px rgba(0,0,0,0.9)' }}
+                              >
+                                {line1}
+                              </span>
+                              <span 
+                                className="font-black block truncate w-full text-[11.5px] leading-tight mt-0.5" 
+                                style={{ color: line2Color, textShadow: '0 2px 4px rgba(0,0,0,0.9)' }}
+                              >
+                                {line2}
+                              </span>
+                            </div>
+
+                            {/* Layer 2: 돌발 쨉쨉이 (활성화된 경우) */}
+                            {vg.jab_hook?.enabled && (
+                              <div className="text-center my-auto z-10">
+                                <span 
+                                  className="text-[8.5px] font-black px-1.5 py-0.5 rounded shadow-sm inline-block"
+                                  style={{ 
+                                    backgroundColor: '#000000', 
+                                    color: vg.jab_hook?.color || '#FFE838',
+                                    border: `1px solid ${vg.jab_hook?.color || '#FFE838'}`,
+                                    transform: 'rotate(-4deg)' 
+                                  }}
+                                >
+                                  {vg.jab_hook?.text || '⚡ 핵심 훅 ⚡'}
+                                </span>
+                              </div>
+                            )}
+
+                            {/* Layer 3: 하단 자막 & 출처 영역 */}
+                            <div className="text-center mt-auto z-10 w-full px-1.5 pb-2 space-y-0.5">
+                              {isBilingual ? (
+                                <>
+                                  <span 
+                                    className="font-bold text-[9px] block truncate leading-tight"
+                                    style={{ color: bilingual.primary_en?.color || '#FFE838', textShadow: '0 1px 3px #000' }}
+                                  >
+                                    {bilingual.primary_en?.text || 'You have two kids.'}
+                                  </span>
+                                  <span 
+                                    className="font-black text-[9.5px] block truncate leading-tight"
+                                    style={{ color: bilingual.secondary_ko?.color || '#FFFFFF', textShadow: '0 1px 3px #000' }}
+                                  >
+                                    {bilingual.secondary_ko?.text || '아이가 둘 있으시죠.'}
+                                  </span>
+                                </>
+                              ) : (
+                                <span 
+                                  className="font-black text-[9.5px] block truncate leading-tight"
+                                  style={{ 
+                                    color: vg.caption?.color || style.caption?.color || '#FFFFFF',
+                                    textShadow: '0 1px 3px #000' 
+                                  }}
+                                >
+                                  {vg.caption?.example || style.caption?.example || `${presetItem.name} 자막`}
+                                </span>
+                              )}
+
+                              {vg.bottom_source?.enabled && (
+                                <span className="text-[7.5px] text-neutral-400 block truncate mt-0.5">
+                                  {vg.bottom_source?.text || `출처: ${presetItem.name}`}
+                                </span>
+                              )}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* 하단 메타데이터 및 인스펙터 버튼 */}
+                    <div className="p-3 pt-2 space-y-2 border-t border-border/40 bg-card">
+                      <div className="min-w-0">
+                        <h4 className="text-xs font-black text-foreground truncate" title={presetItem.name}>
+                          {presetItem.name}
+                        </h4>
+                        {presetItem.channel_url && (
+                          <span className="text-[10px] text-muted-foreground font-mono truncate block mt-0.5">
+                            {presetItem.channel_url}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex items-center justify-between text-[10px] font-mono text-muted-foreground bg-muted/30 px-2 py-1 rounded-lg">
+                        <span>상단 {Math.round(topBarHeight)}%</span>
+                        <span>·</span>
+                        <span className="text-amber-500 font-bold">{ep.avg_cut_sec ? `${ep.avg_cut_sec}s` : '3.8s'}</span>
+                        <span>·</span>
+                        <span className="text-emerald-500 font-bold">{ad.wpm || 390}WPM</span>
+                      </div>
+
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setSelectedPresetForEdit(presetItem);
+                          setIsCustomizeModalOpen(true);
+                        }}
+                        className="w-full text-xs font-bold gap-1.5 h-8 rounded-xl border-border/80 hover:bg-primary/10 hover:text-primary transition-all cursor-pointer"
+                      >
+                        <Sliders className="w-3.5 h-3.5" />
+                        스타일 편집
+                      </Button>
+                    </div>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </TabsContent>
+
+        {/* ─── TAB 3: AI 성장 아이디어 제안실 ─── */}
         <TabsContent value="suggestions" className="w-full min-h-[600px] space-y-6 pt-2">
           {/* 가이드 배너 (Full Width) */}
           <div className="w-full bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800/60 p-5 rounded-3xl text-xs sm:text-sm text-indigo-950 dark:text-indigo-200 shadow-xs flex items-center justify-between gap-4">
@@ -859,6 +1207,18 @@ export const ChannelDnaStudio: React.FC = () => {
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* 쇼츠 스타일 상세 설정 모달 연동 */}
+      <PresetCustomizeModal
+        open={isCustomizeModalOpen}
+        onOpenChange={setIsCustomizeModalOpen}
+        preset={selectedPresetForEdit}
+        onPresetUpdated={(updated) => {
+          setPresetsList(prev => prev.map(p => p.id === updated.id ? updated : p));
+          setSelectedPresetForEdit(updated);
+          fetchPresets();
+        }}
+      />
     </div>
   );
 };

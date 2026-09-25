@@ -56,6 +56,7 @@ class AudioMixConfig:
     voice_volume: float = 1.0       # 0.0 - 1.0
     sfx_volume: float = 0.5        # 0.0 - 1.0
     enable_ducking: bool = True    # Lower BGM when voice plays
+    enable_voiceover_carve: bool = True  # HeyGen HyperFrames Voiceover Carve (Parametric EQ formant pocket)
     ducking_threshold: float = 0.02
     fade_in_duration: float = 2.0   # seconds
     fade_out_duration: float = 3.0  # seconds
@@ -384,19 +385,40 @@ class AudioProductionPipeline:
             # Build filter complex
             filter_complex = ""
             
-            if bgm_path and config.enable_ducking and word_timestamps:
-                # Advanced: Use voice timestamps for ducking
-                # Simplified: Use sidechain compression
+            if bgm_path and config.enable_voiceover_carve:
+                # HeyGen HyperFrames Voiceover Carve:
+                # 3-band parametric formant carve (400Hz, 1000Hz, 1600Hz)
+                # Leaves sub-bass (<200Hz) and high air (>4kHz) untouched for rich musicality
+                carve_filter = (
+                    "equalizer=f=400:width_type=h:width=200:g=-5,"
+                    "equalizer=f=1000:width_type=h:width=400:g=-7,"
+                    "equalizer=f=1600:width_type=h:width=600:g=-6"
+                )
+                if config.enable_ducking:
+                    filter_complex = (
+                        f"[1:a]volume={config.bgm_volume},{carve_filter}[bgm_carved];"
+                        f"[bgm_carved][0:a]sidechaincompress=threshold={config.ducking_threshold}:ratio=3.5:attack=15:release=250[bgm_ducked];"
+                        f"[0:a]volume={config.voice_volume}[voice_out];"
+                        f"[bgm_ducked][voice_out]amix=inputs=2:duration=first:dropout_transition=2[out]"
+                    )
+                else:
+                    filter_complex = (
+                        f"[1:a]volume={config.bgm_volume},{carve_filter}[bgm_carved];"
+                        f"[0:a]volume={config.voice_volume}[voice_out];"
+                        f"[bgm_carved][voice_out]amix=inputs=2:duration=first[out]"
+                    )
+            elif bgm_path and config.enable_ducking:
                 filter_complex = (
-                    f"[1:a]volume={config.bgm_volume}[bgm];"
-                    f"[bgm]asetpts=PTS-STARTPTS[bgm_out];"
-                    f"[0:a]asetpts=PTS-STARTPTS[voice_out];"
-                    f"[bgm_out][voice_out]amix=inputs=2:duration=first[out]"
+                    f"[1:a]volume={config.bgm_volume}[bgm_raw];"
+                    f"[bgm_raw][0:a]sidechaincompress=threshold={config.ducking_threshold}:ratio=3:attack=20:release=300[bgm_ducked];"
+                    f"[0:a]volume={config.voice_volume}[voice_out];"
+                    f"[bgm_ducked][voice_out]amix=inputs=2:duration=first[out]"
                 )
             elif bgm_path:
                 filter_complex = (
                     f"[1:a]volume={config.bgm_volume}[bgm];"
-                    f"[0:a][bgm]amix=inputs=2:duration=first[out]"
+                    f"[0:a]volume={config.voice_volume}[voice_out];"
+                    f"[voice_out][bgm]amix=inputs=2:duration=first[out]"
                 )
             else:
                 filter_complex = "[0:a]copy[out]"

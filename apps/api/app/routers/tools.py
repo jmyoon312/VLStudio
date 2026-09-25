@@ -33,7 +33,6 @@ if backend_root not in sys.path:
 # from silence_core import AudioProcessor
 from ..subtitle_core import SubtitleEngine
 # from pydub import AudioSegment
-# import edge_tts
 
 router = APIRouter(tags=["tools"])
 
@@ -390,29 +389,81 @@ async def get_voices(engine: str, language: str = None, db: Session = Depends(da
                 unique.append(v)
         return unique
 
-    if engine == "edge":
-        # Hardcoded popular Edge voices
-        voices = [
-            {"id": "ko-KR-SunHiNeural", "name": "SunHi (Korean Female)", "lang": "ko"},
-            {"id": "ko-KR-InJoonNeural", "name": "InJoon (Korean Male)", "lang": "ko"},
-            {"id": "ko-KR-HyunsuNeural", "name": "Hyunsu (Korean Male)", "lang": "ko"},
-            {"id": "ko-KR-BongJinNeural", "name": "BongJin (Korean Male)", "lang": "ko"},
-            {"id": "ko-KR-GookMinNeural", "name": "GookMin (Korean Male)", "lang": "ko"},
-            {"id": "ko-KR-JiMinNeural", "name": "JiMin (Korean Female)", "lang": "ko"},
-            {"id": "ko-KR-SeoHyeonNeural", "name": "SeoHyeon (Korean Female)", "lang": "ko"},
-            {"id": "en-US-AriaNeural", "name": "Aria (English Female)", "lang": "en"},
-            {"id": "en-US-JennyNeural", "name": "Jenny (English Female)", "lang": "en"},
-            {"id": "en-US-GuyNeural", "name": "Guy (English Male)", "lang": "en"},
-            {"id": "en-US-ChristopherNeural", "name": "Christopher (English Male)", "lang": "en"},
-            {"id": "en-US-EricNeural", "name": "Eric (English Male)", "lang": "en"},
-            {"id": "en-US-MichelleNeural", "name": "Michelle (English Female)", "lang": "en"},
-            {"id": "en-US-RogerNeural", "name": "Roger (English Male)", "lang": "en"},
-            {"id": "ja-JP-NanamiNeural", "name": "Nanami (Japanese Female)", "lang": "ja"},
-            {"id": "ja-JP-KeitaNeural", "name": "Keita (Japanese Male)", "lang": "ja"},
-        ]
-        if language:
-            voices = [v for v in voices if v.get("lang") == language]
-        return dedup(voices)
+    if engine in ["edge", "supertone-local", "supertonic"]:
+        # 1. Supertonic Local Voices (Primary Default Engine)
+        model_path = settings.supertone_model_path if settings.supertone_model_path else "backend/models/supertonic"
+        abs_path = os.path.abspath(model_path)
+        if "backend" + os.sep + "backend" in abs_path:
+            fixed_path = abs_path.replace("backend" + os.sep + "backend", "backend")
+            if os.path.exists(fixed_path):
+                abs_path = fixed_path
+
+        if not os.path.exists(abs_path):
+            proj_root = os.getenv("VIRALOOP_PROJECT_ROOT")
+            if proj_root:
+                candidates = [
+                    os.path.abspath(os.path.join(proj_root, "resources", "apps", "api", "backend", "models", "supertonic")),
+                    os.path.abspath(os.path.join(proj_root, "apps", "api", "backend", "models", "supertonic")),
+                    os.path.abspath(os.path.join(proj_root, "backend", "models", "supertonic")),
+                ]
+                for c in candidates:
+                    if os.path.exists(c):
+                        abs_path = c
+                        break
+
+        if not os.path.exists(abs_path):
+            for candidate in [
+                os.path.join(os.environ.get("LOCALAPPDATA", ""), "ViraLoop Studio", "media", "09_System", "models", "supertonic"),
+                os.path.abspath(os.path.join("..", model_path)),
+                os.path.abspath(os.path.join("apps", "api", model_path)),
+            ]:
+                if candidate and os.path.exists(candidate):
+                    abs_path = candidate
+                    break
+        model_path = abs_path
+
+        friendly_names = {
+            "F1": "수퍼토닉 서연 (여성 표준)",
+            "M1": "수퍼토닉 민준 (남성 속보/풍자)",
+            "F2": "수퍼토닉 지아 (여성 대화체)",
+            "M2": "수퍼토닉 도윤 (남성 진중/다큐)",
+            "F3": "수퍼토닉 유나 (여성 감성/리뷰)",
+            "M3": "수퍼토닉 하준 (남성 스릴러/액션)",
+            "F4": "수퍼토닉 채원 (여성 발랄/일상)",
+            "M4": "수퍼토닉 시우 (남성 중후/해설)",
+        }
+
+        styles_dir = os.path.join(model_path, "voice_styles")
+        if not os.path.exists(styles_dir):
+            styles_dir = os.path.join(model_path, "styles")
+
+        voices = []
+        if os.path.exists(styles_dir):
+            try:
+                for f in os.listdir(styles_dir):
+                    if f.endswith(".json"):
+                        sid = f.replace(".json", "")
+                        gender = "male" if sid.lower().startswith("m") else "female"
+                        name = friendly_names.get(sid, f"Supertonic {sid}")
+                        voices.append({
+                            "id": sid,
+                            "name": name,
+                            "gender": gender,
+                            "lang": "ko"
+                        })
+            except Exception:
+                pass
+
+        if not voices:
+            for sid, name in friendly_names.items():
+                voices.append({
+                    "id": sid,
+                    "name": name,
+                    "gender": "male" if sid.startswith("M") else "female",
+                    "lang": "ko"
+                })
+
+        return dedup(sorted(voices, key=lambda x: x["id"]))
         
     elif engine == "google":
         # Google Virtual Voices via FFmpeg Post-processing
@@ -462,75 +513,6 @@ async def get_voices(engine: str, language: str = None, db: Session = Depends(da
             return []
         except:
             return []
-
-    elif engine == "supertone-local":
-        # Dynamic Style Loading
-        model_path = settings.supertone_model_path if settings.supertone_model_path else "backend/models/supertonic"
-        
-        # Handle Path Resolution (Robust logic matching service.py)
-        abs_path = os.path.abspath(model_path)
-        if "backend" + os.sep + "backend" in abs_path:
-            fixed_path = abs_path.replace("backend" + os.sep + "backend", "backend")
-            if os.path.exists(fixed_path):
-                 abs_path = fixed_path
-        
-        # PyInstaller packaged environment fallback support: check real workspace root if missing in bundle temp dir
-        if not os.path.exists(abs_path):
-             # Try workspace root using VIRALOOP_PROJECT_ROOT env if available
-             proj_root = os.getenv("VIRALOOP_PROJECT_ROOT")
-             if proj_root:
-                 # Check packaged installation folder resources first
-                 proj_resources_candidate = os.path.abspath(os.path.join(proj_root, "resources", "apps", "api", "backend", "models", "supertonic"))
-                 if os.path.exists(proj_resources_candidate):
-                     abs_path = proj_resources_candidate
-                 else:
-                     proj_candidate = os.path.abspath(os.path.join(proj_root, "apps", "api", "backend", "models", "supertonic"))
-                     if os.path.exists(proj_candidate):
-                         abs_path = proj_candidate
-                     else:
-                         proj_candidate2 = os.path.abspath(os.path.join(proj_root, "backend", "models", "supertonic"))
-                         if os.path.exists(proj_candidate2):
-                             abs_path = proj_candidate2
-        
-        if not os.path.exists(abs_path):
-             parent_relative = os.path.abspath(os.path.join("..", model_path))
-             if os.path.exists(parent_relative):
-                  abs_path = parent_relative
-             else:
-                  apps_api_relative = os.path.abspath(os.path.join("apps", "api", model_path))
-                  if os.path.exists(apps_api_relative):
-                       abs_path = apps_api_relative
-        model_path = abs_path
-            
-        styles_dir = os.path.join(model_path, "voice_styles")
-        if not os.path.exists(styles_dir):
-             styles_dir = os.path.join(model_path, "styles")
-        
-        if not os.path.exists(styles_dir):
-             # Let's print for debugging
-             print(f"[Supertonic GET VOICES] Path not found: {styles_dir}")
-             return [{"id": "default", "name": "Default (Styles Missing)"}]
-             
-        voices = []
-        try:
-            for f in os.listdir(styles_dir):
-                if f.endswith(".json"):
-                    # Use filename as ID/Name (e.g. M1.json -> M1)
-                    sid = f.replace(".json", "")
-                    gender = "male" if sid.lower().startswith("m") else "female"
-                    voices.append({
-                        "id": sid, 
-                        "name": f"Supertonic {sid}",
-                        "gender": gender,
-                        "lang": "ko" # Assuming Korean for now
-                    })
-        except Exception:
-            pass
-            
-        if not voices:
-             return [{"id": "default", "name": "Default (No Styles Found)"}]
-             
-        return sorted(voices, key=lambda x: x["id"])
 
     elif engine == "typecast":
         # Check list

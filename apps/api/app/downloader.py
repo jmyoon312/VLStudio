@@ -17,6 +17,7 @@ import os
 import yt_dlp 
 from .download_strategies.bypass_strategy import TikVideoDownloader, V2OBDownloader, DouyinSmartDownloader
 from .download_strategies.yt_dlp_strategy import YTDLPDownloader
+from app.utils.ytdlp_utils import get_standard_ytdlp_opts
 
 # [NEW] Rate limiting imports (Feature Flag controlled)
 try:
@@ -66,6 +67,9 @@ class FilteredLogger:
         # Forward other warnings
         logger.info(f"[yt-dlp] {msg}")
 
+    def info(self, msg):
+        pass
+
     def error(self, msg):
         external_errors = [
             "Video unavailable",
@@ -73,10 +77,21 @@ class FilteredLogger:
             "This video is unavailable",
             "Sign in to confirm your age",
             "HTTP Error 429",
-            "Video unavailable"
+            "Too Many Requests",
+            "HTTP Error 403",
+            "Forbidden",
+            "Unable to download API page",
+            "page 2",
+            "page 1",
+            "No working app info",
+            "Unable to download webpage",
+            "content is not available",
+            "Unable to extract secondary user ID",
+            "tiktok:user",
+            "giving up after"
         ]
-        if any(p in msg for p in external_errors):
-            logger.info(f"[yt-dlp External Warning] {msg}")
+        if any(p in str(msg) for p in external_errors):
+            logger.debug(f"[yt-dlp Filtered] {msg}")
         else:
             logger.warning(f"[yt-dlp Error] {msg}")
 
@@ -132,7 +147,10 @@ def _get_latest_videos_impl(channel_url, limit, timeout, **kwargs):
     """
     [CORE] Actual implementation with smart YouTube tab traversal
     """
-    clean_url = channel_url.rstrip('/')
+    clean_url = channel_url.strip()
+    # [FIX] If Instagram profile URL has /reels or /reels/ suffix, strip it because yt-dlp only supports base user profile
+    if 'instagram.com' in clean_url:
+        clean_url = re.sub(r'/reels/?(\?.*)?$', '', clean_url, flags=re.IGNORECASE).rstrip('/')
     
     # [FIX] If URL is a YouTube channel root (e.g. @handle or /channel/UC...), query /shorts first, then /videos
     target_urls = [clean_url]
@@ -140,23 +158,11 @@ def _get_latest_videos_impl(channel_url, limit, timeout, **kwargs):
     if is_yt_channel:
         target_urls = [f"{clean_url}/shorts", f"{clean_url}/videos"]
 
-    opts = {
-        'extract_flat': True, 
-        'quiet': True, 
+    opts = get_standard_ytdlp_opts({
+        'extract_flat': True,
         'playlistend': limit,
-        'ignoreerrors': True,
-        'nocheckcertificate': True,
-        'no_warnings': True,
         'logger': FilteredLogger(),
-        'http_headers': {
-            'Referer': 'https://www.google.com/',
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-            'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7'
-        },
-        'extractor_args': {
-            'youtube': ['lang=ko']
-        }
-    }
+    })
     if kwargs:
         opts.update(kwargs)
         

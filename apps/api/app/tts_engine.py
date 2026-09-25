@@ -34,60 +34,33 @@ class TTSEngine:
         return random.choice(keys)
 
     async def generate_audio(self, text: str, engine: str, language: str, voice_id: str = None, rate: int = 0, pitch: int = 0, emotion: str = "normal", voice_settings: dict = None, silence_enabled: bool = False, silence_params: dict = None, noise_scale: float = 0.0, mix_voice_id: str = None, mix_ratio: float = 0.0, base_url: str = None, rvc_model: str = None, project_name: str = None, scene_id: int = None) -> dict:
+        media_root = os.path.join(os.environ.get("LOCALAPPDATA", ""), "ViraLoop Studio", "media")
         if project_name:
             # 05_Exports/{project_name}/audio/ 에 프로젝트 본 오디오 체계적 영구 저장
-            root = self.settings.root_download_path or os.path.join(os.environ.get("LOCALAPPDATA", ""), "ViraLoop Studio", "media")
-            target_dir = os.path.join(root, "05_Exports", project_name, "audio")
+            target_dir = os.path.join(media_root, "05_Exports", project_name, "audio")
             os.makedirs(target_dir, exist_ok=True)
             s_tag = f"scene_{scene_id:02d}_" if scene_id is not None else ""
             filename = f"{s_tag}{engine}_{language}_{int(time.time())}_{uuid.uuid4().hex[:4]}.mp3"
             output_path = os.path.join(target_dir, filename)
         else:
-            # 07_Downloads/temp/tts_audition/ 에 임시 오디션/미리듣기 샘플 격리 저장 (프로젝트 폴더와 완전 분리)
-            root = self.settings.root_download_path or os.path.join(os.environ.get("LOCALAPPDATA", ""), "ViraLoop Studio", "media")
-            target_dir = os.path.join(root, "07_Downloads", "temp", "tts_audition")
+            # 07_Downloads/temp/tts_audition/ 에 임시 오디션/미리듣기 샘플 격리 저장 (단일 진실 공급원 준수)
+            target_dir = os.path.join(media_root, "07_Downloads", "temp", "tts_audition")
             os.makedirs(target_dir, exist_ok=True)
             filename = f"audition_{engine}_{language}_{int(time.time())}_{uuid.uuid4().hex[:4]}.mp3"
             output_path = os.path.join(target_dir, filename)
         abs_path = os.path.abspath(output_path)
 
-        # [VIRTUAL VOICE LOGIC] for Google
-        # If engine is Google, map specific 'voice_id' to rate/pitch presets if not manually set
-        if engine == "google" and voice_id:
-            # Only apply virtual presets if user hasn't heavily customized rate/pitch
-            if rate == 0 and pitch == 0:
-                # Female Variations
-                if voice_id == "google_female_calm":
-                    pitch = -1
-                    rate = -5
-                elif voice_id == "google_female_energetic":
-                    pitch = 2
-                    rate = 5
-                elif voice_id == "google_female":
-                    # Fix: User reported default female sounds male.
-                    # Shift pitch up slightly (approx +0.4 semitones) to verify gender.
-                    pitch = 2
-                
-                # Male Variations
-                elif voice_id == "google_male":
-                    pitch = -3 # Standard Male
-                elif voice_id == "google_male_deep":
-                    pitch = -5 # Deep Male
-                elif voice_id == "google_male_calm":
-                    pitch = -4
-                    rate = -5
-                
-                # Legacy Support
-                elif voice_id == "google_shorts":
-                    rate = 15
-                    pitch = 2
-                elif voice_id == "google_news":
-                    rate = -5
+        # Normalize engine: Default to supertone-local, eliminate edge and legacy google
+        if not engine or engine in ["edge", "edge-tts", "edge_tts"]:
+            engine = "supertone-local"
+        elif engine in ["google", "gtts"]:
+            # Upgrade legacy google calls to Gemini 3.8 Flash TTS
+            engine = "gemini"
 
         try:
             # 1. Generate Audio
-            if engine == "google":
-                await self._generate_google(text, language, abs_path)
+            if engine == "gemini":
+                await self._generate_gemini(text, voice_id, abs_path)
             
             elif engine == "elevenlabs":
                 await self._generate_elevenlabs(text, voice_id, abs_path, voice_settings)
@@ -99,7 +72,7 @@ class TTSEngine:
             elif engine == "kokoro":
                 await self._generate_kokoro(text, language, voice_id, abs_path)
             
-            elif engine == "supertone-local":
+            elif engine in ["supertone-local", "supertonic"]:
                 # [EMOTION ENGINE]
                 # Map 'emotion' to presets for Speed, Pitch (FFmpeg), and Noise (Latent)
                 
@@ -137,12 +110,12 @@ class TTSEngine:
                         mix_ratio=mix_ratio
                     )
                 except Exception as st_err:
-                    logger.warning(f"⚠️ supertone-local failed ({st_err}), automatically falling back to Edge TTS...")
-                    fallback_voice = "ko-KR-InJoonNeural" if (voice_id and "M" in str(voice_id)) else "ko-KR-SunHiNeural"
-                    await self._generate_edge(text, fallback_voice, abs_path, rate, pitch)
-                
-            elif engine == "edge":
-                await self._generate_edge(text, voice_id, abs_path, rate, pitch)
+                    logger.warning(f"⚠️ supertone-local failed ({st_err}), attempting Kokoro fallback...")
+                    try:
+                        await self._generate_kokoro(text, language, "ko_female_1", abs_path)
+                    except Exception as k_err:
+                        logger.error(f"Fallback to Kokoro also failed: {k_err}")
+                        raise st_err
             
             elif engine == "qwen":
                 # Extract specialized params from voice_settings or assume passed via kwargs if we refactor,
@@ -174,10 +147,11 @@ class TTSEngine:
                 await self._generate_gemini(text, voice_id, abs_path)
 
             else:
-                await self._generate_google(text, language, abs_path)
+                # Default safe fallback to Supertonic local (Zero legacy google/edge)
+                await asyncio.to_thread(self._generate_supertone_local, text, voice_id, abs_path, language=language)
 
             # 2. Post-Processing (FFmpeg)
-            # Edge, Google, Kokoro need manual ffmpeg for effects.
+            # Google, Kokoro, Supertonic need manual ffmpeg for specific effects/pitch.
             # Typecast handles rate/pitch API side, but MIGHT need silence removal if enabled.
             # ElevenLabs handles rate/pitch, but MIGHT need silence removal.
             
@@ -186,7 +160,7 @@ class TTSEngine:
             # Rate/Pitch Handling Check
             if engine == "typecast": needs_ffmpeg_effects = False 
             if engine == "elevenlabs": needs_ffmpeg_effects = False 
-            if engine == "supertone-local": needs_ffmpeg_effects = True # Needed for Pitch (Emotion) 
+            if engine in ["supertone-local", "supertonic"]: needs_ffmpeg_effects = True # Needed for Pitch (Emotion) 
             
             # Silence Removal Check (applies to ALL engines if enabled)
             needs_silence_removal = silence_enabled
@@ -201,12 +175,12 @@ class TTSEngine:
                 should_run_ffmpeg = True
 
             if should_run_ffmpeg and os.path.exists(abs_path):
-                # Pass effective rate/pitch only if engine relies on FFmpeg for it (Google, Edge, Kokoro)
+                # Pass effective rate/pitch only if engine relies on FFmpeg for it (Google, Kokoro)
                 # [FIX for Supertone] Supertone handles Rate natively, but needs FFmpeg for Pitch.
-                eff_rate = rate if (needs_ffmpeg_effects and engine != "supertone-local") else 0
+                eff_rate = rate if (needs_ffmpeg_effects and engine not in ["supertone-local", "supertonic"]) else 0
                 
-                # If engine is supertone-local, use the emotionally adjusted pitch if available
-                if engine == "supertone-local" and 'supertone_pitch_override' in locals():
+                # If engine is supertone-local/supertonic, use the emotionally adjusted pitch if available
+                if engine in ["supertone-local", "supertonic"] and 'supertone_pitch_override' in locals():
                      eff_pitch = locals()['supertone_pitch_override']
                 else: 
                      eff_pitch = pitch if needs_ffmpeg_effects else 0
@@ -308,42 +282,6 @@ class TTSEngine:
         except Exception as e:
             logger.error(f"Qwen TTS Error: {e}")
             raise e
-
-    async def _generate_edge(self, text, voice, path, rate=0, pitch=0):
-        voice_str = str(voice or "").strip()
-        if not voice_str or voice_str in ["M1", "M2", "M3", "M4", "male", "narrator", "male_20s", "male_40s_50s", "male_70s", "male_child"]:
-            target_voice = "ko-KR-InJoonNeural"
-        elif voice_str in ["F1", "F2", "F3", "F4", "female", "female_20s", "female_40s_50s", "female_70s", "female_child"]:
-            target_voice = "ko-KR-SunHiNeural"
-        elif "/" in voice_str:
-            sub_id = voice_str.split("/")[-1]
-            target_voice = "ko-KR-InJoonNeural" if sub_id.startswith("M") else "ko-KR-SunHiNeural"
-        elif not ("Neural" in voice_str):
-            target_voice = "ko-KR-SunHiNeural"
-        else:
-            target_voice = voice_str
-        
-        # NOTE: We use FFmpeg for rate/pitch effects in _apply_audio_effects, 
-        # so we don't pass rate/pitch to Edge TTS here (defaults used).
-        
-        def run_in_thread():
-            import asyncio
-            import edge_tts
-            
-            async def _main():
-                # Direct library usage avoids CLI encoding issues
-                communicate = edge_tts.Communicate(text, target_voice)
-                await communicate.save(path)
-
-            # Create a new event loop for this thread to avoid conflict with Uvicorn's loop
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            try:
-                loop.run_until_complete(_main())
-            finally:
-                loop.close()
-
-        await asyncio.to_thread(run_in_thread)
 
     async def _generate_google(self, text, language, path):
         from gtts import gTTS
@@ -644,30 +582,105 @@ class TTSEngine:
             raise e
 
     async def _generate_gemini(self, text, voice_id, path):
-        def run_remote():
+        """
+        Synthesizes speech using Google's next-generation Gemini 3.8 Flash TTS.
+        Tier 1: Direct Native Google Gemini API (models/gemini-3.8-flash-tts, audio/wav)
+        Tier 2: OmniRoute Local Gateway (/v1/audio/speech, gemini/gemini-3.8-flash-tts)
+        """
+        import base64
+        import wave
+
+        # Clean / pick voice ID (Google prebuilt voices: Puck, Charon, Kore, Fenrir, Aoede)
+        v_name = voice_id if voice_id and voice_id not in ["default", "normal", ""] else "Puck"
+
+        # Tier 1: Try Direct Native Google Gemini API (Gemini 3.8 Flash TTS)
+        gemini_keys = self.settings.gemini_api_keys if hasattr(self.settings, "gemini_api_keys") else []
+        if gemini_keys and len(gemini_keys) > 0:
+            api_key = self._get_key(gemini_keys)
+            def run_direct():
+                tts_model = getattr(self.settings, "gemini_tts_model", "gemini-3.8-flash-tts") or "gemini-3.8-flash-tts"
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/{tts_model}:generateContent?key={api_key}"
+                payload = {
+                    "contents": [{"parts": [{"text": text}]}],
+                    "generationConfig": {
+                        "responseModalities": ["AUDIO"],
+                        "speechConfig": {
+                            "voiceConfig": {
+                                "prebuiltVoiceConfig": {
+                                    "voiceName": v_name
+                                }
+                            }
+                        }
+                    }
+                }
+                res = requests.post(url, json=payload, timeout=25)
+                if res.status_code == 200:
+                    data = res.json()
+                    candidates = data.get("candidates", [])
+                    if candidates:
+                        parts = candidates[0].get("content", {}).get("parts", [])
+                        for p in parts:
+                            if "inlineData" in p:
+                                mime = p["inlineData"].get("mimeType", "")
+                                raw_bytes = base64.b64decode(p["inlineData"].get("data", ""))
+                                if raw_bytes:
+                                    wav_target = path if path.endswith(".wav") else path.replace(".mp3", ".wav")
+                                    
+                                    # If Gemini 3.8 returned native audio/wav, write directly
+                                    if "wav" in mime:
+                                        with open(wav_target, "wb") as wf:
+                                            wf.write(raw_bytes)
+                                    else:
+                                        # Write 24000Hz 16-bit Mono PCM to WAV
+                                        with wave.open(wav_target, "wb") as wf:
+                                            wf.setnchannels(1)
+                                            wf.setsampwidth(2)
+                                            wf.setframerate(24000)
+                                            wf.writeframes(raw_bytes)
+                                    
+                                    # If target path was .mp3, convert via ffmpeg
+                                    if path.endswith(".mp3"):
+                                        try:
+                                            ffmpeg = dependency_manager.DependencyManager.get_ffmpeg_path()
+                                            subprocess.run([ffmpeg, "-y", "-i", wav_target, "-b:a", "192k", path], check=True, creationflags=subprocess.CREATE_NO_WINDOW if os.name=="nt" else 0)
+                                            if os.path.exists(wav_target) and wav_target != path:
+                                                os.remove(wav_target)
+                                        except Exception:
+                                            if os.path.exists(wav_target) and wav_target != path:
+                                                shutil.move(wav_target, path)
+                                    return True
+                raise RuntimeError(f"Gemini 3.8 Direct TTS failed ({res.status_code}): {res.text[:200]}")
+
+            try:
+                success = await asyncio.to_thread(run_direct)
+                if success:
+                    return
+            except Exception as direct_err:
+                logger.warning(f"⚠️ Direct Google Gemini 3.8 TTS failed ({direct_err}), falling back to OmniRoute...")
+
+        # Tier 2: Fallback to OmniRoute Local Gateway
+        def run_omniroute():
             url = "http://localhost:20128/v1/audio/speech"
             headers = {
                 "Content-Type": "application/json",
-                # The user's example has a specific key, we can hardcode it or use a default if it's a local router
                 "Authorization": "Bearer sk-e07acd31ef38b7d4-0p15at-b27d2bab"
             }
-            # Fallback voice if empty
-            v_id = voice_id if voice_id else "Zephyr"
             data = {
-                "model": f"gemini/gemini-3.1-flash-tts-preview/{v_id}",
+                "model": f"gemini/gemini-3.8-flash-tts/{v_name}",
                 "input": text
             }
             try:
                 res = requests.post(url, json=data, headers=headers, timeout=30)
                 if res.status_code != 200:
-                    raise RuntimeError(f"Gemini TTS Error {res.status_code}: {res.text}")
+                    raise RuntimeError(f"OmniRoute Gemini 3.8 TTS Error {res.status_code}: {res.text}")
                 with open(path, "wb") as f:
                     f.write(res.content)
             except Exception as e:
-                logger.error(f"[FAIL] [Gemini TTS] Request Error: {e}")
+                logger.error(f"[FAIL] [OmniRoute Gemini 3.8 TTS] Request Error: {e}")
                 raise e
-                
-        await asyncio.to_thread(run_remote)
+
+        await asyncio.to_thread(run_omniroute)
+
 
     def _generate_supertone_local(self, text, voice_id, path, language="ko", speed=1.0, emotion="normal", noise_scale=1.0, mix_voice_id=None, mix_ratio=0.0):
         try:

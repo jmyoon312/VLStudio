@@ -1,7 +1,11 @@
 import os
 import json
 import logging
-import docker
+try:
+    import docker
+except ImportError:
+    docker = None
+
 from app.crud import get_settings
 from sqlalchemy.orm import Session
 
@@ -12,7 +16,7 @@ class SovereignOrchestrator:
         self.db = db
         self.settings = get_settings(db)
         try:
-            self.docker_client = docker.from_env()
+            self.docker_client = docker.from_env() if docker else None
         except Exception:
             self.docker_client = None
 

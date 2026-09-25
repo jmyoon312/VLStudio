@@ -141,6 +141,11 @@ const TTSConfigPanel: React.FC<TTSConfigPanelProps> = ({ config, onChange, compa
 
     // Sync from props & Auto-Reset Voice if invalid for engine
     useEffect(() => {
+        if (!config.engine || config.engine === 'edge' || config.engine === 'google') {
+            handleChange('engine', 'supertone-local');
+            return;
+        }
+
         setSpeed(config.speed);
         setPitch(config.pitch);
         setSilenceThreshold(config.silence_threshold ?? -40);
@@ -213,34 +218,30 @@ const TTSConfigPanel: React.FC<TTSConfigPanelProps> = ({ config, onChange, compa
     // Apply Recommended Preset (Shorts, News, etc.)
     const applyRecommendedPreset = (type: string, gender: 'male' | 'female') => {
         let targetEngine = config.engine;
-        if (targetEngine !== 'edge' && targetEngine !== 'google') targetEngine = 'google';
+        if (!['supertone-local', 'supertonic', 'kokoro', 'typecast', 'elevenlabs'].includes(targetEngine)) {
+            targetEngine = 'supertone-local';
+        }
 
         let vid = "";
         let sp = 1.0;
         let p = 0;
 
-        const isGoogle = targetEngine === 'google';
-
         switch (type) {
             case "shorts":
-                vid = isGoogle ? (gender === 'female' ? "google_female_energetic" : "google_male") : "";
-                sp = 1.25; p = isGoogle ? (gender === 'female' ? 2 : 1) : 4;
+                vid = gender === 'female' ? "F1" : "M1";
+                sp = 1.25; p = 0;
                 break;
             case "news":
-                vid = isGoogle ? (gender === 'female' ? "google_female_calm" : "google_male_calm") : "";
-                sp = 1.0; p = isGoogle ? (gender === 'female' ? 0 : -1) : 0;
+                vid = gender === 'female' ? "F1" : "M1";
+                sp = 1.05; p = 0;
                 break;
             case "docu":
-                vid = isGoogle ? (gender === 'female' ? "google_female_calm" : "google_male_deep") : "";
-                sp = 0.9; p = isGoogle ? -1 : -2;
-                break;
-            case "conv":
-                vid = isGoogle ? (gender === 'female' ? "google_female" : "google_male") : "";
-                sp = 1.0; p = 0;
+                vid = gender === 'female' ? "F3" : "M2";
+                sp = 0.95; p = 0;
                 break;
             case "vlog":
-                vid = isGoogle ? "google_female_energetic" : "";
-                sp = 1.1; p = 1;
+                vid = gender === 'female' ? "F2" : "M3";
+                sp = 1.1; p = 0;
                 break;
         }
 
@@ -292,18 +293,22 @@ const TTSConfigPanel: React.FC<TTSConfigPanelProps> = ({ config, onChange, compa
                             <SelectValue placeholder="Engine" />
                         </SelectTrigger>
                         <SelectContent className="max-h-[200px]">
-                            <SelectItem value="edge" className="text-xs">
-                                <span className="font-semibold text-blue-600 dark:text-blue-400 mr-1">Edge</span>
-                                <span className="text-muted-foreground text-[10px]">(무료/자연스러움)</span>
+                            <SelectItem value="supertone-local" className="text-xs">
+                                <span className="font-semibold text-emerald-600 dark:text-emerald-400 mr-1">Supertonic</span>
+                                <span className="text-muted-foreground text-[10px]">(로컬 무제한/기본)</span>
                             </SelectItem>
-                            <SelectItem value="google" className="text-xs">
-                                <span className="font-semibold text-green-600 dark:text-green-400 mr-1">Google</span>
-                                <span className="text-muted-foreground text-[10px]">(무료/기본)</span>
+                            <SelectItem value="typecast" className="text-xs">
+                                <span className="font-semibold text-amber-600 dark:text-amber-400 mr-1">Typecast</span>
+                                <span className="text-muted-foreground text-[10px]">(감정연기/특화)</span>
                             </SelectItem>
-                            <SelectItem value="kokoro" className="text-xs">Kokoro (로컬)</SelectItem>
-                            <SelectItem value="supertone-local" className="text-xs">Supertonic (로컬)</SelectItem>
-                            <SelectItem value="elevenlabs" className="text-xs">ElevenLabs (유료)</SelectItem>
-                            <SelectItem value="typecast" className="text-xs">Typecast (유료)</SelectItem>
+                            <SelectItem value="elevenlabs" className="text-xs">
+                                <span className="font-semibold text-purple-600 dark:text-purple-400 mr-1">ElevenLabs</span>
+                                <span className="text-muted-foreground text-[10px]">(시네마틱/하이퍼리얼)</span>
+                            </SelectItem>
+                            <SelectItem value="kokoro" className="text-xs">
+                                <span className="font-semibold text-sky-600 dark:text-sky-400 mr-1">Kokoro</span>
+                                <span className="text-muted-foreground text-[10px]">(로컬 뉴럴)</span>
+                            </SelectItem>
                         </SelectContent>
                     </Select>
                 </div>
@@ -363,7 +368,7 @@ const TTSConfigPanel: React.FC<TTSConfigPanelProps> = ({ config, onChange, compa
             </div>
 
             {/* Recommended Presets (Grid Layout) */}
-            {(config.engine === 'google' || config.engine === 'edge') && (
+            {(config.engine === 'supertone-local' || config.engine === 'supertonic') && (
                 <div className="space-y-1.5 pt-1">
                     <Label className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider flex items-center justify-between">
                         <span className="flex items-center gap-1"><Zap className="w-2.5 h-2.5 text-amber-500" /> Quick Style</span>

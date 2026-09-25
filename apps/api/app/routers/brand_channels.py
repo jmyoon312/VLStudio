@@ -98,10 +98,10 @@ def clone_and_launch_channel(
             "active_typography_mix": ["yellow_bold_punch", "impact_red"]
         },
         "audio": {
-            "engine": "multitts",
-            "voice_id": "ko-KR-SunHiNeural",
-            "speed_rate": "+18%",
-            "pitch_adjust": "+4Hz",
+            "engine": "supertone-local",
+            "voice_id": "F1",
+            "speed_rate": "1.05",
+            "pitch_adjust": "0",
             "bgm_ducking_db": -18,
             "sfx_pack_name": "whoosh_punch_bell"
         },

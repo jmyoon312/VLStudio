@@ -131,6 +131,30 @@ def feedback_sources(benchmark_id: int, req: FeedbackSourcesRequest):
         "registered_channels": registered
     }
 
+class ExportPresetRequest(BaseModel):
+    preset_name: Optional[str] = None
+    category: Optional[str] = "user"
+    category_tab: Optional[str] = "user"
+
+@router.post("/benchmarks/{benchmark_id}/export-to-preset")
+def export_benchmark_to_preset(benchmark_id: int, req: Optional[ExportPresetRequest] = None):
+    try:
+        preset_name = req.preset_name if req else None
+        category = req.category if req else "user"
+        category_tab = req.category_tab if req else "user"
+        res = ChannelDNAService.export_benchmark_to_sovereign_preset(
+            benchmark_id, 
+            preset_name=preset_name,
+            category=category,
+            category_tab=category_tab
+        )
+        return {"success": True, "data": res, "message": f"'{res['name']}' 프리셋이 [{category}] 폴더에 성공적으로 등록되었습니다."}
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.post("/benchmarks/{benchmark_id}/create-brand-channel")
 def create_brand_channel(benchmark_id: int, req: CreateBrandChannelRequest):
     db = SessionLocal()

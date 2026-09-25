@@ -40,6 +40,12 @@ export interface SongKaraokeProps {
   enablePronunciation?: boolean;
   enableMeaning?: boolean;
   syncOffsetMs?: number;
+
+  // 자막 스타일 및 위치
+  originalColor?: string;
+  pronunciationColor?: string;
+  meaningColor?: string;
+  textPosition?: "bottom" | "middle" | "top";
 }
 
 export const defaultSongKaraokeProps: SongKaraokeProps = {
@@ -106,6 +112,10 @@ export const SongKaraokeComposition: React.FC<SongKaraokeProps> = ({
   enablePronunciation = true,
   enableMeaning = true,
   syncOffsetMs = 0,
+  originalColor = "#FFFFFF",
+  pronunciationColor = "#34D399",
+  meaningColor = "#FBBF24",
+  textPosition = "bottom",
 }) => {
   const frame = useCurrentFrame();
   const { fps, width, height } = useVideoConfig();
@@ -394,14 +404,15 @@ export const SongKaraokeComposition: React.FC<SongKaraokeProps> = ({
         )}
       </div>
 
-      {/* ── 4. 3중 트랙 가사 렌더러 (하단 40% 영역) ── */}
+      {/* ── 4. 3중 트랙 가사 렌더러 ── */}
       <div
         style={{
           position: "absolute",
-          bottom: "10%",
+          top: textPosition === "top" ? "12%" : textPosition === "middle" ? "42%" : undefined,
+          bottom: textPosition === "bottom" ? "10%" : undefined,
+          transform: textPosition === "middle" ? "translateY(-50%)" : undefined,
           left: 40,
           right: 40,
-          height: "36%",
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
@@ -433,7 +444,7 @@ export const SongKaraokeComposition: React.FC<SongKaraokeProps> = ({
                 style={{
                   fontSize: 42,
                   fontWeight: 900,
-                  color: "#FFFFFF",
+                  color: originalColor,
                   letterSpacing: -0.5,
                   lineHeight: 1.25,
                   textShadow:
@@ -450,7 +461,7 @@ export const SongKaraokeComposition: React.FC<SongKaraokeProps> = ({
                 style={{
                   fontSize: 30,
                   fontWeight: 700,
-                  color: "#34D399",
+                  color: pronunciationColor,
                   fontFamily:
                     "'SF Mono', 'Pretendard', Monaco, Consolas, monospace",
                   letterSpacing: -0.3,
@@ -469,7 +480,7 @@ export const SongKaraokeComposition: React.FC<SongKaraokeProps> = ({
                 style={{
                   fontSize: 36,
                   fontWeight: 800,
-                  color: "#FBBF24",
+                  color: meaningColor,
                   letterSpacing: -0.5,
                   lineHeight: 1.25,
                   textShadow: "0 2px 8px rgba(0,0,0,0.9)",

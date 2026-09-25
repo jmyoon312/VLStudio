@@ -72,8 +72,9 @@ const TTSPanel = () => {
     };
 
     const getVoiceSummary = () => {
-        if (!ttsConfig.voice_id) return "기본 설정 (Edge TTS)";
-        return `${ttsConfig.engine === 'kokoro' ? 'Kokoro' : 'Edge'} - ${ttsConfig.voice_id}`;
+        if (!ttsConfig.voice_id) return "기본 설정 (Supertonic AI)";
+        const engineLabel = ttsConfig.engine === 'supertone-local' ? 'Supertonic' : ttsConfig.engine === 'kokoro' ? 'Kokoro' : ttsConfig.engine;
+        return `${engineLabel} - ${ttsConfig.voice_id}`;
     };
 
     return (

@@ -6,7 +6,7 @@ import uuid
 import asyncio
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional, List, Dict, Union
 from contextlib import asynccontextmanager
 
 import sys
@@ -23,7 +23,7 @@ if _legacy_dir not in sys.path:
 os.environ["SOLO_MODE"] = "1"
 
 
-from fastapi import FastAPI, BackgroundTasks, Depends, HTTPException, WebSocket, WebSocketDisconnect, Request, File, UploadFile, Form
+from fastapi import FastAPI, BackgroundTasks, Depends, HTTPException, WebSocket, WebSocketDisconnect, Request, File, UploadFile, Form, Body, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import JSONResponse, FileResponse, Response
@@ -7649,6 +7649,7 @@ async def shorts_delete(job_id: int,
 # =============================================================================
 # 🎵 ViraLoop 주권 노래형 일괄 3-Track API (Module 31819 & Module 72385 규격)
 # =============================================================================
+@app.post("/song/transcribe-3track")
 @app.post("/api/song/transcribe-3track")
 async def api_song_transcribe_3track(
     file: Optional[UploadFile] = File(default=None),
@@ -7661,7 +7662,7 @@ async def api_song_transcribe_3track(
 ):
     """로컬 Faster-Whisper + DB Settings LLM 기반 노래 가사 3-Track (원어 + 발음 + 한국어 번역) 생성."""
     from app.services.song_engine import process_song_source
-    from app.core.config import app_settings
+    from app.config import settings as app_settings
 
     target_file = None
     target_name = source_name or "song"
@@ -7685,25 +7686,27 @@ async def api_song_transcribe_3track(
 
     # 3. 유튜브 URL이 전달된 경우 yt-dlp로 오디오 다운로드
     elif source_url and ("youtube.com" in source_url or "youtu.be" in source_url):
-        from app.services.youtube_downloader import download_youtube_audio
+        import subprocess
+        from app.dependency_manager import DependencyManager
         download_dir = Path(app_settings.DOWNLOADS_DIR) / "Songs"
         download_dir.mkdir(parents=True, exist_ok=True)
-        try:
-            dl_res = await download_youtube_audio(source_url, output_dir=str(download_dir))
-            target_file = dl_res.get("file_path")
-            target_name = dl_res.get("title", "youtube_song")
-        except Exception as e:
-            # yt-dlp subprocess fallback
-            safe_id = uuid.uuid4().hex[:8]
-            out_tmpl = str(download_dir / f"yt_song_{safe_id}.%(ext)s")
-            cmd = ["yt-dlp", "-x", "--audio-format", "mp3", "-o", out_tmpl, source_url]
-            proc = subprocess.run(cmd, capture_output=True, text=True)
-            cand = list(download_dir.glob(f"yt_song_{safe_id}.*"))
-            if cand and cand[0].exists():
-                target_file = str(cand[0])
-                target_name = cand[0].name
-            else:
-                raise HTTPException(400, f"YouTube audio download failed: {proc.stderr or str(e)}")
+        safe_id = uuid.uuid4().hex[:8]
+        out_tmpl = str(download_dir / f"yt_song_{safe_id}.%(ext)s")
+        ffmpeg_bin = DependencyManager.get_ffmpeg_path()
+        ffmpeg_dir = str(Path(ffmpeg_bin).parent) if ffmpeg_bin and os.path.exists(ffmpeg_bin) else None
+
+        cmd = ["yt-dlp", "-x", "--audio-format", "mp3", "-o", out_tmpl]
+        if ffmpeg_dir:
+            cmd.extend(["--ffmpeg-location", ffmpeg_dir])
+        cmd.append(source_url)
+
+        proc = subprocess.run(cmd, capture_output=True, text=True)
+        cand = list(download_dir.glob(f"yt_song_{safe_id}.*"))
+        if cand and cand[0].exists():
+            target_file = str(cand[0])
+            target_name = cand[0].name
+        else:
+            raise HTTPException(400, f"YouTube audio download failed: {proc.stderr or proc.stdout}")
 
     if not target_file or not os.path.exists(target_file):
         raise HTTPException(400, "유효한 음원/영상 파일이나 유튜브 URL을 제공해야 합니다.")
@@ -7716,6 +7719,7 @@ async def api_song_transcribe_3track(
             translation_lang=translation_lang,
             custom_instruction=custom_instruction,
         )
+        result["audio_path"] = target_file
         return {"ok": True, "data": result}
     except Exception as e:
         import traceback
@@ -7723,6 +7727,7 @@ async def api_song_transcribe_3track(
         raise HTTPException(500, f"노래형 가사 3-Track 분석 중 오류 발생: {str(e)}")
 
 
+@app.post("/song/render-song-shorts")
 @app.post("/api/song/render-song-shorts")
 async def api_song_render_song_shorts(
     project_id: str = Form(...),
@@ -7732,27 +7737,58 @@ async def api_song_render_song_shorts(
     lyrics_json: str = Form(...),
     video_source: Optional[str] = Form(default=None),
     audio_source: Optional[str] = Form(default=None),
+    audio_source_file: Optional[UploadFile] = File(default=None),
     album_cover: Optional[str] = Form(default=None),
+    album_cover_file: Optional[UploadFile] = File(default=None),
     enable_original: bool = Form(default=True),
     enable_pronunciation: bool = Form(default=True),
     enable_meaning: bool = Form(default=True),
     sync_offset_ms: int = Form(default=0),
     duration_seconds: float = Form(default=30.0),
+    original_color: Optional[str] = Form(default=None),
+    pronunciation_color: Optional[str] = Form(default=None),
+    meaning_color: Optional[str] = Form(default=None),
+    text_position: Optional[str] = Form(default="bottom"),
 ):
     """Remotion 3-Track 가라오케 컴포지션을 통해 실제 1080x1920 MP4 비디오 렌더링."""
     from app.services.remotion_renderer import remotion_renderer
+    from app.config import settings as app_settings
 
     try:
         lyrics = json.loads(lyrics_json)
     except Exception as e:
         raise HTTPException(400, f"Invalid lyrics_json format: {e}")
 
+    # 커스텀 오디오 파일이 업로드된 경우 임시 저장 처리
+    resolved_audio_source = audio_source
+    if audio_source_file and audio_source_file.filename:
+        temp_dir = Path(app_settings.TEMP_DIR)
+        temp_dir.mkdir(parents=True, exist_ok=True)
+        safe_audio_name = sanitize_filename(audio_source_file.filename)
+        audio_path = temp_dir / f"song_audio_{uuid.uuid4().hex[:8]}_{safe_audio_name}"
+        audio_content = await audio_source_file.read()
+        with open(audio_path, "wb") as f:
+            f.write(audio_content)
+        resolved_audio_source = str(audio_path)
+
+    # 커스텀 앨범 커버 파일이 업로드된 경우 임시 저장 처리
+    resolved_album_cover = album_cover
+    if album_cover_file and album_cover_file.filename:
+        temp_dir = Path(app_settings.TEMP_DIR)
+        temp_dir.mkdir(parents=True, exist_ok=True)
+        safe_cover_name = sanitize_filename(album_cover_file.filename)
+        cover_path = temp_dir / f"cover_{uuid.uuid4().hex[:8]}_{safe_cover_name}"
+        cover_content = await album_cover_file.read()
+        with open(cover_path, "wb") as f:
+            f.write(cover_content)
+        resolved_album_cover = str(cover_path)
+
     render_res = await remotion_renderer.render_song_short(
         project_id=project_id,
         lyrics=lyrics,
         video_source=video_source,
-        audio_source=audio_source,
-        album_cover=album_cover,
+        audio_source=resolved_audio_source,
+        album_cover=resolved_album_cover,
         song_title=song_title,
         artist_name=artist_name,
         visual_theme=visual_theme,
@@ -7761,6 +7797,10 @@ async def api_song_render_song_shorts(
         enable_meaning=enable_meaning,
         sync_offset_ms=sync_offset_ms,
         duration_seconds=duration_seconds,
+        original_color=original_color,
+        pronunciation_color=pronunciation_color,
+        meaning_color=meaning_color,
+        text_position=text_position,
     )
 
     if not render_res.get("success"):
@@ -7873,6 +7913,42 @@ async def api_movie_drama_create_portable_pack(job_id: str, candidate_id: str, p
         return {"success": True, "packPath": pack_path}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/ve/movie-drama-shorts/upload-source")
+async def api_movie_drama_upload_source(file: UploadFile = File(...)):
+    """웹 브라우저 환경에서 원본 영상 파일을 01_Inbox로 업로드 수신"""
+    from app.services.movie_drama_service import INBOX_DIR, movie_drama_service
+    safe_name = "".join(c for c in file.filename if c.isalnum() or c in " ._-")
+    dest_path = INBOX_DIR / f"{uuid.uuid4().hex[:8]}_{safe_name}"
+    
+    with open(dest_path, "wb") as f:
+        content = await file.read()
+        f.write(content)
+        
+    info = await movie_drama_service.get_video_info(dest_path)
+    return {
+        "success": True,
+        "videoPath": str(dest_path),
+        "filename": file.filename,
+        "media": info
+    }
+
+@app.post("/api/ve/movie-drama-shorts/install-portable-pack")
+async def api_movie_drama_install_portable_pack(file: UploadFile = File(...)):
+    """다른 PC에서 가져온 이동 패키지(ZIP) 파일 업로드 및 CapCut 초안 등록"""
+    from app.services.movie_drama_service import MOVIE_DRAMA_WORK_DIR, movie_drama_service
+    temp_zip = MOVIE_DRAMA_WORK_DIR / f"temp_pack_{uuid.uuid4().hex[:8]}.zip"
+    with open(temp_zip, "wb") as f:
+        content = await file.read()
+        f.write(content)
+
+    try:
+        res = await movie_drama_service.install_portable_pack(temp_zip)
+        return {"success": True, **res}
+    finally:
+        if temp_zip.exists():
+            try: temp_zip.unlink()
+            except: pass
 
 @app.post("/api/ve/movie-drama-shorts/cancel")
 async def api_movie_drama_cancel_job(payload: Dict[str, Any] = Body(...)):

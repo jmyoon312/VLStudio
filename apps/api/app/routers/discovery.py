@@ -751,7 +751,7 @@ def get_instant_benchmarks(db: Session = Depends(database.get_db)):
                 "y_pct": 29.5
             })
             d["wpm"] = audio.get("chars_per_min", 430)
-            d["recommended_voice"] = "ko-KR-InJoonNeural" if "InJoon" in str(audio.get("recommended_tts", "")) else "ko-KR-SunHiNeural"
+            d["recommended_voice"] = "M1" if "InJoon" in str(audio.get("recommended_tts", "")) or "M" in str(audio.get("recommended_tts", "")) else "F1"
             results.append(d)
 
         return {"benchmarks": results}
@@ -768,7 +768,7 @@ def get_instant_benchmarks(db: Session = Depends(database.get_db)):
                     "line2_color": "#FFE500",
                     "subtitle_color": "#FFE500",
                     "subtitle_y_pct": 72.0,
-                    "recommended_voice": "ko-KR-InJoonNeural",
+                    "recommended_voice": "M1",
                     "hook_bar": {
                         "enabled": True,
                         "bg_color": "#FFFFFF",
@@ -1043,7 +1043,7 @@ async def instant_analyze_and_save_template(
             "cat": req.category_name,
             "v_dna": json.dumps(visual_dna, ensure_ascii=False),
             "s_dna": json.dumps({"wpm": 430, "speech_style": "뇌전구 팩트 폭로체"}, ensure_ascii=False),
-            "a_dna": json.dumps({"recommended_tts": "ko-KR-InJoonNeural (1.25x)"}, ensure_ascii=False),
+            "a_dna": json.dumps({"recommended_tts": "M1 (1.25x)"}, ensure_ascii=False),
             "layout": json.dumps(visual_dna, ensure_ascii=False)
         })
         db.commit()
@@ -1072,7 +1072,7 @@ class AutonomousCloneAndProduceRequest(BaseModel):
     source_keyword: Optional[str] = None
     channel_id: Optional[int] = 1
     voice_engine: Optional[str] = "supertone-local"
-    voice_id: Optional[str] = "ko-KR-InJoonNeural"
+    voice_id: Optional[str] = "M1"
     voice_speed: Optional[float] = 1.15
     auto_enqueue: Optional[bool] = True
     aspect_ratio: Optional[str] = "9:16"
@@ -1149,7 +1149,7 @@ async def autonomous_clone_and_produce(
             }
         }
         script_dna_db = {"wpm": 380, "speech_style": "바이럴 유머 해설체"}
-        audio_dna_db = {"recommended_tts": "ko-KR-InJoonNeural (1.15x)"}
+        audio_dna_db = {"recommended_tts": "M1 (1.15x)"}
         logger.info(f"[Autopilot] Step1 — DB 미등록 채널, 범용 fallback DNA 사용: '{ref_title}'")
 
     # 채널 DNA의 핵심 색상 추출 (렌더링 props에 전달)
@@ -1389,7 +1389,9 @@ async def autonomous_clone_and_produce(
         from app.tts_engine import TTSEngine
         tts_engine = TTSEngine(settings)
         engine_name = req.voice_engine or "supertone-local"
-        voice_id = req.voice_id or ("M01" if engine_name == "supertone-local" else "ko-KR-InJoonNeural")
+        voice_id = req.voice_id or "M1"
+        if voice_id.startswith("ko-KR-"):
+            voice_id = "M1"
         rate_val = int(((req.voice_speed or 1.15) - 1.0) * 100)
 
         tts_result = await tts_engine.generate_audio(

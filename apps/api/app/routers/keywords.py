@@ -21,6 +21,7 @@ from ..services import trend_signal_tracker
 import yt_dlp
 import requests
 import concurrent.futures
+from app.utils.ytdlp_utils import get_standard_ytdlp_opts, build_safe_ytsearch_query, sanitize_search_query
 
 logger = logging.getLogger(__name__)
 
@@ -431,19 +432,19 @@ def analyze_outliers(request: RadarRequest, db: Session = Depends(database.get_d
     elif cs == 'large': min_subs = 100000
     
     try:
-        ydl_opts = {
-            'quiet': True,
-            'no_warnings': True,
+        extra = {
             'extract_flat': False,
-            'playlistend': 20,
+            'playlistend': 10,
             'socket_timeout': 15,
             'match_filter': yt_dlp.match_filter_func("duration < 600"),
         }
         if dateafter:
-            ydl_opts['dateafter'] = dateafter
-        search_prefix = "ytsearchdate20:" if period != 'all' else "ytsearch20:"
+            extra['dateafter'] = dateafter
+        ydl_opts = get_standard_ytdlp_opts(extra)
+        clean_kw = sanitize_search_query(request.keyword)
+        search_prefix = "ytsearchdate10:" if period != 'all' else "ytsearch10:"
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(f"{search_prefix}{request.keyword}", download=False)
+            info = ydl.extract_info(f"{search_prefix}{clean_kw}", download=False)
             entries = info.get('entries', []) if info else []
         
         results = []
@@ -759,15 +760,14 @@ def get_recommendations(request: RadarRequest, db: Session = Depends(database.ge
             if not tgt:
                 continue
             
-            ydl_opts = {
-                'quiet': True,
-                'no_warnings': True,
+            ydl_opts = get_standard_ytdlp_opts({
                 'extract_flat': False,
                 'playlistend': 5,
                 'socket_timeout': 10,
-            }
+            })
+            safe_tgt = build_safe_ytsearch_query(tgt, 5, "")
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                info = ydl.extract_info(f"ytsearch5:{tgt}", download=False)
+                info = ydl.extract_info(safe_tgt, download=False)
                 entries = info.get('entries', []) if info else []
             
             for entry in entries:
@@ -857,34 +857,32 @@ async def discover_channels(request: ChannelDiscoveryRequest):
             elif period == '30days': dateafter = 'today-30days'
             else: dateafter = 'today-1year'
             
-            ydl_opts = {
-                'quiet': True,
-                'no_warnings': True,
+            extra = {
                 'extract_flat': True,
-                'playlistend': 15,
+                'playlistend': 10,
                 'socket_timeout': 15,
             }
             if dateafter:
-                ydl_opts['dateafter'] = dateafter
-            search_prefix = "ytsearchdate15:" if period != 'all' else "ytsearch15:"
+                extra['dateafter'] = dateafter
+            ydl_opts = get_standard_ytdlp_opts(extra)
+            clean_q = sanitize_search_query(q)
+            search_prefix = "ytsearchdate10:" if period != 'all' else "ytsearch10:"
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                info = ydl.extract_info(f"{search_prefix}{q} shorts", download=False)
+                info = ydl.extract_info(f"{search_prefix}{clean_q} shorts", download=False)
                 return info.get('entries', []) if info else []
         except Exception as e:
-            logger.error(f"yt-dlp channel search failed: {e}")
+            logger.warning(f"yt-dlp channel search note: {e}")
             return []
 
     def _sync_fetch_channel_videos(channel_id: str):
         try:
-            ydl_opts = {
-                'quiet': True,
-                'no_warnings': True,
+            ydl_opts = get_standard_ytdlp_opts({
                 'extract_flat': True,
                 'playlistend': 12,
                 'socket_timeout': 10,
                 'match_filter': yt_dlp.match_filter_func("duration <= 65"),
                 'dateafter': 'today-90days',
-            }
+            })
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(f"https://www.youtube.com/channel/{channel_id}/shorts", download=False)
                 return info.get('entries', []) if info else []
@@ -1013,17 +1011,16 @@ async def get_audio_example_videos(keyword: str):
 
         def _fetch(q):
             try:
-                ydl_opts = {
-                    'quiet': True,
-                    'no_warnings': True,
+                ydl_opts = get_standard_ytdlp_opts({
                     'extract_flat': False,
-                    'playlistend': 12,
+                    'playlistend': 10,
                     'socket_timeout': 15,
                     'match_filter': yt_dlp.match_filter_func("duration <= 65"),
                     'dateafter': 'today-90days',
-                }
+                })
+                safe_q = build_safe_ytsearch_query(q, 10, "shorts")
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                    info = ydl.extract_info(f"ytsearch12:{q} shorts", download=False)
+                    info = ydl.extract_info(safe_q, download=False)
                     return info.get('entries', []) if info else []
             except:
                 return []
@@ -1360,12 +1357,11 @@ def generate_keywords(request: KeywordRequest, db: Session = Depends(database.ge
     if not context_str and not is_browsing and decoded_keyword.strip():
         logger.info("Jina returned empty, using yt-dlp fallback for keyword search")
         try:
-            ydl_opts = {"quiet": True, "extract_flat": True, "force_generic_extractor": False}
-            clean_kw = decoded_keyword.strip()
-            encoded_kw = quote_plus(clean_kw, encoding='utf-8')
-            yt_search_url = f"https://www.youtube.com/results?search_query={encoded_kw}"
+            ydl_opts = get_standard_ytdlp_opts({"extract_flat": True, "force_generic_extractor": False})
+            clean_kw = sanitize_search_query(decoded_keyword.strip())
+            safe_yt_q = build_safe_ytsearch_query(clean_kw, 10, "")
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                info = ydl.extract_info(yt_search_url, download=False)
+                info = ydl.extract_info(safe_yt_q, download=False)
             if info and info.get('entries'):
                 entries = [e for e in info['entries'] if e and e.get('title')][:20]
                 if entries:

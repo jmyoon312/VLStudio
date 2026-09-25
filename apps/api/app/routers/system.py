@@ -26,6 +26,19 @@ def get_project_root() -> str:
 
 router = APIRouter(tags=["system"])
 
+@router.get("/media/view")
+async def view_media_file(path: str):
+    """로컬 미디어 파일 안전 스트리밍 (MP4, WAV, 이미지 등)"""
+    import urllib.parse
+    import mimetypes
+    from fastapi.responses import FileResponse
+    clean_path = urllib.parse.unquote(path).strip("\"'")
+    clean_path = os.path.normpath(clean_path)
+    if not os.path.exists(clean_path) or not os.path.isfile(clean_path):
+        raise HTTPException(status_code=404, detail="Media file not found")
+    media_type, _ = mimetypes.guess_type(clean_path)
+    return FileResponse(clean_path, media_type=media_type or "video/mp4")
+
 class PathRequest(BaseModel):
     path: str
 
@@ -740,7 +753,7 @@ def get_unified_engines_status():
         core_packages = [
             "fastapi", "uvicorn", "pydantic", "sqlalchemy", "requests", "httpx",
             "openai", "anthropic", "cv2", "PIL", "numpy",
-            "edge_tts", "faster_whisper", "onnxruntime", "yt_dlp", "pydub"
+            "faster_whisper", "onnxruntime", "yt_dlp", "pydub", "soundfile"
         ]
         package_health = []
         healthy_count = 0

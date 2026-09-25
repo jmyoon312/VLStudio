@@ -126,13 +126,43 @@ class CapCutBuilder:
         self.audio_track["segments"].append(segment)
         return mat_id
 
-    def add_text_segment(self, content, start_time_sec, duration_sec, transform_y=0.0, track_name="text", render_index=1000):
-        """자막/텍스트 세그먼트 추가"""
+    def add_text_segment(
+        self,
+        content,
+        start_time_sec,
+        duration_sec,
+        transform_y=0.0,
+        track_name="text",
+        render_index=1000,
+        font_size=15.0,
+        font_color=None,
+        stroke_color=None,
+        stroke_width=0.0
+    ):
+        """자막/텍스트 세그먼트 추가 (컬러 및 외곽선 스타일 지원)"""
         mat_id = str(uuid.uuid4()).upper()
+
+        style_entry = {
+            "range": [0, len(content)],
+            "size": font_size
+        }
+        if font_color:
+            style_entry["fill"] = {
+                "alpha": 1.0,
+                "content": {
+                    "render_type": "solid",
+                    "color": font_color
+                }
+            }
+        if stroke_color and stroke_width > 0:
+            style_entry["stroke"] = {
+                "color": stroke_color,
+                "width": stroke_width
+            }
 
         text_content = {
             "text": content,
-            "styles": [{"range": [0, len(content)], "size": 15}]
+            "styles": [style_entry]
         }
 
         self.data["materials"]["texts"].append({

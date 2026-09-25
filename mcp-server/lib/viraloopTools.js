@@ -229,5 +229,53 @@ export const viraloopTools = {
                 sample_count
             }
         });
+    },
+
+    /**
+     * 20. 📥 Universal Video Downloader (Single URL: YouTube, Shorts, TikTok, Reels, Douyin)
+     */
+    async downloadVideo({ url, category_id = null, download_mp4 = true, download_mp3 = true, download_srt = true, use_bypass = false } = {}) {
+        return await requestApi('/videos/download', {
+            method: 'POST',
+            body: {
+                url,
+                category_id,
+                download_mp4,
+                download_mp3,
+                download_srt,
+                use_bypass,
+                headless: true
+            }
+        });
+    },
+
+    /**
+     * 21. 📦 Batch Video Downloader (Multiple URLs)
+     */
+    async batchDownloadVideos({ urls, category_id = null, download_mp4 = true, download_mp3 = true, download_srt = true } = {}) {
+        return await requestApi('/videos/batch-download', {
+            method: 'POST',
+            body: {
+                urls,
+                category_id,
+                download_mp4,
+                download_mp3,
+                download_srt
+            }
+        });
+    },
+
+    /**
+     * 22. 🌾 Harvest Channel Video Playlist (Fetch Top & Recent Videos from Channel)
+     */
+    async harvestChannelVideos({ channel_url, limit = 12 } = {}) {
+        return await requestApi('/channel-dna/harvest-videos', {
+            method: 'POST',
+            body: {
+                channel_url,
+                limit
+            }
+        });
     }
 };
+

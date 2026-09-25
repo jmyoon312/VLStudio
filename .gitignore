@@ -9,6 +9,9 @@ hotpatch_bundle/
 .aionrs/
 .DS_Store
 *.log
+*.log.*
+scratch_*
+temp_pixeling_re/
 .env
 .env.*
 client_secret_*.json

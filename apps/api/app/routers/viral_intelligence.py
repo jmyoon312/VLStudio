@@ -7,7 +7,10 @@ from datetime import datetime, timedelta
 from typing import Dict, Any, List, Optional
 import urllib.parse
 import httpx
-import feedparser
+try:
+    import feedparser
+except ImportError:
+    feedparser = None
 from pydantic import BaseModel
 from fastapi import APIRouter, Depends, Query, HTTPException, BackgroundTasks, Response
 from sqlalchemy.orm import Session

@@ -180,59 +180,102 @@ class LLMClient:
 
     def _generate_content_internal(self, prompt: str, model_name: str = None, system_instruction: str = None, full_response: bool = False, images: list = None) -> str | dict:
         """
-        [SOVEREIGN TRUTH] Exclusively routes all text generation through the local OmniRoute gateway (port 20128).
-        Single Source of Truth: DB Settings (script_analysis_model, youtube1_api_keys).
+        [DIRECT NATIVE SOVEREIGNTY LAW]
+        Routes AI generation to official provider direct endpoints:
+        - Gemini: Google Gemini Official Direct API (gemini_keys)
+        - Codex / Astra: ChatGPT Plus/Pro Web OAuth Session Direct
+        - OpenAI: OpenAI Official Direct API (openai_api_key)
+        - OmniRoute: Local 20128 Gateway ONLY when explicitly requested
         """
         try:
             # 1. Resolve Effective Model Name from DB Settings
             if not model_name or str(model_name).lower() in ["free", "auto", "default", "none", ""]:
                 model_name = getattr(self.settings, "script_analysis_model", None) or getattr(self.settings, "default_llm_model", None) or "viraloop1"
 
-            # 2. Clean Model Name (Strip any provider prefixes to send pure model ID to OmniRoute)
+            raw_model_str = str(model_name).strip().lower()
+
+            # 2. ROUTE A: Google Gemini Official Direct Connection
+            if "gemini" in raw_model_str or getattr(self.settings, "ai_provider", "").lower() == "gemini":
+                if self.gemini_keys:
+                    clean_gem_model = str(model_name).strip()
+                    for prefix in ["google/", "gemini/"]:
+                        if clean_gem_model.startswith(prefix):
+                            clean_gem_model = clean_gem_model[len(prefix):]
+                    logger.info(f"🌐 [LLMManager] Routing to Google Gemini Official Direct API: {clean_gem_model}")
+                    return self._generate_gemini(prompt, clean_gem_model, system_instruction, full_response, images)
+
+            # 3. ROUTE B: Codex Astra Web OAuth Session Direct Connection
+            if any(k in raw_model_str for k in ["codex", "astra"]):
+                pix_codex_auth = Path(os.environ.get("LOCALAPPDATA", "C:/Users/jmyoo/AppData/Local")) / "Programs" / "Pixeling" / "state" / "codex-home" / "auth.json"
+                home_codex_auth = Path.home() / ".codex" / "auth.json"
+                codex_token = None
+                for cp in [pix_codex_auth, home_codex_auth]:
+                    if cp.exists():
+                        try:
+                            with open(cp, "r", encoding="utf-8") as f:
+                                cdata = json.load(f)
+                            codex_token = cdata.get("tokens", {}).get("access_token")
+                            if codex_token:
+                                break
+                        except Exception:
+                            pass
+                if codex_token:
+                    logger.info("🚀 [LLMManager] Routing to Codex Astra via ChatGPT Plus OAuth Session Direct...")
+                    clean_codex_model = str(model_name).strip()
+                    return self._generate_openai_compatible(
+                        prompt=prompt,
+                        model=clean_codex_model,
+                        system_instruction=system_instruction,
+                        full_response=full_response,
+                        base_url="https://api.openai.com/v1",
+                        api_key=codex_token,
+                        provider_name="Codex Astra Direct",
+                        images=images,
+                        request_timeout=120.0
+                    )
+
+            # 4. ROUTE C: OpenAI Official Pay-As-You-Go API Direct Connection
+            openai_key = getattr(self.settings, "openai_api_key", None)
+            if (any(k in raw_model_str for k in ["gpt-", "o3-", "o1-", "openai"]) or getattr(self.settings, "ai_provider", "").lower() == "openai") and openai_key:
+                clean_oa_model = str(model_name).strip()
+                for prefix in ["openai/", "chatgpt/"]:
+                    if clean_oa_model.startswith(prefix):
+                        clean_oa_model = clean_oa_model[len(prefix):]
+                logger.info(f"🚀 [LLMManager] Routing to OpenAI Official Direct API ({clean_oa_model})...")
+                return self._generate_openai_compatible(
+                    prompt=prompt,
+                    model=clean_oa_model,
+                    system_instruction=system_instruction,
+                    full_response=full_response,
+                    base_url="https://api.openai.com/v1",
+                    api_key=openai_key,
+                    provider_name="OpenAI Official Direct",
+                    images=images,
+                    request_timeout=120.0
+                )
+
+            # 5. ROUTE D: Local OmniRoute Gateway (Port 20128) - Only when explicitly configured
             clean_model = str(model_name).strip()
             for prefix in ["youtube1/", "omniroute/", "9router/", "opencode/", "openrouter/", "groq/", "nvidia/", "google/", "gemini/", "openai/", "anthropic/", "sambanova/", "cerebras/", "ollama/"]:
                 if clean_model.startswith(prefix):
                     clean_model = clean_model[len(prefix):]
                     break
-            
             if not clean_model:
                 clean_model = "viraloop1"
 
-            # 3. Resolve OmniRoute Gateway Base URL & API Key from DB Settings
             raw_base_url = getattr(self.settings, "youtube1_base_url", None) or getattr(self.settings, "ninerouter_url", None) or "http://localhost:20128/v1"
             clean_base_url = str(raw_base_url).strip().rstrip("/")
             if not clean_base_url.endswith("/v1") and not clean_base_url.endswith("/chat/completions"):
                 clean_base_url = f"{clean_base_url}/v1"
 
-            # DB Settings의 실제 API Key 가져오기
             keys_to_try = []
             if hasattr(self.settings, "youtube1_api_keys") and self.settings.youtube1_api_keys:
                 for k in self.settings.youtube1_api_keys:
                     if k and k.strip():
                         keys_to_try.append(k.strip())
-            
             db_k = getattr(self.settings, "omniroute_api_key", None) or getattr(self.settings, "ninerouter_api_key", None)
             if db_k and db_k.strip() and db_k.strip() not in keys_to_try:
                 keys_to_try.append(db_k.strip())
-
-            if not keys_to_try:
-                try:
-                    import sqlite3
-                    sqlite_path = os.path.expanduser(r"~/.omniroute/storage.sqlite")
-                    if os.path.exists(sqlite_path):
-                        with sqlite3.connect(sqlite_path, timeout=1.0) as s_conn:
-                            s_cur = s_conn.cursor()
-                            try:
-                                s_cur.execute("SELECT key FROM api_keys WHERE key LIKE 'sk-%' AND (is_active IS NULL OR is_active = 1) ORDER BY created_at DESC LIMIT 1")
-                                row = s_cur.fetchone()
-                            except Exception:
-                                s_cur.execute("SELECT api_key FROM api_keys WHERE api_key LIKE 'sk-%' LIMIT 1")
-                                row = s_cur.fetchone()
-                            if row and row[0]:
-                                keys_to_try.append(row[0])
-                except Exception:
-                    pass
-
             if not keys_to_try:
                 keys_to_try = ["sk-omniroute"]
 

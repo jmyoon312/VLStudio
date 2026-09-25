@@ -35,7 +35,8 @@ import {
   Calendar,
   Share2,
   RefreshCw,
-  Wand2
+  Wand2,
+  BarChart3
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -53,11 +54,12 @@ import { VideoCreativeTab } from '@/components/batch/tabs/VideoCreativeTab';
 import { MeokguriTab } from '@/components/batch/tabs/MeokguriTab';
 import { RankingShortsTab } from '@/components/batch/tabs/RankingShortsTab';
 import { StockMotionTab } from '@/components/batch/tabs/StockMotionTab';
+import { FacelessExplainerTab } from '@/components/batch/tabs/FacelessExplainerTab';
 import { LongformMultiTab } from '@/components/batch/tabs/LongformMultiTab';
 import { StudioWorkspaceTabs } from '@/components/shared/StudioWorkspaceTabs';
 import { generatePixelingStandardMeta } from '@/lib/ddalkkakPixeling';
 
-// ── 11대 전문 일괄 탭 & 4대 카테고리 정의 (Pixeling 번들 100% 역공학 SSOT) ──
+// ── 12대 전문 일괄 탭 & 4대 카테고리 정의 (Pixeling 번들 100% 역공학 SSOT) ──
 export type BatchTabId =
   | 'one-take'
   | 'song'
@@ -69,6 +71,7 @@ export type BatchTabId =
   | 'meokguri'
   | 'ranking-shorts'
   | 'stock-motion'
+  | 'faceless-explainer'
   | 'longform-multi';
 
 export interface BatchGroup {
@@ -110,6 +113,7 @@ export const PIXELING_BATCH_GROUPS: BatchGroup[] = [
       { id: 'meokguri', label: '먹구리형', icon: Utensils, desc: '음식/ASMR 사운드 게인 증폭 + 리액션 스티커', badge: '먹방' },
       { id: 'ranking-shorts', label: '랭킹형', icon: Award, desc: 'TOP 5 카운트다운 로컬 렌더링 + 딥 트랜지션' },
       { id: 'stock-motion', label: '스톡모션', icon: Sparkles, desc: '스톡 비디오 + 흑백 스케치 + 팝 SFX 타이포' },
+      { id: 'faceless-explainer', label: '페이스리스 인포그래픽', icon: BarChart3, desc: '지식/경제/역사 ➔ GSAP 차트 & 키네틱 타이포그래피', badge: '신규' },
     ]
   },
   {
@@ -502,22 +506,30 @@ export const ShortsBatchStudio: React.FC = () => {
   // ── CapCut 1:1 초안 내보내기 ──
   const handleExportCapCut = async (job: BatchJobResult) => {
     try {
+      const realVideoPath = job.video_path || job.videoFilename || 'video.mp4';
+      const durationMs = job.duration_seconds ? Math.round(job.duration_seconds * 1000) : 22000;
+
       await exportCapCutFullProject({
         title: job.title,
         projectName: job.title,
-        durationMs: 22000,
+        durationMs,
         layoutTemplateMode: job.archetype,
         video: {
-          path: 'video.mp4',
-          durationMs: 22000,
+          path: realVideoPath,
+          durationMs,
           scale: 100,
         },
-        subtitles: [
-          { startMs: 0, endMs: 3000, text: job.title },
-          { startMs: 3000, endMs: 7000, text: 'CapCut 1:1 무손실 초안입니다.' }
-        ],
+        subtitles: job.subtitles && job.subtitles.length > 0
+          ? job.subtitles.map((s: any) => ({
+              startMs: Math.round((s.start || s.startMs || 0) * 1000),
+              endMs: Math.round((s.end || s.endMs || 3) * 1000),
+              text: s.text || job.title,
+            }))
+          : [
+              { startMs: 0, endMs: Math.min(3000, durationMs), text: job.title },
+            ],
         jabs: [
-          { enabled: true, startMs: 500, endMs: 3500, text: '🔥 실시간 화제', fontSize: 24, textColor: '#FFE500', badgeColor: '#000000', rotationDeg: -4, xPct: 50, yPct: 22 }
+          { enabled: true, startMs: 500, endMs: Math.min(3500, durationMs), text: '🔥 실시간 화제', fontSize: 24, textColor: '#FFE500', badgeColor: '#000000', rotationDeg: -4, xPct: 50, yPct: 22 }
         ],
         audios: []
       } as any);
@@ -741,7 +753,10 @@ export const ShortsBatchStudio: React.FC = () => {
           <MovieDramaShortsTab onAddBatchJobs={jobs => setBatchResults(prev => [...jobs, ...prev])} />
         )}
         {activeTab === 'text-creative' && (
-          <TextCreativeTab onAddBatchJobs={jobs => setBatchResults(prev => [...jobs, ...prev])} />
+          <TextCreativeTab
+            onAddBatchJobs={jobs => setBatchResults(prev => [...jobs, ...prev])}
+            videoList={videoList}
+          />
         )}
         {activeTab === 'video-creative' && (
           <VideoCreativeTab onAddBatchJobs={jobs => setBatchResults(prev => [...jobs, ...prev])} />
@@ -753,7 +768,16 @@ export const ShortsBatchStudio: React.FC = () => {
           <RankingShortsTab onAddBatchJobs={jobs => setBatchResults(prev => [...jobs, ...prev])} />
         )}
         {activeTab === 'stock-motion' && (
-          <StockMotionTab onAddBatchJobs={jobs => setBatchResults(prev => [...jobs, ...prev])} />
+          <StockMotionTab
+            onAddBatchJobs={jobs => setBatchResults(prev => [...jobs, ...prev])}
+            videoList={videoList}
+          />
+        )}
+        {activeTab === 'faceless-explainer' && (
+          <FacelessExplainerTab
+            onAddBatchJobs={jobs => setBatchResults(prev => [...jobs, ...prev])}
+            videoList={videoList}
+          />
         )}
         {activeTab === 'longform-multi' && (
           <LongformMultiTab onAddBatchJobs={jobs => setBatchResults(prev => [...jobs, ...prev])} />
@@ -857,6 +881,7 @@ export const ShortsBatchStudio: React.FC = () => {
                         src={videoSrc}
                         controls
                         playsInline
+                        loop
                         className="w-full h-full object-contain"
                         preload="metadata"
                       />

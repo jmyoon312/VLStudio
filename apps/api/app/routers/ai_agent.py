@@ -305,23 +305,35 @@ def process_command(req: CommandRequest, db: Session = Depends(database.get_db))
         return AgentResponse(actions=[], message=f"Error: {str(e)}")
 
 
+def _resolve_supertonic_dir() -> str:
+    candidates = [
+        os.path.join(os.environ.get("LOCALAPPDATA", ""), "ViraLoop Studio", "media", "09_System", "models", "supertonic"),
+        os.path.abspath("apps/api/backend/models/supertonic"),
+        os.path.abspath("data/models/supertonic"),
+        os.path.abspath("backend/models/supertonic"),
+    ]
+    for p in candidates:
+        if p and os.path.exists(p):
+            return p
+    return candidates[0]
+
+
 class SpeakRequest(BaseModel):
     text: str
-    voice: str = "ko-KR-SunHiNeural"
-    rate: str = "+18%"
-    pitch: str = "+4Hz"
+    voice: str = "F1"
+    rate: str = "1.05"
+    pitch: str = "0"
 
 
 @router.post("/speak")
 async def speak_text(req: SpeakRequest):
     """
     High-Performance Neural TTS for Loopie Assistant.
-    Powered by Microsoft Edge Neural Voice (ko-KR-SunHiNeural, ko-KR-InJoonNeural).
-    Returns MP3 audio bytes directly for instant streaming playback.
+    Powered by Supertonic Local Neural Voice (F1, M1).
+    Returns audio bytes directly for instant streaming playback.
     """
     import re
     import io
-    import edge_tts
     from fastapi.responses import Response
 
     clean_text = req.text
@@ -347,19 +359,30 @@ async def speak_text(req: SpeakRequest):
         sentences = [s.strip() for s in re.split(r'(?<=[.?!])\s+', clean_text) if s.strip()]
         clean_text = " ".join(sentences[:3])
 
-    voice = req.voice or "ko-KR-SunHiNeural"
-    rate = req.rate or "+18%"
-    pitch = req.pitch or "+4Hz"
-    try:
-        communicate = edge_tts.Communicate(clean_text, voice, rate=rate, pitch=pitch)
-        mp3_buffer = io.BytesIO()
-        async for chunk in communicate.stream():
-            if chunk["type"] == "audio":
-                mp3_buffer.write(chunk["data"])
+    voice = req.voice if req.voice and not req.voice.startswith("ko-KR-") else "F1"
+    speed = 1.05
+    if req.rate:
+        try:
+            if "%" in req.rate:
+                speed = 1.0 + (float(req.rate.replace("%", "").replace("+", "")) / 100.0)
+            else:
+                speed = float(req.rate)
+        except Exception:
+            speed = 1.05
 
-        mp3_bytes = mp3_buffer.getvalue()
-        return Response(content=mp3_bytes, media_type="audio/mpeg")
+    try:
+        from app.services.tts.supertonic.service import SupertonicService
+        import soundfile as sf
+
+        st_dir = _resolve_supertonic_dir()
+        service = SupertonicService.get_instance(st_dir)
+        wav, sr = service.generate(clean_text, lang="ko", voice_id=voice, speed=speed)
+
+        wav_buffer = io.BytesIO()
+        sf.write(wav_buffer, wav, sr, format='WAV')
+        wav_bytes = wav_buffer.getvalue()
+        return Response(content=wav_bytes, media_type="audio/wav")
     except Exception as e:
-        logger.error(f"[Loopie Speak] Edge TTS failed: {e}")
+        logger.error(f"[Loopie Speak] Supertonic TTS failed: {e}")
         raise HTTPException(status_code=500, detail=f"TTS generation failed: {str(e)}")
 

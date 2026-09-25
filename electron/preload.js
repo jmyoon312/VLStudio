@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer, clipboard } from 'electron'
+import { contextBridge, ipcRenderer, clipboard, webUtils } from 'electron'
 
 contextBridge.exposeInMainWorld('__VIRALOOP_DESKTOP__', true)
 
@@ -98,7 +98,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
   rescanAudioPackage: (params) => ipcRenderer.invoke('fs:rescan-audio-package', params),
   probeAudioFile: (params) => ipcRenderer.invoke('fs:probe-audio-file', params),
   copyDroppedAudio: (params) => ipcRenderer.invoke('fs:copy-dropped-audio', params),
-  getPathForFile: (file) => file?.path || file?.name || '',
+  getPathForFile: (file) => {
+    try {
+      if (webUtils && typeof webUtils.getPathForFile === 'function') {
+        const resolved = webUtils.getPathForFile(file)
+        if (resolved) return resolved
+      }
+    } catch (_) {}
+    return file?.path || file?.name || ''
+  },
+  selectVideoFile: () => ipcRenderer.invoke('fs:select-video-file'),
+  selectImageFile: () => ipcRenderer.invoke('fs:select-image-file'),
   readFileAbsolute: (params) => ipcRenderer.invoke('fs:read-file-absolute', params),
   writeFileAbsolute: (params) => ipcRenderer.invoke('fs:write-file-absolute', params),
   saveVideoFromUrl: (params) => ipcRenderer.invoke('fs:save-video-from-url', params),

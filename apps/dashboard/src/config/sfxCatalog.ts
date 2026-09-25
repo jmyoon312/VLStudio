@@ -299,7 +299,10 @@ export function playSynthesizedSfx(sfxId: string) {
     const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
     if (!AudioCtx) return;
     const ctx = new AudioCtx();
-    const now = ctx.currentTime;
+
+    // 브라우저 오디오 자동 재생 정책: suspended 상태 시 즉시 resume() 후 재생
+    const doPlay = () => {
+      const now = ctx.currentTime;
 
     switch (sfxId) {
       // 1. 시네마틱 붐: 55Hz 초저역 럼블 + 화이트 노이즈 펀치
@@ -797,6 +800,14 @@ export function playSynthesizedSfx(sfxId: string) {
         osc.stop(now + 0.22);
         break;
       }
+    }
+    }; // end doPlay
+
+    // 브라우저 오디오 정책: suspended → resume 후 재생, running → 즉시 재생
+    if (ctx.state === 'suspended') {
+      ctx.resume().then(doPlay).catch(() => doPlay());
+    } else {
+      doPlay();
     }
   } catch (e) {
     console.warn('Web Audio SFX playback error:', e);

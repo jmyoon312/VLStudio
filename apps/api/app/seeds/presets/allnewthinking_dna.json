@@ -1,0 +1,184 @@
+{
+  "channel_url": "https://www.youtube.com/@allnewthinking/shorts",
+  "channel_title": "올뉴띵킹 인터뷰",
+  "subscriber_count": 2150000,
+  "category_name": "인터뷰 / 해외 토크쇼 / 썰",
+  "total_videos_analyzed": 12,
+  "visual_dna": {
+    "canvas_type": "LETTERBOX_SOLID",
+    "video_fit_mode": "sandwich",
+    "video_aspect_ratio": "16:9",
+    "video_zoom_scale": 100,
+    "video_focus_y_pct": 50.0,
+    "enable_ken_burns": false,
+    "has_top_bar_bg": true,
+    "top_bar_bg": "#000000",
+    "top_bar_height_pct": 18.0,
+    "top_bar_opacity": 1.0,
+    "has_top_title": true,
+    "top_title_y_pct": 5.2,
+    "header_lines": [
+      {
+        "line": 1,
+        "role": "condition",
+        "color": "#FFE838",
+        "size_pt": 52,
+        "size_px": 28,
+        "font_style": "ExtraBold",
+        "font_family": "Pretendard",
+        "text_example": "아빠 왜 그렇게 못됐어?"
+      },
+      {
+        "line": 2,
+        "role": "hook_noun",
+        "color": "#FFFFFF",
+        "size_pt": 56,
+        "size_px": 32,
+        "font_style": "ExtraBold",
+        "font_family": "Pretendard",
+        "text_example": "이병헌 아들의 돌발질문"
+      }
+    ],
+    "title_bg_mode": "none",
+    "title_bg_color": "#000000",
+    "title_bg_opacity": 1.0,
+    "title_padding_x": 16,
+    "title_padding_y": 6,
+    "title_border_radius": 8,
+    "title_shadow": true,
+    "title_stroke": true,
+    "has_subtitle": true,
+    "subtitle": {
+      "y_percent": 76.5,
+      "color": "#FFFFFF",
+      "keyword_highlight_color": "#FFE838",
+      "stroke_color": "#000000",
+      "stroke_width_px": 6,
+      "size_pt": 48,
+      "size_px": 24,
+      "font_family": "Pretendard",
+      "safe_zone": "OPTIMAL_76",
+      "motion_preset": "static",
+      "has_pill_bg": false,
+      "pill_bg_color": "rgba(0,0,0,0.6)",
+      "bilingual_enabled": true,
+      "line1_color": "#FFE838",
+      "line1_size_px": 20,
+      "line1_example": "You have two kids.",
+      "line2_color": "#FFFFFF",
+      "line2_size_px": 24,
+      "line2_example": "아이가 둘 있으시죠."
+    },
+    "has_jab_hook": false,
+    "jab_hook": {
+      "enabled": false,
+      "text_example": "",
+      "color": "#FFE838"
+    },
+    "has_bottom_source": true,
+    "bottom_source": {
+      "text": "출처: The Tonight Show Starring Jimmy Fallon",
+      "color": "#94A3B8",
+      "size_pt": 26,
+      "size_px": 13,
+      "font_family": "Pretendard",
+      "bottom_pct": 2.2,
+      "has_pill_bg": false
+    },
+    "has_bottom_bar_bg": true,
+    "bottom_bar_bg": "#000000",
+    "bottom_bar_height_pct": 18.0,
+    "bottom_bar_opacity": 1.0,
+    "editing_grammar": {
+      "avg_cut_sec": 3.8,
+      "total_cuts_avg": 12,
+      "transition_type": "scene_cut",
+      "zoom_motion": "static"
+    },
+    "video_bg_url": "/presets/samples/allnewthinking_video_bg.png",
+    "thumbnail_url": "/presets/thumbnails/channel_allnewthinking_시그니처.png"
+  },
+  "script_dna": {
+    "opening_hook_type": "해외 토크쇼 직타 훅 (0~2초 내 인터뷰 질문 제시, 인사말 생략)",
+    "story_architecture": [
+      "0~2초: 상단 호기심 2단 헤더 + 지미 팰런의 질문 투척",
+      "2~15초: 이병헌의 위트 있는 첫 번째 답변과 방청객 폭소",
+      "15~35초: 아들과의 실제 돌발 에피소드 고백 (영한 자막 동기화)",
+      "35~48초: 호스트의 리액션과 빵 터지는 마무리"
+    ],
+    "dominant_endings": ["~라고 함", "~했다는데", "~라며 폭소"],
+    "speech_style": "자연스러운 인터뷰 티키타카 현장 육성 + 정밀 영한 자막",
+    "chars_per_sec": 6.5,
+    "chars_per_min": 390
+  },
+  "audio_dna": {
+    "speaker_gender": "mixed_interview",
+    "pitch_f0_hz": 165.0,
+    "chars_per_min": 390,
+    "speed_multiplier": 1.0,
+    "breath_gap_ms": 100,
+    "target_lufs": -14.0,
+    "has_original_quote_duet": true,
+    "bgm_style": "토크쇼 현장 관객 웃음 및 세션 밴드 라이브 (-24dB)",
+    "bgm_gain_db": -24.0,
+    "recommended_tts": "원본 오디오 직결 보존 (현장 인터뷰 육성 최우선)"
+  },
+  "source_origin_dna": {
+    "primary_platforms": [
+      "The Tonight Show (지미 팰런)",
+      "The Graham Norton Show",
+      "Jimmy Kimmel Live",
+      "Conan O'Brien"
+    ],
+    "discovered_channels": [
+      {
+        "name": "The Tonight Show Starring Jimmy Fallon",
+        "url": "https://www.youtube.com/@fallontonight",
+        "category": "미국 심야 토크쇼",
+        "priority": "HIGH"
+      },
+      {
+        "name": "The Graham Norton Show",
+        "url": "https://www.youtube.com/@TheGrahamNortonShow",
+        "category": "영국 BBC 토크쇼",
+        "priority": "HIGH"
+      },
+      {
+        "name": "Jimmy Kimmel Live",
+        "url": "https://www.youtube.com/@JimmyKimmelLive",
+        "category": "ABC 토크쇼",
+        "priority": "HIGH"
+      }
+    ],
+    "search_query_pool": [
+      "헐리우드 배우 내한 인터뷰 레전드 반응",
+      "지미 팰런 쇼 한국 연예인 돌발 발언",
+      "토크쇼 게스트 감동적인 비하인드 썰"
+    ]
+  },
+  "ai_growth_suggestions": [
+    {
+      "id": "allnewthinking_gold",
+      "title": "⚡ [올뉴띵킹 시그니처 포맷]",
+      "badge": "1,976만 뷰 검증",
+      "description": "16:9 와이드 레터박스 + 상단 2단 헤더(1줄 노랑 호기심 질문 + 2줄 흰색 인물) + 영한 이중 언어(Bilingual) 자막을 1:1 완벽 복제합니다.",
+      "layout_override": {
+        "header_line1_color": "#FFE838",
+        "header_line2_color": "#FFFFFF",
+        "subtitle_y": 76.5,
+        "bilingual_enabled": true
+      }
+    },
+    {
+      "id": "allnewthinking_punch",
+      "title": "🔥 [도파민 펀치 변형안]",
+      "badge": "CTR 극대화",
+      "description": "상단 1줄 헤더를 네온 사이언(#00E5FF)으로 교체하고, 핵심 대사 등장 시 1.1배 펀치 줌인으로 시청 지속시간을 극대화합니다.",
+      "layout_override": {
+        "header_line1_color": "#00E5FF",
+        "header_line2_color": "#FFFFFF",
+        "subtitle_y": 76.5
+      }
+    }
+  ]
+}

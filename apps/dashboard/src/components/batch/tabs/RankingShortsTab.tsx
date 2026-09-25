@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useToast } from '@/components/ui/use-toast';
-import api from '@/lib/api';
+import api, { apiLong } from '@/lib/api';
+import { getMediaUrl } from '@/lib/utils';
 import {
   RankingCreationMode,
   RankingOptions,
@@ -32,7 +33,10 @@ export const RankingShortsTab: React.FC<RankingShortsTabProps> = ({ onAddBatchJo
   const [headline, setHeadline] = useState<string>('한국인이 사랑하는 배달 야식');
   const [subtitle, setSubtitle] = useState<string>('배달 음식 선호도 TOP 5');
 
-  // 3. 순위 아이템 목록 (기본 초기값 TOP 5)
+  // 3. AI 분석 단계 상태 (0=대기, 1=영상분석중, 2=대본작성중, 3=계획완료)
+  const [analyzeStep, setAnalyzeStep] = useState<0 | 1 | 2 | 3>(0);
+
+  // 4. 순위 아이템 목록 (기본 초기값 TOP 5)
   const [rankingItems, setRankingItems] = useState<RankingItem[]>([
     {
       id: 'rank-5',
@@ -101,7 +105,7 @@ export const RankingShortsTab: React.FC<RankingShortsTabProps> = ({ onAddBatchJo
     },
   ]);
 
-  // 4. 템플릿 및 사운드 연출 옵션 (기본 failsup-ranking)
+  // 5. 템플릿 및 사운드 연출 옵션 (기본 failsup-ranking)
   const [options, setOptions] = useState<RankingOptions>({
     templateId: 'failsup-ranking',
     shape: 'pill',
@@ -122,10 +126,10 @@ export const RankingShortsTab: React.FC<RankingShortsTabProps> = ({ onAddBatchJo
     ducking: 40,
     enableJaejaebiText: true,
     enableSituationText: true,
-    voiceId: 'ko-KR-SunHiNeural'
+    voiceId: 'F1'
   });
 
-  // 5. 소스 영상 보관함 및 선택 상태
+  // 6. 소스 영상 보관함 및 선택 상태
   const [videoLibrary, setVideoLibrary] = useState<SourceItem[]>([]);
   const [selectedVideo, setSelectedVideo] = useState<SourceItem | null>(null);
   const [multiVideoList, setMultiVideoList] = useState<SourceItem[]>([]);
@@ -144,14 +148,28 @@ export const RankingShortsTab: React.FC<RankingShortsTabProps> = ({ onAddBatchJo
             snippet: v.description || `${v.channel_name || '07_Downloads'} · ${v.duration ? Math.round(v.duration) + '초' : '쇼츠'}`,
             sourceOrigin: v.channel_name || '07_Downloads',
             dateText: v.upload_date ? new Date(v.upload_date).toLocaleDateString() : '최신 수집',
+            // ✅ getMediaUrl로 래핑 — Chromium 로컬파일 보안 차단 완전 해제
+            thumbnailUrl: getMediaUrl(v.thumbnail_path || ''),
+            videoPath: getMediaUrl(v.file_path || ''),
+            sourceUrl: getMediaUrl(v.file_path || ''),
+            viewsCount: v.view_count,
+            durationText: v.duration
+              ? `${Math.floor(v.duration / 60)}:${Math.round(v.duration % 60).toString().padStart(2, '0')}`
+              : undefined,
+            category: v.computedCategory || v.category || '영상 보관함',
             metadata: {
               ...v,
-              videoPath: v.file_path,
-              sourceUrl: v.file_path,
-              thumbnailUrl: v.thumbnail_path,
-              durationText: v.duration ? `${Math.floor(v.duration / 60)}:${Math.round(v.duration % 60).toString().padStart(2, '0')}` : undefined,
+              videoPath: getMediaUrl(v.file_path || ''),
+              sourceUrl: getMediaUrl(v.file_path || ''),
+              thumbnailUrl: getMediaUrl(v.thumbnail_path || ''),
+              durationText: v.duration
+                ? `${Math.floor(v.duration / 60)}:${Math.round(v.duration % 60).toString().padStart(2, '0')}`
+                : undefined,
               viewsCount: v.view_count,
-              category: v.computedCategory || v.category || '영상 보관함'
+              category: v.computedCategory || v.category || '영상 보관함',
+              // 원본 raw path를 별도 보관 (백엔드 전송용)
+              rawFilePath: v.file_path,
+              rawThumbnailPath: v.thumbnail_path
             }
           }));
           setVideoLibrary(mapped);
@@ -167,6 +185,54 @@ export const RankingShortsTab: React.FC<RankingShortsTabProps> = ({ onAddBatchJo
     fetchVideos();
   }, []);
 
+  // ✅ 드래그앤드롭 / 파일 다이얼로그로 직접 가져온 로컬 영상 처리
+  const handleDropFiles = useCallback((files: File[]) => {
+    const videoFiles = files.filter(f => f.type.startsWith('video/') || /\.(mp4|webm|mov|mkv|m4v)$/i.test(f.name));
+    if (videoFiles.length === 0) return;
+
+    const newItems: SourceItem[] = videoFiles.map((f, idx) => {
+      // Electron에서는 File 객체에 path 속성이 있음 (웹에서는 없음)
+      const filePath = (f as any).path || '';
+      const mediaUrl = filePath ? getMediaUrl(filePath) : URL.createObjectURL(f);
+      const itemId = `drop-${Date.now()}-${idx}`;
+      return {
+        id: itemId,
+        title: f.name.replace(/\.[^/.]+$/, ''), // 확장자 제거
+        snippet: `로컬 파일 · ${(f.size / 1024 / 1024).toFixed(1)}MB`,
+        sourceOrigin: '로컬 파일',
+        dateText: new Date().toLocaleDateString(),
+        thumbnailUrl: '',
+        videoPath: mediaUrl,
+        sourceUrl: mediaUrl,
+        category: '직접 추가',
+        metadata: {
+          videoPath: mediaUrl,
+          sourceUrl: mediaUrl,
+          rawFilePath: filePath,
+          file_path: filePath,
+          category: '직접 추가'
+        }
+      };
+    });
+
+    // 보관함 최상단에 직접 추가
+    setVideoLibrary(prev => [...newItems, ...prev]);
+    // 첫 번째 드롭 파일 자동 선택
+    if (newItems.length > 0) {
+      setSelectedVideo(newItems[0]);
+      // 주제 자동 바인딩
+      if (!rankingTopic || rankingTopic === '한국인이 가장 사랑하는 배달 야식') {
+        setRankingTopic(newItems[0].title);
+        setHeadline(newItems[0].title);
+      }
+    }
+
+    toast({
+      title: `📂 ${newItems.length}개 영상 추가됨`,
+      description: `'${newItems[0].title}' 외 ${newItems.length - 1}개가 소스 목록 최상단에 추가되었습니다.`
+    });
+  }, [rankingTopic, toast]);
+
   // Multi-Source 비디오 추가/제거
   const handleAddMultiVideo = (item: SourceItem) => {
     setMultiVideoList(prev => [...prev, item].slice(0, targetCount));
@@ -176,18 +242,35 @@ export const RankingShortsTab: React.FC<RankingShortsTabProps> = ({ onAddBatchJo
     setMultiVideoList(prev => prev.filter(v => v.id !== id));
   };
 
-  // AI 하이라이트 씬 분석 실행 (Single-Video 모드)
+  // 영상 선택 시 주제 자동 바인딩
+  const handleSelectVideo = (item: SourceItem) => {
+    setSelectedVideo(item);
+    // 보관함 영상 선택 시 주제/헤드라인 자동 동기화
+    if (item.title && item.title.length > 2) {
+      const autoTopic = item.title.slice(0, 30);
+      setRankingTopic(autoTopic);
+      setHeadline(autoTopic);
+    }
+  };
+
+  // AI 하이라이트 씬 분석 실행 (Single-Video 모드) — apiLong (60분 타임아웃)
   const handleStartAnalyze = async () => {
     setIsAnalyzing(true);
+    setAnalyzeStep(1);
     try {
+      // 백엔드 전송 시 원본 로컬 경로 사용 (getMediaUrl 래핑 전 raw path)
+      const rawPath = selectedVideo?.metadata?.rawFilePath || selectedVideo?.metadata?.file_path;
       const payload = {
-        videoPath: selectedVideo?.metadata?.videoPath || selectedVideo?.metadata?.file_path,
+        videoPath: rawPath,
         rankingTopic,
         rankingCriteria,
         sceneCount: targetCount
       };
 
-      const res = await api.post('/ranking/analyze-source', payload);
+      setAnalyzeStep(2); // AI 대본 작성 중
+      const res = await apiLong.post('/ranking/analyze-source', payload);
+      setAnalyzeStep(3); // 계획 완료
+
       if (res.data && res.data.items) {
         setHeadline(res.data.headline || `${rankingTopic} TOP ${targetCount}`);
         setSubtitle(res.data.subtitle || `${rankingCriteria} 랭킹`);
@@ -202,19 +285,38 @@ export const RankingShortsTab: React.FC<RankingShortsTabProps> = ({ onAddBatchJo
         throw new Error('응답 데이터에 순위 항목이 없습니다.');
       }
     } catch (e: any) {
+      // 자가치유 폴백: AI 실패 시 선택된 영상 기반 기본 rankingItems 생성
+      const fallbackItems: RankingItem[] = Array.from({ length: targetCount }, (_, i) => ({
+        id: `rank-${targetCount - i}`,
+        rank: targetCount - i,
+        title: selectedVideo ? `${selectedVideo.title} 하이라이트 #${targetCount - i}` : `순위 ${targetCount - i}위`,
+        statValue: '',
+        description: '자동 추출 실패 - 직접 편집해 주세요',
+        hookJabText: `*TOP ${targetCount - i}*`,
+        startMs: i * 5000,
+        durationMs: 4500,
+        sourceIndex: 0,
+        candidates: [],
+        blurRegions: []
+      }));
+      setRankingItems(fallbackItems);
+      setIsPlanReviewMode(true);
+
       toast({
         variant: 'destructive',
-        title: '분석 실패',
-        description: e.message || 'AI 씬 분석 중 오류가 발생했습니다.'
+        title: '⚠️ AI 분석 실패 (폴백 적용)',
+        description: `${e.message || '오류 발생'} — 기본 계획이 자동 생성되었습니다. 직접 편집 후 발주하세요.`
       });
     } finally {
       setIsAnalyzing(false);
+      setAnalyzeStep(0);
     }
   };
 
-  // AI 순위 대본 자동 구성 실행 (Multi-Source 모드)
+  // AI 순위 대본 자동 구성 실행 (Multi-Source 모드) — apiLong
   const handleStartGenerateScript = async () => {
     setIsAnalyzing(true);
+    setAnalyzeStep(2);
     try {
       const payload = {
         rankingTopic,
@@ -222,7 +324,9 @@ export const RankingShortsTab: React.FC<RankingShortsTabProps> = ({ onAddBatchJo
         itemCount: targetCount
       };
 
-      const res = await api.post('/ranking/generate-script', payload);
+      const res = await apiLong.post('/ranking/generate-script', payload);
+      setAnalyzeStep(3);
+
       if (res.data && res.data.items) {
         setHeadline(res.data.headline || `${rankingTopic} TOP ${targetCount}`);
         setSubtitle(res.data.subtitle || `${rankingCriteria} 랭킹`);
@@ -240,7 +344,8 @@ export const RankingShortsTab: React.FC<RankingShortsTabProps> = ({ onAddBatchJo
             startMs: 0,
             durationMs: 4500,
             sourceIndex: idx,
-            sourceUrl: video?.metadata?.videoPath || video?.metadata?.file_path,
+            // 원본 로컬 경로 전달 (백엔드 렌더링용)
+            sourceUrl: video?.metadata?.rawFilePath || video?.metadata?.file_path,
             candidates: [],
             blurRegions: []
           };
@@ -262,10 +367,11 @@ export const RankingShortsTab: React.FC<RankingShortsTabProps> = ({ onAddBatchJo
       });
     } finally {
       setIsAnalyzing(false);
+      setAnalyzeStep(0);
     }
   };
 
-  // 최종 랭킹 쇼츠 일괄 생성 발주
+  // 최종 랭킹 쇼츠 일괄 생성 발주 — apiLong (CapCut 초안 빠른 완료 후 백그라운드 렌더링)
   const handleStartFinalBatch = async () => {
     setIsSubmitting(true);
     try {
@@ -279,11 +385,12 @@ export const RankingShortsTab: React.FC<RankingShortsTabProps> = ({ onAddBatchJo
         subtitle,
         items: rankingItems,
         options,
-        sourceVideoPath: selectedVideo?.metadata?.videoPath || selectedVideo?.metadata?.file_path
+        // 백엔드 전송 시 원본 로컬 경로 (getMediaUrl 래핑 이전)
+        sourceVideoPath: selectedVideo?.metadata?.rawFilePath || selectedVideo?.metadata?.file_path
       };
 
-      // 백엔드 API 호출하여 CapCut 초안 및 작업 등록
-      const res = await api.post('/ranking/jobs', payload);
+      // apiLong: CapCut 초안 조립 즉시 완료, 백그라운드 렌더링 비동기 실행
+      const res = await apiLong.post('/ranking/jobs', payload);
 
       const newJob = {
         id: jobId,
@@ -330,7 +437,7 @@ export const RankingShortsTab: React.FC<RankingShortsTabProps> = ({ onAddBatchJo
         </div>
 
         {/* Zone 2 (중앙 5.5칸): 소스 선택기 또는 계획 검토기 (Plan Review) */}
-        <div className="lg:col-span-5 xl:col-span-5.5 bg-card border border-border rounded-xl p-4 shadow-xs">
+        <div className="lg:col-span-5 xl:col-span-5 bg-card border border-border rounded-xl p-4 shadow-xs">
           {!isPlanReviewMode ? (
             <RankingSourceSection
               creationMode={creationMode}
@@ -343,13 +450,15 @@ export const RankingShortsTab: React.FC<RankingShortsTabProps> = ({ onAddBatchJo
               onChangeTargetCount={setTargetCount}
               videoLibrary={videoLibrary}
               selectedVideo={selectedVideo}
-              onSelectVideo={setSelectedVideo}
+              onSelectVideo={handleSelectVideo}
               multiVideoList={multiVideoList}
               onAddMultiVideo={handleAddMultiVideo}
               onRemoveMultiVideo={handleRemoveMultiVideo}
               onStartAnalyze={handleStartAnalyze}
               onStartGenerateScript={handleStartGenerateScript}
+              onDropFiles={handleDropFiles}
               isAnalyzing={isAnalyzing}
+              analyzeStep={analyzeStep}
             />
           ) : (
             <RankingPlanReviewSection
@@ -364,13 +473,14 @@ export const RankingShortsTab: React.FC<RankingShortsTabProps> = ({ onAddBatchJo
           )}
         </div>
 
-        {/* Zone 3 (우측 3.5칸): 9:16 모바일 쇼츠 실시간 라이브 캔버스 프리뷰 */}
-        <div className="lg:col-span-4 xl:col-span-3.5 bg-card border border-border rounded-xl p-4 shadow-xs">
+        {/* Zone 3 (우측 4칸): 9:16 모바일 쇼츠 실시간 라이브 캔버스 프리뷰 */}
+        <div className="lg:col-span-4 bg-card border border-border rounded-xl p-4 shadow-xs">
           <RankingCanvasPreview
             headline={headline}
             subtitle={subtitle}
             items={rankingItems}
             options={options}
+            sourceVideo={selectedVideo}
             onStartFinalBatch={handleStartFinalBatch}
             isSubmitting={isSubmitting}
           />

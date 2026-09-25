@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.models import CategoryTree, DiscoveryChannel
 from app.services.intelligence.youtube_discovery import search_youtube_channels, search_youtube_videos
 from app.services.region_filter import is_blocked_region
+from app.utils.ytdlp_utils import get_standard_ytdlp_opts
 
 logger = logging.getLogger(__name__)
 
@@ -113,14 +114,12 @@ or
 def fetch_single_channel_info(channel_url: str) -> dict:
     """Fetch channel title, subscriber count, and thumbnail using yt-dlp flat extraction."""
     try:
-        ydl_opts = {
-            'quiet': True,
-            'no_warnings': True,
+        ydl_opts = get_standard_ytdlp_opts({
             'extract_flat': 'in_playlist',
             'socket_timeout': 15,
             'sleep_interval': 0.5,      # [OPTIMIZATION]
             'max_sleep_interval': 1.5,
-        }
+        })
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(channel_url, download=False)
             if info:

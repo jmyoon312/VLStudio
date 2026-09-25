@@ -68,6 +68,15 @@ class SegmentationRequest(BaseModel):
     auto_generate_images: bool = False # [NEW] Auto-trigger Draft Gen
     auto_generate_audio: bool = False # [NEW] Auto-trigger Audio Gen
     pacing_config: Optional[Dict[str, Any]] = None # [NEW] {strategy: 'rule', unit: 'sentence', value: 2}
+    video_manifest: Optional[str] = None # [NEW] MediaIntelligenceCore 4중 감각 시각 내러티브 컨텍스트
+    source_urls: Optional[List[str]] = None # [NEW] 영상 소스 URL 목록
+    focus_persons: Optional[List[str]] = None # [NEW] 인물 일관성 Focus Persons (J2.Z)
+    tone_preset: Optional[str] = None # [NEW] 5대 문체 프리셋 (JZ.a)
+    tone_prompt: Optional[str] = None # [NEW] 커스텀 톤 지시어
+    include_comments: bool = False # [NEW] 댓글 오버레이 (J0.b)
+    comment_mode: Optional[str] = "auto" # auto / manual
+    comment_count: int = 1
+    manual_comments: Optional[str] = None
 
 @router.get("/models")
 async def get_available_models(
@@ -151,16 +160,51 @@ async def segment_script(
 ):
     try:
         # 1. Segment Script (Non-blocking worker thread execution to prevent freezing main event loop)
-        result_segments = await asyncio.to_thread(
-            engine.segment_script,
-            request.text, 
-            request.mode, 
-            request.provider, 
-            request.model, 
-            request.style_prompt,
-            request.split_method,
-            request.pacing_config
-        )
+        effective_text = request.text
+        if request.video_manifest:
+            effective_text = f"{request.video_manifest}\n\n[제작 대상 원본 대본]\n{request.text}"
+
+        effective_style_prompt = request.style_prompt
+        if request.focus_persons:
+            effective_style_prompt += f"\n[등장인물(주인공 일관성)]: {', '.join(request.focus_persons)}"
+        if request.tone_preset:
+            effective_style_prompt += f"\n[서사 문체 프리셋]: {request.tone_preset}"
+        if request.tone_prompt:
+            effective_style_prompt += f"\n[커스텀 연출 지시어]: {request.tone_prompt}"
+        if request.include_comments:
+            effective_style_prompt += f"\n[쇼츠 댓글 오버레이 활성화]: 모드={request.comment_mode}"
+
+        try:
+            result_segments = await asyncio.wait_for(
+                asyncio.to_thread(
+                    engine.segment_script,
+                    effective_text, 
+                    request.mode, 
+                    request.provider, 
+                    request.model, 
+                    effective_style_prompt,
+                    request.split_method,
+                    request.pacing_config
+                ),
+                timeout=7.0
+            )
+        except Exception as seg_err:
+            print(f"[WARN] segment_script LLM timeout or error: {seg_err}, utilizing smart fallback scenes")
+            raw_lines = [l.strip() for l in request.text.split('\n') if l.strip()]
+            if not raw_lines:
+                raw_lines = [request.text.strip()] if request.text.strip() else ["나레이션 장면"]
+            
+            p_prefix = ", ".join(request.focus_persons) if request.focus_persons else "Character"
+            t_preset = request.tone_preset or "Cinematic"
+            result_segments = [
+                {
+                    "scene_id": idx + 1,
+                    "script": line,
+                    "visual_prompt": f"9:16 vertical, {p_prefix}, {t_preset} atmosphere, cinematic photography, detailed lighting, sharp focus, 4k",
+                    "video_prompt": f"Cinematic camera gentle push-in as {p_prefix} speaks emotional narrative, smooth fluid motion."
+                }
+                for idx, line in enumerate(raw_lines)
+            ]
 
         updated_segments = result_segments
         settings = crud.get_settings(db)
@@ -1026,11 +1070,11 @@ async def generate_scene_tts(
         # Resolve robust TTS config fallback
         config = request.tts_config or {}
         if not config.get("engine"):
-            config["engine"] = getattr(settings, "default_tts_engine", "edge") or "edge"
+            config["engine"] = getattr(settings, "default_tts_engine", "supertone-local") or "supertone-local"
         if not config.get("language"):
             config["language"] = "ko"
         if not config.get("voice_id"):
-            config["voice_id"] = "ko-KR-SunHiNeural" if config.get("language") == "ko" else "en-US-JennyNeural"
+            config["voice_id"] = "F1" if config.get("language") == "ko" else "M1"
 
         audio_path = await video_client.generate_scene_audio(
             scene_id=request.scene_id,

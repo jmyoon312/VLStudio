@@ -44,8 +44,8 @@ class LiveHost:
             # Use a fast TTS model/voice
             audio_path = await self.tts_engine.generate_audio(
                 text=response_text,
-                engine="edge",
-                voice_id="en-US-AvaNeural" # Example voice
+                engine="supertone-local",
+                voice_id="F1"
             )
             
             # Convert path to URL wirelessly using the smart utility

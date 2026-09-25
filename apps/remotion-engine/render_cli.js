@@ -143,6 +143,15 @@ async function main() {
   if (inputProps.sketchImageSource && fs.existsSync(inputProps.sketchImageSource)) {
     inputProps.sketchImageSource = mediaServer.registerFile(inputProps.sketchImageSource);
   }
+  if (Array.isArray(inputProps.sketchFrames)) {
+    inputProps.sketchFrames = inputProps.sketchFrames.map((framePath) => {
+      if (framePath && fs.existsSync(framePath)) {
+        return mediaServer.registerFile(framePath);
+      }
+      return framePath;
+    });
+    console.log(`[MediaServer] ${inputProps.sketchFrames.length} sketch frames mapped.`);
+  }
   if (inputProps.audioSource && fs.existsSync(inputProps.audioSource)) {
     inputProps.audioSource = mediaServer.registerFile(inputProps.audioSource);
   }
@@ -155,6 +164,10 @@ async function main() {
   }
   if (inputProps.bgmSource && fs.existsSync(inputProps.bgmSource)) {
     inputProps.bgmSource = mediaServer.registerFile(inputProps.bgmSource);
+  }
+  if (inputProps.albumCover && fs.existsSync(inputProps.albumCover)) {
+    inputProps.albumCover = mediaServer.registerFile(inputProps.albumCover);
+    console.log(`[MediaServer] AlbumCover mapped to: ${inputProps.albumCover}`);
   }
 
   // Ensure output directory exists

@@ -167,10 +167,11 @@ from app.routers import (
     work_queue, youtube_channels, veo_prompt_agent, social_profiles,
     queue_management, processing_verification, dashboard_reports, 
     health_deployment, ml_ab_search, operations, network,
-    douyin_shorts_router, capcut_remote, presets, trend_radar, fsd_mission,
+    douyin_shorts_router, capcut_remote, presets, sovereign_presets, trend_radar, fsd_mission,
     pipeline_router, universal_cutter, analytics, community, shorts_production,
     media_intelligence, viral_intelligence, discovery, bgm_router, ranking_shorts,
-    long_to_short
+    long_to_short, meokguri, video_creative, movie_drama_shorts, song_shorts, sns_trend,
+    ai_accounts, director_sessions
 )
 from app import job_queue, crud, models, scheduler
 from app.utils.path_utils import normalize_path
@@ -250,6 +251,13 @@ async def lifespan(app: FastAPI):
     from app.services.channel_director import channel_director
     channel_director.start_director_daemon(interval_seconds=180)
 
+    # [NEW] Start SNS Autonomous Patrol Radar Worker
+    try:
+        from app.services.sns_trend_service import sns_patrol_worker
+        sns_patrol_worker.start()
+    except Exception as e:
+        logger.warning(f"[SnsPatrolWorker] Failed to start background worker: {e}")
+
 
 
     # [NEW] Start LDPlayer Universal SOCKS5 Gateway Bridge (Port 11080)
@@ -258,6 +266,14 @@ async def lifespan(app: FastAPI):
         ldplayer_gateway.start()
     except Exception as e:
         logger.warning(f"[LDPlayerGateway] Failed to start gateway: {e}")
+
+    # [NEW] Start Pixeling Native Preset Library Watcher (Auto-sync new presets)
+    try:
+        from app.services.pixeling_harvester import pixeling_harvester
+        asyncio.create_task(pixeling_harvester.start_preset_watcher(poll_interval_seconds=30))
+        logger.info("[PresetWatcher] Pixeling native preset watcher daemon registered.")
+    except Exception as e:
+        logger.warning(f"[PresetWatcher] Failed to start preset watcher: {e}")
 
     # [DEPRECATED] Autonomous search / swarm feature disabled due to low quality
     # from app.global_swarm_master import global_master
@@ -350,6 +366,11 @@ async def lifespan(app: FastAPI):
     scout_worker.stop()
     discovery_scraper.stop_background_daemon()
     channel_director.stop_director_daemon()
+    try:
+        from app.services.sns_trend_service import sns_patrol_worker
+        sns_patrol_worker.stop()
+    except Exception:
+        pass
     scheduler.stop_scheduler()
     try:
         from app.services.ldplayer_gateway import ldplayer_gateway
@@ -469,8 +490,24 @@ os.makedirs(os.path.join(download_dir, "07_Downloads"), exist_ok=True)
 def resolve_asset_file(path: str) -> Optional[str]:
     """
     Finds asset file across download_dir, 07_Downloads, raw, and strips 07_Downloads/media if needed.
+    Auto-recovers from double URL encoding (%25) and duplicate /files/ prefix.
     """
+    import urllib.parse
+
     clean_path = path.replace("\\", "/").strip("/")
+
+    # [Triple-Lock Layer 3] 다중 URL 언쿼트 (이중 인코딩 %25ED -> %ED -> 한글 복원)
+    for _ in range(5):
+        if "%" not in clean_path:
+            break
+        decoded = urllib.parse.unquote(clean_path)
+        if decoded == clean_path:
+            break
+        clean_path = decoded
+
+    # [Triple-Lock Layer 3] 이중/삼중 files/ 접두어 제거 (/files/files/... -> ...)
+    while clean_path.lower().startswith("files/"):
+        clean_path = clean_path[len("files/"):].strip("/")
 
     # 1. Direct absolute path or Windows drive check (e.g. Users/jmyoo/... -> C:/Users/jmyoo/...)
     if os.path.isfile(clean_path):
@@ -642,6 +679,15 @@ app.include_router(bridge_config_v2.router, prefix="/api/bridge/config/v2")
 app.include_router(bridge_search.router, prefix="/api/bridge/search")
 
 app.include_router(ranking_shorts.router, prefix="/api/ranking", tags=["ranking-shorts"])
+app.include_router(meokguri.router, prefix="/api/meokguri", tags=["meokguri"])
+app.include_router(video_creative.router, prefix="/api/video-creative", tags=["video-creative"])
+app.include_router(movie_drama_shorts.router, prefix="/api/ve/movie-drama-shorts", tags=["movie-drama-shorts"])
+app.include_router(song_shorts.router, prefix="/api/song", tags=["song-shorts"])
+app.include_router(song_shorts.router, prefix="/song", tags=["song-shorts"])
+app.include_router(sns_trend.router)
+app.include_router(sovereign_presets.router, prefix="/api", tags=["sovereign_presets"])
+app.include_router(ai_accounts.router, prefix="/api", tags=["ai_accounts"])
+app.include_router(director_sessions.router, prefix="/api", tags=["director_sessions"])
 
 # New Phase 7-10 Routers
 app.include_router(queue_management.router)
@@ -718,4 +764,4 @@ if __name__ == "__main__":
     import uvicorn
     # Pass app object directly for flawless PyInstaller packaging compatibility
     uvicorn.run(app, host="0.0.0.0", port=8000)
-    # Refreshed for enriched reports & telegram bridge
+    # Refreshed for director sessions auto-reload trigger

@@ -165,7 +165,7 @@ const WorkflowGuideButton = () => {
                                             title="TTS (음성 생성)"
                                             description="텍스트를 자연스러운 음성으로 변환합니다."
                                             settings={[
-                                                { label: "엔진", type: "tabs", example: "Edge TTS / ElevenLabs / Typecast" },
+                                                { label: "엔진", type: "tabs", example: "Supertonic / Typecast / ElevenLabs / Kokoro" },
                                                 { label: "음성 선택", type: "select", example: "언어별 음성 목록" },
                                                 { label: "속도", type: "slider", example: "0.5x ~ 2.0x" },
                                                 { label: "피치", type: "slider", example: "-10 ~ +10" },

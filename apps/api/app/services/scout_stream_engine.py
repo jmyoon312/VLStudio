@@ -12,8 +12,34 @@ from typing import Dict, Any, List, Optional
 from collections import deque
 import logging
 import yt_dlp
+from app.utils.ytdlp_utils import get_standard_ytdlp_opts, build_safe_ytsearch_query, sanitize_search_query
 
 logger = logging.getLogger("scout_stream_engine")
+
+class ScoutFilteredLogger:
+    """yt-dlp 에러 메시지 필터: WAF/403/429 오류가 stderr로 방출되어 콘솔을 오염시키는 것을 원천 차단"""
+    def debug(self, msg):
+        pass
+    def warning(self, msg):
+        pass
+    def error(self, msg):
+        suppress_list = [
+            "HTTP Error 403",
+            "Forbidden",
+            "Unable to download API page",
+            "No working app info is available",
+            "HTTP Error 429",
+            "Too Many Requests",
+            "Private video",
+            "Sign in to confirm",
+            "Video unavailable",
+            "This video is unavailable",
+            "Unable to download webpage",
+            "content is not available"
+        ]
+        if any(ign in str(msg) for ign in suppress_list):
+            return
+        logger.debug(f"[Scout yt-dlp] {msg}")
 
 # ── 1. Unicode Script Detection for Blacklisted Languages ─────────────
 DEVANAGARI_REGEX = re.compile(r'[ऀ-ॿ]')  # Hindi / Marathi / Sanskrit
@@ -266,13 +292,12 @@ class RealAutonomousScoutWorker:
         from app.database import SessionLocal
         from app import models
 
-        ydl_opts = {
-            'quiet': True,
+        ydl_opts = get_standard_ytdlp_opts({
             'extract_flat': True,
             'skip_download': True,
-            'no_warnings': True,
-            'socket_timeout': 8
-        }
+            'socket_timeout': 8,
+            'logger': ScoutFilteredLogger(),
+        })
 
         while self._running:
             try:
@@ -341,7 +366,7 @@ class RealAutonomousScoutWorker:
 
                         self.telemetry.current_category = f"[{cat_name}] 🎯 추천 심화 (@{seed_channel.name})"
                         self.telemetry.last_scout_time = datetime.now().strftime("%H:%M:%S")
-                        query = f"ytsearch20:{seed_kw} shorts"
+                        query = build_safe_ytsearch_query(seed_kw, 10, "shorts")
                         track_mode = "category_deep"
                         seed_name = seed_channel.name
                     else:
@@ -350,16 +375,20 @@ class RealAutonomousScoutWorker:
                         matched_cat = next((c for c in categories if c.name == cat_name), None)
                         self.telemetry.current_category = f"[{cat_name}] 🌐 광역 트렌드 발굴"
                         self.telemetry.last_scout_time = datetime.now().strftime("%H:%M:%S")
-                        query = f"ytsearch25:{cat_name} shorts"
+                        query = build_safe_ytsearch_query(cat_name, 10, "shorts")
                         track_mode = "broad_discovery"
                         seed_name = ""
 
                     try:
                         loop = asyncio.get_running_loop()
                         def fetch_entries():
-                            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                                res = ydl.extract_info(query, download=False)
-                                return res.get('entries', []) or []
+                            try:
+                                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                                    res = ydl.extract_info(query, download=False)
+                                    return res.get('entries', []) or []
+                            except Exception as ex:
+                                logger.debug(f"[ScoutWorker] fetch_entries note for '{query}': {ex}")
+                                return []
 
                         entries = await loop.run_in_executor(None, fetch_entries)
                         self.telemetry.current_window_count += len(entries)
@@ -568,20 +597,19 @@ async def auto_spider_longform_cluster(db, seed_video_title: str, seed_channel_t
     target_names = {c.name.lower().strip() for c in target_channels if c.name}
     existing_video_ids = {c.video_id for c in db.query(models.RadarCandidate.video_id).all()}
 
-    ydl_opts = {
-        'quiet': True,
+    ydl_opts = get_standard_ytdlp_opts({
         'extract_flat': True,
         'skip_download': True,
-        'ignoreerrors': True,
-        'no_warnings': True,
-        'compat_opts': ['no-javascript-extractor']
-    }
+        'socket_timeout': 8,
+        'logger': ScoutFilteredLogger(),
+    })
 
     loop = asyncio.get_running_loop()
     def _fetch():
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                res = ydl.extract_info(f"ytsearch10:{search_term}", download=False)
+                safe_q = build_safe_ytsearch_query(search_term, 10, "")
+                res = ydl.extract_info(safe_q, download=False)
                 return (res.get('entries', []) if res else []) or []
         except Exception:
             return []

@@ -182,9 +182,9 @@ export const LEGO_NODE_TEMPLATES: LegoNodeTemplate[] = [
         categoryLabel: '보이스/사운드',
         categoryColor: 'border-purple-500 bg-purple-500/10 text-purple-500',
         title: 'MultiTTS 고음질 뉴럴 보이스',
-        desc: 'Edge-TTS 및 전문 성우 모델을 통한 자연스러운 나레이션 오디오 합성',
+        desc: 'Supertonic 및 전문 성우 모델을 통한 자연스러운 나레이션 오디오 합성',
         iconName: 'Volume2',
-        defaultParams: { voice: 'ko-KR-SunHiNeural', rate: '+18%', pitch: '+4Hz' },
+        defaultParams: { engine: 'supertone-local', voice: 'F1', rate: '1.05', pitch: '0' },
         inputs: ['approved_script'],
         outputs: ['voice_audio', 'subtitle_timecodes']
     },
@@ -372,7 +372,7 @@ export const STANDARD_PIPELINES: PipelinePreset[] = [
         nodes: [
             { id: 'sp1', type: 'custom', position: { x: 50, y: 160 }, data: { ...LEGO_NODE_TEMPLATES.find(t => t.type === 'local_file_picker')!, customLabel: '대본 파일 인제스트' } },
             { id: 'sp2', type: 'custom', position: { x: 380, y: 160 }, data: { ...LEGO_NODE_TEMPLATES.find(t => t.type === 'viral_critic_gate')!, customLabel: 'Critic-85 퀄리티 게이트' } },
-            { id: 'sp3', type: 'custom', position: { x: 710, y: 80 }, data: { ...LEGO_NODE_TEMPLATES.find(t => t.type === 'multitts_voice')!, customLabel: 'MultiTTS 선희 뉴럴 보이스' } },
+            { id: 'sp3', type: 'custom', position: { x: 710, y: 80 }, data: { ...LEGO_NODE_TEMPLATES.find(t => t.type === 'multitts_voice')!, customLabel: 'MultiTTS Supertonic 서연 (F1)' } },
             { id: 'sp4', type: 'custom', position: { x: 710, y: 260 }, data: { ...LEGO_NODE_TEMPLATES.find(t => t.type === 'flow_ai_batch')!, customLabel: 'Google Flow AI 비디오 생성' } },
             { id: 'sp5', type: 'custom', position: { x: 1040, y: 160 }, data: { ...LEGO_NODE_TEMPLATES.find(t => t.type === 'capcut_assemble')!, customLabel: 'CapCut 프로젝트 No-ZIP 조립' } },
             { id: 'sp6', type: 'custom', position: { x: 1370, y: 160 }, data: { ...LEGO_NODE_TEMPLATES.find(t => t.type === 'work_queue_enqueue')!, customLabel: 'WorkQueue 배포 대기열 탑재' } }
@@ -416,7 +416,7 @@ export const STANDARD_PIPELINES: PipelinePreset[] = [
             { id: 'ko1', type: 'custom', position: { x: 50, y: 160 }, data: { ...LEGO_NODE_TEMPLATES.find(t => t.type === 'trend_rss_feed')!, customLabel: '트렌드 레이더 피드' } },
             { id: 'ko2', type: 'custom', position: { x: 380, y: 160 }, data: { ...LEGO_NODE_TEMPLATES.find(t => t.type === 'topic_to_story')!, customLabel: '9-Wave 바이럴 대본 기획' } },
             { id: 'ko3', type: 'custom', position: { x: 710, y: 80 }, data: { ...LEGO_NODE_TEMPLATES.find(t => t.type === 'viral_critic_gate')!, customLabel: '85점 바이럴 퀄리티 게이트' } },
-            { id: 'ko4', type: 'custom', position: { x: 710, y: 260 }, data: { ...LEGO_NODE_TEMPLATES.find(t => t.type === 'multitts_voice')!, customLabel: 'MultiTTS 선희 뉴럴 보이스' } },
+            { id: 'ko4', type: 'custom', position: { x: 710, y: 260 }, data: { ...LEGO_NODE_TEMPLATES.find(t => t.type === 'multitts_voice')!, customLabel: 'MultiTTS Supertonic 서연 (F1)' } },
             { id: 'ko5', type: 'custom', position: { x: 1040, y: 160 }, data: { ...LEGO_NODE_TEMPLATES.find(t => t.type === 'flow_ai_batch')!, customLabel: 'Google Flow AI 비디오 생성' } },
             { id: 'ko6', type: 'custom', position: { x: 1370, y: 160 }, data: { ...LEGO_NODE_TEMPLATES.find(t => t.type === 'capcut_assemble')!, customLabel: 'CapCut 프로젝트 No-ZIP 조립' } },
             { id: 'ko7', type: 'custom', position: { x: 1700, y: 160 }, data: { ...LEGO_NODE_TEMPLATES.find(t => t.type === 'work_queue_enqueue')!, customLabel: 'WorkQueue 자동 배포 탑재' } }
@@ -462,7 +462,7 @@ export const STANDARD_PIPELINES: PipelinePreset[] = [
             { id: 'dn2', type: 'custom', position: { x: 380, y: 160 }, data: { ...LEGO_NODE_TEMPLATES.find(t => t.type === 'topic_to_story')!, customLabel: '심층 바이럴 대본 기획' } },
             { id: 'dn3', type: 'custom', position: { x: 710, y: 160 }, data: { ...LEGO_NODE_TEMPLATES.find(t => t.type === 'viral_critic_gate')!, customLabel: '85점 바이럴 퀄리티 게이트' } },
             { id: 'dn4', type: 'custom', position: { x: 1040, y: 160 }, data: { ...LEGO_NODE_TEMPLATES.find(t => t.type === 'telegram_hitl_gate')!, customLabel: '텔레그램 HITL 원격 승인 게이트' } },
-            { id: 'dn5', type: 'custom', position: { x: 1370, y: 80 }, data: { ...LEGO_NODE_TEMPLATES.find(t => t.type === 'multitts_voice')!, customLabel: 'MultiTTS 선희 뉴럴 보이스' } },
+            { id: 'dn5', type: 'custom', position: { x: 1370, y: 80 }, data: { ...LEGO_NODE_TEMPLATES.find(t => t.type === 'multitts_voice')!, customLabel: 'MultiTTS Supertonic 서연 (F1)' } },
             { id: 'dn6', type: 'custom', position: { x: 1370, y: 260 }, data: { ...LEGO_NODE_TEMPLATES.find(t => t.type === 'flow_ai_batch')!, customLabel: 'Google Flow AI 비디오 생성' } },
             { id: 'dn7', type: 'custom', position: { x: 1700, y: 160 }, data: { ...LEGO_NODE_TEMPLATES.find(t => t.type === 'capcut_assemble')!, customLabel: 'CapCut 프로젝트 No-ZIP 조립' } },
             { id: 'dn8', type: 'custom', position: { x: 2030, y: 160 }, data: { ...LEGO_NODE_TEMPLATES.find(t => t.type === 'work_queue_enqueue')!, customLabel: 'WorkQueue 배포 관리자' } }
@@ -507,7 +507,7 @@ export const STANDARD_PIPELINES: PipelinePreset[] = [
                 id: 'node-4',
                 type: 'custom',
                 position: { x: 710, y: 260 },
-                data: { ...LEGO_NODE_TEMPLATES.find(t => t.type === 'multitts_voice')!, customLabel: 'MultiTTS 선희 뉴럴 보이스' }
+                data: { ...LEGO_NODE_TEMPLATES.find(t => t.type === 'multitts_voice')!, customLabel: 'MultiTTS Supertonic 서연 (F1)' }
             },
             {
                 id: 'node-5',

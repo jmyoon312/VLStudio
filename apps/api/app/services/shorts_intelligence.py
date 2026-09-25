@@ -3,6 +3,7 @@ import asyncio
 from typing import List, Dict, Any, Optional
 
 import yt_dlp
+from app.utils.ytdlp_utils import get_standard_ytdlp_opts, build_safe_ytsearch_query, sanitize_search_query
 
 logger = logging.getLogger(__name__)
 
@@ -97,14 +98,13 @@ class ShortsIntelligenceEngine:
         
         def _sync_fetch():
             try:
-                ydl_opts = {
-                    'quiet': True,
-                    'no_warnings': True,
+                ydl_opts = get_standard_ytdlp_opts({
                     'extract_flat': False,
                     'playlistend': 10,
-                }
+                })
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                    info = ydl.extract_info(f"ytsearch10:{search_term}", download=False)
+                    safe_q = build_safe_ytsearch_query(search_term, 10, "")
+                    info = ydl.extract_info(safe_q, download=False)
                     return info.get('entries', []) if info else []
             except Exception as e:
                 logger.error(f"Trending audio search failed: {e}")
@@ -143,9 +143,10 @@ class ShortsIntelligenceEngine:
         
         # Fallback to YouTube search for music/shorts
         try:
-            ydl_opts = {'quiet': True, 'no_warnings': True, 'playlistend': 5}
-            with yt_dlp.YoutubeDL(yl_opts) as ydl:
-                info = ydl.extract_info("ytsearch5:trending shorts music", download=False)
+            ydl_opts = get_standard_ytdlp_opts({'playlistend': 5})
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                safe_q = build_safe_ytsearch_query("trending shorts music", 5, "")
+                info = ydl.extract_info(safe_q, download=False)
                 entries = info.get('entries', []) if info else []
                 for entry in entries:
                     vid = entry.get('id', '')
@@ -200,25 +201,22 @@ class ShortsIntelligenceEngine:
                 elif period == '30days': dateafter = 'today-30days'
                 else: dateafter = 'today-1year' # Default to at most 1 year old to prevent 12-year old videos
                 
-                ydl_opts = {
-                    'quiet': True,
-                    'no_warnings': True,
-                    'extract_flat': False,
-                    'playlistend': 20,
+                ydl_opts = get_standard_ytdlp_opts({
+                    'extract_flat': True,
+                    'playlistend': 10,
                     'socket_timeout': 15,
-                    'match_filter': yt_dlp.match_filter_func("duration <= 65"),
-                }
+                })
                 if dateafter:
                     ydl_opts['dateafter'] = dateafter
 
-                # Use ytsearchdate20 for recent sorting if specifically asked, else ytsearch20
-                search_prefix = "ytsearchdate20:" if period != 'all' else "ytsearch20:"
+                clean_q = sanitize_search_query(q)
+                search_prefix = "ytsearchdate10:" if period != 'all' else "ytsearch10:"
                 
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                    info = ydl.extract_info(f"{search_prefix}{q}", download=False)
+                    info = ydl.extract_info(f"{search_prefix}{clean_q}", download=False)
                     return info.get('entries', []) if info else []
             except Exception as e:
-                logger.error(f"yt-dlp search failed for '{q}': {e}")
+                logger.debug(f"[ShortsEngine] yt-dlp search query note for '{q}': {e}")
                 return []
 
         loop = asyncio.get_event_loop()
@@ -270,7 +268,7 @@ class ShortsIntelligenceEngine:
                     "id": video_id,
                     "title": entry.get('title', 'Unknown Title'),
                     "upload_date": upload_date,
-                    "thumbnail": entry.get('thumbnail', ""),
+                    "thumbnail": entry.get('thumbnail') or (f"https://i.ytimg.com/vi/{video_id}/hqdefault.jpg" if video_id else ""),
                     "channelName": entry.get('uploader', 'Unknown Channel'),
                     "channelUrl": entry.get('channel_url', '') or f"https://www.youtube.com/channel/{entry.get('channel_id', '')}",
                     "videoUrl": entry.get('webpage_url', '') or f"https://www.youtube.com/watch?v={video_id}",

@@ -1,6 +1,7 @@
 import logging
 import yt_dlp
 from typing import List, Dict, Any, Optional
+from app.utils.ytdlp_utils import get_standard_ytdlp_opts, build_safe_ytsearch_query, sanitize_search_query
 
 logger = logging.getLogger(__name__)
 
@@ -12,22 +13,21 @@ def search_youtube_channels(query: str, max_results: int = 20) -> List[Dict[str,
     try:
         # [FEATURE] Apply region filtering to restrict non-target countries
         # Specifically targeting KR, JP, and EN regions, excluding Southeast Asia.
-        ydl_opts = {
-            'quiet': True,
-            'no_warnings': True,
-            'extract_flat': 'in_playlist', # [OPTIMIZATION] Use flat extraction to drastically speed up search
-            'playlistend': max_results,
+        ydl_opts = get_standard_ytdlp_opts({
+            'extract_flat': 'in_playlist',
+            'playlistend': min(10, max_results),
             'socket_timeout': 20,
             'skip_download': True,
             'geo_bypass': True,
-            'geo_bypass_country': 'KR', # Default to KR for search context, helps bias results
-            'sleep_interval': 0.5,      # [OPTIMIZATION] Add random delay to prevent IP block
+            'geo_bypass_country': 'KR',
+            'sleep_interval': 0.5,
             'max_sleep_interval': 1.5,
-        }
+        })
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            # We can also append region-specific keywords to the query to strongly bias YouTube's search algorithm
-            biased_query = f"{query} (한국어 OR 日本語 OR english)"
-            info = ydl.extract_info(f"ytsearch{max_results}:{biased_query}", download=False)
+            clean_q = sanitize_search_query(query)
+            biased_query = f"{clean_q} (한국어 OR 日本語 OR english)"
+            safe_q = build_safe_ytsearch_query(biased_query, min(10, max_results), "")
+            info = ydl.extract_info(safe_q, download=False)
             entries = info.get('entries') or [] if info else []
     except Exception as e:
         logger.warning(f"[YouTubeDiscovery] yt-dlp search failed for '{query}': {e}")
@@ -69,24 +69,24 @@ def search_youtube_videos(query: str, max_results: int = 20, shorts_only: bool =
     Search YouTube for videos matching the query using yt-dlp.
     """
     try:
-        # [FEATURE] Apply region filtering to restrict non-target countries
-        ydl_opts = {
-            'quiet': True,
-            'no_warnings': True,
-            'extract_flat': 'in_playlist', # [OPTIMIZATION] Flat extraction for much faster video list fetch
-            'playlistend': max_results,
+        extra = {
+            'extract_flat': 'in_playlist',
+            'playlistend': min(10, max_results),
             'socket_timeout': 20,
             'skip_download': True,
             'geo_bypass': True,
             'geo_bypass_country': 'KR',
-            'sleep_interval': 0.5,         # [OPTIMIZATION] Delay to prevent IP block
+            'sleep_interval': 0.5,
             'max_sleep_interval': 1.5,
         }
         if shorts_only:
-            ydl_opts['match_filter'] = yt_dlp.match_filter_func("duration <= 65")
+            extra['match_filter'] = yt_dlp.match_filter_func("duration <= 65")
+        ydl_opts = get_standard_ytdlp_opts(extra)
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            biased_query = f"{query} (한국어 OR 日本語 OR english)"
-            info = ydl.extract_info(f"ytsearch{max_results}:{biased_query}", download=False)
+            clean_q = sanitize_search_query(query)
+            biased_query = f"{clean_q} (한국어 OR 日本語 OR english)"
+            safe_q = build_safe_ytsearch_query(biased_query, min(10, max_results), "")
+            info = ydl.extract_info(safe_q, download=False)
             return info.get('entries') or [] if info else []
     except Exception as e:
         logger.warning(f"[YouTubeDiscovery] yt-dlp video search failed for '{query}': {e}")

@@ -117,6 +117,23 @@ else:
                     cursor.execute("ALTER TABLE work_queue_items ADD COLUMN render_engine VARCHAR DEFAULT 'REMOTION';")
                 except Exception:
                     pass
+                for col_stmt in [
+                    "ALTER TABLE sns_trend_snapshots ADD COLUMN category VARCHAR;",
+                    "ALTER TABLE sns_trend_snapshots ADD COLUMN country VARCHAR;",
+                    "ALTER TABLE sns_trend_items ADD COLUMN category VARCHAR;",
+                    "ALTER TABLE sns_trend_items ADD COLUMN country VARCHAR;",
+                    "ALTER TABLE sns_trend_items ADD COLUMN outlier_ratio FLOAT DEFAULT 1.0;",
+                    "ALTER TABLE sns_trend_items ADD COLUMN velocity_score FLOAT DEFAULT 0.0;"
+                ]:
+                    try:
+                        cursor.execute(col_stmt)
+                    except Exception:
+                        pass
+                try:
+                    cursor.execute("CREATE INDEX IF NOT EXISTS ix_sns_trend_cat_cntry ON sns_trend_items(platform, category, country);")
+                    cursor.execute("CREATE INDEX IF NOT EXISTS ix_sns_trend_created ON sns_trend_items(created_at DESC);")
+                except Exception:
+                    pass
             except Exception:
                 pass
             cursor.close()
@@ -298,6 +315,39 @@ def migrate_source_external_id():
                         print(f"[Migration] Added {col_name} column to settings")
             except Exception as st_err:
                 print(f"[Migration] settings work_queue / hermes migration skipped: {st_err}")
+
+            # 8. sns_trend_snapshots and sns_trend_items schema migration
+            try:
+                if inspector.has_table("sns_trend_snapshots"):
+                    snap_cols = [c["name"] for c in inspector.get_columns("sns_trend_snapshots")]
+                    for col_name, col_def in [("category", "VARCHAR"), ("country", "VARCHAR")]:
+                        if col_name not in snap_cols:
+                            conn.execute(text(f"ALTER TABLE sns_trend_snapshots ADD COLUMN {col_name} {col_def}"))
+                            print(f"[Migration] Added {col_name} column to sns_trend_snapshots")
+
+                if inspector.has_table("sns_trend_items"):
+                    item_cols = [c["name"] for c in inspector.get_columns("sns_trend_items")]
+                    item_additions = [
+                        ("category", "VARCHAR"),
+                        ("country", "VARCHAR"),
+                        ("outlier_ratio", "FLOAT DEFAULT 1.0"),
+                        ("velocity_score", "FLOAT DEFAULT 0.0"),
+                        ("match_reason", "VARCHAR"),
+                        ("download_status", "VARCHAR DEFAULT 'IDLE'"),
+                        ("downloaded_video_id", "INTEGER"),
+                        ("local_file_path", "VARCHAR"),
+                    ]
+                    for col_name, col_def in item_additions:
+                        if col_name not in item_cols:
+                            conn.execute(text(f"ALTER TABLE sns_trend_items ADD COLUMN {col_name} {col_def}"))
+                            print(f"[Migration] Added {col_name} column to sns_trend_items")
+
+                    try:
+                        conn.execute(text("CREATE INDEX IF NOT EXISTS ix_sns_trend_cat_cntry ON sns_trend_items (category, country)"))
+                    except Exception:
+                        pass
+            except Exception as sns_err:
+                print(f"[Migration] sns_trend schema migration skipped: {sns_err}")
 
         return True
     except Exception as e:

@@ -54,8 +54,8 @@ export interface BatchWorkItem {
 }
 
 interface BatchWorkQueueSectionProps {
-  items: BatchWorkItem[];
-  selectedItemIds: (string | number)[];
+  items?: BatchWorkItem[];
+  selectedItemIds?: (string | number)[];
   onToggleSelect: (id: string | number) => void;
   onToggleSelectAll: () => void;
   onPlayItem: (item: BatchWorkItem) => void;
@@ -69,8 +69,8 @@ interface BatchWorkQueueSectionProps {
 }
 
 export const BatchWorkQueueSection: React.FC<BatchWorkQueueSectionProps> = ({
-  items,
-  selectedItemIds,
+  items = [],
+  selectedItemIds = [],
   onToggleSelect,
   onToggleSelectAll,
   onPlayItem,
@@ -225,7 +225,7 @@ export const BatchWorkQueueSection: React.FC<BatchWorkQueueSectionProps> = ({
           )}
 
           {/* 일괄 삭제 */}
-          {onBulkDelete && selectedItemIds.length > 0 && (
+          {onBulkDelete && (selectedItemIds?.length ?? 0) > 0 && (
             <Button
               type="button"
               size="sm"
@@ -234,7 +234,7 @@ export const BatchWorkQueueSection: React.FC<BatchWorkQueueSectionProps> = ({
               className="h-7 text-[11px] font-semibold text-destructive border-destructive/30 hover:bg-destructive/10 gap-1 px-2 rounded-lg cursor-pointer"
             >
               <Trash2 className="w-3 h-3" />
-              <span>{selectedItemIds.length}개 삭제</span>
+              <span>{selectedItemIds?.length ?? 0}개 삭제</span>
             </Button>
           )}
 

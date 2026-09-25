@@ -33,6 +33,7 @@ except ImportError:
 
 class StrategyFilteredLogger:
     def debug(self, msg): pass
+    def info(self, msg): pass
     def warning(self, msg):
         # Suppress warnings including PO Token warnings
         ignore_patterns = [
@@ -59,9 +60,14 @@ class StrategyFilteredLogger:
             "HTTP Error 429",
             "rate-limited",
             "This content isn't available",
-            "Requested format is not available"
+            "Requested format is not available",
+            "HTTP Error 403",
+            "Forbidden",
+            "Unable to download API page",
+            "No working app info",
+            "Unable to download webpage"
         ]
-        if any(p in msg for p in external_errors):
+        if any(p in str(msg) for p in external_errors):
             logger.debug(f"[yt-dlp External Note] {msg}")
         else:
             logger.warning(f"[yt-dlp Error] {msg}")
@@ -97,13 +103,16 @@ class YTDLPDownloader:
         if 'extractor_args' not in opts:
             opts['extractor_args'] = {}
             
-        # [OPTIMIZATION] Platform-specific extractor args
-        if 'instagram.com' in url:
+        # [OPTIMIZATION] Platform-specific extractor args & client spoofing
+        if 'instagram.com' in str(url):
             # Use mobile client for Instagram to bypass some blocks
             opts['extractor_args']['instagram'] = {'client': 'android'}
-        elif 'youtube.com' in url or 'youtu.be' in url:
-            # YouTube smart defaults - force language to Korean
-            opts['extractor_args']['youtube'] = {'lang': ['ko']}
+        else:
+            # YouTube smart defaults - force Android/Web dual client spoofing & language
+            opts['extractor_args']['youtube'] = {
+                'player_client': ['android', 'web'],
+                'lang': ['ko']
+            }
             
         # [FIX] Enable Node.js for n-challenge solving if available
         import shutil
@@ -293,7 +302,6 @@ class YTDLPDownloader:
             'nocheckcertificate': True,
             'ignoreerrors': True,  # Skip videos with errors (e.g., "Only images available")
             'no_warnings': True,
-            'compat_opts': ['no-javascript-extractor']
         })
         
         # [FIX] Don't use cookies with android client (causes warnings)

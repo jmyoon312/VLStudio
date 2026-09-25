@@ -35,6 +35,9 @@ WHISPER_HALLUCINATION_PATTERNS = [
 ]
 
 
+from app import dependency_manager
+
+
 class MediaIntelligenceCore:
     def __init__(self, temp_dir: Optional[Path] = None):
         if temp_dir:
@@ -43,17 +46,31 @@ class MediaIntelligenceCore:
             self.temp_dir = Path(os.environ.get("LOCALAPPDATA", ".")) / "ViraLoop Studio" / "data" / "media_intelligence"
         self.temp_dir.mkdir(parents=True, exist_ok=True)
 
+    @staticmethod
+    async def _run_command_async(cmd: List[str], timeout: Optional[float] = None) -> subprocess.CompletedProcess:
+        """Windows 및 Linux 전 환경에서 EventLoop 충돌(NotImplementedError) 없이 안전하게 하위 프로세스를 실행"""
+        def _exec():
+            creationflags = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
+            return subprocess.run(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                creationflags=creationflags,
+                timeout=timeout
+            )
+        return await asyncio.to_thread(_exec)
+
     async def get_video_duration(self, video_path: Path) -> float:
         """ffprobe로 비디오 스트림의 실제 지속 시간(초)을 정밀 측정."""
+        ffprobe_exe = dependency_manager.DependencyManager.get_ffprobe_path()
         cmd = [
-            "ffprobe", "-v", "error", "-select_streams", "v:0",
+            ffprobe_exe, "-v", "error", "-select_streams", "v:0",
             "-show_entries", "stream=duration",
             "-of", "default=noprint_wrappers=1:nokey=1", str(video_path)
         ]
         try:
-            proc = await asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
-            stdout, _ = await proc.communicate()
-            val = stdout.decode().strip()
+            res = await self._run_command_async(cmd, timeout=10.0)
+            val = res.stdout.decode().strip()
             if val and val != "N/A":
                 return float(val)
         except Exception:
@@ -61,13 +78,12 @@ class MediaIntelligenceCore:
 
         # Fallback to container format duration
         cmd2 = [
-            "ffprobe", "-v", "error", "-show_entries", "format=duration",
+            ffprobe_exe, "-v", "error", "-show_entries", "format=duration",
             "-of", "default=noprint_wrappers=1:nokey=1", str(video_path)
         ]
         try:
-            proc = await asyncio.create_subprocess_exec(*cmd2, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
-            stdout, _ = await proc.communicate()
-            val = stdout.decode().strip()
+            res2 = await self._run_command_async(cmd2, timeout=10.0)
+            val = res2.stdout.decode().strip()
             if val and val != "N/A":
                 return float(val)
         except Exception:
@@ -89,19 +105,17 @@ class MediaIntelligenceCore:
         # 적정 프레임 수 동적 산정 (10장 ~ 22장)
         target_count = min(max(10, round(duration / 1.8)), 22)
 
-        # 1. 씬 체인지 시점 감지
+        # 1. 씬 체인지 시점 감지 (320p 고속 다운스케일 + 20초 안전 타임아웃)
         scene_changes = []
+        ffmpeg_exe = dependency_manager.DependencyManager.get_ffmpeg_path()
         try:
             cmd = [
-                "ffmpeg", "-i", str(video_path), "-filter:v",
-                "select='gt(scene,0.35)',showinfo", "-f", "null", "-"
+                ffmpeg_exe, "-loglevel", "info", "-i", str(video_path), "-filter:v",
+                "scale=320:-1,select='gt(scene,0.35)',showinfo", "-f", "null", "-"
             ]
-            proc = await asyncio.create_subprocess_exec(
-                *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
-            )
-            _, stderr = await proc.communicate()
+            res = await self._run_command_async(cmd, timeout=25.0)
             import re
-            for line in stderr.decode(errors="ignore").splitlines():
+            for line in res.stderr.decode(errors="ignore").splitlines():
                 if "pts_time:" in line:
                     m = re.search(r"pts_time:([0-9\.]+)", line)
                     if m:
@@ -136,12 +150,11 @@ class MediaIntelligenceCore:
         for idx, t in enumerate(filtered_points):
             out_file = work_dir / f"frame_{idx:02d}_{t:.2f}s.jpg"
             cmd_extract = [
-                "ffmpeg", "-y", "-loglevel", "error", "-ss", str(t),
+                ffmpeg_exe, "-y", "-loglevel", "error", "-ss", str(t),
                 "-i", str(video_path), "-frames:v", "1",
                 "-vf", "scale=480:-1", "-q:v", "3", str(out_file)
             ]
-            proc = await asyncio.create_subprocess_exec(*cmd_extract)
-            await proc.wait()
+            await self._run_command_async(cmd_extract, timeout=15.0)
             if out_file.exists() and out_file.stat().st_size > 0:
                 extracted_frames.append({
                     "index": idx,
@@ -153,9 +166,14 @@ class MediaIntelligenceCore:
 
         return extracted_frames
 
-    async def extract_speech_transcript(self, video_path: Path) -> Dict[str, Any]:
+    async def extract_speech_transcript(
+        self,
+        video_path: Path,
+        max_duration_sec: Optional[float] = None
+    ) -> Dict[str, Any]:
         """
         Faster-Whisper 음성 대사(STT) 추출 + 환각 필터링
+        - max_duration_sec: 긴 영상 분석 시 앞부분 지정 초만 고속 추출 (예: 180초)
         """
         result = {
             "has_speech": False,
@@ -166,12 +184,15 @@ class MediaIntelligenceCore:
 
         # 오디오 트랙 추출 (16kHz wav)
         wav_path = self.temp_dir / f"temp_{os.getpid()}_{video_path.stem}.wav"
-        cmd_wav = [
-            "ffmpeg", "-y", "-loglevel", "error", "-i", str(video_path),
+        ffmpeg_exe = dependency_manager.DependencyManager.get_ffmpeg_path()
+        cmd_wav = [ffmpeg_exe, "-y", "-loglevel", "error"]
+        if max_duration_sec and max_duration_sec > 0:
+            cmd_wav.extend(["-t", str(max_duration_sec)])
+        cmd_wav.extend([
+            "-i", str(video_path),
             "-vn", "-ac", "1", "-ar", "16000", str(wav_path)
-        ]
-        proc = await asyncio.create_subprocess_exec(*cmd_wav)
-        await proc.wait()
+        ])
+        await self._run_command_async(cmd_wav, timeout=30.0)
 
         if not wav_path.exists() or wav_path.stat().st_size < 1000:
             if wav_path.exists():
@@ -194,13 +215,33 @@ class MediaIntelligenceCore:
             except Exception:
                 pass
 
-            # CTranslate2 / CPU or CUDA
-            model = WhisperModel(model_path, device="auto", compute_type="default")
-            segments, info = model.transcribe(str(wav_path), beam_size=3, vad_filter=True)
-            
+            def _transcribe():
+                try:
+                    # model_path 디렉토리에 model.bin이 직접 있는지 검사
+                    if os.path.isdir(model_path) and os.path.exists(os.path.join(model_path, "model.bin")):
+                        model = WhisperModel(model_path, device="auto", compute_type="default")
+                    elif os.path.isdir(model_path):
+                        model = WhisperModel("base", download_root=model_path, device="auto", compute_type="default")
+                    else:
+                        model = WhisperModel("base", device="auto", compute_type="default")
+                    segs, inf = model.transcribe(str(wav_path), beam_size=2, vad_filter=True)
+                    return list(segs), inf
+                except Exception as gpu_err:
+                    # CUDA cublas64 DLL 부재 시 CPU int8로 완벽 자가치유 폴백
+                    if os.path.isdir(model_path) and os.path.exists(os.path.join(model_path, "model.bin")):
+                        model = WhisperModel(model_path, device="cpu", compute_type="int8")
+                    elif os.path.isdir(model_path):
+                        model = WhisperModel("base", download_root=model_path, device="cpu", compute_type="int8")
+                    else:
+                        model = WhisperModel("base", device="cpu", compute_type="int8")
+                    segs, inf = model.transcribe(str(wav_path), beam_size=2, vad_filter=True)
+                    return list(segs), inf
+
+            segments_list, info = await asyncio.to_thread(_transcribe)
+
             clean_segments = []
             clean_texts = []
-            for s in segments:
+            for s in segments_list:
                 text = s.text.strip()
                 # 환각 블랙리스트 검사
                 is_hallucination = any(pat in text for pat in WHISPER_HALLUCINATION_PATTERNS)
@@ -238,19 +279,17 @@ class MediaIntelligenceCore:
         }
 
         # 1. FFmpeg silencedetect 및 볼륨 피크 탐지
+        ffmpeg_exe = dependency_manager.DependencyManager.get_ffmpeg_path()
         try:
             cmd = [
-                "ffmpeg", "-i", str(video_path), "-af",
+                ffmpeg_exe, "-i", str(video_path), "-af",
                 "silencedetect=noise=-30dB:d=0.5", "-f", "null", "-"
             ]
-            proc = await asyncio.create_subprocess_exec(
-                *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
-            )
-            _, stderr = await proc.communicate()
+            res = await self._run_command_async(cmd, timeout=30.0)
             import re
             silence_starts = []
             silence_ends = []
-            for line in stderr.decode(errors="ignore").splitlines():
+            for line in res.stderr.decode(errors="ignore").splitlines():
                 if "silence_start:" in line:
                     m = re.search(r"silence_start: ([0-9\.]+)", line)
                     if m: silence_starts.append(float(m.group(1)))
@@ -271,11 +310,10 @@ class MediaIntelligenceCore:
             from scipy.signal import find_peaks
             wav_sample = self.temp_dir / f"peaks_{os.getpid()}_{video_path.stem}.wav"
             cmd_sample = [
-                "ffmpeg", "-y", "-loglevel", "error", "-i", str(video_path),
+                ffmpeg_exe, "-y", "-loglevel", "error", "-i", str(video_path),
                 "-vn", "-ac", "1", "-ar", "8000", "-t", "60", str(wav_sample)
             ]
-            p = await asyncio.create_subprocess_exec(*cmd_sample)
-            await p.wait()
+            await self._run_command_async(cmd_sample, timeout=20.0)
 
             if wav_sample.exists():
                 data, samplerate = sf.read(str(wav_sample))
@@ -584,13 +622,13 @@ class MediaIntelligenceCore:
         opening_frames = [f for f in frames if f.get("timestamp", 0) <= 3.0]
 
         # 6. 표준 ChannelDNABenchmark 스키마 구조체 조립
-        top_bar_h = float(layout_data.get("top_bar_height_pct", 18.0))
-        bot_bar_h = float(layout_data.get("bottom_bar_height_pct", 6.0))
-        top_title_y = float(layout_data.get("top_title_y_pct", 5.5))
-        sub_y = float(layout_data.get("subtitle_y_pct", 68.5))
-        sub_color = str(layout_data.get("subtitle_color", "#FFFFFF"))
-        sub_stroke_color = str(layout_data.get("subtitle_stroke_color", "#000000"))
-        sub_stroke_w = int(layout_data.get("subtitle_stroke_width_px", 5))
+        top_bar_h = float(layout_data.get("top_bar_height_pct") or 18.0)
+        bot_bar_h = float(layout_data.get("bottom_bar_height_pct") or 6.0)
+        top_title_y = float(layout_data.get("top_title_y_pct") or 5.5)
+        sub_y = float(layout_data.get("subtitle_y_pct") or 68.5)
+        sub_color = str(layout_data.get("subtitle_color") or "#FFFFFF")
+        sub_stroke_color = str(layout_data.get("subtitle_stroke_color") or "#000000")
+        sub_stroke_w = int(layout_data.get("subtitle_stroke_width_px") or 5)
 
         visual_dna = {
             "canvas_type": "LETTERBOX_SOLID" if (top_bar_h > 5 or bot_bar_h > 3) else "FULLSCREEN",
@@ -600,8 +638,8 @@ class MediaIntelligenceCore:
             "top_bar_height_pct": top_bar_h,
             "has_top_title": bool(top_title_y > 0),
             "top_title_y_pct": top_title_y,
-            "title_colors": layout_data.get("title_colors", ["#FFFFFF", "#F5F420"]),
-            "title_bg_mode": layout_data.get("title_bg_mode", "none"),
+            "title_colors": layout_data.get("title_colors") or ["#FFFFFF", "#F5F420"],
+            "title_bg_mode": layout_data.get("title_bg_mode") or "none",
             "has_subtitle": True,
             "subtitle": {
                 "y_percent": sub_y,
@@ -614,10 +652,10 @@ class MediaIntelligenceCore:
                 "safe_zone": f"OPTIMAL_{int(sub_y)}",
                 "motion_preset": "word_pop"
             },
-            "has_jab_hook": layout_data.get("has_jab_hook", True),
+            "has_jab_hook": bool(layout_data.get("has_jab_hook", True)),
             "jab_hook": {
-                "enabled": layout_data.get("has_jab_hook", True),
-                "y_percent": float(layout_data.get("jab_hook_y_pct", 42.0)),
+                "enabled": bool(layout_data.get("has_jab_hook", True)),
+                "y_percent": float(layout_data.get("jab_hook_y_pct") or 42.0),
                 "color": "#F5F420",
                 "avg_interval_sec": round(duration / max(sfx_peaks_count, 1), 1) if sfx_peaks_count > 0 else 7.5
             },

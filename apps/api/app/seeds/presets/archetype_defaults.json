@@ -1,0 +1,344 @@
+{
+  "gunlimbo": {
+    "badge": "군림보/뇌전구 복제",
+    "name_suffix": "브레이킹 스타일",
+    "archetype": "gunlimbo",
+    "geometry": {
+      "topTitleZone": {
+        "enabled": true,
+        "topPct": 0,
+        "heightPct": 24,
+        "bgColor": "#000000",
+        "opacity": 1.0,
+        "keepThroughout": true
+      },
+      "hookBandZone": {
+        "enabled": true,
+        "topPct": 24,
+        "heightPct": 10,
+        "bgBarColor": "#3F3F46",
+        "boxColor": "#FFFFFF",
+        "textColor": "#000000",
+        "paddingX": 0,
+        "paddingY": 8,
+        "borderRadius": 0
+      },
+      "mediaZone": {
+        "introTopPct": 34,
+        "introHeightPct": 36,
+        "normalTopPct": 24,
+        "normalHeightPct": 46,
+        "fitMode": "sandwich",
+        "kenBurnsIntroZoom": true,
+        "kenBurnsScaleEnd": 1.10,
+        "introDurationSec": 2.5
+      },
+      "captionZone": {
+        "enabled": true,
+        "topPct": 70,
+        "heightPct": 30,
+        "safeZoneYPct": 75,
+        "bgColor": "#000000",
+        "hideDuringIntro": true
+      },
+      "sourceZone": {
+        "enabled": true,
+        "yPct": 92,
+        "textColor": "#94A3B8",
+        "fontSize": 12
+      }
+    },
+    "style": {
+      "titleFont": "Pretendard",
+      "titleLine1Color": "#FFFFFF",
+      "titleLine2Color": "#FFE500",
+      "titleFontSize": 36,
+      "titleStroke": false,
+      "titleStrokeWidth": 0,
+      "titleStrokeColor": "#000000",
+      "titleShadow": true,
+      "titleShadowBlur": 4,
+      "titleShadowColor": "rgba(0,0,0,0.8)",
+      "hookFont": "Pretendard",
+      "hookFontSize": 22,
+      "captionFont": "Pretendard",
+      "captionFontSize": 20,
+      "captionDefaultColor": "#FFE500",
+      "captionStrokeWidth": 4,
+      "captionStrokeColor": "#000000",
+      "captionShadowBlur": 4,
+      "captionShadowColor": "rgba(0,0,0,0.9)",
+      "captionUseBox": false,
+      "captionBoxColor": "#000000",
+      "captionBoxOpacity": 0.6,
+      "emotionColors": {
+        "normal": "#FFE500",
+        "highlight": "#00F0FF",
+        "impact": "#FF3366",
+        "white": "#FFFFFF"
+      }
+    },
+    "sourcing": {
+      "priority": "web_search_first",
+      "promptPrefix": "cinematic high quality photo, editorial news style, realistic lighting",
+      "enableMemeReactions": true,
+      "memePlacement": "bottom_left",
+      "memeScale": 1.0,
+      "memeDurationSec": 0.8
+    },
+    "capcut": {
+      "titleMotion": "none",
+      "hookMotion": "fade_in_pulse",
+      "captionMotion": "word_pop"
+    }
+  },
+  "instagram": {
+    "badge": "인스타 카드 복제",
+    "name_suffix": "인스타 카드 스타일",
+    "archetype": "instagram",
+    "geometry": {
+      "topTitleZone": {
+        "enabled": true,
+        "topPct": 4.0,
+        "heightPct": 15.0,
+        "bgColor": "transparent",
+        "opacity": 1.0,
+        "keepThroughout": true
+      },
+      "holeWindowZone": {
+        "enabled": true,
+        "widthPct": 92,
+        "heightPct": 50,
+        "yPct": 48,
+        "roundness": 24,
+        "borderWidth": 2,
+        "borderColor": "#E5E7EB",
+        "shadow": true,
+        "cardBgColor": "#FFFFFF"
+      },
+      "mediaZone": {
+        "introTopPct": 0,
+        "introHeightPct": 100,
+        "normalTopPct": 0,
+        "normalHeightPct": 100,
+        "fitMode": "sandwich",
+        "kenBurnsIntroZoom": false,
+        "kenBurnsScaleEnd": 1.0,
+        "introDurationSec": 0
+      },
+      "captionZone": {
+        "enabled": true,
+        "topPct": 70,
+        "heightPct": 30,
+        "safeZoneYPct": 71.5,
+        "bgColor": "transparent",
+        "hideDuringIntro": false
+      },
+      "commentCardZone": {
+        "enabled": true,
+        "yPct": 82.0,
+        "scale": 0.95,
+        "theme": "insta"
+      }
+    },
+    "style": {
+      "titleFont": "Pretendard",
+      "titleLine1Color": "#111827",
+      "titleLine2Color": "#374151",
+      "titleFontSize": 20,
+      "titleStroke": false,
+      "titleStrokeWidth": 0,
+      "titleStrokeColor": "transparent",
+      "titleShadow": false,
+      "titleShadowBlur": 0,
+      "titleShadowColor": "transparent",
+      "captionFont": "Pretendard",
+      "captionFontSize": 15,
+      "captionDefaultColor": "#374151",
+      "captionStrokeWidth": 0,
+      "captionStrokeColor": "transparent",
+      "captionShadowBlur": 0,
+      "captionShadowColor": "transparent",
+      "captionUseBox": false,
+      "captionBoxColor": "#000000",
+      "captionBoxOpacity": 0.0,
+      "emotionColors": {
+        "normal": "#374151",
+        "highlight": "#2563EB",
+        "impact": "#DC2626",
+        "white": "#111827"
+      }
+    },
+    "sourcing": {
+      "priority": "web_search_first",
+      "promptPrefix": "clean aesthetic photo, soft studio lighting",
+      "enableMemeReactions": false,
+      "memePlacement": "bottom_right",
+      "memeScale": 0.9,
+      "memeDurationSec": 0.8
+    },
+    "capcut": {
+      "titleMotion": "none",
+      "hookMotion": "none",
+      "captionMotion": "none"
+    }
+  },
+  "ssul": {
+    "badge": "커뮤니티 썰 복제",
+    "name_suffix": "커뮤니티 썰 스타일",
+    "archetype": "ssul",
+    "geometry": {
+      "topTitleZone": {
+        "enabled": true,
+        "topPct": 2.0,
+        "heightPct": 12.0,
+        "bgColor": "#1E293B",
+        "opacity": 0.95,
+        "keepThroughout": true
+      },
+      "mediaZone": {
+        "introTopPct": 14,
+        "introHeightPct": 56,
+        "normalTopPct": 14,
+        "normalHeightPct": 56,
+        "fitMode": "sandwich",
+        "kenBurnsIntroZoom": false,
+        "kenBurnsScaleEnd": 1.0,
+        "introDurationSec": 0
+      },
+      "captionZone": {
+        "enabled": true,
+        "topPct": 70,
+        "heightPct": 30,
+        "safeZoneYPct": 65.0,
+        "bgColor": "transparent",
+        "hideDuringIntro": false
+      },
+      "sourceZone": {
+        "enabled": true,
+        "yPct": 94,
+        "textColor": "#64748B",
+        "fontSize": 11
+      }
+    },
+    "style": {
+      "titleFont": "Pretendard",
+      "titleLine1Color": "#F8FAFC",
+      "titleLine2Color": "#94A3B8",
+      "titleFontSize": 20,
+      "titleStroke": false,
+      "titleStrokeWidth": 0,
+      "titleStrokeColor": "transparent",
+      "titleShadow": false,
+      "captionFont": "Pretendard",
+      "captionFontSize": 18,
+      "captionDefaultColor": "#FFFFFF",
+      "captionStrokeWidth": 3,
+      "captionStrokeColor": "#000000",
+      "captionShadowBlur": 2,
+      "captionShadowColor": "rgba(0,0,0,0.8)",
+      "captionUseBox": true,
+      "captionBoxColor": "#000000",
+      "captionBoxOpacity": 0.5,
+      "emotionColors": {
+        "normal": "#FFFFFF",
+        "highlight": "#38BDF8",
+        "impact": "#F43F5E",
+        "white": "#FFFFFF"
+      }
+    },
+    "sourcing": {
+      "priority": "web_search_first",
+      "promptPrefix": "forum screenshot, community thread, realistic web capture",
+      "enableMemeReactions": true,
+      "memePlacement": "bottom_right",
+      "memeScale": 1.1,
+      "memeDurationSec": 1.2
+    },
+    "capcut": {
+      "titleMotion": "none",
+      "hookMotion": "none",
+      "captionMotion": "word_pop"
+    }
+  },
+  "classic": {
+    "badge": "골든 레터박스 복제",
+    "name_suffix": "골든 레터박스 스타일",
+    "archetype": "classic",
+    "geometry": {
+      "topTitleZone": {
+        "enabled": true,
+        "topPct": 0,
+        "heightPct": 18.3,
+        "bgColor": "#000000",
+        "opacity": 1.0,
+        "keepThroughout": true
+      },
+      "mediaZone": {
+        "introTopPct": 18.3,
+        "introHeightPct": 63.4,
+        "normalTopPct": 18.3,
+        "normalHeightPct": 63.4,
+        "fitMode": "sandwich",
+        "kenBurnsIntroZoom": false,
+        "kenBurnsScaleEnd": 1.0,
+        "introDurationSec": 0
+      },
+      "captionZone": {
+        "enabled": true,
+        "topPct": 70,
+        "heightPct": 30,
+        "safeZoneYPct": 68.5,
+        "bgColor": "#000000",
+        "hideDuringIntro": false
+      },
+      "sourceZone": {
+        "enabled": true,
+        "yPct": 94,
+        "textColor": "#94A3B8",
+        "fontSize": 13
+      }
+    },
+    "style": {
+      "titleFont": "Pretendard",
+      "titleLine1Color": "#FFFFFF",
+      "titleLine2Color": "#F5F420",
+      "titleFontSize": 30,
+      "titleStroke": false,
+      "titleStrokeWidth": 0,
+      "titleStrokeColor": "#000000",
+      "titleShadow": true,
+      "titleShadowBlur": 4,
+      "titleShadowColor": "rgba(0,0,0,0.8)",
+      "captionFont": "Pretendard",
+      "captionFontSize": 24,
+      "captionDefaultColor": "#FFFFFF",
+      "captionStrokeWidth": 5,
+      "captionStrokeColor": "#000000",
+      "captionShadowBlur": 4,
+      "captionShadowColor": "rgba(0,0,0,0.9)",
+      "captionUseBox": false,
+      "captionBoxColor": "#000000",
+      "captionBoxOpacity": 0.0,
+      "emotionColors": {
+        "normal": "#FFFFFF",
+        "highlight": "#F5F420",
+        "impact": "#FF3366",
+        "white": "#FFFFFF"
+      }
+    },
+    "sourcing": {
+      "priority": "web_search_first",
+      "promptPrefix": "high quality shorts clip, crisp lighting, cinematic portrait",
+      "enableMemeReactions": false,
+      "memePlacement": "bottom_left",
+      "memeScale": 1.0,
+      "memeDurationSec": 0.8
+    },
+    "capcut": {
+      "titleMotion": "none",
+      "hookMotion": "none",
+      "captionMotion": "word_pop"
+    }
+  }
+}

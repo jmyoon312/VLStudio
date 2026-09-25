@@ -1,6 +1,8 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   Play,
+  Pause,
+  Volume2,
   Film,
   Sparkles,
   Sliders,
@@ -54,6 +56,8 @@ export interface CandidateData {
   };
   frameSheetUrl?: string;
   savedMp4Path?: string;
+  narrationAudioPath?: string;
+  selectedVoiceId?: string;
 }
 
 interface MovieDramaCandidateCardProps {
@@ -90,16 +94,56 @@ export const MovieDramaCandidateCard: React.FC<MovieDramaCandidateCardProps> = (
 
   const durationSec = Math.round((candidate.durationMs || 45000) / 1000);
 
+  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+    };
+  }, [candidate.id]);
+
+  const togglePlayAudio = () => {
+    if (isPlayingAudio) {
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
+      setIsPlayingAudio(false);
+      return;
+    }
+
+    if (candidate.narrationAudioPath) {
+      const audioUrl = `/api/files/stream?path=${encodeURIComponent(candidate.narrationAudioPath)}`;
+      if (!audioRef.current || audioRef.current.src !== audioUrl) {
+        audioRef.current = new Audio(audioUrl);
+        audioRef.current.onended = () => setIsPlayingAudio(false);
+        audioRef.current.onerror = () => setIsPlayingAudio(false);
+      }
+      audioRef.current.play().then(() => {
+        setIsPlayingAudio(true);
+      }).catch(err => {
+        console.warn('[MovieDrama] Audio play failed:', err);
+        setIsPlayingAudio(false);
+      });
+    }
+  };
+
   return (
     <article className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
       <div className="grid grid-cols-1 xl:grid-cols-12 items-stretch divide-y xl:divide-y-0 xl:divide-x divide-border">
         {/* 좌측 (3칸): 9:16 비디오 또는 썸네일 프리뷰 */}
         <div className="xl:col-span-3 p-4 bg-muted/20 flex flex-col items-center justify-center">
-          <div className="relative aspect-[9/16] w-full max-w-[150px] overflow-hidden rounded-xl bg-neutral-950 border border-neutral-800 shadow-md flex items-center justify-center">
+          <div className="relative aspect-[9/16] w-full max-w-[150px] overflow-hidden rounded-xl bg-muted/70 dark:bg-neutral-950 border border-border shadow-md flex items-center justify-center">
             {isCompleted && activeMp4 ? (
               <video
-                src={`/api/system/media/view?path=${encodeURIComponent(activeMp4)}`}
+                src={`/api/files/stream?path=${encodeURIComponent(activeMp4)}`}
                 controls
+                autoPlay
+                loop
+                playsInline
                 className="h-full w-full object-cover"
               />
             ) : candidate.frameSheetUrl ? (
@@ -112,12 +156,12 @@ export const MovieDramaCandidateCard: React.FC<MovieDramaCandidateCardProps> = (
                 }}
               />
             ) : (
-              <div className="flex flex-col items-center gap-1.5 text-white/50 text-xs">
+              <div className="flex flex-col items-center gap-1.5 text-muted-foreground text-xs">
                 <Film className="size-8 text-primary" />
                 <span className="font-bold text-[10px]">9:16 미리보기</span>
               </div>
             )}
-            <div className="pointer-events-none absolute bottom-2 left-2 rounded bg-black/70 px-1.5 py-0.5 text-[9px] font-mono text-white">
+            <div className="pointer-events-none absolute bottom-2 left-2 rounded bg-background/85 backdrop-blur-xs px-1.5 py-0.5 text-[9px] font-mono text-foreground border border-border/60 shadow-2xs">
               STORY {String(candidate.rank).padStart(2, '0')}
             </div>
           </div>
@@ -177,6 +221,54 @@ export const MovieDramaCandidateCard: React.FC<MovieDramaCandidateCardProps> = (
                   #{tag}
                 </span>
               ))}
+            </div>
+          )}
+
+          {/* AI 내레이션 음성 미리듣기 (Supertonic Audio Player) */}
+          {candidate.narrationPlan && candidate.narrationPlan.length > 0 && (
+            <div className="flex items-center gap-2 rounded-xl bg-primary/[0.04] border border-primary/20 p-2.5">
+              <span className="flex size-7 items-center justify-center rounded-lg bg-primary/10 text-primary shrink-0">
+                <Sparkles className="size-3.5" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] font-bold text-foreground block">
+                    AI 내레이션 대본 ({candidate.narrationPlan.length}개 구간)
+                  </span>
+                  {candidate.selectedVoiceId && (
+                    <Badge variant="outline" className="text-[9px] px-1 py-0 h-3.5 bg-primary/10 text-primary border-primary/20 font-mono">
+                      {candidate.selectedVoiceId}
+                    </Badge>
+                  )}
+                </div>
+                <p className="text-[10px] text-muted-foreground truncate mt-0.5">
+                  "{candidate.narrationPlan[0]?.text}"
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant={isPlayingAudio ? "default" : "outline"}
+                size="sm"
+                onClick={togglePlayAudio}
+                className={cn(
+                  "h-7 px-2.5 rounded-lg text-[10px] font-bold shrink-0 gap-1 transition-all cursor-pointer",
+                  isPlayingAudio
+                    ? "bg-primary text-primary-foreground shadow-xs animate-pulse"
+                    : "text-primary hover:bg-primary/10 border-primary/20"
+                )}
+              >
+                {isPlayingAudio ? (
+                  <>
+                    <Pause className="size-3" />
+                    <span>정지</span>
+                  </>
+                ) : (
+                  <>
+                    <Volume2 className="size-3" />
+                    <span>음성 미리듣기</span>
+                  </>
+                )}
+              </Button>
             </div>
           )}
 

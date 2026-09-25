@@ -5,6 +5,7 @@ import time
 import yt_dlp
 from typing import List, Dict, Any, Optional
 from concurrent.futures import ThreadPoolExecutor
+from app.utils.ytdlp_utils import get_standard_ytdlp_opts, build_safe_ytsearch_query, sanitize_search_query
 
 logger = logging.getLogger(__name__)
 
@@ -114,15 +115,14 @@ class SignalCollector:
 
         for query in searches:
             try:
-                ydl_opts = {
-                    'quiet': True,
-                    'no_warnings': True,
+                ydl_opts = get_standard_ytdlp_opts({
                     'extract_flat': True,
                     'playlistend': 10,
                     'socket_timeout': 15,
-                }
+                })
+                safe_q = build_safe_ytsearch_query(query, 10, "")
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                    info = ydl.extract_info(f"ytsearch10:{query}", download=False)
+                    info = ydl.extract_info(safe_q, download=False)
                     entries = info.get('entries') or []
                     for entry in entries:
                         vid = entry.get('id', '')

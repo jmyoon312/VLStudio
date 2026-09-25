@@ -100,9 +100,13 @@ export interface ExtractionSettings {
   silence_threshold_sec: number;
   directives: string;
   multi_use_langs: string[];
+  // TTS 더빙 설정 (CapCut 초안 자막 더빙 자동 연결)
+  tts_engine: string;
+  tts_voice_id: string;
+  tts_speed: number;
 }
 
-export type AnalysisStage = 
+export type AnalysisStage =
   | 'idle'
   | 'downloading'
   | 'probing'
@@ -117,4 +121,33 @@ export interface ProgressState {
   percent: number;
   message: string;
   detail?: string;
+  job_id?: string;
 }
+
+// 비동기 분석 Job (폴링용)
+export interface AnalysisJobStatus {
+  job_id: string;
+  status: 'pending' | 'running' | 'completed' | 'failed';
+  stage: AnalysisStage;
+  percent: number;
+  message: string;
+  detail?: string;
+  candidates?: HighlightCandidate[];
+  total_duration_sec?: number;
+  error?: string;
+}
+
+// 07_Downloads 보관함 영상 항목
+export interface LibraryVideo {
+  id: string;
+  title: string;
+  file_path: string;
+  file_size_bytes: number;
+  file_size_label: string;
+  category: string;
+  created_at: string;
+  duration_label?: string;
+}
+
+// 소스 입력 모드
+export type SourceInputMode = 'local' | 'youtube' | 'library';

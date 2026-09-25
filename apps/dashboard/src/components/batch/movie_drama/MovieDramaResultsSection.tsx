@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Download,
   Film,
@@ -31,7 +31,7 @@ interface MovieDramaResultsSectionProps {
   isBatchExportingCapcut: boolean;
   onCreatePortablePack: (candidateId: string) => Promise<void>;
   packingCandidateId: string | null;
-  onInstallPortablePack: () => void;
+  onInstallPortablePack: (file: File) => void;
   isInstallingPack: boolean;
   localDrafts: Array<{ candidateId: string; draftPath: string; title: string }>;
   completedMp4Map: Record<string, string>;
@@ -60,6 +60,16 @@ export const MovieDramaResultsSection: React.FC<MovieDramaResultsSectionProps> =
   const [activeTab, setActiveTab] = useState<string>(() => {
     return candidates[0]?.id || 'export';
   });
+
+  // candidates가 비동기로 로드되거나 갱신되면 첫 번째 후보 카드를 기본 활성화
+  useEffect(() => {
+    if (candidates.length > 0) {
+      setActiveTab(prev => {
+        if (candidates.some(c => c.id === prev)) return prev;
+        return candidates[0].id;
+      });
+    }
+  }, [candidates]);
 
   const completedCount = Object.keys(completedMp4Map).length;
   const totalCount = candidates.length;
@@ -118,6 +128,7 @@ export const MovieDramaResultsSection: React.FC<MovieDramaResultsSectionProps> =
         {candidates.map(cand => {
           const isSel = activeTab === cand.id;
           const isDone = Boolean(completedMp4Map[cand.id] || cand.savedMp4Path);
+          const cleanTitle = cand.title.replace(/^\[.*?\]\s*/, '') || `이야기 ${cand.rank}편`;
           return (
             <button
               key={cand.id}
@@ -138,7 +149,7 @@ export const MovieDramaResultsSection: React.FC<MovieDramaResultsSectionProps> =
               >
                 {cand.rank}
               </span>
-              <span className="truncate max-w-[120px]">{cand.title}</span>
+              <span className="truncate max-w-[200px]">제 {cand.rank}부: {cleanTitle}</span>
               {isDone && <CheckCircle2 className="size-3 text-emerald-400 shrink-0" />}
             </button>
           );
@@ -151,7 +162,7 @@ export const MovieDramaResultsSection: React.FC<MovieDramaResultsSectionProps> =
           className={cn(
             "flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border text-xs font-bold transition-all cursor-pointer shrink-0 ml-auto",
             isExportTab
-              ? "bg-neutral-950 text-white dark:bg-white dark:text-neutral-950 border-neutral-950 dark:border-white shadow-xs"
+              ? "bg-primary text-primary-foreground border-primary shadow-xs"
               : "bg-card border-border hover:bg-muted/40 text-foreground"
           )}
         >
@@ -183,7 +194,8 @@ export const MovieDramaResultsSection: React.FC<MovieDramaResultsSectionProps> =
             onCreatePortablePack={onCreatePortablePack}
             isPacking={packingCandidateId === activeCandidate.id}
             onRevealFolder={onRevealFolder}
-            completedMp4Path={completedMp4Map[activeCandidate.id]}
+            completedMp4Path={completedMp4Map[activeCandidate.id] || activeCandidate.savedMp4Path}
+            capcutDraftPath={localDrafts.find(d => d.candidateId === activeCandidate.id)?.draftPath}
           />
         ) : (
           <div className="rounded-2xl border border-border bg-card p-10 text-center text-xs text-muted-foreground">

@@ -235,6 +235,7 @@ async def stop_stream(request: Request):
 
 # [NEW] File Stream Endpoint for Playback
 @router.get("")
+@router.get("/video")
 async def stream_video(path: str):
     """
     Stream video/media file with smart path resolution.

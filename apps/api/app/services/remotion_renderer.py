@@ -40,6 +40,31 @@ class RemotionRenderer:
             self.export_dir = Path.home() / ".viraloop_studio" / "media" / "05_Exports"
         self.export_dir.mkdir(parents=True, exist_ok=True)
 
+    def _resolve_node_binary(self) -> str:
+        import shutil
+        candidates = [
+            shutil.which("node"),
+            "C:\\Program Files\\nodejs\\node.exe",
+            os.path.expandvars(r"%ProgramFiles%\nodejs\node.exe"),
+            os.path.expandvars(r"%LOCALAPPDATA%\Programs\node\node.exe"),
+        ]
+        for c in candidates:
+            if c and os.path.exists(c):
+                return c
+        return "node"
+
+    @staticmethod
+    def _execute_cli_sync(cmd: List[str], cwd: str):
+        res = subprocess.run(
+            cmd,
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace"
+        )
+        return res.returncode, res.stdout, res.stderr
+
     async def render_short(
         self,
         project_id: str,
@@ -85,7 +110,7 @@ class RemotionRenderer:
         duration_in_frames = int(duration_seconds * fps)
 
         cmd = [
-            "node",
+            self._resolve_node_binary(),
             str(self.cli_path),
             "--props", str(props_file),
             "--output", str(output_mp4),
@@ -96,23 +121,16 @@ class RemotionRenderer:
         logger.info(f"   Command: {' '.join(cmd)}")
 
         try:
-            # Run async subprocess in worker directory
-            process = await asyncio.create_subprocess_exec(
-                *cmd,
-                cwd=str(self.remotion_dir),
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE
+            loop = asyncio.get_running_loop()
+            returncode, stdout_text, stderr_text = await loop.run_in_executor(
+                None, self._execute_cli_sync, cmd, str(self.remotion_dir)
             )
 
-            stdout, stderr = await process.communicate()
-            stdout_text = stdout.decode("utf-8", errors="replace")
-            stderr_text = stderr.decode("utf-8", errors="replace")
-
-            if process.returncode != 0:
-                logger.error(f"❌ [RemotionRenderer] Process failed (code {process.returncode}):\n{stderr_text}\n{stdout_text}")
+            if returncode != 0:
+                logger.error(f"❌ [RemotionRenderer] Process failed (code {returncode}):\n{stderr_text}\n{stdout_text}")
                 return {
                     "success": False,
-                    "error": f"Render process failed with exit code {process.returncode}",
+                    "error": f"Render process failed with exit code {returncode}",
                     "details": stderr_text or stdout_text
                 }
 
@@ -158,6 +176,10 @@ class RemotionRenderer:
         enable_meaning: bool = True,
         sync_offset_ms: int = 0,
         duration_seconds: float = 30.0,
+        original_color: Optional[str] = None,
+        pronunciation_color: Optional[str] = None,
+        meaning_color: Optional[str] = None,
+        text_position: Optional[str] = "bottom",
         fps: int = 30,
     ) -> Dict[str, Any]:
         """
@@ -175,6 +197,10 @@ class RemotionRenderer:
             "enableMeaning": enable_meaning,
             "syncOffsetMs": sync_offset_ms,
             "lyrics": lyrics or [],
+            "originalColor": original_color or "#FFFFFF",
+            "pronunciationColor": pronunciation_color or "#34D399",
+            "meaningColor": meaningColor if (meaningColor := meaning_color) else "#FBBF24",
+            "textPosition": text_position or "bottom",
         }
 
         if video_source and os.path.exists(video_source):
@@ -192,7 +218,7 @@ class RemotionRenderer:
         duration_in_frames = int(duration_seconds * fps)
 
         cmd = [
-            "node",
+            self._resolve_node_binary(),
             str(self.cli_path),
             "--composition", "SongKaraokeComposition",
             "--props", str(props_file),
@@ -204,22 +230,16 @@ class RemotionRenderer:
         logger.info(f"   Command: {' '.join(cmd)}")
 
         try:
-            process = await asyncio.create_subprocess_exec(
-                *cmd,
-                cwd=str(self.remotion_dir),
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE
+            loop = asyncio.get_running_loop()
+            returncode, stdout_text, stderr_text = await loop.run_in_executor(
+                None, self._execute_cli_sync, cmd, str(self.remotion_dir)
             )
 
-            stdout, stderr = await process.communicate()
-            stdout_text = stdout.decode("utf-8", errors="replace")
-            stderr_text = stderr.decode("utf-8", errors="replace")
-
-            if process.returncode != 0:
-                logger.error(f"❌ [RemotionRenderer] Song render failed (code {process.returncode}):\n{stderr_text}\n{stdout_text}")
+            if returncode != 0:
+                logger.error(f"❌ [RemotionRenderer] Song render failed (code {returncode}):\n{stderr_text}\n{stdout_text}")
                 return {
                     "success": False,
-                    "error": f"Render process failed with exit code {process.returncode}",
+                    "error": f"Render process failed with exit code {returncode}",
                     "details": stderr_text or stdout_text
                 }
 
@@ -243,10 +263,12 @@ class RemotionRenderer:
             }
 
         except Exception as e:
+            import traceback
+            tb = traceback.format_exc()
             logger.exception(f"❌ [RemotionRenderer] Exception during song rendering: {e}")
             return {
                 "success": False,
-                "error": str(e)
+                "error": f"{type(e).__name__}: {str(e)}\n{tb}"
             }
 
 

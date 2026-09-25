@@ -1065,10 +1065,25 @@ export async function exportCapCutFullProject(opts: CapCutProjectExportOptions):
 export interface StockMotionJobInput {
   id: string;
   title: string;
-  sourceName: string;
+  sourceName?: string;
   sourcePath?: string;
+  sketchPath?: string;
+  sketchFrames?: string[];
+  timestampSec?: number;
+  customMarker?: string;
+  enableSpeedlines?: boolean;
   sourceUrl?: string;
-  stylePreset: 'bw-sketch' | 'ink-doodle' | 'paper-cutout';
+  stylePreset:
+    | 'bw-sketch'
+    | 'ink-doodle'
+    | 'paper-cutout'
+    | 'whiteboard-stream'
+    | 'neon-cyberpunk'
+    | 'vintage-comic'
+    | 'manga-screentone';
+  durationMode?: 'hook-only' | 'full-continuation';
+  postContinuationSec?: number;
+  paperColor?: string;
   frameCount: number;
   holdSeconds: number;
   includeSfx: boolean;
@@ -1094,17 +1109,29 @@ export async function exportStockMotionCapCutProject(opts: StockMotionExportOpti
 
   // 1개 작업 기준 또는 첫 번째 작업 기준으로 CapCut 프로젝트 빌드
   const primaryJob = jobs[0];
-  const sourceActionMs = 900;
+  const sourceActionMs = Math.max(100, Math.round((primaryJob.timestampSec ?? 0.9) * 1000));
   const holdMs = Math.max(800, Math.round(1000 * primaryJob.holdSeconds));
   const frameMs = 160;
   const clampedFrameCount = Math.max(4, Math.min(20, primaryJob.frameCount));
-  const totalDurationMs = sourceActionMs + holdMs + frameMs * clampedFrameCount;
+  const postContinuationMs =
+    primaryJob.durationMode === 'full-continuation'
+      ? Math.round((primaryJob.postContinuationSec || 20) * 1000)
+      : 0;
+  const totalDurationMs = sourceActionMs + holdMs + frameMs * clampedFrameCount + postContinuationMs;
 
   const styleName =
-    primaryJob.stylePreset === 'ink-doodle'
+    primaryJob.stylePreset === 'whiteboard-stream'
+      ? '화이트보드 손그림'
+      : primaryJob.stylePreset === 'ink-doodle'
       ? '잉크 낙서'
       : primaryJob.stylePreset === 'paper-cutout'
       ? '종이 컷아웃'
+      : primaryJob.stylePreset === 'neon-cyberpunk'
+      ? '네온 사이버펑크'
+      : primaryJob.stylePreset === 'vintage-comic'
+      ? '빈티지 코믹스'
+      : primaryJob.stylePreset === 'manga-screentone'
+      ? '망가 스크린톤'
       : '흑백 스케치';
 
   // 자막 세그먼트
@@ -1116,9 +1143,10 @@ export async function exportStockMotionCapCutProject(opts: StockMotionExportOpti
       text: primaryJob.title,
       fontSize: 32,
       textColor: '#FFFFFF',
-      outlineColor: '#000000',
-      outlineSize: 6,
-      yPct: 15,
+      boxColor: '#000000',
+      boxOpacity: 0.8,
+      useBox: true,
+      yPct: 82,
     },
   ];
 
@@ -1127,10 +1155,10 @@ export async function exportStockMotionCapCutProject(opts: StockMotionExportOpti
       id: `${primaryJob.id}-freeze-marker`,
       startMs: sourceActionMs,
       endMs: sourceActionMs + holdMs,
-      text: `✏️ ${styleName} 프리즈`,
-      fontSize: 26,
-      textColor: '#111827',
-      boxColor: '#F8FAFC',
+      text: primaryJob.customMarker || (primaryJob.stylePreset === 'whiteboard-stream' ? '✍️ 화이트보드 드로잉' : `⚡ ${styleName} 프리즈`),
+      fontSize: 28,
+      textColor: '#FFFFFF',
+      boxColor: '#EF4444',
       boxOpacity: 0.95,
       useBox: true,
       yPct: 82,
@@ -1139,7 +1167,7 @@ export async function exportStockMotionCapCutProject(opts: StockMotionExportOpti
       id: `${primaryJob.id}-motion-marker`,
       startMs: sourceActionMs + holdMs,
       endMs: totalDurationMs,
-      text: '⚡ 스톡모션 변환',
+      text: primaryJob.stylePreset === 'whiteboard-stream' ? '🎨 컬러 펜화 완성' : '⚡ 스톡모션 변환',
       fontSize: 26,
       textColor: '#111827',
       boxColor: '#F8FAFC',
@@ -1147,6 +1175,54 @@ export async function exportStockMotionCapCutProject(opts: StockMotionExportOpti
       useBox: true,
       yPct: 82,
     });
+  }
+
+  // 사운드 디자인 (Whoosh -> Shutter/Pop -> Heartbeat/Sub -> Paper Flipbook / Whiteboard Marker Scribble)
+  const audios: CapCutAudioExportItem[] = [];
+  if (primaryJob.includeSfx) {
+    if (primaryJob.stylePreset === 'whiteboard-stream') {
+      audios.push({
+        id: `${primaryJob.id}-marker-scribble`,
+        name: '화이트보드 마커 드로잉 ASMR',
+        type: 'sfx',
+        startMs: 0,
+        durationMs: totalDurationMs,
+        volume: 0.75,
+      });
+    } else {
+      audios.push({
+        id: `${primaryJob.id}-whoosh`,
+        name: '바람 가르는 후시 (Whoosh)',
+        type: 'sfx',
+        startMs: Math.max(0, sourceActionMs - 150),
+        durationMs: 300,
+        volume: 0.8,
+      });
+      audios.push({
+        id: `${primaryJob.id}-shutter-pop`,
+        name: '카메라 셔터 & 팝 임팩트',
+        type: 'sfx',
+        startMs: sourceActionMs,
+        durationMs: 400,
+        volume: 1.0,
+      });
+      audios.push({
+        id: `${primaryJob.id}-heartbeat-sub`,
+        name: '긴장감 서브 베이스',
+        type: 'sfx',
+        startMs: sourceActionMs + 100,
+        durationMs: holdMs - 100,
+        volume: 0.6,
+      });
+      audios.push({
+        id: `${primaryJob.id}-flipbook-rustle`,
+        name: '플립북 스톱모션 러슬',
+        type: 'sfx',
+        startMs: sourceActionMs + holdMs,
+        durationMs: frameMs * clampedFrameCount,
+        volume: 0.85,
+      });
+    }
   }
 
   // 쨉쨉이 훅
@@ -1167,7 +1243,7 @@ export async function exportStockMotionCapCutProject(opts: StockMotionExportOpti
 
   // 상단 2단 헤드라인
   const topTitle = {
-    enabled: true,
+    enabled: Boolean(primaryJob.title && primaryJob.title.trim()),
     line1: primaryJob.title,
     line2: `${styleName} 모션 쇼츠`,
     mode: 'single' as const,
@@ -1190,7 +1266,7 @@ export async function exportStockMotionCapCutProject(opts: StockMotionExportOpti
     topTitle,
     jabs,
     subtitles,
-    audios: [],
+    audios,
   };
 
   return await exportCapCutFullProject(projectExportOptions);

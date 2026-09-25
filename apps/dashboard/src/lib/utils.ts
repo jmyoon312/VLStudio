@@ -152,7 +152,8 @@ export function getMediaUrl(path: string | null, rootDownloadPath?: string): str
     // Safety check for error strings often found in DB fields during debugging
     if (path.includes('ERR_') || path.includes('Not Found') || path.includes('Error')) return '';
 
-    if (path.startsWith('http') || path.startsWith('blob:')) {
+    // [Triple-Lock Layer 1] 이미 완전한 URL이거나 blob, data URL인 경우 즉시 바이패스
+    if (path.startsWith('http') || path.startsWith('blob:') || path.startsWith('data:')) {
         // [FIX] Expiring YouTube Shorts / dynamic frame thumbnails (hq720_2.jpg with sqp= tokens) cause 404.
         // Normalize to canonical, permanent hqdefault.jpg
         if (path.includes('ytimg.com/vi/')) {
@@ -162,6 +163,22 @@ export function getMediaUrl(path: string | null, rootDownloadPath?: string): str
             }
         }
         return path;
+    }
+
+    // [Triple-Lock Layer 1] 이미 /files/ 경로인 경우 이중 인코딩만 정규화하여 즉시 반환
+    if (path.startsWith('/files/') || path.startsWith('files/')) {
+        const prefix = typeof window !== 'undefined' && window.location.protocol === 'file:' ? 'http://127.0.0.1:8000' : '';
+        let clean = path.replace(/^\/?files\//i, '');
+        // 혹시 %25 등 이중 인코딩이 들어있는 경우 평문화 후 단 1회 인코딩
+        try {
+            while (clean.includes('%')) {
+                const dec = decodeURIComponent(clean);
+                if (dec === clean) break;
+                clean = dec;
+            }
+        } catch {}
+        const encoded = clean.split('/').map(encodeURIComponent).join('/');
+        return `${prefix}/files/${encoded}`;
     }
 
     // Special Case: Local Backend Thumbnails
@@ -212,6 +229,15 @@ export function getMediaUrl(path: string | null, rootDownloadPath?: string): str
     }
 
     target = target.replace(/^\/+/, '');
+
+    // [Triple-Lock Layer 1] 혹시 기존에 인코딩되어 있던 문자열을 1차 평문화
+    try {
+        while (target.includes('%')) {
+            const dec = decodeURIComponent(target);
+            if (dec === target) break;
+            target = dec;
+        }
+    } catch {}
 
     const encodedPath = target.split('/').map(encodeURIComponent).join('/');
     const prefix = typeof window !== 'undefined' && window.location.protocol === 'file:' ? 'http://127.0.0.1:8000' : '';

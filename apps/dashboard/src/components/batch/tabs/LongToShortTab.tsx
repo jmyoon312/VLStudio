@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Scissors,
   Sparkles,
@@ -10,7 +10,9 @@ import {
   Share2,
   Film,
   RefreshCw,
-  FolderPlus
+  FolderPlus,
+  History,
+  RotateCcw
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -34,17 +36,20 @@ import { LongToShortCandidateCard } from '../long_to_short/LongToShortCandidateC
 import { LongToShortOverlapModal } from '../long_to_short/LongToShortOverlapModal';
 import { VideoPreviewModal } from '@/components/shared/VideoPreviewModal';
 
+const STORAGE_KEY = 'l2s_v1_last_session';
+
 interface LongToShortTabProps {
   onAddBatchJobs: (jobs: any[]) => void;
 }
 
 export const LongToShortTab: React.FC<LongToShortTabProps> = ({ onAddBatchJobs }) => {
   const { toast } = useToast();
+  const pollTimerRef = useRef<any>(null);
 
   // 1. 비디오 원본 및 프로빙 상태
   const [probeData, setProbeData] = useState<VideoProbeResult | null>(null);
 
-  // 2. 추출 설정 파라미터 (픽셀링 extractionSettings SSOT)
+  // 2. 추출 설정 파라미터 (TTS 음성 포함)
   const [settings, setSettings] = useState<ExtractionSettings>({
     length_preset: 'medium',
     target_duration_sec: 45,
@@ -53,10 +58,13 @@ export const LongToShortTab: React.FC<LongToShortTabProps> = ({ onAddBatchJobs }
     silence_removal: true,
     silence_threshold_sec: 0.6,
     directives: '',
-    multi_use_langs: ['ko']
+    multi_use_langs: ['ko'],
+    tts_engine: 'supertone-local',
+    tts_voice_id: 'F1',
+    tts_speed: 1.0
   });
 
-  // 3. 분석 진행 상태 (5단계)
+  // 3. 분석 진행 상태 (비동기 폴링)
   const [progress, setProgress] = useState<ProgressState>({
     stage: 'idle',
     percent: 0,
@@ -73,6 +81,32 @@ export const LongToShortTab: React.FC<LongToShortTabProps> = ({ onAddBatchJobs }
 
   const isBusy = progress.stage !== 'idle' && progress.stage !== 'completed' && progress.stage !== 'failed';
 
+  // 언마운트 시 폴링 타이머 정리
+  useEffect(() => {
+    return () => {
+      if (pollTimerRef.current) {
+        clearInterval(pollTimerRef.current);
+        pollTimerRef.current = null;
+      }
+    };
+  }, []);
+
+  // 로컬 세션 복원
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.candidates && parsed.candidates.length > 0 && !probeData) {
+          if (parsed.probeData) {
+            setProbeData(parsed.probeData);
+          }
+          setCandidates(parsed.candidates);
+        }
+      }
+    } catch {}
+  }, []);
+
   // 소스 프로빙 완료 콜백
   const handleProbeComplete = (data: VideoProbeResult) => {
     setProbeData(data);
@@ -84,12 +118,19 @@ export const LongToShortTab: React.FC<LongToShortTabProps> = ({ onAddBatchJobs }
 
   // 소스 초기화
   const handleClearSource = () => {
+    if (pollTimerRef.current) {
+      clearInterval(pollTimerRef.current);
+      pollTimerRef.current = null;
+    }
     setProbeData(null);
     setCandidates([]);
     setProgress({ stage: 'idle', percent: 0, message: '' });
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+    } catch {}
   };
 
-  // VMI 하이라이트 분석 파이프라인 가동
+  // VMI 하이라이트 분석 파이프라인 가동 (비동기 폴링 방식)
   const handleRunVmiAnalysis = async () => {
     if (!probeData?.video_path) {
       toast({
@@ -100,37 +141,21 @@ export const LongToShortTab: React.FC<LongToShortTabProps> = ({ onAddBatchJobs }
       return;
     }
 
-    // 1단계: 준비 시작
+    if (pollTimerRef.current) {
+      clearInterval(pollTimerRef.current);
+      pollTimerRef.current = null;
+    }
+
     setProgress({
       stage: 'probing',
-      percent: 15,
-      message: '1. 비디오 파일 검증 및 오디오 스트림 분리 중...',
+      percent: 10,
+      message: '1. VMI 분석 백그라운드 작업 시작 중...',
       detail: probeData.file_name
     });
 
     try {
-      // 2단계: 음성 전사 가상 프로그레스
-      setTimeout(() => {
-        setProgress({
-          stage: 'transcribing',
-          percent: 40,
-          message: '2. Faster-Whisper GPU 음성 인식 및 전사 중...',
-          detail: '긴 영상의 음성을 나눠 분석 중입니다. 1/3 구간 처리됨.'
-        });
-      }, 800);
-
-      // 3단계: 씬 전환 및 에너지 분석
-      setTimeout(() => {
-        setProgress({
-          stage: 'analyzing',
-          percent: 70,
-          message: '3. FFmpeg 씬 전환(컷) 감지 및 RMS 데시벨 피크 분석 중...',
-          detail: '컷 안의 장면 전환 감지 중...'
-        });
-      }, 1800);
-
-      // 백엔드 실제 VMI 분석 API 호출
-      const res = await longToShortApi.analyzeHighlights({
+      // 1. 비동기 작업 시작 API 호출 (즉시 job_id 반환, HTTP 타임아웃 0%)
+      const startRes = await longToShortApi.startAnalysis({
         video_path: probeData.video_path,
         length_preset: settings.length_preset,
         target_duration_sec: settings.target_duration_sec,
@@ -142,42 +167,94 @@ export const LongToShortTab: React.FC<LongToShortTabProps> = ({ onAddBatchJobs }
         multi_use_langs: settings.multi_use_langs
       });
 
-      // 4단계: 후보 구성 완료
+      const jobId = startRes.job_id;
       setProgress({
-        stage: 'generating',
-        percent: 95,
-        message: '4. VMI 3중 텐서 복합 점수 산출 및 킬러 쇼츠 후보 구성 중...',
-        detail: `총 ${res.candidates.length}개의 킬러 구간 선별 완료`
+        stage: 'probing',
+        percent: 15,
+        message: '1. 비디오 파일 검증 및 음향 스트림 분리 중...',
+        detail: probeData.file_name,
+        job_id: jobId
       });
 
-      await new Promise(r => setTimeout(r, 400));
+      // 2. 실시간 상태 폴링 (1.5초 간격)
+      pollTimerRef.current = setInterval(async () => {
+        try {
+          const statusRes = await longToShortApi.getAnalysisStatus(jobId);
+          setProgress({
+            stage: statusRes.stage as any,
+            percent: statusRes.percent,
+            message: statusRes.message,
+            detail: statusRes.detail,
+            job_id: jobId
+          });
 
-      setCandidates(res.candidates);
-      setProgress({
-        stage: 'completed',
-        percent: 100,
-        message: '✅ 킬러 쇼츠 하이라이트 분석 완료!',
-        detail: `총 ${res.candidates.length}개의 킬러 구간이 추출되었습니다.`
-      });
+          if (statusRes.status === 'completed') {
+            if (pollTimerRef.current) {
+              clearInterval(pollTimerRef.current);
+              pollTimerRef.current = null;
+            }
 
-      toast({
-        title: '🎉 VMI 킬러 쇼츠 분석 완료',
-        description: `총 ${res.candidates.length}개의 하이라이트 구간을 성공적으로 추출했습니다.`
-      });
+            const cands = statusRes.candidates || [];
+            setCandidates(cands);
+
+            // 로컬스토리지 영구 보존
+            try {
+              localStorage.setItem(STORAGE_KEY, JSON.stringify({
+                probeData,
+                candidates: cands,
+                updatedAt: new Date().toISOString()
+              }));
+            } catch {}
+
+            toast({
+              title: '🎉 VMI 킬러 쇼츠 분석 완료',
+              description: `총 ${cands.length}개의 하이라이트 구간을 성공적으로 추출했습니다.`
+            });
+          } else if (statusRes.status === 'failed') {
+            if (pollTimerRef.current) {
+              clearInterval(pollTimerRef.current);
+              pollTimerRef.current = null;
+            }
+            toast({
+              variant: 'destructive',
+              title: '분석 실패',
+              description: statusRes.error || statusRes.message || '영상 분석에 실패했습니다.'
+            });
+          }
+        } catch (err: any) {
+          console.warn('Analysis status poll error:', err);
+        }
+      }, 1500);
+
     } catch (err: any) {
-      console.error('Highlight analysis failed:', err);
+      console.error('Highlight analysis start failed:', err);
       setProgress({
         stage: 'failed',
         percent: 0,
-        message: '❌ 하이라이트 분석 실패',
-        detail: err.message || '분석 중 오류가 발생했습니다.'
+        message: '❌ 하이라이트 분석 시작 실패',
+        detail: err.message || '분석 작업 등록 중 오류가 발생했습니다.'
       });
       toast({
         variant: 'destructive',
-        title: '분석 오류',
-        description: err.message || '영상 분석에 실패했습니다. 다시 시도해 주세요.'
+        title: '분석 시작 오류',
+        description: err.message || '영상 분석 작업 등록에 실패했습니다. 다시 시도해 주세요.'
       });
     }
+  };
+
+  // 후보 카드 업데이트 (트리밍 등)
+  const handleUpdateCandidate = (updated: HighlightCandidate) => {
+    setCandidates(prev => {
+      const next = prev.map(c => c.id === updated.id ? updated : c);
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({
+          probeData,
+          candidates: next,
+          updatedAt: new Date().toISOString()
+        }));
+      } catch {}
+      return next;
+    });
   };
 
   // 후보 선택 토글
@@ -284,6 +361,9 @@ export const LongToShortTab: React.FC<LongToShortTabProps> = ({ onAddBatchJobs }
         captionScore: c.caption_score,
         transcript: c.transcript,
         reason: c.reason,
+        ttsEngine: settings.tts_engine,
+        ttsVoiceId: settings.tts_voice_id,
+        ttsSpeed: settings.tts_speed,
         scenes: [
           { order: 1, narration: c.hook_summary, hookJabText: '*핵심 하이라이트*', startTime: 0 },
           { order: 2, narration: c.transcript ? c.transcript.slice(0, 50) : `구간 ${c.start_sec}초 ~ ${c.end_sec}초`, hookJabText: '*사이다 순간*', startTime: 3.5 }
@@ -363,12 +443,12 @@ export const LongToShortTab: React.FC<LongToShortTabProps> = ({ onAddBatchJobs }
               )}
             </div>
 
-            {/* 실시간 5단계 진행 트래커 */}
+            {/* 실시간 5단계 진행 트래커 (비동기 폴링 상태) */}
             <LongToShortProgressTracker progress={progress} />
 
             {/* 후보군 카드 목록 스크롤 뷰 */}
             {candidates.length > 0 ? (
-              <div className="space-y-3 max-h-[460px] overflow-y-auto custom-scrollbar pr-1">
+              <div className="space-y-3 max-h-[520px] overflow-y-auto custom-scrollbar pr-1">
                 {candidates.map((cand, idx) => (
                   <LongToShortCandidateCard
                     key={cand.id}
@@ -378,6 +458,7 @@ export const LongToShortTab: React.FC<LongToShortTabProps> = ({ onAddBatchJobs }
                     onPreview={c => setPreviewCandidate(c)}
                     onExportClip={handleExportSingleClip}
                     onExportCapCut={handleExportSingleCapCut}
+                    onUpdateCandidate={handleUpdateCandidate}
                     disabled={isBusy}
                   />
                 ))}
@@ -453,21 +534,19 @@ export const LongToShortTab: React.FC<LongToShortTabProps> = ({ onAddBatchJobs }
       />
 
       {/* 비디오 프리뷰 모달 */}
-      {previewCandidate && (
-        <VideoPreviewModal
-          isOpen={!!previewCandidate}
-          onClose={() => setPreviewCandidate(null)}
-          videoTitle={previewCandidate.hook_summary}
-          videoUrl={probeData?.video_path}
-          sourceType="video"
-          jobId={previewCandidate.id}
-          initialSubtitles={
-            previewCandidate.transcript
-              ? [{ id: 'sub-1', start: previewCandidate.start_sec, end: previewCandidate.end_sec, text: previewCandidate.transcript }]
-              : []
-          }
-        />
-      )}
+      <VideoPreviewModal
+        open={!!previewCandidate}
+        onOpenChange={(open) => { if (!open) setPreviewCandidate(null); }}
+        title={previewCandidate?.hook_summary || '하이라이트 미리보기'}
+        videoUrl={probeData?.video_path}
+        sourceType="queue"
+        videoData={previewCandidate ? {
+          id: previewCandidate.id,
+          title: previewCandidate.hook_summary,
+          description: previewCandidate.transcript || '',
+          content: previewCandidate.reason || '',
+        } : null}
+      />
     </div>
   );
 };

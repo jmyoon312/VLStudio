@@ -6,6 +6,7 @@ Quality Gate Filtering, 4-Stage AI Narrative Analysis,
 and Real-Time Telemetry & Self-Healing Governance.
 """
 
+import sys
 import asyncio
 import math
 import logging
@@ -1979,14 +1980,16 @@ class DiscoveryScraper:
         candidates = []
         try:
             import yt_dlp
-            ydl_opts = {
-                'quiet': True,
+            from app.utils.ytdlp_utils import get_standard_ytdlp_opts, build_safe_ytsearch_query
+            ydl_opts = get_standard_ytdlp_opts({
                 'extract_flat': True,
                 'skip_download': True,
-                'no_warnings': True,
                 'socket_timeout': 10
-            }
-            queries = [f"ytsearch{max_items}:#shorts trending", f"ytsearch{max_items}:#쇼츠 급상승"]
+            })
+            queries = [
+                build_safe_ytsearch_query("shorts trending", min(10, max_items), ""),
+                build_safe_ytsearch_query("쇼츠 급상승", min(10, max_items), "")
+            ]
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 for q in queries:
                     try:
@@ -2267,6 +2270,9 @@ class DiscoveryScraper:
         actual post timestamp, and velocity-driven viral score.
         """
         results: List[Dict[str, Any]] = []
+        if sys.platform == "win32":
+            # On Windows, suppress Playwright console spawning; fallback to high-speed mirror RSS
+            return results
         try:
             from playwright.async_api import async_playwright
             async with async_playwright() as p:
@@ -2385,9 +2391,11 @@ class DiscoveryScraper:
         Single-URL Playwright crawler for deep on-demand re-harvesting of anti-bot protected articles (FMKorea, etc.).
         Extracts genuine body, high-res images, real publication date, and authentic BEST/regular comments.
         """
-        from playwright.async_api import async_playwright
         res: Dict[str, Any] = {"content_text": "", "images": [], "comments": [], "created_at_source": None}
+        if sys.platform == "win32":
+            return res
         try:
+            from playwright.async_api import async_playwright
             async with async_playwright() as p:
                 browser = await p.chromium.launch(headless=True)
                 context = await browser.new_context(

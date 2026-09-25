@@ -4,8 +4,8 @@ ViraLoop Studio - 랭킹형 쇼츠 (Ranking Shorts) 파이프라인 서비스
 - FFmpeg 씬 컷 감지
 - DB Settings LLM 연동 (Zero Hardcoding Policy)
 - CapCut Draft 조립기 직결
-- 05_Exports MP4 로컬 렌더링
-- viral_loop.db 영구 기록
+- 05_Exports MP4 로컬 렌더링 직결
+- viral_loop.db 영구 기록 (work_queue_items & ranking_jobs)
 """
 
 import os
@@ -17,7 +17,9 @@ import subprocess
 import logging
 from typing import Dict, Any, List, Optional
 from app.services.ranking_capcut_builder import build_ranking_capcut_draft
-from app.core.config import app_settings
+from app.services.ranking_video_renderer import render_ranking_video
+from app.config import settings as app_settings
+from app.llm_manager import LLMClient
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +30,38 @@ def get_db_connection():
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     return conn
+
+def init_ranking_db_tables():
+    """viral_loop.db에 ranking_jobs 전용 영구 테이블 보장"""
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS ranking_jobs (
+                id TEXT PRIMARY KEY,
+                batch_id TEXT,
+                topic TEXT,
+                criteria TEXT,
+                headline TEXT,
+                subtitle TEXT,
+                status TEXT DEFAULT 'ready',
+                progress INTEGER DEFAULT 0,
+                creation_mode TEXT,
+                item_count INTEGER,
+                capcut_draft_path TEXT,
+                video_file_path TEXT,
+                payload JSON,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                completed_at TIMESTAMP
+            )
+        """)
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        logger.warning(f"[Ranking Pipeline] init_ranking_db_tables warning: {e}")
+
+# 모듈 로드 시 테이블 초기화
+init_ranking_db_tables()
 
 def get_db_llm_model():
     """DB Settings에서 설정된 단일 진실 공급원 LLM 모델명을 동적 로드 (하드코딩 금지)"""
@@ -93,8 +127,6 @@ def analyze_ranking_source(
     단일 영상에서 랭킹 주제/기준에 맞는 TOP N 하이라이트 씬 및 후보군(candidates) 추출
     """
     detected_scenes = detect_video_scenes(video_path, max_scenes=scene_count * 3) if video_path else []
-
-    # LLM 호출을 위한 프롬프트 구성
     active_model = get_db_llm_model()
 
     system_prompt = f"""당신은 전문 유튜브 쇼츠 랭킹 비디오 디렉터입니다.
@@ -120,11 +152,8 @@ def analyze_ranking_source(
 
     llm_result = None
     try:
-        from app.llm_manager import llm_manager
-        resp_text = llm_manager.generate_content(
-            system_prompt,
-            model_name=active_model
-        )
+        llm = LLMClient(app_settings)
+        resp_text = llm.generate_content(system_prompt, model_name=active_model)
         if resp_text:
             cleaned = resp_text.strip()
             if cleaned.startswith("```json"):
@@ -224,8 +253,8 @@ def generate_ranking_script(
 }}"""
 
     try:
-        from app.llm_manager import llm_manager
-        resp_text = llm_manager.generate_content(prompt, model_name=active_model)
+        llm = LLMClient(app_settings)
+        resp_text = llm.generate_content(prompt, model_name=active_model)
         if resp_text:
             cleaned = resp_text.strip()
             if cleaned.startswith("```json"):
@@ -235,7 +264,7 @@ def generate_ranking_script(
             parsed = json.loads(cleaned.strip())
             return {"success": True, **parsed}
     except Exception as e:
-        logger.warning(f"[Ranking Pipeline] Script generation failed: {e}")
+        logger.warning(f"[Ranking Pipeline] Script generation fallback: {e}")
 
     # Fallback
     return {
@@ -282,39 +311,108 @@ def suggest_ranking_style(topic: str, criteria: str) -> Dict[str, Any]:
         "reason": f"주제 '{topic}'에 가장 적합한 랭킹 시각 연출 템플릿입니다."
     }
 
-def process_ranking_job(payload: Dict[str, Any]) -> Dict[str, Any]:
+
+def background_render_ranking_job(payload: Dict[str, Any], job_id: str, capcut_draft_path: str):
+    """백그라운드 비동기 FFmpeg MP4 비디오 로컬 렌더링 (05_Exports) 및 DB 상태 갱신"""
+    logger.info(f"[Ranking Pipeline] Starting background MP4 video rendering for job {job_id}...")
+    try:
+        rendered_mp4_path = render_ranking_video(payload)
+        final_video_path = rendered_mp4_path or capcut_draft_path
+
+        conn = get_db_connection()
+        cur = conn.cursor()
+        try:
+            cur.execute("""
+                UPDATE ranking_jobs
+                SET status = 'completed', progress = 100, video_file_path = ?, completed_at = datetime('now')
+                WHERE id = ?
+            """, (final_video_path, job_id))
+
+            cur.execute("""
+                UPDATE work_queue_items
+                SET status = 'completed', video_file_path = ?
+                WHERE title LIKE ?
+            """, (final_video_path, f"%{job_id}%"))
+            conn.commit()
+            logger.info(f"[Ranking Pipeline] Background MP4 render completed for job {job_id}: {final_video_path}")
+        except Exception as e:
+            logger.warning(f"[Ranking Pipeline] DB update warning after render: {e}")
+        finally:
+            conn.close()
+    except Exception as e:
+        logger.error(f"[Ranking Pipeline] Background video render failed for job {job_id}: {e}", exc_info=True)
+
+
+def process_ranking_job(payload: Dict[str, Any], sync_render: bool = False) -> Dict[str, Any]:
     """
     랭킹 작업 처리:
-    1. CapCut Draft 프로젝트 생성
-    2. viral_loop.db에 작업 기록
-    3. 로컬 렌더링 MP4 준비 (05_Exports)
+    1. CapCut Draft 프로젝트 생성 (초고속 즉시 완료)
+    2. viral_loop.db (work_queue_items & ranking_jobs)에 영구 기록
+    3. sync_render=True 시 동기 렌더링, False 시 초안 정보 즉시 반환 (백그라운드 렌더러에 위임)
     """
     job_id = payload.get("id") or f"ranking-{int(time.time()*1000)}"
     topic = payload.get("rankingTopic") or "랭킹 쇼츠"
+    headline = payload.get("headline") or topic
+    items = payload.get("items", [])
 
-    # 1. CapCut 초안 조립
+    # 1. CapCut 초안 조립 (초고속 즉시 완료)
     capcut_res = build_ranking_capcut_draft(payload, project_title=topic)
+    capcut_draft_path = capcut_res.get("draftPath")
 
-    # 2. DB에 작업 상태 기록
+    rendered_mp4_path = None
+    if sync_render:
+        rendered_mp4_path = render_ranking_video(payload)
+
+    final_video_path = rendered_mp4_path or capcut_draft_path
+
+    # 2. DB에 작업 상태 영구 기록
     conn = get_db_connection()
     cur = conn.cursor()
     try:
-        # work_queue 테이블 등록
+        # A. ranking_jobs 테이블에 상세 저장
         cur.execute("""
-            INSERT OR REPLACE INTO work_queue (
-                id, batch_id, source_type, archetype, tab_id,
-                status, created_at, metadata, result_video_path
-            ) VALUES (?, ?, ?, ?, ?, ?, datetime('now'), ?, ?)
+            INSERT OR REPLACE INTO ranking_jobs (
+                id, batch_id, topic, criteria, headline, subtitle,
+                status, progress, creation_mode, item_count,
+                capcut_draft_path, video_file_path, payload, completed_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
         """, (
             job_id,
             f"batch-{int(time.time())}",
-            "ranking-shorts",
-            "gunlimbo",
-            "ranking-shorts",
-            "completed",
-            json.dumps(payload, ensure_ascii=False),
-            capcut_res.get("draftPath")
+            topic,
+            payload.get("rankingCriteria", ""),
+            headline,
+            payload.get("subtitle", ""),
+            "completed" if sync_render else "processing",
+            100 if sync_render else 50,
+            payload.get("creationMode", "single-video"),
+            len(items),
+            capcut_draft_path,
+            final_video_path,
+            json.dumps(payload, ensure_ascii=False)
         ))
+
+        # B. work_queue_items 테이블에 등록 (기존 대기열 시스템 호환)
+        cur.execute("""
+            INSERT INTO work_queue_items (
+                title, description, video_file_path, duration,
+                source_type, status, source_metadata, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
+        """, (
+            f"[랭킹쇼츠] {headline} TOP {len(items)}",
+            payload.get("subtitle", topic),
+            final_video_path,
+            int(capcut_res.get("durationSec", 20.0)),
+            "ranking-shorts",
+            "completed" if sync_render else "processing",
+            json.dumps({
+                "jobId": job_id,
+                "capcutDraftPath": capcut_draft_path,
+                "itemsCount": len(items),
+                "headline": headline
+            }, ensure_ascii=False)
+        ))
+
         conn.commit()
     except Exception as e:
         logger.warning(f"[Ranking Pipeline] DB insert warning: {e}")
@@ -324,8 +422,9 @@ def process_ranking_job(payload: Dict[str, Any]) -> Dict[str, Any]:
     return {
         "success": True,
         "jobId": job_id,
-        "status": "completed",
-        "capcutDraftPath": capcut_res.get("draftPath"),
+        "status": "completed" if sync_render else "processing",
+        "capcutDraftPath": capcut_draft_path,
+        "videoFilePath": final_video_path,
         "durationSec": capcut_res.get("durationSec", 20.0),
-        "itemCount": capcut_res.get("itemCount", 5)
+        "itemCount": len(items)
     }

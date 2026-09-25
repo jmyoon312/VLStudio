@@ -13,6 +13,7 @@ from app.database import get_db
 from app import models
 from app.services.trend_radar import TrendRadarService
 from app.services.scout_stream_engine import scout_telemetry, scout_worker, is_blacklisted_content, auto_spider_longform_cluster
+from app.utils.ytdlp_utils import get_standard_ytdlp_opts
 from fastapi.responses import StreamingResponse
 import json
 import re
@@ -379,14 +380,12 @@ def fetch_channel_recent_reels(
             return data
 
     reels = []
-    ydl_opts = {
-        'quiet': True,
+    ydl_opts = get_standard_ytdlp_opts({
         'extract_flat': True,
         'skip_download': True,
-        'no_warnings': True,
         'playlist_items': f'1:{limit * 2}',
         'socket_timeout': 6
-    }
+    })
 
     # 1. Official YouTube Channel Tab (100% genuine shorts or videos)
     channel_target = None

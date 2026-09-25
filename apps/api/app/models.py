@@ -498,7 +498,7 @@ class Settings(Base):
     outlier_ev_threshold = Column(Float, default=120.0) # For Shorts EV%
     outlier_ratio_threshold = Column(Float, default=1.5) # For Longs Ratio (views/subs)
 
-    default_tts_engine = Column(String, default="google")
+    default_tts_engine = Column(String, default="supertonic")
     ytdlp_auto_update = Column(Boolean, default=True)
     ytdlp_version = Column(String, nullable=True)
     ytdlp_last_check = Column(DateTime, nullable=True)
@@ -1749,4 +1749,106 @@ class ViralSnapshot(Base):
     article = relationship("ViralArticle", back_populates="snapshots")
 
 
+class SnsTrendSnapshot(Base):
+    """
+    [SNS Trend Snapshot]
+    TikTok 및 Instagram 검색 쿼리/해시태그 실행 스냅샷 기록
+    """
+    __tablename__ = "sns_trend_snapshots"
 
+    id = Column(Integer, primary_key=True, index=True)
+    platform = Column(String, index=True)  # TIKTOK | INSTAGRAM
+    category = Column(String, nullable=True)
+    country = Column(String, nullable=True)
+    search_type = Column(String)  # TRENDING | HASHTAG | CREATOR | ORIGINAL_FINDER
+    search_term = Column(String, index=True)
+    item_count = Column(Integer, default=0)
+    created_at = Column(DateTime, default=datetime.now)
+
+    items = relationship("SnsTrendItem", back_populates="snapshot", cascade="all, delete-orphan")
+
+
+class SnsTrendItem(Base):
+    """
+    [SNS Trend Item]
+    TikTok & Instagram Reels 수집 영상 및 바이럴 지표
+    """
+    __tablename__ = "sns_trend_items"
+
+    id = Column(Integer, primary_key=True, index=True)
+    snapshot_id = Column(Integer, ForeignKey("sns_trend_snapshots.id", ondelete="CASCADE"), nullable=True, index=True)
+    platform = Column(String, index=True)  # TIKTOK | INSTAGRAM
+    category = Column(String, nullable=True, index=True)
+    country = Column(String, nullable=True, index=True)
+    external_video_id = Column(String, index=True)
+    video_url = Column(String, index=True)
+    title = Column(Text, nullable=True)
+    creator_handle = Column(String, nullable=True, index=True)
+    creator_name = Column(String, nullable=True)
+    thumbnail_url = Column(String, nullable=True)
+    duration_sec = Column(Float, default=0.0)
+    view_count = Column(Integer, default=0)
+    like_count = Column(Integer, default=0)
+    comment_count = Column(Integer, default=0)
+    share_count = Column(Integer, default=0)
+    upload_date = Column(String, nullable=True)
+    viral_score = Column(Float, default=0.0)
+    outlier_ratio = Column(Float, default=1.0)
+    velocity_score = Column(Float, default=0.0)
+    match_reason = Column(String, nullable=True)
+
+    download_status = Column(String, default="IDLE")  # IDLE | DOWNLOADING | COMPLETED | FAILED
+    downloaded_video_id = Column(Integer, ForeignKey("videos.id", ondelete="SET NULL"), nullable=True)
+    local_file_path = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.now)
+
+    snapshot = relationship("SnsTrendSnapshot", back_populates="items")
+    downloaded_video = relationship("Video")
+
+
+# ── 🎬 대화형 디렉터 프로젝트 & 다중 대화 스레드 세션 영구 보관 모델 (viral_loop.db 단일 진실 공급원) ──
+class DirectorProject(Base):
+    __tablename__ = "director_projects"
+
+    id = Column(String, primary_key=True, index=True)
+    name = Column(String, index=True)
+    color = Column(String, default="emerald")
+    icon = Column(String, default="folder")
+    created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+
+    threads = relationship("DirectorThread", back_populates="project", cascade="all, delete-orphan")
+
+
+class DirectorThread(Base):
+    __tablename__ = "director_threads"
+
+    id = Column(String, primary_key=True, index=True)
+    project_id = Column(String, ForeignKey("director_projects.id", ondelete="CASCADE"), nullable=True, index=True)
+    title = Column(String, default="새 대화")
+    preset_id = Column(String, nullable=True)
+    provider = Column(String, default="openai")
+    model = Column(String, default="GPT-6 Astra")
+    reasoning_effort = Column(String, default="medium")
+    created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+
+    project = relationship("DirectorProject", back_populates="threads")
+    messages = relationship("DirectorMessage", back_populates="thread", cascade="all, delete-orphan")
+
+
+class DirectorMessage(Base):
+    __tablename__ = "director_messages"
+
+    id = Column(String, primary_key=True, index=True)
+    thread_id = Column(String, ForeignKey("director_threads.id", ondelete="CASCADE"), index=True)
+    role = Column(String)  # user | assistant | system
+    content = Column(Text, default="")
+    steps = Column(JSON, nullable=True)
+    deliverable = Column(JSON, nullable=True)
+    created_preset = Column(JSON, nullable=True)
+    attachments = Column(JSON, default=list)
+    tasks = Column(JSON, default=list)
+    created_at = Column(DateTime, default=datetime.now)
+
+    thread = relationship("DirectorThread", back_populates="messages")

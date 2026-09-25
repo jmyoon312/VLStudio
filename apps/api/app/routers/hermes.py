@@ -150,3 +150,79 @@ def self_heal_hermes_fts():
         logger.error(f"[FAIL] [Hermes] FTS self-healing failed: {e}")
         return {"status": "error", "message": str(e)}
 
+
+@router.post("/director/stream")
+async def stream_director_execution(request: dict):
+    """
+    Hermes Conversational Director SSE streaming endpoint.
+    Orchestrates turn-based script generation, preset synthesis, and video rendering.
+    """
+    from fastapi.responses import StreamingResponse
+    import json
+
+    prompt = request.get("prompt", "")
+    preset = request.get("preset")
+    reference_media_path = request.get("reference_media_path")
+    aspect_ratio = request.get("aspect_ratio", "1080x1920")
+    media_paths = request.get("media_paths", [])
+    previous_deliverable = request.get("previous_deliverable")
+    model = request.get("model")
+    provider = request.get("provider")
+    reasoning_effort = request.get("reasoning_effort")
+    history = request.get("history", [])
+
+    from app.agent.hermes_core.conversational_director import ConversationalDirector
+    director = ConversationalDirector()
+
+    async def event_generator():
+        try:
+            if media_paths and len(media_paths) > 1:
+                stream = director.execute_batch_director_stream(
+                    prompt=prompt,
+                    media_paths=media_paths,
+                    preset_id=preset.get("id") if preset else None,
+                    aspect_ratio=aspect_ratio,
+                    previous_deliverable=previous_deliverable,
+                    model=model,
+                    provider=provider,
+                    reasoning_effort=reasoning_effort,
+                    history=history
+                )
+            else:
+                stream = director.execute_single_video_stream(
+                    prompt=prompt,
+                    preset=preset,
+                    aspect_ratio=aspect_ratio,
+                    reference_media_path=reference_media_path or (media_paths[0] if media_paths else None),
+                    item_index=0,
+                    total_items=1,
+                    previous_deliverable=previous_deliverable,
+                    model=model,
+                    provider=provider,
+                    reasoning_effort=reasoning_effort,
+                    history=history
+                )
+            async for event in stream:
+                yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
+        except Exception as e:
+            logger.error(f"[Hermes Director] Stream error: {e}", exc_info=True)
+            err_event = {
+                "type": "step",
+                "step_id": "error",
+                "title": "디렉터 연출 오류",
+                "status": "failed",
+                "detail": str(e)
+            }
+            yield f"data: {json.dumps(err_event, ensure_ascii=False)}\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no"
+        }
+    )
+
+

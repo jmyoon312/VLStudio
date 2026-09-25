@@ -13,6 +13,7 @@ from app import models, crud
 from app.llm_manager import LLMClient
 from app.services.trend_radar import TrendRadarService
 from app.services.scout_stream_engine import detect_language_script
+from app.utils.ytdlp_utils import get_standard_ytdlp_opts, build_safe_ytsearch_query, sanitize_search_query
 
 logger = logging.getLogger("categories")
 router = APIRouter(tags=["categories"])
@@ -254,28 +255,26 @@ def _fetch_channel_reels_sync(ch_url_or_name: str, limit: int = 5):
     elif not url.endswith("/shorts") and not url.endswith("/videos"):
         url = url.rstrip("/") + "/shorts"
 
-    ydl_opts = {
-        'quiet': True,
+    ydl_opts = get_standard_ytdlp_opts({
         'extract_flat': 'in_playlist',
         'playlist_items': f'1-{limit}',
         'skip_download': True,
-        'ignoreerrors': True,
-        'no_warnings': True,
-        'compat_opts': ['no-javascript-extractor']
-    }
+    })
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             res = ydl.extract_info(url, download=False)
             entries = (res.get('entries', []) if res else []) or []
             if not entries:
-                res = ydl.extract_info(f"ytsearch{limit}:{raw} shorts", download=False)
+                safe_q = build_safe_ytsearch_query(raw, limit, "shorts")
+                res = ydl.extract_info(safe_q, download=False)
                 entries = (res.get('entries', []) if res else []) or []
             return entries
     except Exception as err:
         logger.warning(f"Failed to fetch videos for {raw}: {err}")
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl2:
-                res = ydl2.extract_info(f"ytsearch{limit}:{raw} shorts", download=False)
+                safe_q = build_safe_ytsearch_query(raw, limit, "shorts")
+                res = ydl2.extract_info(safe_q, download=False)
                 return (res.get('entries', []) if res else []) or []
         except Exception:
             return []
@@ -507,21 +506,17 @@ async def spider_recommendations_from_channels(
     # 4. Determine seed search queries from seed channels and Category DNA
     seed_queries = []
     for ch in channels[:2]:
-        seed_queries.append(f"ytsearch15:{ch.name} shorts")
+        seed_queries.append(build_safe_ytsearch_query(ch.name, 10, "shorts"))
 
     # If Category has seed keywords or name, add to query list
     cat_keyword = category.name
-    seed_queries.append(f"ytsearch15:{cat_keyword} shorts")
+    seed_queries.append(build_safe_ytsearch_query(cat_keyword, 10, "shorts"))
 
     # 5. Execute searches via yt_dlp
-    ydl_opts = {
-        'quiet': True,
+    ydl_opts = get_standard_ytdlp_opts({
         'extract_flat': True,
         'skip_download': True,
-        'ignoreerrors': True,
-        'no_warnings': True,
-        'compat_opts': ['no-javascript-extractor']
-    }
+    })
 
     loop = asyncio.get_running_loop()
     def _run_search(q: str):

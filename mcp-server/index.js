@@ -309,7 +309,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
           reference_url: { type: 'string', description: '벤치마킹할 레퍼런스 유튜브 채널 또는 쇼츠 URL', default: 'https://www.youtube.com/@noejeongu' },
           source_url: { type: 'string', description: '소재 기사/커뮤니티 글 URL' },
           source_keyword: { type: 'string', description: '소재 검색 키워드 또는 주제' },
-          voice_engine: { type: 'string', description: '음성 합성 엔진 (supertone-local, edge)', default: 'supertone-local' },
+          voice_engine: { type: 'string', description: '음성 합성 엔진 (supertone-local, typecast, elevenlabs, kokoro)', default: 'supertone-local' },
           channel_id: { type: 'number', description: '타겟 브랜드 채널 ID', default: 1 },
           auto_enqueue: { type: 'boolean', description: '완성 후 자동 업로드 대기열 등록 여부', default: true },
         },
@@ -323,6 +323,51 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
         properties: {
           channel_url: { type: 'string', description: '분석할 유튜브 채널 또는 쇼츠 URL (예: https://www.youtube.com/@숏비타민c/shorts)' },
           sample_count: { type: 'number', description: '분석할 쇼츠 표본 개수 (기본: 12)', default: 12 },
+        },
+        required: ['channel_url'],
+      },
+    },
+
+    {
+      name: 'download_video',
+      description: '유튜브(YouTube), 쇼츠(Shorts), 틱톡(TikTok), 인스타그램 릴스(Reels), 더우인(Douyin) 등 단일 영상 URL을 고화질로 다운로드하여 07_Downloads 표준 저장소에 저장하고 미디어 라이브러리에 등록합니다.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          url: { type: 'string', description: '다운로드할 영상 URL (YouTube, TikTok, Instagram, Douyin 등)' },
+          category_id: { type: 'number', description: '저장할 카테고리 ID (선택)' },
+          download_mp4: { type: 'boolean', description: 'MP4 비디오 다운로드 여부 (기본: true)', default: true },
+          download_mp3: { type: 'boolean', description: 'MP3 오디오 추출 여부 (기본: true)', default: true },
+          download_srt: { type: 'boolean', description: 'SRT 자막 추출 여부 (기본: true)', default: true },
+        },
+        required: ['url'],
+      },
+    },
+
+    {
+      name: 'batch_download_videos',
+      description: '여러 개의 영상 URL 목록을 일괄 다운로드하여 07_Downloads 표준 저장소에 적재합니다.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          urls: { type: 'array', items: { type: 'string' }, description: '다운로드할 영상 URL 목록' },
+          category_id: { type: 'number', description: '저장할 카테고리 ID (선택)' },
+          download_mp4: { type: 'boolean', description: 'MP4 비디오 다운로드 여부', default: true },
+          download_mp3: { type: 'boolean', description: 'MP3 오디오 추출 여부', default: true },
+          download_srt: { type: 'boolean', description: 'SRT 자막 추출 여부', default: true },
+        },
+        required: ['urls'],
+      },
+    },
+
+    {
+      name: 'harvest_channel_videos',
+      description: '유튜브 채널 URL에서 인기순 및 최신순 영상 목록을 고속 추출하거나 다운로드 후보로 확보합니다.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          channel_url: { type: 'string', description: '유튜브 채널 URL (예: https://www.youtube.com/@allnewthinking/shorts)' },
+          limit: { type: 'number', description: '추출할 영상 개수 (기본: 12)', default: 12 },
         },
         required: ['channel_url'],
       },
@@ -846,7 +891,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
         type: 'object',
         properties: {
           text: { type: 'string', description: '음성으로 합성할 나레이션 텍스트' },
-          engine: { type: 'string', enum: ['supertonic', 'elevenlabs', 'typecast', 'edge-tts'], description: 'TTS 엔진 (기본: supertonic)' },
+          engine: { type: 'string', enum: ['supertonic', 'elevenlabs', 'typecast', 'kokoro'], description: 'TTS 엔진 (기본: supertonic)' },
           voice_id: { type: 'string', description: '보이스 ID 또는 캐릭터' },
         },
         required: ['text'],
@@ -1221,6 +1266,27 @@ ${JSON.stringify(result, null, 2)}` }],
         const result = await viraloopTools.analyzeChannelDna(args || {});
         return {
           content: [{ type: 'text', text: `🔬 [채널 DNA 분석 완료]\n${JSON.stringify(result, null, 2)}` }],
+        };
+      }
+
+      case 'download_video': {
+        const result = await viraloopTools.downloadVideo(args || {});
+        return {
+          content: [{ type: 'text', text: `📥 [단일 영상 다운로드 완료]\n${JSON.stringify(result, null, 2)}` }],
+        };
+      }
+
+      case 'batch_download_videos': {
+        const result = await viraloopTools.batchDownloadVideos(args || {});
+        return {
+          content: [{ type: 'text', text: `📦 [일괄 영상 다운로드 완료]\n${JSON.stringify(result, null, 2)}` }],
+        };
+      }
+
+      case 'harvest_channel_videos': {
+        const result = await viraloopTools.harvestChannelVideos(args || {});
+        return {
+          content: [{ type: 'text', text: `🌾 [채널 영상 수집 완료]\n${JSON.stringify(result, null, 2)}` }],
         };
       }
 

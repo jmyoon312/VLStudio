@@ -110,24 +110,24 @@ export const MovieDramaFramingModal: React.FC<MovieDramaFramingModalProps> = ({
           </div>
 
           {/* 9:16 뷰포트 인터랙티브 프리뷰 박스 */}
-          <div className="relative mx-auto aspect-[9/16] w-full max-w-[200px] overflow-hidden rounded-2xl bg-neutral-950 border border-neutral-800 shadow-xl flex items-center justify-center">
+          <div className="relative mx-auto aspect-[9/16] w-full max-w-[200px] overflow-hidden rounded-2xl bg-muted/80 dark:bg-neutral-950 border border-border shadow-xl flex items-center justify-center">
             {/* 가상의 16:9 와이드 영상 배경 */}
             <div
-              className="absolute inset-y-0 w-[300%] bg-gradient-to-r from-neutral-800 via-neutral-700 to-neutral-800 transition-transform duration-150 flex items-center justify-center text-white/50 text-[10px]"
+              className="absolute inset-y-0 w-[300%] bg-gradient-to-r from-muted via-accent to-muted transition-transform duration-150 flex items-center justify-center text-foreground/50 text-[10px]"
               style={{
                 transform: `translateX(${-(activeFraming.focusX * 100 - 50)}%)`
               }}
             >
               <div className="flex flex-col items-center gap-1">
                 <Eye className="size-6 text-primary animate-pulse" />
-                <span className="font-bold text-white text-xs">장면 {selectedCutIndex + 1} 화면</span>
-                <span className="text-[9px] text-white/70">인물 중심 X: {Math.round(activeFraming.focusX * 100)}%</span>
+                <span className="font-bold text-foreground text-xs">장면 {selectedCutIndex + 1} 화면</span>
+                <span className="text-[9px] text-muted-foreground">인물 중심 X: {Math.round(activeFraming.focusX * 100)}%</span>
               </div>
             </div>
 
             {/* 9:16 세이프 가이드 박스 */}
-            <div className="pointer-events-none absolute inset-2 rounded-xl border border-white/20 border-dashed" />
-            <div className="pointer-events-none absolute bottom-3 px-2 py-0.5 rounded bg-black/60 text-[10px] text-white/80">
+            <div className="pointer-events-none absolute inset-2 rounded-xl border border-primary/40 border-dashed" />
+            <div className="pointer-events-none absolute bottom-3 px-2 py-0.5 rounded bg-background/85 backdrop-blur-xs text-[10px] text-foreground border border-border/60 shadow-xs">
               9:16 화면 영역
             </div>
           </div>

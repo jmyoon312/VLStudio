@@ -82,15 +82,16 @@ interface BenchmarkDNA {
     };
 }
 
-export const EDGE_VOICE_OPTIONS = [
-    { id: 'ko-KR-InJoonNeural', name: '인준 (쇼츠 풍자/속보)', gender: '남성', tag: '⚡ 뇌전구 권장 (1.25x)' },
-    { id: 'ko-KR-SunHiNeural', name: '선희 (아나운서/명랑)', gender: '여성', tag: '🎙️ 표준' },
-    { id: 'ko-KR-HyunsuNeural', name: '현수 (진중한 내러티브)', gender: '남성', tag: '🎭 썰형' },
-    { id: 'ko-KR-BongJinNeural', name: '봉진 (코믹/캐주얼)', gender: '남성', tag: '💬 유머' },
-    { id: 'ko-KR-GookMinNeural', name: '국민 (신뢰/뉴스 속보)', gender: '남성', tag: '📰 군림보' },
-    { id: 'ko-KR-JiMinNeural', name: '지민 (차분/정보)', gender: '여성', tag: '🌸 지식' },
-    { id: 'ko-KR-SeoHyeonNeural', name: '서현 (밝음/브이로그)', gender: '여성', tag: '✨ 일상' }
+export const SUPERTONIC_VOICE_OPTIONS = [
+    { id: 'M1', name: '민준 (쇼츠 풍자/속보)', gender: '남성', tag: '⚡ 뇌전구 권장 (1.25x)' },
+    { id: 'F1', name: '서연 (아나운서/표준)', gender: '여성', tag: '🎙️ 표준' },
+    { id: 'M2', name: '도현 (진중한 내러티브)', gender: '남성', tag: '🎭 썰형' },
+    { id: 'M3', name: '준서 (코믹/캐주얼)', gender: '남성', tag: '💬 유머' },
+    { id: 'M4', name: '영호 (신뢰/뉴스 속보)', gender: '남성', tag: '📰 군림보' },
+    { id: 'F2', name: '지우 (밝음/브이로그)', gender: '여성', tag: '✨ 일상' },
+    { id: 'F3', name: '수진 (차분/정보)', gender: '여성', tag: '🌸 지식' }
 ];
+export const EDGE_VOICE_OPTIONS = SUPERTONIC_VOICE_OPTIONS;
 
 const BENCHMARK_PRESETS: BenchmarkDNA[] = [
     {
@@ -107,7 +108,7 @@ const BENCHMARK_PRESETS: BenchmarkDNA[] = [
         subtitle_color: '#FFE500',
         subtitle_y_pct: 72.0,
         bgm_mood: 'Lo-Fi 코믹 펑크 (-22dB)',
-        recommended_voice: 'ko-KR-InJoonNeural',
+        recommended_voice: 'M1',
         hook_bar: {
             enabled: true,
             bg_color: '#FFFFFF',
@@ -129,7 +130,7 @@ const BENCHMARK_PRESETS: BenchmarkDNA[] = [
         subtitle_color: '#38BDF8',
         subtitle_y_pct: 70.0,
         bgm_mood: '경쾌한 로파이 재즈',
-        recommended_voice: 'ko-KR-HyunsuNeural'
+        recommended_voice: 'M2'
     },
     {
         id: 3,
@@ -145,7 +146,7 @@ const BENCHMARK_PRESETS: BenchmarkDNA[] = [
         subtitle_color: '#EF4444',
         subtitle_y_pct: 68.0,
         bgm_mood: '드라마틱 오케스트라',
-        recommended_voice: 'ko-KR-GookMinNeural'
+        recommended_voice: 'M4'
     }
 ];
 
@@ -226,7 +227,7 @@ export const InstantStudioPage: React.FC = () => {
     const [autopilotResult, setAutopilotResult] = useState<any>(null);
 
     // 2-1. Voice & TTS Options
-    const [selectedVoiceId, setSelectedVoiceId] = useState<string>('ko-KR-InJoonNeural'); // 뇌전구 권장 InJoon
+    const [selectedVoiceId, setSelectedVoiceId] = useState<string>('M1'); // 뇌전구 권장 M1
     const [voiceSpeedRate, setVoiceSpeedRate] = useState<string>('15'); // +15% WPM ~380
     const [templateAnalyzeUrl, setTemplateAnalyzeUrl] = useState<string>('');
     const [isAnalyzingTemplate, setIsAnalyzingTemplate] = useState<boolean>(false);
@@ -337,8 +338,8 @@ export const InstantStudioPage: React.FC = () => {
         try {
             const formData = new FormData();
             formData.append('text', fullText);
-            formData.append('engine', 'edge');
-            formData.append('language', 'ko-KR');
+            formData.append('engine', 'supertone-local');
+            formData.append('language', 'ko');
             formData.append('voice_id', voice);
             formData.append('rate', rate);
 
@@ -349,7 +350,7 @@ export const InstantStudioPage: React.FC = () => {
             if (res.data?.url || res.data?.web_url) {
                 const audioPath = res.data.web_url || res.data.url;
                 setAudioUrl(audioPath);
-                toast.success(`🗣️ Edge-TTS [${voice.replace('ko-KR-', '')}] 속도 +${rate}% 음성 합성 완료!`);
+                toast.success(`🗣️ Supertonic [${voice}] 속도 +${rate}% 음성 합성 완료!`);
             }
         } catch (e) {
             console.warn('[InstantStudio] TTS generation error:', e);
@@ -812,7 +813,7 @@ ${scenes.map(s => `#${s.sceneNumber}: [${s.title}] 자막="${s.subtitle}", 대�
                             </Badge>
                         </div>
                         <p className="text-xs text-muted-foreground mt-0.5">
-                            클래식 샌드위치 캔버스 ➔ Remotion 프레임 정밀 플레이어 ➔ 실시간 Edge-TTS ➔ 실제 AI 지시 핫 리로드
+                            클래식 샌드위치 캔버스 ➔ Remotion 프레임 정밀 플레이어 ➔ 실시간 Supertonic AI ➔ 실제 AI 지시 핫 리로드
                         </p>
                     </div>
                 </div>
@@ -946,9 +947,9 @@ ${scenes.map(s => `#${s.sceneNumber}: [${s.title}] 자막="${s.subtitle}", 대�
                                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                                     {[
                                         { id: 'supertone-local', name: 'Supertonic (Local AI)', tag: '✨ 무제한 0원 (자연스러움)', desc: '한국어 억양/호흡 최고' },
-                                        { id: 'edge', name: 'Edge-TTS (1.25x)', tag: '⚡ 초고속 속보형', desc: '뇌전구 인준 보이스 권장' },
                                         { id: 'typecast', name: 'Typecast (API)', tag: '🎭 감정 연기톤', desc: '공감 썰형/유머 특화' },
-                                        { id: 'elevenlabs', name: 'ElevenLabs (Pro)', tag: '💎 시네마틱 롱폼', desc: '영화 같은 하이퍼 리얼' }
+                                        { id: 'elevenlabs', name: 'ElevenLabs (Pro)', tag: '💎 시네마틱 롱폼', desc: '영화 같은 하이퍼 리얼' },
+                                        { id: 'kokoro', name: 'Kokoro (Local)', tag: '⚡ 로컬 고품질 뉴럴', desc: '경량 로컬 뉴럴' }
                                     ].map(eng => {
                                         const isSel = autopilotVoiceEngine === eng.id;
                                         return (
@@ -1316,12 +1317,12 @@ ${scenes.map(s => `#${s.sceneNumber}: [${s.title}] 자막="${s.subtitle}", 대�
                     </div>
                 </div>
 
-                {/* 1-2. 7-Voice Edge-TTS Selector & Speed WPM Matrix */}
+                {/* 1-2. 7-Voice Supertonic AI Selector & Speed WPM Matrix */}
                 <div className="p-3 rounded-2xl bg-muted/20 border border-border space-y-2">
                     <div className="flex items-center justify-between">
                         <span className="text-[11px] font-bold text-foreground flex items-center gap-1.5">
                             <Volume2 className="w-3.5 h-3.5 text-primary" />
-                            7대 한국어 전문 Edge-TTS 음성 & 발화 템포 제어
+                            7대 한국어 전문 Supertonic AI 음성 & 발화 템포 제어
                         </span>
                         <div className="flex items-center gap-1 text-[10px]">
                             <span className="text-muted-foreground font-bold">속도:</span>
@@ -1347,7 +1348,7 @@ ${scenes.map(s => `#${s.sceneNumber}: [${s.title}] 자막="${s.subtitle}", 대�
                     </div>
 
                     <div className="flex items-center gap-1.5 flex-wrap">
-                        {EDGE_VOICE_OPTIONS.map(v => {
+                        {SUPERTONIC_VOICE_OPTIONS.map(v => {
                             const isSelected = selectedVoiceId === v.id;
                             return (
                                 <button

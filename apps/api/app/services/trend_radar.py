@@ -14,6 +14,7 @@ import yt_dlp
 
 from app import models, crud
 from app.llm_manager import LLMClient
+from app.utils.ytdlp_utils import get_standard_ytdlp_opts, build_safe_ytsearch_query, sanitize_search_query
 
 logger = logging.getLogger("trend_radar")
 
@@ -116,19 +117,17 @@ class TrendRadarService:
         
         # ── Format-Specific Query Strategy
         if video_type == "shorts":
-            # Search trending shorts using keywords and tags
-            search_query = f"ytsearch{limit * 3}:{query_keyword} shorts"
+            # Search trending shorts using keywords and tags (safe 10 cap to prevent page 2 403)
+            search_query = build_safe_ytsearch_query(query_keyword, 10, "shorts")
         else:
             # Longform: targeted niche search with storyline keywords
-            search_query = f"ytsearch{limit * 3}:{query_keyword} 분석 OR 다큐 OR 비하인드 OR 꿀팁"
+            search_query = build_safe_ytsearch_query(f"{query_keyword} 분석 OR 다큐 OR 비하인드 OR 꿀팁", 10, "")
 
-        ydl_opts = {
-            'quiet': True,
+        ydl_opts = get_standard_ytdlp_opts({
             'extract_flat': True,
             'skip_download': True,
-            'no_warnings': True,
             'socket_timeout': 10
-        }
+        })
         candidates = []
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:

@@ -25,7 +25,10 @@ import {
   Globe2,
   Loader2,
   Eye,
-  SlidersHorizontal
+  SlidersHorizontal,
+  Image as ImageIcon,
+  Scissors,
+  Palette
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -79,6 +82,16 @@ export const SongBatchTab: React.FC<SongBatchTabProps> = ({
   const [audioFileName, setAudioFileName] = useState<string>('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [selectedVideoPath, setSelectedVideoPath] = useState<string>('');
+  const [extractedAudioPath, setExtractedAudioPath] = useState<string>('');
+
+  // ── 1-1. 커스텀 앨범 커버 자켓 ──
+  const [albumCoverFile, setAlbumCoverFile] = useState<File | null>(null);
+  const [albumCoverPreview, setAlbumCoverPreview] = useState<string>('');
+
+  // ── 1-2. 쇼츠 하이라이트 구간 트리밍 ──
+  const [isTrimmingEnabled, setIsTrimmingEnabled] = useState<boolean>(false);
+  const [trimStartSecs, setTrimStartSecs] = useState<number>(0);
+  const [trimEndSecs, setTrimEndSecs] = useState<number>(60);
 
   // ── 2. 3-Track 활성화 및 옵션 ──
   const [enableOriginal, setEnableOriginal] = useState<boolean>(true);
@@ -88,6 +101,17 @@ export const SongBatchTab: React.FC<SongBatchTabProps> = ({
   const [syncOffsetMs, setSyncOffsetMs] = useState<number>(0);
   const [visualTheme, setVisualTheme] = useState<SongVisualTheme>('vinyl');
   const [customPrompt, setCustomPrompt] = useState<string>('');
+
+  // ── 2-1. 3-Track 자막 스타일 & 위치 인스펙터 ──
+  const [colorPreset, setColorPreset] = useState<'modern' | 'neon' | 'minimal' | 'pastel'>('modern');
+  const [textPosition, setTextPosition] = useState<'bottom' | 'middle' | 'top'>('bottom');
+
+  const COLOR_PRESETS = {
+    modern: { name: 'K-POP 모던', orig: '#FFFFFF', pron: '#34D399', mean: '#FBBF24' },
+    neon: { name: '사이버 네온', orig: '#22D3EE', pron: '#E879F9', mean: '#FDE047' },
+    minimal: { name: '클래식 미니멀', orig: '#F8FAFC', pron: '#94A3B8', mean: '#E2E8F0' },
+    pastel: { name: '로맨틱 파스텔', orig: '#F472B6', pron: '#A78BFA', mean: '#6EE7B7' }
+  };
 
   // ── 3. 가사 데이터 ──
   const [lyrics, setLyrics] = useState<SongLyricLine[]>([
@@ -116,6 +140,75 @@ export const SongBatchTab: React.FC<SongBatchTabProps> = ({
   } | null>(null);
   const [detailModalOpen, setDetailModalOpen] = useState<boolean>(false);
   const [detailWorkItem, setDetailWorkItem] = useState<BatchWorkItem | null>(null);
+
+  // ── 5-1. 가사 일괄 붙여넣기(LRC/텍스트) 모달 상태 ──
+  const [pasteModalOpen, setPasteModalOpen] = useState<boolean>(false);
+  const [pastedLyricsText, setPastedLyricsText] = useState<string>('');
+
+  const handleApplyPastedLyrics = () => {
+    if (!pastedLyricsText.trim()) {
+      toast({ variant: 'destructive', title: '입력 내용 없음', description: '붙여넣을 가사 텍스트를 입력해주세요.' });
+      return;
+    }
+
+    const rawLines = pastedLyricsText.split('\n').map(l => l.trim()).filter(Boolean);
+    const parsedLyrics: SongLyricLine[] = [];
+    const lrcRegex = /^\[(\d{1,2}):(\d{2})(?:\.(\d{1,3}))?\](.*)$/;
+
+    let currentTimeMs = 0;
+    let hasLrcTags = false;
+
+    rawLines.forEach((line, idx) => {
+      const match = line.match(lrcRegex);
+      if (match) {
+        hasLrcTags = true;
+        const min = parseInt(match[1], 10);
+        const sec = parseInt(match[2], 10);
+        const msStr = match[3] || '0';
+        const ms = parseInt(msStr.padEnd(3, '0').slice(0, 3), 10);
+        const startMs = (min * 60 + sec) * 1000 + ms;
+        const text = match[4].trim();
+
+        if (text) {
+          parsedLyrics.push({
+            id: `song-${idx + 1}`,
+            startMs,
+            endMs: startMs + 3000,
+            original: text,
+            pronunciation: text,
+            meaning: text
+          });
+        }
+      } else {
+        parsedLyrics.push({
+          id: `song-${idx + 1}`,
+          startMs: currentTimeMs,
+          endMs: currentTimeMs + 3000,
+          original: line,
+          pronunciation: line,
+          meaning: line
+        });
+        currentTimeMs += 3200;
+      }
+    });
+
+    // LRC 태그가 있었을 경우 이전 라인의 endMs를 다음 라인의 startMs로 정렬
+    if (hasLrcTags) {
+      for (let i = 0; i < parsedLyrics.length - 1; i++) {
+        parsedLyrics[i].endMs = Math.max(parsedLyrics[i].startMs + 500, parsedLyrics[i + 1].startMs);
+      }
+    }
+
+    if (parsedLyrics.length > 0) {
+      setLyrics(parsedLyrics);
+      setPasteModalOpen(false);
+      setPastedLyricsText('');
+      toast({
+        title: '📋 가사 텍스트 일괄 파싱 완료',
+        description: `총 ${parsedLyrics.length}개 가사 라인이 등록되었습니다. 이제 [AI 3-Track 가사 싱크 자동 분석]을 누르면 한글 발음과 번역이 자동으로 완성됩니다.`
+      });
+    }
+  };
 
   // ── 6. 미리보기 플레이어 시뮬레이션 상태 ──
   const [isPlayingPreview, setIsPlayingPreview] = useState<boolean>(false);
@@ -162,6 +255,7 @@ export const SongBatchTab: React.FC<SongBatchTabProps> = ({
         description: `'${file.name}' (${(file.size / (1024 * 1024)).toFixed(1)}MB) 파일이 로드되었습니다.`
       });
     }
+    e.target.value = '';
   };
 
   // 보관함 소스 빠른 선택 핸들러
@@ -175,6 +269,50 @@ export const SongBatchTab: React.FC<SongBatchTabProps> = ({
       title: '📁 보관함 소스 선택',
       description: `'${item.title}' 영상이 노래형 소스로 지정되었습니다.`
     });
+  };
+
+  // 커스텀 앨범 커버 자켓 업로드 핸들러
+  const handleAlbumCoverUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setAlbumCoverFile(file);
+      const url = URL.createObjectURL(file);
+      setAlbumCoverPreview(url);
+      toast({
+        title: '🎨 앨범 자켓 이미지 등록',
+        description: `'${file.name}' 이미지가 LP판 및 자켓 테마에 지정되었습니다.`
+      });
+    }
+    e.target.value = '';
+  };
+
+  // 원클릭 가사 싱크 일괄 이동 핸들러
+  const handleShiftLyricsSync = (deltaMs: number) => {
+    if (lyrics.length === 0) return;
+    setLyrics(prev => prev.map(l => ({
+      ...l,
+      startMs: Math.max(0, l.startMs + deltaMs),
+      endMs: Math.max(200, l.endMs + deltaMs)
+    })));
+    toast({
+      title: '⏱️ 가사 싱크 일괄 보정',
+      description: `전체 ${lyrics.length}개 가사 라인이 ${deltaMs > 0 ? `+${deltaMs / 1000}초` : `${deltaMs / 1000}초`} 이동되었습니다.`
+    });
+  };
+
+  // 쇼츠 하이라이트 구간 프리셋 적용
+  const handleApplyTrimPreset = (durationSecs: number) => {
+    if (durationSecs === 0) {
+      setIsTrimmingEnabled(false);
+      setTrimStartSecs(0);
+      setTrimEndSecs(60);
+      toast({ title: '구간 설정 해제', description: '음원 전체 구간을 사용합니다.' });
+    } else {
+      setIsTrimmingEnabled(true);
+      setTrimStartSecs(0);
+      setTrimEndSecs(durationSecs);
+      toast({ title: `${durationSecs}초 쇼츠 구간 지정`, description: `0.0초 ~ ${durationSecs}.0초 구간이 설정되었습니다.` });
+    }
   };
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -211,7 +349,7 @@ export const SongBatchTab: React.FC<SongBatchTabProps> = ({
       }
 
       setAnalysisProgress('DB Settings LLM 3-Track 발음 & 번역 동시 생성 중...');
-      const response = await api.post('/api/song/transcribe-3track', formData, {
+      const response = await api.post('/song/transcribe-3track', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
         timeout: 180000
       });
@@ -219,6 +357,9 @@ export const SongBatchTab: React.FC<SongBatchTabProps> = ({
       const resData = response.data?.data;
       if (resData && Array.isArray(resData.lines) && resData.lines.length > 0) {
         setLyrics(resData.lines);
+        if (resData.audio_path) {
+          setExtractedAudioPath(resData.audio_path);
+        }
         toast({
           title: '✨ 3중 트랙 가사 분석 완결',
           description: `Faster-Whisper 및 LLM을 통해 총 ${resData.lines.length}개 가사 라인의 원문, 발음, 번역이 생성되었습니다.`
@@ -250,7 +391,24 @@ export const SongBatchTab: React.FC<SongBatchTabProps> = ({
 
     setIsRendering(true);
     const jobId = `song-${Date.now()}`;
-    const durationSeconds = Math.max(10, Math.ceil(lyrics[lyrics.length - 1].endMs / 1000));
+
+    // 쇼츠 하이라이트 구간 트리밍 반영
+    let finalLyrics = lyrics;
+    let finalDuration = Math.max(10, Math.ceil(lyrics[lyrics.length - 1].endMs / 1000));
+    
+    if (isTrimmingEnabled && trimEndSecs > trimStartSecs) {
+      finalDuration = trimEndSecs - trimStartSecs;
+      const startMs = trimStartSecs * 1000;
+      const endMs = trimEndSecs * 1000;
+      finalLyrics = lyrics
+        .filter(l => l.endMs > startMs && l.startMs < endMs)
+        .map(l => ({
+          ...l,
+          startMs: Math.max(0, l.startMs - startMs),
+          endMs: Math.max(200, l.endMs - startMs)
+        }));
+      if (finalLyrics.length === 0) finalLyrics = lyrics;
+    }
 
     try {
       // 1. Remotion MP4 실물 렌더링 요청
@@ -259,23 +417,41 @@ export const SongBatchTab: React.FC<SongBatchTabProps> = ({
       renderForm.append('song_title', songTitle);
       renderForm.append('artist_name', artistName);
       renderForm.append('visual_theme', visualTheme);
-      renderForm.append('lyrics_json', JSON.stringify(lyrics));
+      renderForm.append('lyrics_json', JSON.stringify(finalLyrics));
       renderForm.append('enable_original', String(enableOriginal));
       renderForm.append('enable_pronunciation', String(enablePronunciation));
       renderForm.append('enable_meaning', String(enableMeaning));
       renderForm.append('sync_offset_ms', String(syncOffsetMs));
-      renderForm.append('duration_seconds', String(durationSeconds));
+      renderForm.append('duration_seconds', String(finalDuration));
 
+      // 오디오 바이너리 전달
+      const audioToUse = extractedAudioPath || selectedVideoPath || '';
+      if (audioToUse) {
+        renderForm.append('audio_source', audioToUse);
+      }
+      if (selectedFile) {
+        renderForm.append('audio_source_file', selectedFile);
+      }
       if (selectedVideoPath) {
         renderForm.append('video_source', selectedVideoPath);
       }
+      if (albumCoverFile) {
+        renderForm.append('album_cover_file', albumCoverFile);
+      }
+
+      // 3-Track 스타일 전달
+      const curPreset = COLOR_PRESETS[colorPreset];
+      renderForm.append('original_color', curPreset.orig);
+      renderForm.append('pronunciation_color', curPreset.pron);
+      renderForm.append('meaning_color', curPreset.mean);
+      renderForm.append('text_position', textPosition);
 
       toast({
         title: '🎬 Remotion 실물 렌더링 시작',
         description: `'${songTitle}' 1080x1920 MP4 비디오 렌더링이 시작되었습니다.`
       });
 
-      const renderRes = await api.post('/api/song/render-song-shorts', renderForm, {
+      const renderRes = await api.post('/song/render-song-shorts', renderForm, {
         headers: { 'Content-Type': 'multipart/form-data' },
         timeout: 300000
       });
@@ -292,11 +468,11 @@ export const SongBatchTab: React.FC<SongBatchTabProps> = ({
         progress: 100,
         createdAt: new Date().toLocaleTimeString(),
         sourceOrigin: audioSourceUrl || audioFileName || '로컬 음원 소스',
-        subtitlesCount: lyrics.length,
+        subtitlesCount: finalLyrics.length,
         videoPath: videoPath,
         exportPath: videoPath,
         renderEngine: 'remotion',
-        lyricsData: lyrics,
+        lyricsData: finalLyrics,
         pixelingMeta: {
           title: `[가사/해석] ${songTitle} - ${artistName} 쇼츠`,
           description: `${songTitle} 3중 트랙 가사 (원어, 발음, 한국어 뜻 번역) #shorts #${songTitle.replace(/\s+/g, '')} #${artistName.replace(/\s+/g, '')}`,
@@ -333,14 +509,17 @@ export const SongBatchTab: React.FC<SongBatchTabProps> = ({
       const lyricsToExport: SongLyricLine[] = (item as any).lyricsData || lyrics;
       const totalDur = lyricsToExport.length > 0 ? lyricsToExport[lyricsToExport.length - 1].endMs + 1000 : 30000;
 
+      const curPreset = COLOR_PRESETS[colorPreset];
+      const yOffsetBase = textPosition === 'top' ? 25 : textPosition === 'middle' ? 50 : 65;
+
       const originalItems = lyricsToExport.map((l, i) => ({
         id: `song-orig-${i + 1}`,
         text: l.original,
         startMs: l.startMs,
         endMs: l.endMs,
-        fontSize: 32,
-        textColor: '#FFFFFF',
-        yPct: 60
+        fontSize: 34,
+        textColor: curPreset.orig,
+        yPct: yOffsetBase - 5
       }));
 
       const pronItems = lyricsToExport.map((l, i) => ({
@@ -349,8 +528,8 @@ export const SongBatchTab: React.FC<SongBatchTabProps> = ({
         startMs: l.startMs,
         endMs: l.endMs,
         fontSize: 26,
-        textColor: '#34D399',
-        yPct: 68
+        textColor: curPreset.pron,
+        yPct: yOffsetBase + 4
       }));
 
       const meanItems = lyricsToExport.map((l, i) => ({
@@ -359,9 +538,11 @@ export const SongBatchTab: React.FC<SongBatchTabProps> = ({
         startMs: l.startMs,
         endMs: l.endMs,
         fontSize: 36,
-        textColor: '#FFE500',
-        yPct: 76
+        textColor: curPreset.mean,
+        yPct: yOffsetBase + 13
       }));
+
+      const audioPathToUse = extractedAudioPath || selectedVideoPath || (selectedFile as any)?.path || audioFileName || 'song_audio.mp3';
 
       const res = await exportCapCutFullProject({
         projectName: item.title.replace(/[\\/*?:"<>|]/g, '_'),
@@ -377,13 +558,23 @@ export const SongBatchTab: React.FC<SongBatchTabProps> = ({
           translation: meanItems
         },
         subtitles: originalItems,
-        audios: []
+        audios: audioPathToUse ? [
+          {
+            id: 'song-audio-mat',
+            name: audioFileName || 'song_audio.mp3',
+            path: audioPathToUse,
+            type: 'bgm',
+            startMs: 0,
+            durationMs: totalDur,
+            volume: 1.0
+          }
+        ] : []
       });
 
       if (res.success) {
         toast({
           title: '🎬 CapCut 3-Track 초안 내보내기 완료',
-          description: `원어·발음·한국어 3개 독립 트랙이 포함된 CapCut 프로젝트가 성공적으로 생성되었습니다.`
+          description: `원어·발음·한국어 3개 독립 트랙 및 오디오가 포함된 CapCut 프로젝트가 성공적으로 생성되었습니다.`
         });
       } else {
         throw new Error(res.message);
@@ -538,7 +729,7 @@ export const SongBatchTab: React.FC<SongBatchTabProps> = ({
                 className="text-xs p-1 rounded border border-border bg-background"
               >
                 {GLOBAL_LANGUAGES.map(l => (
-                  <option key={l.code} value={l.code}>{l.label}</option>
+                  <option key={l.code} value={l.code}>{l.flag ? `${l.flag} ${l.name}` : l.name}</option>
                 ))}
               </select>
             </div>
@@ -586,6 +777,123 @@ export const SongBatchTab: React.FC<SongBatchTabProps> = ({
               })}
             </div>
           </div>
+
+          {/* 앨범 커버 자켓 이미지 지정 (LP판 중심 / 자켓 테마) */}
+          <div className="space-y-2 pt-2 border-t border-border">
+            <div className="flex items-center justify-between">
+              <label className="text-[11px] font-bold text-foreground flex items-center gap-1.5">
+                <ImageIcon className="w-3.5 h-3.5 text-primary" />
+                앨범 커버 자켓 이미지
+              </label>
+              {albumCoverPreview && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAlbumCoverFile(null);
+                    setAlbumCoverPreview('');
+                  }}
+                  className="text-[10px] text-destructive hover:underline cursor-pointer"
+                >
+                  제거
+                </button>
+              )}
+            </div>
+
+            {albumCoverPreview ? (
+              <div className="flex items-center gap-2.5 p-2 rounded-lg border border-border bg-muted/20">
+                <img
+                  src={albumCoverPreview}
+                  alt="Album Cover"
+                  className="w-10 h-10 rounded-md object-cover border border-border shrink-0 shadow-xs"
+                />
+                <div className="min-w-0 flex-1">
+                  <div className="text-[11px] font-bold text-foreground truncate">{albumCoverFile?.name || '커버 이미지'}</div>
+                  <div className="text-[10px] text-muted-foreground">LP판 중심 및 자켓 카드에 적용됨</div>
+                </div>
+              </div>
+            ) : (
+              <label className="flex items-center justify-center gap-2 p-2.5 rounded-lg border border-dashed border-border bg-muted/10 hover:bg-muted/30 cursor-pointer text-[11px] text-muted-foreground hover:text-foreground transition">
+                <Upload className="w-3.5 h-3.5 text-primary shrink-0" />
+                <span>커스텀 앨범 자켓 이미지 선택 (JPG/PNG)</span>
+                <input type="file" accept="image/*" onChange={handleAlbumCoverUpload} className="hidden" />
+              </label>
+            )}
+          </div>
+
+          {/* 쇼츠 하이라이트 구간 트리밍 (Audio Trimmer) */}
+          <div className="space-y-2 pt-2 border-t border-border">
+            <div className="flex items-center justify-between">
+              <label className="text-[11px] font-bold text-foreground flex items-center gap-1.5">
+                <Scissors className="w-3.5 h-3.5 text-primary" />
+                쇼츠 구간 트리밍 (선택)
+              </label>
+              <input
+                type="checkbox"
+                checked={isTrimmingEnabled}
+                onChange={e => setIsTrimmingEnabled(e.target.checked)}
+                className="w-4 h-4 accent-primary cursor-pointer"
+              />
+            </div>
+
+            {isTrimmingEnabled && (
+              <div className="space-y-2 p-2.5 rounded-lg bg-muted/20 border border-border text-xs">
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <span className="text-[10px] text-muted-foreground block mb-0.5">시작(초)</span>
+                    <input
+                      type="number"
+                      step="0.5"
+                      min="0"
+                      value={trimStartSecs}
+                      onChange={e => setTrimStartSecs(Math.max(0, parseFloat(e.target.value) || 0))}
+                      className="w-16 p-1 text-xs font-mono text-center rounded border border-border bg-background"
+                    />
+                  </div>
+                  <span className="text-muted-foreground text-xs pt-3">~</span>
+                  <div>
+                    <span className="text-[10px] text-muted-foreground block mb-0.5">종료(초)</span>
+                    <input
+                      type="number"
+                      step="0.5"
+                      min="1"
+                      value={trimEndSecs}
+                      onChange={e => setTrimEndSecs(Math.max(1, parseFloat(e.target.value) || 1))}
+                      className="w-16 p-1 text-xs font-mono text-center rounded border border-border bg-background"
+                    />
+                  </div>
+                  <div className="pt-3 text-right">
+                    <Badge variant="secondary" className="font-mono text-[10px] text-primary font-bold">
+                      {Math.max(0, trimEndSecs - trimStartSecs).toFixed(1)}초
+                    </Badge>
+                  </div>
+                </div>
+
+                {/* 쇼츠 규격 원클릭 프리셋 */}
+                <div className="flex items-center gap-1 pt-1">
+                  <span className="text-[10px] font-bold text-muted-foreground shrink-0">프리셋:</span>
+                  <div className="grid grid-cols-4 gap-1 flex-1">
+                    {[
+                      { label: '전체', dur: 0 },
+                      { label: '15초', dur: 15 },
+                      { label: '30초', dur: 30 },
+                      { label: '60초', dur: 60 },
+                    ].map(p => (
+                      <Button
+                        key={p.label}
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleApplyTrimPreset(p.dur)}
+                        className="h-6 px-1 text-[10px] font-bold border-border hover:bg-muted"
+                      >
+                        {p.label}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* ── ZONE 2 & 3 (중앙 및 우측 8칸): 3-Track 가사 편집기 & 실시간 프리뷰 ── */}
@@ -594,12 +902,62 @@ export const SongBatchTab: React.FC<SongBatchTabProps> = ({
             
             {/* 가사 테이블 헤더 및 액션 버튼 */}
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b border-border pb-2.5">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <Music className="w-4 h-4 text-primary" />
                 <span className="text-xs font-bold text-foreground">3중 트랙 가사 타임코드 싱크 매트릭스 ({lyrics.length}줄)</span>
+
+                {/* 원클릭 가사 싱크 일괄 오프셋 이동 도구 */}
+                {lyrics.length > 0 && (
+                  <div className="flex items-center gap-0.5 bg-muted/40 p-0.5 rounded-lg border border-border text-[10px] ml-1">
+                    <span className="text-muted-foreground px-1 font-bold">싱크 일괄:</span>
+                    <button
+                      type="button"
+                      onClick={() => handleShiftLyricsSync(-500)}
+                      className="px-1.5 py-0.5 rounded hover:bg-muted font-mono text-primary font-bold transition cursor-pointer"
+                      title="전체 가사 0.5초 당기기"
+                    >
+                      -0.5s
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleShiftLyricsSync(-200)}
+                      className="px-1.5 py-0.5 rounded hover:bg-muted font-mono text-primary font-bold transition cursor-pointer"
+                      title="전체 가사 0.2초 당기기"
+                    >
+                      -0.2s
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleShiftLyricsSync(200)}
+                      className="px-1.5 py-0.5 rounded hover:bg-muted font-mono text-primary font-bold transition cursor-pointer"
+                      title="전체 가사 0.2초 미루기"
+                    >
+                      +0.2s
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleShiftLyricsSync(500)}
+                      className="px-1.5 py-0.5 rounded hover:bg-muted font-mono text-primary font-bold transition cursor-pointer"
+                      title="전체 가사 0.5초 미루기"
+                    >
+                      +0.5s
+                    </button>
+                  </div>
+                )}
               </div>
               
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPasteModalOpen(true)}
+                  className="h-8 text-xs font-bold gap-1 text-foreground border-border hover:bg-muted/60 cursor-pointer"
+                  title="외부 가사 텍스트 또는 LRC 포맷 일괄 붙여넣기"
+                >
+                  <AlignLeft className="w-3.5 h-3.5 text-primary" />
+                  <span>가사 붙여넣기</span>
+                </Button>
+
                 <Button
                   variant="outline"
                   size="sm"
@@ -657,10 +1015,30 @@ export const SongBatchTab: React.FC<SongBatchTabProps> = ({
                         isActive ? "bg-primary/10 border-l-2 border-primary" : "hover:bg-muted/20"
                       )}
                     >
-                      <div className="col-span-2 font-mono text-[11px] text-primary font-bold flex items-center gap-1">
-                        <span>{(line.startMs / 1000).toFixed(1)}s</span>
-                        <span className="text-muted-foreground text-[9px]">~</span>
-                        <span>{(line.endMs / 1000).toFixed(1)}s</span>
+                      <div className="col-span-2 font-mono text-[11px] text-primary font-bold flex items-center gap-0.5">
+                        <input
+                          type="number"
+                          step="0.1"
+                          min="0"
+                          value={(line.startMs / 1000).toFixed(1)}
+                          onChange={e => {
+                            const val = Math.max(0, parseFloat(e.target.value) || 0);
+                            setLyrics(prev => prev.map((l, i) => i === idx ? { ...l, startMs: Math.round(val * 1000) } : l));
+                          }}
+                          className="w-12 p-0.5 text-[10.5px] font-mono text-primary font-bold rounded border border-border bg-background text-center focus:ring-1 focus:ring-primary"
+                        />
+                        <span className="text-muted-foreground text-[10px]">~</span>
+                        <input
+                          type="number"
+                          step="0.1"
+                          min="0"
+                          value={(line.endMs / 1000).toFixed(1)}
+                          onChange={e => {
+                            const val = Math.max(0, parseFloat(e.target.value) || 0);
+                            setLyrics(prev => prev.map((l, i) => i === idx ? { ...l, endMs: Math.round(val * 1000) } : l));
+                          }}
+                          className="w-12 p-0.5 text-[10.5px] font-mono text-primary font-bold rounded border border-border bg-background text-center focus:ring-1 focus:ring-primary"
+                        />
                       </div>
                       <div className="col-span-4">
                         <input
@@ -713,10 +1091,14 @@ export const SongBatchTab: React.FC<SongBatchTabProps> = ({
 
             {/* 3중 자막 9:16 실시간 비주얼 프리뷰 캔버스 */}
             <div className="p-4 rounded-xl bg-muted/30 border border-border flex flex-col items-center justify-center text-center space-y-3 relative overflow-hidden">
-              <div className="flex items-center justify-between w-full">
-                <Badge variant="outline" className="text-[10px] text-muted-foreground font-mono">
-                  9:16 캔버스 실시간 가사 렌더 프리뷰
-                </Badge>
+              <div className="flex items-center justify-between w-full flex-wrap gap-2">
+                <div className="flex items-center gap-1.5">
+                  <Palette className="w-3.5 h-3.5 text-primary" />
+                  <Badge variant="outline" className="text-[10px] text-muted-foreground font-mono">
+                    9:16 캔버스 실시간 비주얼 프리뷰
+                  </Badge>
+                </div>
+
                 <div className="flex items-center gap-2">
                   <span className="text-[10px] font-mono text-muted-foreground">
                     {(previewCurrentMs / 1000).toFixed(1)}s
@@ -733,25 +1115,154 @@ export const SongBatchTab: React.FC<SongBatchTabProps> = ({
                 </div>
               </div>
 
-              {/* 캔버스 화면 시뮬레이션 */}
-              <div className="w-full max-w-sm py-4 px-3 rounded-lg bg-black/80 border border-border/80 shadow-inner space-y-2">
-                <div className="text-[10px] text-primary/80 font-bold uppercase tracking-wider">
-                  🎵 {songTitle} - {artistName} • [{visualTheme.toUpperCase()}]
+              {/* 3-Track 자막 시각 스타일 인스펙터 바 */}
+              <div className="w-full flex items-center justify-between gap-2 p-2 rounded-lg bg-background border border-border text-xs flex-wrap">
+                {/* 컬러 테마 선택 */}
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] font-bold text-muted-foreground">스타일 테마:</span>
+                  <div className="flex items-center gap-1">
+                    {(Object.keys(COLOR_PRESETS) as Array<keyof typeof COLOR_PRESETS>).map(key => {
+                      const p = COLOR_PRESETS[key];
+                      const isSel = colorPreset === key;
+                      return (
+                        <button
+                          key={key}
+                          type="button"
+                          onClick={() => setColorPreset(key)}
+                          className={cn(
+                            "px-2 py-0.5 rounded text-[10.5px] font-bold transition cursor-pointer flex items-center gap-1 border",
+                            isSel
+                              ? "bg-primary/15 text-primary border-primary/40 shadow-xs"
+                              : "border-border/60 hover:bg-muted/50 text-muted-foreground"
+                          )}
+                        >
+                          <span
+                            className="w-2 h-2 rounded-full inline-block"
+                            style={{ backgroundColor: p.pron }}
+                          />
+                          <span>{p.name}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
 
-                <div className="space-y-1.5 py-2">
+                {/* 자막 수직 위치 선택 */}
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] font-bold text-muted-foreground">위치:</span>
+                  <div className="flex items-center gap-1">
+                    {[
+                      { id: 'top', label: '상단' },
+                      { id: 'middle', label: '중앙' },
+                      { id: 'bottom', label: '하단' },
+                    ].map(pos => (
+                      <button
+                        key={pos.id}
+                        type="button"
+                        onClick={() => setTextPosition(pos.id as any)}
+                        className={cn(
+                          "px-2 py-0.5 rounded text-[10.5px] font-bold transition cursor-pointer border",
+                          textPosition === pos.id
+                            ? "bg-primary/15 text-primary border-primary/40 shadow-xs"
+                            : "border-border/60 hover:bg-muted/50 text-muted-foreground"
+                        )}
+                      >
+                        {pos.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* 캔버스 화면 시뮬레이션 */}
+              <div className="w-full max-w-sm min-h-[260px] py-4 px-3 rounded-lg bg-black/90 border border-border/80 shadow-inner flex flex-col justify-between relative overflow-hidden">
+                {/* 상단 곡 정보 */}
+                <div className="text-[10px] text-primary/90 font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 z-10">
+                  <span>🎵 {songTitle} - {artistName}</span>
+                  <Badge variant="outline" className="text-[9px] px-1 py-0 border-white/20 text-white/70">
+                    {visualTheme.toUpperCase()}
+                  </Badge>
+                </div>
+
+                {/* 중앙 비주얼 테마 시뮬레이션 (LP 회전 / 앨범 커버) */}
+                <div className="flex items-center justify-center my-auto py-2 z-10">
+                  {visualTheme === 'vinyl' && (
+                    <div className="relative w-24 h-24 rounded-full bg-neutral-900 border-2 border-neutral-700 flex items-center justify-center shadow-lg animate-spin-slow">
+                      <div className="w-20 h-20 rounded-full border border-dashed border-neutral-600/50 flex items-center justify-center">
+                        <div
+                          className="w-10 h-10 rounded-full flex items-center justify-center bg-cover bg-center border border-neutral-500 shadow-inner"
+                          style={{
+                            backgroundImage: albumCoverPreview ? `url(${albumCoverPreview})` : undefined,
+                            backgroundColor: albumCoverPreview ? undefined : '#F59E0B'
+                          }}
+                        >
+                          <div className="w-2 h-2 rounded-full bg-black/90" />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {visualTheme === 'jacket' && (
+                    <div className="w-24 h-24 rounded-xl border border-white/20 overflow-hidden shadow-2xl relative flex items-center justify-center bg-muted/40">
+                      {albumCoverPreview ? (
+                        <img src={albumCoverPreview} alt="Jacket" className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="text-center p-2">
+                          <Sparkles className="w-6 h-6 text-amber-400 mx-auto mb-1" />
+                          <span className="text-[9px] text-white/70 font-bold block truncate">{artistName}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {visualTheme === 'visualizer' && (
+                    <div className="flex items-end justify-center gap-1 h-14 px-4">
+                      {[35, 55, 80, 45, 90, 60, 75, 40, 65, 85, 50, 70].map((h, i) => (
+                        <div
+                          key={i}
+                          className="w-1.5 bg-primary/80 rounded-full animate-pulse"
+                          style={{ height: `${h}%`, animationDelay: `${i * 80}ms` }}
+                        />
+                      ))}
+                    </div>
+                  )}
+
+                  {visualTheme === 'poster' && (
+                    <div className="text-center py-2">
+                      <div className="text-sm font-black text-white tracking-widest uppercase">{songTitle}</div>
+                      <div className="text-[10px] text-sky-400 font-bold tracking-wider uppercase">{artistName}</div>
+                    </div>
+                  )}
+                </div>
+
+                {/* 3-Track 가사 렌더 박스 (위치에 따라 flex 정렬) */}
+                <div
+                  className={cn(
+                    "w-full space-y-1 py-2 px-2.5 rounded-lg bg-black/60 backdrop-blur-xs border border-white/10 shadow-lg z-10 transition-all",
+                    textPosition === 'top' ? "order-first mb-2" : textPosition === 'middle' ? "my-auto" : "mt-2"
+                  )}
+                >
                   {enableOriginal && (
-                    <div className="text-sm font-black text-white tracking-wide drop-shadow-md">
+                    <div
+                      className="text-xs sm:text-sm font-black tracking-wide drop-shadow-md"
+                      style={{ color: COLOR_PRESETS[colorPreset].orig }}
+                    >
                       {activeLyric?.original || '가사를 입력하거나 AI 분석을 실행하세요'}
                     </div>
                   )}
                   {enablePronunciation && activeLyric?.pronunciation && (
-                    <div className="text-xs font-bold text-emerald-400 font-mono tracking-tight">
+                    <div
+                      className="text-[11px] font-bold font-mono tracking-tight"
+                      style={{ color: COLOR_PRESETS[colorPreset].pron }}
+                    >
                       {activeLyric.pronunciation}
                     </div>
                   )}
                   {enableMeaning && activeLyric?.meaning && (
-                    <div className="text-xs text-amber-300 font-semibold">
+                    <div
+                      className="text-[11px] font-semibold"
+                      style={{ color: COLOR_PRESETS[colorPreset].mean }}
+                    >
                       {activeLyric.meaning}
                     </div>
                   )}
@@ -779,7 +1290,7 @@ export const SongBatchTab: React.FC<SongBatchTabProps> = ({
       <div className="pt-2">
         <BatchWorkQueueSection
           items={workQueueItems}
-          selectedIds={selectedQueueIds}
+          selectedItemIds={selectedQueueIds}
           onToggleSelect={(id) => {
             setSelectedQueueIds(prev =>
               prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
@@ -862,6 +1373,57 @@ export const SongBatchTab: React.FC<SongBatchTabProps> = ({
         onEditNle={(item) => navigate('/pro-editor', { state: { project: item } })}
         onExportCapcut={handleExportCapCut}
       />
+
+      {/* 4. 가사 일괄 붙여넣기(LRC/텍스트) 모달 */}
+      {pasteModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+          <div className="bg-card border border-border rounded-xl p-5 max-w-xl w-full space-y-4 shadow-xl animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <div className="flex items-center gap-2">
+                <AlignLeft className="w-4 h-4 text-primary" />
+                <span className="text-sm font-bold text-foreground">가사 텍스트 / LRC 일괄 붙여넣기</span>
+              </div>
+              <Badge variant="outline" className="text-[10px] font-mono text-primary border-primary/30">
+                LRC & 텍스트 자동 인식
+              </Badge>
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-xs text-muted-foreground">
+                웹이나 음원 사이트에서 복사한 가사를 붙여넣으세요. 시간 태그(<code>[00:15.30]</code>)가 포함된 LRC 형식은 타임코드가 자동 추출되며, 일반 텍스트는 3초 간격으로 자동 분할됩니다.
+              </p>
+              <textarea
+                value={pastedLyricsText}
+                onChange={e => setPastedLyricsText(e.target.value)}
+                placeholder={"[00:00.00] It was just two lovers\n[00:03.50] Sittin' in the car, listenin' to Blonde\n... 또는 일반 줄바꿈 가사"}
+                className="w-full h-56 p-3 text-xs font-mono rounded-lg border border-border bg-background focus:ring-1 focus:ring-primary focus:outline-hidden"
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setPasteModalOpen(false);
+                  setPastedLyricsText('');
+                }}
+                className="text-xs cursor-pointer"
+              >
+                취소
+              </Button>
+              <Button
+                size="sm"
+                onClick={handleApplyPastedLyrics}
+                className="text-xs font-bold gap-1 bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer"
+              >
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>테이블에 파싱 적용</span>
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

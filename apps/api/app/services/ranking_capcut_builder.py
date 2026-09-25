@@ -167,12 +167,12 @@ def build_ranking_capcut_draft(
         materials["texts"].append({
             "id": title_mat_id,
             "content": f"{headline}\n{subtitle}",
-            "font_size": 24,
+            "font_size": 26,
             "text_color": hex_to_rgb01(options.get('headlineColor', '#FFE45C')),
             "align_type": 1,
             "style": {"bold": True}
         })
-        tx, ty = to_capcut_coord(50.0, 10.0) # 상단 10% 위치
+        tx, ty = to_capcut_coord(50.0, 8.5) # 상단 8.5% 헤더 위치
         track_header_title["segments"].append({
             "id": str(uuid.uuid4()),
             "material_id": title_mat_id,
@@ -180,18 +180,19 @@ def build_ranking_capcut_draft(
             "clip": {"transform": {"x": tx, "y": ty}}
         })
 
-        # 4. 순위 뱃지 텍스트 (예: TOP 5 또는 5위)
+        # 4. 순위 뱃지 텍스트 (1위 피날레 황금 왕관 및 2~5위 TOP N)
         badge_mat_id = str(uuid.uuid4())
-        badge_text = f"🏆 TOP {rank}" if rank == 1 else f"TOP {rank}"
+        badge_text = "👑 대망의 1위" if rank == 1 else f"TOP {rank}"
+        badge_color = hex_to_rgb01('#F59E0B' if rank == 1 else options.get('accentColor', '#FFE45C'))
         materials["texts"].append({
             "id": badge_mat_id,
             "content": badge_text,
-            "font_size": 32,
-            "text_color": hex_to_rgb01(options.get('accentColor', '#FF3D71')),
+            "font_size": 36,
+            "text_color": badge_color,
             "align_type": 1,
             "style": {"bold": True}
         })
-        bx, by = to_capcut_coord(50.0, 22.0) # 상단 22% 위치
+        bx, by = to_capcut_coord(50.0, 52.0) # 중앙 비디오 카드 바로 아래 52% 위치
         track_rank_badge["segments"].append({
             "id": str(uuid.uuid4()),
             "material_id": badge_mat_id,
@@ -199,9 +200,9 @@ def build_ranking_capcut_draft(
             "clip": {"transform": {"x": bx, "y": by}}
         })
 
-        # 5. 본문 설명 자막 텍스트
+        # 5. 본문 설명 자막 텍스트 (글래스모피즘 나레이션 위치)
         caption_mat_id = str(uuid.uuid4())
-        caption_full = f"{item_title} ({item_stat})\n{item_desc}"
+        caption_full = f"{item_title} {f'({item_stat})' if item_stat else ''}\n{item_desc}"
         materials["texts"].append({
             "id": caption_mat_id,
             "content": caption_full,
@@ -210,7 +211,7 @@ def build_ranking_capcut_draft(
             "align_type": 1,
             "style": {"bold": True}
         })
-        cx, cy = to_capcut_coord(50.0, 82.0) # 하단 82% 위치
+        cx, cy = to_capcut_coord(50.0, 88.0) # 하단 88% 세이프존 위치
         track_caption["segments"].append({
             "id": str(uuid.uuid4()),
             "material_id": caption_mat_id,

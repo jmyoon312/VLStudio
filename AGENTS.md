@@ -23,13 +23,25 @@ Google Flow AI 영상 생성, 4대 폼팩터 NLE 엔진, 모바일 USB LTE 다�
 
 - 모든 작업 전후 반드시 `contract-checker.js` 및 `storage-validator.js`를 실행하여 계약 무결성을 입증할 것.
 
-## 🎯 전역 인공지능 엔진 절대 규칙: 내부 작업 환경 설정(DB Settings) 단일 진실 공급원
-- **절대 원칙 (AI 모델/공급자 하드코딩 완전 금지 - Zero Hardcoding Policy)**:
-  1. **임의 모델 하드코딩 절대 금지**: `gemini-1.5-flash`, `gpt-4o`, `auto` 등 특정 모델명 문자열을 코드 기본값, fallback 파라미터, 하드코딩 대체값으로 직접 박아넣는 행위를 엄격히 금지한다.
-  2. **사용자 지정 DB Settings 절대 존중**: 모든 AI 생성, 대본 분석, 프롬프트 작성, 테스트 챗은 **시스템의 작업 환경 설정(DB Settings: `script_analysis_model`, `default_llm_model`, `youtube1_api_keys`)에 지정된 모델과 자격 증명만을 단일 진실 공급원(Single Source of Truth)으로 실시간 동적 연동**하여 사용한다.
-  3. **임의 모델 강제 변환/덮어쓰기 금지**: 사용자가 선택한 모델(예: `viraloop1`)을 개발자 임의로 `auto`나 다른 모델명으로 가로채거나 덮어쓰는 행위를 영구 금지한다.
-  4. **사용자 맞춤 모델(Combo) 및 스마트 라우터 중심 정제 유지**: OmniRoute 게이트웨이의 수백 개 외부 모델 난립으로 인한 혼선을 방지하기 위해, **사용자가 직접 명명한 모델(Combo, 슬래시 없는 모델명: 예 `viraloop1`)과 핵심 스마트 라우터(`auto`, `auto/*`), 그리고 DB Settings 지정 모델만을 깔끔하게 선별하여 제공**한다.
-  5. **정적 검증 게이트키퍼 강제**: `contract-checker.js`에서 AI 모델명 하드코딩을 자동 검사하여 위반 시 빌드를 차단한다.
+## 🎯 전역 인공지능 엔진 절대 규칙: 프로바이더 직접 연결(Direct Native Connection) 및 선택 모델 주권 보장
+- **절대 원칙 (프로바이더별 100% 직접 연결 및 모델 주권 - Direct Native Provider Sovereignty)**:
+  1. **프로바이더별 공식 직접 연결 원칙 (Zero OmniRoute Forcing Law)**:
+     - **OpenAI Codex (Astra) 선택 시**: OpenAI 공식 Codex CLI OAuth 세션(`tokens.access_token`, ChatGPT Plus/Pro 구독)으로 직결하며, 사용자가 선택한 모델(Codex Astra 6.0, GPT-5.6 Sol High 등)을 직접 호출한다. OmniRoute로 강제 우회시키지 않는다.
+     - **OpenAI (ChatGPT API) 선택 시**: OpenAI 공식 종량제 API Key(`sk-...`)로 직결하며, 사용자가 선택한 공식 모델(GPT-4o, o3-mini, GPT-4.5-preview 등)을 직접 호출한다. OmniRoute로 강제 우회시키지 않는다.
+     - **Google Gemini 선택 시**: Google Gemini 공식 직접 API(`generativelanguage.googleapis.com`)로 직결하며, 사용자가 선택한 최신 모델(Gemini 2.5 Flash, Pro, Thinking 등)을 직접 호출한다.
+     - **Claude / Grok 선택 시**: Anthropic / xAI 공식 직접 API로 직결한다.
+     - **OmniRoute 선택 시**: 사용자가 명시적으로 OmniRoute 프로바이더를 선택했을 때만 로컬 20128 게이트웨이를 사용하며, viraloop1은 유일한 모델이 아닌 OmniRoute 게이트웨이 내의 가용 모델 중 하나일 뿐이다.
+  2. **사용자 지정 DB Settings 및 직접 인증 단일 진실 공급원**: 모든 AI 생성, 대본 분석, 대화는 시스템에 등록된 해당 프로바이더의 직접 자격 증명(API Key 또는 웹 세션) 및 사용자가 선택한 모델을 단일 진실 공급원으로 동적 연동한다.
+  3. **임의 모델 강제 변환/단일 모델 덮어쓰기 영구 전면 금지**: 사용자가 선택한 프로바이더와 모델을 개발자 임의로 가로채거나, 타 프로바이더/타 모델(예: viraloop1, auto 등)로 덮어쓰거나 우회시키는 행위를 영구 금지한다.
+  4. **처리 상태 표기 정직성 (Zero Fake Title Law)**: 내부 처리 로그나 타이틀에 무조건 'Hermes Core 지능 분석' 등의 획일적인 문구를 붙이지 않고, 실제 호출된 프로바이더 및 모델명(예: `OpenAI Codex Astra 분석`, `Gemini 2.5 Flash 분석`, `OpenAI GPT-4o 분석`)을 정직하게 표기한다.
+  5. **정적 검증 게이트키퍼 강제**: `contract-checker.js` Step 13에서 AI 모델명 하드코딩 및 Gemini/Codex/OpenAI의 OmniRoute(20128) 강제 우회를 정적으로 자동 검사하여 위반 시 빌드를 즉시 차단한다.
+
+## 🔤 Windows 콘솔 및 Python UTF-8 인코딩 절대 강제 규칙 (Zero CP949 UnicodeEncodeError Law)
+- **1. 파이썬 표준 입출력 UTF-8 강제 (Strict UTF-8 IO Reconfiguration)**:
+  - Windows 기본 콘솔 인코딩(`cp949`)으로 인해 이모지(`⚠️`, `🎬`, `🚀` 등)나 특수 문자가 콘솔에 출력될 때 발생하는 `UnicodeEncodeError: 'cp949' codec can't encode character` 에러를 영구 원천 차단한다.
+  - 모든 파이썬 스크립트, 테스트 도구, 백엔드 엔트리포인트 상단에 반드시 `sys.stdout.reconfigure(encoding='utf-8')`, `sys.stderr.reconfigure(encoding='utf-8')`을 명시하거나 `PYTHONIOENCODING=utf-8` 환경변수를 강제 바인딩한다.
+- **2. 반복 인코딩 결함 재발 전면 금지**:
+  - 테스트나 스크립트 실행 시 인코딩 오류로 실패하는 반복적 결함을 영구 금지하며, 파일 저장/출력 시 항상 `encoding='utf-8'`과 `errors='replace'` 또는 `errors='ignore'`를 안전장치로 완비한다.
 
 ## 🏛️ 3계층 주권 자율 팩토리 & 3차원 직교 격리 아키텍처 절대 강제 규칙 (Single Sovereign Architecture Law)
 - **상세 규격서**: `docs/3_TIER_SOVEREIGN_AUTONOMOUS_FACTORY_SPEC.md`를 단일 진실 공급원(SSOT)으로 삼는다.
@@ -77,6 +89,23 @@ Google Flow AI 영상 생성, 4대 폼팩터 NLE 엔진, 모바일 USB LTE 다�
    - **텍스트 오버플로우 방어 (Bulletproof Typography)**: 긴 채널명, 동영상 제목, URL, 태그는 작은 화면에서 컨테이너를 찢고 튀어나가지 않도록 `truncate`, `line-clamp-N`, `break-all`을 기본 탑재한다.
    - **적응형 그리드(Responsive Grid)**: 탭이나 통계 그리드는 `grid-cols-1 sm:grid-cols-2 lg:grid-cols-4` 형태로 화면 폭에 따라 자연스럽게 감싸지도록(Wrap) 구현한다.
    - **터치 & 포인터 세이프존**: 모바일/태블릿 브라우저 및 고해상도 터치 모니터 사용자를 고려하여 인터랙션 버튼/탭의 최소 높이를 `h-8`(32px) 이상 확보한다.
+
+## 🏷️ 직관적이고 쉬운 사용자 중심 용어 명명 절대 규칙 (Zero Jargon & Intuitive UX Naming Law)
+사용자가 마주하는 모든 화면(버튼, 모달 타이틀, 탭, 안내 문구, 뱃지, 토스트 알림)의 명칭은 직관성과 가독성을 최우선으로 하며 아래 3대 명명 헌법을 강제 적용한다:
+
+1. **내부 엔지니어링 은어 및 현학적 용어 화면 노출 영구 전면 금지 (Zero Engineering Jargon)**:
+   - 시스템 내부 설계 명세나 개발 단계의 난해한 엔지니어링 용어(`17대 프로덕션 인스펙터`, `4대 직교 프로덕션`, `블루프린트 v2`, `17대 바이블`, `AST 스코프` 등)를 사용자가 마주하는 UI에 그대로 노출하는 행위를 영구 금지한다.
+2. **1초 직관 이해성 원칙 (The 1-Second Comprehension Law)**:
+   - 사용자가 버튼이나 타이틀을 보는 순간 어떤 기능인지 1초 만에 알 수 있도록 2~4단어 내외의 쉬운 일상 용어로 단순화하여 명명한다:
+     - `17대 프로덕션 인스펙터` (버튼) ➔ **`스타일 편집`** (또는 `스타일 상세 설정`)
+     - `4대 직교 프로덕션 인스펙터 (Production Blueprint v2)` (모달 타이틀) ➔ **`쇼츠 스타일 상세 설정`**
+     - `17대 프로덕션 바이블 연동` (뱃지) ➔ **`제작 가이드라인 연동`**
+     - `17대 바이블 완비` (뱃지) ➔ **`제작 규칙 완비`**
+     - `17대 바이블` (탭) ➔ **`제작 가이드라인`**
+     - `17대 프로덕션 프리셋` (토스트/텍스트) ➔ **`쇼츠 스타일 프리셋`**
+3. **화면 간 명칭 일관성 및 정직한 기능 전달**:
+   - 동일한 기능에 대해서는 채널 DNA 분석, 프리셋 보관함, 작업실 등 모든 화면에서 일관된 쉬운 용어를 유지하며, 불필요한 과장이나 모호한 수식어를 배제한다.
+
 ## 💾 공식 운영 경로 및 단일 데이터베이스(viral_loop.db) 단일 진실 공급원 절대 규칙 (Single Database Sovereignty Law)
 1. **공식 운영 영구 런타임 저장소 단일화**:
    - ViraLoop Studio의 모든 영구 상태 데이터(Google Flow 다중 세션 프로필, 미디어 캐시, DB, 백업)는 Windows 환경 기준 `%LOCALAPPDATA%\ViraLoop Studio\` (`C:\Users\<사용자명>\AppData\Local\ViraLoop Studio\`)를 단일 진실 공급원(Single Source of Truth)으로 삼는다.
@@ -121,7 +150,7 @@ Google Flow AI 영상 생성, 4대 폼팩터 NLE 엔진, 모바일 USB LTE 다�
    - 실제 비디오/오디오 미디어 파일 로딩, 플레이어 시간축 동기화, 실제 타임라인 클립 조작, 선택된 클립의 실제 속성(배속, 볼륨, 불투명도, 크롭, 외곽선, 그림자 등)을 실시간 제어하는 완전한 인스펙터를 100% 구현해야 한다.
 3. **역공학 원천 소스 1:1 재사용 및 주권 로컬 백엔드 도킹 의무화**:
    - 역공학으로 확보된 픽셀링의 5.9MB 원천 번들(`24259...js`, `page-5ca...js`)에 존재하는 실제 폼 구조, 데이터 스키마, 캔버스 렌더러, 단축키 메커니즘을 1:1로 정밀 이식하여 사용한다.
-   - 백엔드는 픽셀링의 유료 클라우드 대신 바이럴루프의 로컬 백엔드(Faster-Whisper, Edge-TTS, DB Settings LLM, FFmpeg)로 1:1 매핑 결합하여 크레딧이나 외부 서버 의존 없이 100% 자율 동작을 실현한다.
+   - 백엔드는 픽셀링의 유료 클라우드 대신 바이럴루프의 로컬 백엔드(Faster-Whisper, Supertonic, DB Settings LLM, FFmpeg)로 1:1 매핑 결합하여 크레딧이나 외부 서버 의존 없이 100% 자율 동작을 실현한다.
 
 ## 🔄 절대 전수조사 및 폐루프 자체 치유 절대 규칙 (Exhaustive Audit & Closed-Loop Sovereignty Law)
 사용자가 "전수조사", "전수 점검", "계획대로 되었는지 확인"을 지시했을 때, 에이전트는 아래 4대 폐루프 원칙을 헌법적 의무로 강제 준수해야 한다:
@@ -240,4 +269,27 @@ Google Flow AI 영상 생성, 4대 폼팩터 NLE 엔진, 모바일 USB LTE 다�
 
 5. **정적 및 런타임 폐루프 검증 통과 강제**:
    - 11대 전문 탭과 비디오 에디터는 `contract-checker.js` 및 `npm run build:dashboard` 빌드를 무결하게 통과해야 하며, 각 탭 전환 시 오류 없이 고유 화면이 렌더링되어야 한다.
+
+## 🚫 인도, 동남아 영상 절대 수집 금지 헌법 (Zero South Asian & Southeast Asian Contamination Law)
+SNS 트렌드 레이더 및 자율 수집 파이프라인에서 대한민국(KR) 및 글로벌 고품질 피드를 보호하기 위해 아래 4대 배제 원칙을 헌법적 의무로 영구 강제한다:
+
+1. **인도/남아시아 언어 유니코드 100% 원천 차단 (Zero Indic Unicode)**:
+   - 데바나가리(`0900-097F`), 벵골(`0980-09FF`), 구르무키(`0A00-0A7F`), 구자라트(`0A80-0AFF`), 오리야(`0B00-0B7F`), 타밀(`0B80-0BFF`), 텔루구(`0C00-0C7F`), 칸나다(`0C80-0CFF`), 말라얄람(`0D00-0D7F`), 신할라(`0D80-0DFF`), 아랍/우르두(`0600-06FF, 0750-077F, 08A0-08FF`) 문자가 제목, 크리에이터 핸들, 채널명, 설명란 중 단 1글자라도 포함된 영상은 수집, DB 저장, 화면 노출 단계에서 즉시 100% 영구 폐기한다.
+2. **인도 고유 지명/성씨/키워드 정규식 철벽 필터링 (Forbidden Indic/South Asian Tokens)**:
+   - 영문으로 표기되었더라도 인도 음악/래퍼/IT 유튜버(`krsna`, `kr$na`, `lokdhun`, `punjabi`, `bhangra`, `bollywood`, `delhi`, `mumbai`, `deshi`, `hindi`, `urdu`, `bhojpuri`, `technical yogi`, `aksh verma`, `sharma`, `singh`, `kumar`, `patel`, `gupta`, `sony music india`, `t-series` 등) 키워드 매칭 시 예외 없이 즉각 차단한다.
+3. **동남아시아 컨텐츠 조건부 격리 필터링 (Conditional Southeast Asian Isolation)**:
+   - 사용자가 명시적으로 해당 국가(예: `VN` 베트남)를 선택한 경우를 제외하고는, 타이어(`0E00-0E7F`), 라오어(`0E80-0EFF`), 크메르어(`1780-17FF`), 미얀마어(`1000-109F`) 및 동남아 토큰(`vietnam`, `thailand`, `indonesia`, `philippines`, `tagalog`, `tiktok vietnam` 등) 컨텐츠의 KR/US 피드 유입을 전면 차단한다.
+4. **검색 쿼리 오염 방지 및 DB 자가 정화 (Clean Query & Legacy Self-Purge)**:
+   - YouTube 및 SNS 검색 시 단독 `kr` 키워드 사용을 엄격히 금지하며(인도 래퍼 `KR$NA`, 힌디어 `kya kr` 매칭 방지), 항상 `한국`, `대한민국` 등 명확한 토큰으로 치환하여 질의한다.
+   - DB에 이미 저장된 레거시 데이터는 서버 기동 시와 주기적 순찰 시 `_sanitize_legacy_db_records()`를 통해 전수 스캔 및 영구 삭제한다.
+
+## 🛡️ 동일 채널 영상 동시 다중 수집 영구 금지 헌법 (Strict Single-Clip Per Channel Harvesting Law)
+숏폼 트렌드 피드의 크리에이터 독점 및 편중을 원천 차단하고 채널 다양성 100%를 보장하기 위해 아래 3대 규칙을 강제 적용한다:
+
+1. **채널당 최대 1편 수집 원칙 (Default max_per_creator = 1)**:
+   - 수집 API, 자율 순찰 엔진, 배치 하베스팅, 프론트엔드 기본값은 모두 `max_per_creator = 1`을 표준 단일 진실 공급원으로 삼는다. 단일 크리에이터의 영상이 동시에 2편 이상 수집되거나 노출되는 것을 기본 차단한다.
+2. **인메모리 & 쿼리 `seen_creators` 상호 배타성 검증 (Atomic Creator Deduplication)**:
+   - 영상 수집 파이프라인(`_safe_ytdlp_extract`, `_fetch_youtube_shorts_mirror`, `search_sns_videos`, `batch_harvest`)의 모든 단계에서 고유 정규화 핸들(`creator_handle`) 기반 `seen_creators` 세트를 유지하여, 이미 채택된 채널의 후속 영상은 즉시 드롭한다.
+3. **크리에이터 심층 발굴 시 슬롯 제한 (Creator Deep Scan Single-Slot Restriction)**:
+   - 크리에이터 단위 추가 발굴(`fetch_creator_videos`) 시에도 최대 1편(`c_limit=1`)의 최고 성과 클립만을 수집하여 특정 채널이 피드 슬롯을 독점하는 현상을 원천 방지한다.
 

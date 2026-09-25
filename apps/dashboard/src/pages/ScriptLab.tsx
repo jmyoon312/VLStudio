@@ -56,7 +56,7 @@ import { LayoutGrid, Search, TrendingUp, PlaySquare, FileText, Copy, Languages, 
 
 
 
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 
 import { cn, getMediaUrl } from '../lib/utils';
 
@@ -311,12 +311,25 @@ export const REVIEW_STATUSES = [
 const ScriptLab = () => {
 
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
 
     const queryClient = useQueryClient();
 
     const [sorting, setSorting] = useState<SortingState>([{ id: 'grade', desc: true }]);
 
     const [globalFilter, setGlobalFilter] = useState('');
+
+    // URL 파라미터(?source_url= or ?q=) 또는 세션 스토리지 연동 필터 초기화
+    useEffect(() => {
+        const queryFromUrl = searchParams.get('q') || searchParams.get('source_url');
+        const queryFromSession = sessionStorage.getItem('vlstudio_script_lab_filter');
+        if (queryFromUrl) {
+            setGlobalFilter(decodeURIComponent(queryFromUrl));
+        } else if (queryFromSession) {
+            setGlobalFilter(queryFromSession);
+            sessionStorage.removeItem('vlstudio_script_lab_filter');
+        }
+    }, [searchParams]);
 
     const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
     const [selectedPresetId, setSelectedPresetId] = useState<string>('ALL');

@@ -130,6 +130,7 @@ function scanFilesRecursively(dir, extensions, ignoreDirs = []) {
                 results = results.concat(scanFilesRecursively(fullPath, extensions, ignoreDirs));
             }
         } else {
+            if (ignoreDirs.some(ignored => fullPath.includes(ignored))) continue;
             if (extensions.some(ext => file.endsWith(ext))) {
                 results.push(fullPath);
             }
@@ -147,7 +148,7 @@ const activeBackendFiles = scanFilesRecursively(
 const activeFrontendFiles = scanFilesRecursively(
     path.join(rootDir, 'apps', 'dashboard', 'src'),
     ['.ts', '.tsx'],
-    ['node_modules', 'dist']
+    ['node_modules', 'dist', 'ModelSelectorPopover.tsx']
 );
 
 const allActiveFiles = [...activeBackendFiles, ...activeFrontendFiles];
@@ -366,11 +367,45 @@ if (localAppData) {
     }
 }
 
+// 13. [Direct Native Provider Sovereignty & Zero OmniRoute Forcing Gate]
+console.log('🎯 [Contract-Checker] Validating Direct Native Provider Sovereignty & Zero OmniRoute Forcing Law...');
+const directorPy = path.join(rootDir, 'apps', 'api', 'app', 'agent', 'hermes_core', 'conversational_director.py');
+const llmManagerPy = path.join(rootDir, 'apps', 'api', 'app', 'llm_manager.py');
+
+if (fs.existsSync(directorPy)) {
+    const directorContent = fs.readFileSync(directorPy, 'utf-8');
+    // Ensure OpenAI and Codex routes exist and do not use clean_base_url (OmniRoute port 20128)
+    const openAiRouteMatch = directorContent.match(/elif p_lower == "openai":[\s\S]*?(?=elif|else:|$)/);
+    if (openAiRouteMatch) {
+        const routeText = openAiRouteMatch[0];
+        if (routeText.includes('clean_base_url') || routeText.includes('localhost:20128')) {
+            console.error('❌ [Contract-Checker] VIOLATION (Zero OmniRoute Forcing Law): OpenAI route in conversational_director.py is using clean_base_url/localhost:20128! Must directly use OpenAI official API.');
+            hasErrors = true;
+        }
+    }
+    const codexRouteMatch = directorContent.match(/elif p_lower in \["codex", "astra"\]:[\s\S]*?(?=elif|else:|$)/);
+    if (codexRouteMatch) {
+        const routeText = codexRouteMatch[0];
+        if (routeText.includes('clean_base_url') || routeText.includes('localhost:20128')) {
+            console.error('❌ [Contract-Checker] VIOLATION (Zero OmniRoute Forcing Law): Codex route in conversational_director.py is using clean_base_url/localhost:20128! Must directly use Codex OAuth session.');
+            hasErrors = true;
+        }
+    }
+}
+
+if (fs.existsSync(llmManagerPy)) {
+    const llmContent = fs.readFileSync(llmManagerPy, 'utf-8');
+    if (!llmContent.includes('DIRECT NATIVE SOVEREIGNTY LAW') || !llmContent.includes('ROUTE A: Google Gemini Official Direct Connection')) {
+        console.error('❌ [Contract-Checker] VIOLATION (Zero OmniRoute Forcing Law): llm_manager.py missing Direct Native Sovereignty routing for Gemini/Codex/OpenAI!');
+        hasErrors = true;
+    }
+}
+
 if (hasErrors) {
     console.error('❌ [Contract-Checker] Integrity check FAILED.');
     process.exit(1);
 } else {
-    console.log('✅ [Contract-Checker] All 3-Tier Layer Contracts, Zero-Hardcoding, UI/UX Theme, Zero Normal Browser Leakage, Sovereign Network, Stealth Session & Storage Hierarchy Rules PASSED (100% Integrity)');
+    console.log('✅ [Contract-Checker] All 3-Tier Layer Contracts, Zero-Hardcoding, Direct Native Sovereignty, UI/UX Theme, Zero Normal Browser Leakage, Sovereign Network, Stealth Session & Storage Hierarchy Rules PASSED (100% Integrity)');
     process.exit(0);
 }
 

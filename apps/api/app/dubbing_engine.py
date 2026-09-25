@@ -90,7 +90,7 @@ class DubbingEngine:
             # For now, just use what's passed or default
             audio_path = await self.tts_engine.generate_audio(
                 text=translated_text,
-                engine="edge", # Default to Edge for speed/cost
+                engine="supertone-local", # Default to Supertonic Local
                 language=target_lang,
                 voice_id=voice_id
             )

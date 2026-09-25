@@ -454,7 +454,7 @@ const GlobalLoopieChat: React.FC = () => {
             ttsText = sentences.slice(0, 3).join(' ');
         }
 
-        // 1. Primary: High-Performance Edge Neural Voice (선희 아나운서 음성) via Backend
+        // 1. Primary: High-Performance Supertonic Neural Voice (F1 서연 음성) via Backend
         try {
             setIsTalking(true);
             const res = await fetchWithRetry('/api/agent/speak', {
@@ -462,9 +462,9 @@ const GlobalLoopieChat: React.FC = () => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     text: ttsText,
-                    voice: 'ko-KR-SunHiNeural',
-                    rate: '+18%',
-                    pitch: '+4Hz'
+                    voice: 'F1',
+                    rate: '1.05',
+                    pitch: '0'
                 })
             });
 

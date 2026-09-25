@@ -63,7 +63,7 @@ def analyze_forensic_media(media_path: str, output_json: str = '05_Exports/chann
             'speed_multiplier': 1.25,
             'breath_gap_sec': 0.15,
             'bgm_gain_db': -22.0,
-            'recommended_tts': 'Typecast Hobin (1.25x) / ElevenLabs Adam / Edge ko-KR-InJoonNeural'
+            'recommended_tts': 'Supertonic M1 (1.25x) / Typecast Hobin / ElevenLabs Adam'
         },
         'media_sourcing_archetype': {
             'tier1_real_web_image': 'Fact/News/Real Product Review (Base 1st Priority)',

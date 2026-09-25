@@ -11,7 +11,7 @@ export interface SchedulerNodeData extends BaseNodeData {
 }
 
 export interface TTSNodeData extends BaseNodeData {
-    engine: 'elevenlabs' | 'typecast' | 'google' | 'edge' | 'kokoro' | 'supertone';
+    engine: 'supertone-local' | 'supertonic' | 'supertone' | 'typecast' | 'elevenlabs' | 'kokoro';
     voice_id: string;
     speed: number;       // 0-100 (or mapped to specific engine range)
     pitch: number;       // 0-100

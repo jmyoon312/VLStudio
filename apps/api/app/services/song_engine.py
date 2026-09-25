@@ -20,8 +20,9 @@ import subprocess
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 
-from app.core.config import app_settings
+from app.config import settings as app_settings
 from app.legacy_ddalkkak.workers.gemini_auth import call_gemini, get_db_settings_model
+from app.dependency_manager import DependencyManager
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 1. 오디오 추출 및 정규화 (FFmpeg)
@@ -34,10 +35,14 @@ def extract_audio_for_stt(input_path: str, output_dir: Optional[str] = None) -> 
 
     target_dir = Path(output_dir) if output_dir else Path(app_settings.TEMP_DIR)
     target_dir.mkdir(parents=True, exist_ok=True)
-    out_wav = target_dir / f"song_stt_{in_p.stem}_{os.getpid()}.wav"
+    # 안전한 파일명 생성 (특수문자 치환)
+    clean_stem = re.sub(r'[\\/*?:"<>|\s]', '_', in_p.stem)[:32]
+    out_wav = target_dir / f"song_stt_{clean_stem}_{os.getpid()}.wav"
+
+    ffmpeg_bin = DependencyManager.get_ffmpeg_path() or "ffmpeg"
 
     cmd = [
-        "ffmpeg", "-y", "-i", str(in_p),
+        ffmpeg_bin, "-y", "-i", str(in_p),
         "-vn", "-acodec", "pcm_s16le", "-ar", "16000", "-ac", "1",
         str(out_wav)
     ]

@@ -223,6 +223,111 @@ export const RankingPresetSidebar: React.FC<RankingPresetSidebarProps> = ({
             </div>
           </div>
         </div>
+
+        {/* 픽셀링 원천: 비디오 맞춤(videoFit) & 클립 길이(clipDurationPreset) */}
+        <div className="grid grid-cols-2 gap-2 pt-2 border-t border-border">
+          <div>
+            <label className="text-[11px] font-bold text-muted-foreground block mb-1">화면 맞춤 방식</label>
+            <div className="flex gap-1">
+              <button
+                type="button"
+                onClick={() => onChangeOptions(prev => ({ ...prev, videoFit: 'contain' }))}
+                className={cn(
+                  "flex-1 py-1 rounded text-[10.5px] font-bold border transition cursor-pointer",
+                  options.videoFit === 'contain'
+                    ? "bg-primary/20 text-primary border-primary/50"
+                    : "border-border text-muted-foreground"
+                )}
+              >
+                비율유지(블러)
+              </button>
+              <button
+                type="button"
+                onClick={() => onChangeOptions(prev => ({ ...prev, videoFit: 'cover' }))}
+                className={cn(
+                  "flex-1 py-1 rounded text-[10.5px] font-bold border transition cursor-pointer",
+                  options.videoFit === 'cover'
+                    ? "bg-primary/20 text-primary border-primary/50"
+                    : "border-border text-muted-foreground"
+                )}
+              >
+                꽉채움(크롭)
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label className="text-[11px] font-bold text-muted-foreground block mb-1">클립 재생 길이</label>
+            <div className="flex gap-1">
+              {[
+                { id: 'short', label: '3초' },
+                { id: 'medium', label: '4.5초' },
+                { id: 'full', label: '6초' },
+              ].map(d => (
+                <button
+                  key={d.id}
+                  type="button"
+                  onClick={() => onChangeOptions(prev => ({ ...prev, clipDurationPreset: d.id as any }))}
+                  className={cn(
+                    "flex-1 py-1 rounded text-[10.5px] font-bold border transition cursor-pointer",
+                    options.clipDurationPreset === d.id
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "border-border text-muted-foreground hover:bg-muted/40"
+                  )}
+                >
+                  {d.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* 픽셀링 원천: 폰트 패밀리(fontFamily) & 라벨 스타일(rankLabelStyle) */}
+        <div className="grid grid-cols-2 gap-2 pt-2 border-t border-border">
+          <div>
+            <label className="text-[11px] font-bold text-muted-foreground block mb-1">자막 폰트</label>
+            <select
+              value={options.fontFamily}
+              onChange={e => onChangeOptions(prev => ({ ...prev, fontFamily: e.target.value as any }))}
+              className="w-full text-[10.5px] font-bold p-1 rounded border border-border bg-background text-foreground"
+            >
+              <option value="pretendard">프리텐다드 (기본)</option>
+              <option value="do-hyeon">배민 도현체</option>
+              <option value="black-han-sans">검은고딕</option>
+              <option value="noto-sans-kr">본고딕</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="text-[11px] font-bold text-muted-foreground block mb-1">순위 표기 형태</label>
+            <div className="flex gap-1">
+              <button
+                type="button"
+                onClick={() => onChangeOptions(prev => ({ ...prev, rankLabelStyle: 'numbered' }))}
+                className={cn(
+                  "flex-1 py-1 rounded text-[10.5px] font-bold border transition cursor-pointer",
+                  options.rankLabelStyle === 'numbered'
+                    ? "bg-primary/20 text-primary border-primary/50"
+                    : "border-border text-muted-foreground"
+                )}
+              >
+                번호+제목
+              </button>
+              <button
+                type="button"
+                onClick={() => onChangeOptions(prev => ({ ...prev, rankLabelStyle: 'title-only' }))}
+                className={cn(
+                  "flex-1 py-1 rounded text-[10.5px] font-bold border transition cursor-pointer",
+                  options.rankLabelStyle === 'title-only'
+                    ? "bg-primary/20 text-primary border-primary/50"
+                    : "border-border text-muted-foreground"
+                )}
+              >
+                제목 단독
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* 3. 사운드 연출 & 전환 암전 시퀀서 */}

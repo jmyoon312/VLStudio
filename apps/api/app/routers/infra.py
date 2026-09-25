@@ -1,6 +1,9 @@
 from fastapi import APIRouter, HTTPException, Depends
 from typing import List, Optional
-import docker
+try:
+    import docker
+except ImportError:
+    docker = None
 import os
 import logging
 from .. import schemas
@@ -10,6 +13,8 @@ logger = logging.getLogger(__name__)
 # --- Helpers ---
 def get_docker_client():
     """Returns a Docker client if the socket is accessible, else None."""
+    if not docker:
+        return None
     try:
         client = docker.from_env()
         client.ping()

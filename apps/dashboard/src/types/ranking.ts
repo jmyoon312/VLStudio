@@ -108,6 +108,10 @@ export interface RankingOptions {
   strokeColor: string;
   rankDisplayMode: RankDisplayMode;
   order: RankOrder;
+  clipDurationPreset: 'auto' | 'short' | 'medium' | 'full';
+  videoFit: 'cover' | 'contain';
+  fontFamily: 'do-hyeon' | 'black-han-sans' | 'noto-sans-kr' | 'pretendard';
+  rankLabelStyle: 'numbered' | 'title-only';
   transitionSound: boolean;
   transitionSoundStyle: TransitionSoundStyle;
   transitionSoundVolume: number; // 0 ~ 100

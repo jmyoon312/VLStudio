@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import {
   FolderArchive,
   Download,
@@ -15,7 +15,7 @@ import { Badge } from '@/components/ui/badge';
 interface MovieDramaExportPanelProps {
   onExportAllCapcut: () => void;
   isExportingCapcut: boolean;
-  onInstallPortablePack: () => void;
+  onInstallPortablePack: (file: File) => void;
   isInstallingPack: boolean;
   localDrafts: Array<{ candidateId: string; draftPath: string; title: string }>;
   onRevealFolder: (path: string) => void;
@@ -29,6 +29,8 @@ export const MovieDramaExportPanel: React.FC<MovieDramaExportPanelProps> = ({
   localDrafts,
   onRevealFolder
 }) => {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const capcutLayers = [
     { title: '1. 상단 제목', desc: '이야기의 핵심을 한 문장으로 정리' },
     { title: '2. 영상 영역', desc: '장면 순서와 세로 9:16 화면 배치' },
@@ -91,16 +93,32 @@ export const MovieDramaExportPanel: React.FC<MovieDramaExportPanelProps> = ({
             </Button>
 
             {/* 다른 PC 이동 패키지 가져오기 */}
-            <Button
-              type="button"
-              variant="secondary"
-              disabled={isInstallingPack}
-              onClick={onInstallPortablePack}
-              className="w-full h-10 rounded-xl font-bold text-xs border border-border bg-background hover:bg-muted gap-2 cursor-pointer"
-            >
-              <Package className="size-4 text-primary" />
-              <span>{isInstallingPack ? '패키지 무결성 확인 중...' : '다른 PC의 이동 패키지(ZIP) 가져오기'}</span>
-            </Button>
+            <div>
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={isInstallingPack}
+                onClick={() => fileInputRef.current?.click()}
+                className="w-full h-10 rounded-xl font-bold text-xs border border-border bg-background hover:bg-muted gap-2 cursor-pointer shadow-xs"
+              >
+                <Package className="size-4 text-primary" />
+                <span>{isInstallingPack ? '패키지 무결성 확인 및 설치 중...' : '다른 PC의 이동 패키지(ZIP) 가져오기'}</span>
+              </Button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".zip"
+                disabled={isInstallingPack}
+                onChange={e => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    onInstallPortablePack(file);
+                    e.target.value = '';
+                  }
+                }}
+                className="hidden"
+              />
+            </div>
           </div>
 
           {/* 생성된 로컬 초안 목록 */}

@@ -33,6 +33,7 @@ export interface MovieDramaJob {
   activityMessage: string;
   source: {
     originalName: string;
+    canonicalPath?: string;
     media?: {
       duration?: number;
       width?: number;
@@ -51,12 +52,14 @@ interface MovieDramaAnalysisSectionProps {
   job: MovieDramaJob;
   onCancelJob: (jobId: string) => void;
   onRetry: () => void;
+  onStartNewJob?: () => void;
 }
 
 export const MovieDramaAnalysisSection: React.FC<MovieDramaAnalysisSectionProps> = ({
   job,
   onCancelJob,
-  onRetry
+  onRetry,
+  onStartNewJob
 }) => {
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
 
@@ -183,23 +186,38 @@ export const MovieDramaAnalysisSection: React.FC<MovieDramaAnalysisSectionProps>
         </div>
       </section>
 
-      {/* 실패 상태인 경우 오류 안내 및 재시도 버튼 */}
+      {/* 실패 상태인 경우 오류 안내 및 재시도 / 새 작업 버튼 */}
       {job.status === 'failed' && (
-        <div className="rounded-2xl border border-destructive/30 bg-destructive/[0.08] p-4 text-xs space-y-3">
-          <div className="flex items-center gap-2 text-destructive font-bold">
-            <AlertCircle className="size-4" />
+        <div className="rounded-2xl border border-destructive/30 bg-destructive/[0.08] p-5 text-xs space-y-3.5 shadow-sm">
+          <div className="flex items-center gap-2 text-destructive font-bold text-sm">
+            <AlertCircle className="size-4 shrink-0" />
             <span>분석 작업이 중단되었습니다</span>
           </div>
-          <p className="text-muted-foreground">{job.error?.message || '원인을 알 수 없는 오류가 발생했습니다.'}</p>
-          <Button
-            type="button"
-            variant="destructive"
-            size="sm"
-            onClick={onRetry}
-            className="h-8 rounded-lg font-bold text-xs"
-          >
-            다시 시도
-          </Button>
+          <p className="text-muted-foreground leading-relaxed">
+            {job.error?.message || job.activityMessage || '분석 중 일시적인 오류가 발생했습니다.'}
+          </p>
+          <div className="flex items-center gap-2 pt-1">
+            <Button
+              type="button"
+              variant="destructive"
+              size="sm"
+              onClick={onRetry}
+              className="h-9 px-4 rounded-xl font-bold text-xs cursor-pointer shadow-xs"
+            >
+              다시 시도
+            </Button>
+            {onStartNewJob && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={onStartNewJob}
+                className="h-9 px-4 rounded-xl border-border bg-background hover:bg-muted font-bold text-xs cursor-pointer shadow-xs"
+              >
+                다른 영상으로 새 작업 시작
+              </Button>
+            )}
+          </div>
         </div>
       )}
 

@@ -33,7 +33,7 @@ import {
 } from 'lucide-react';
 import { cn, getMediaUrl } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
-import { useToast } from '@/components/ui/use-toast';
+import { toast } from 'sonner';
 import { generateSmartSeoTags, generateSmartHashtags } from '@/lib/ddalkkakPixeling';
 import { ddalkkakApi } from '@/services/ddalkkakApi';
 
@@ -106,7 +106,6 @@ export const VideoPreviewModal: React.FC<VideoPreviewModalProps> = ({
   // 1. ALL REACT HOOKS MUST BE DECLARED AT THE VERY TOP LEVEL
   //    (NEVER AFTER ANY CONDITIONAL RETURN)
   // ─────────────────────────────────────────────────────────────
-  const { toast } = useToast();
   const navigate = useNavigate();
   const videoRef = useRef<HTMLVideoElement>(null);
 
@@ -326,8 +325,7 @@ export const VideoPreviewModal: React.FC<VideoPreviewModalProps> = ({
       onOpenChange(false);
       const targetMode = (videoData as any)?.templateMode || (videoData as any)?.layoutTemplateMode || 'classic';
       navigate(`/shorts-editor/${targetMode}`);
-      toast({
-        title: '🎬 NLE 정밀 스튜디오로 이동',
+      toast.success('🎬 NLE 정밀 스튜디오로 이동', {
         description: '영상과 AI 연출(자막, 쨉쨉이, 상단바) 데이터를 인계했습니다.',
       });
     } catch (err) {
@@ -392,8 +390,7 @@ ${hashtags}`;
         document.body.removeChild(ta);
       }
       setCopiedKey(key);
-      toast({
-        title: `${label} 복사 완료!`,
+      toast.success(`${label} 복사 완료!`, {
         description: '클립보드에 복사되었습니다. 유튜브 업로드 시 붙여넣기하세요.',
       });
       setTimeout(() => setCopiedKey(null), 2000);
@@ -401,17 +398,17 @@ ${hashtags}`;
   };
 
   // Queue mode meta
-  const channelName = videoData?.channel_name || videoData?.uploader || '인생영화: Legend Movie';
-  const views = videoData?.view_count ?? 5566000;
-  const viralScore = videoData?.viral_score ?? 556578;
-  const durationSec = videoData?.duration || detectedDuration || 3242;
-  const uploadDate = videoData?.upload_date ? new Date(videoData.upload_date).toLocaleDateString() : '2024. 9. 22.';
-  const category = videoData?.category || '미분류';
+  const channelName = videoData?.channel_name || videoData?.uploader || '수집 채널';
+  const views = videoData?.view_count ?? 0;
+  const viralScore = videoData?.viral_score ?? 0;
+  const durationSec = videoData?.duration || detectedDuration || 0;
+  const uploadDate = videoData?.upload_date ? new Date(videoData.upload_date).toLocaleDateString() : '';
+  const category = videoData?.category || '일반';
   const scriptContent = videoData?.content || videoData?.extracted_text || videoData?.description || 
-    '#누아르영화 #마동석 #김무열 - 비지니스 메일 : jinminch@naver.com 로 부탁드립니다! ◈ 악인전 구매 or 대여 유튜브 https://bit.ly/3q9zKq3 네이버 https://bit.ly/35yJgMh ◈ 동네사람들 구매 or 대여 네이버 https://bit.ly/37m8YEY ...';
+    '수집된 대본 및 설명 정보가 없습니다.';
 
   const formatCount = (count?: number) => {
-    if (!count && count !== 0) return '556.6만';
+    if (!count && count !== 0) return '0';
     if (count >= 100000000) return `${(count / 100000000).toFixed(1)}억`;
     if (count >= 10000) return `${(count / 10000).toFixed(1)}만`;
     if (count >= 1000) return `${(count / 1000).toFixed(1)}천`;
@@ -441,8 +438,9 @@ ${hashtags}`;
   };
 
   const token = localStorage.getItem('token') || '';
-  const handleDownloadFile = (filename: string) => {
-    const jobId = activeJob.id || videoData?.id;
+  const jobId = activeJob.id || videoData?.id;
+  const handleDownloadSubtitleFile = (filename: string) => {
+    if (!jobId) return;
     const downloadUrl = activeJob.subtitle_urls?.[filename] || `/api/ddalkkak/api/subtitle/${jobId}/download/${encodeURIComponent(filename)}?token=${token}`;
     const a = document.createElement('a');
     a.href = downloadUrl;
@@ -450,7 +448,7 @@ ${hashtags}`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-    toast({ title: '파일 다운로드', description: `${filename} 다운로드를 시작합니다.` });
+    toast.info('파일 다운로드', { description: `${filename} 다운로드를 시작합니다.` });
   };
 
   return (
@@ -1273,8 +1271,7 @@ ${hashtags}`;
                     } else {
                       navigate('/work-queue');
                     }
-                    toast({
-                      title: '배포 관리로 인계 완료',
+                    toast.success('🚀 배포 관리로 인계 완료', {
                       description: '유튜브 업로드 메타데이터와 함께 쇼츠 자동 배포 관리로 이동했습니다.',
                     });
                   } catch (e) {

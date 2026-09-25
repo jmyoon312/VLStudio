@@ -36,7 +36,9 @@ interface RankingSourceSectionProps {
   onRemoveMultiVideo: (id: string) => void;
   onStartAnalyze: () => void;
   onStartGenerateScript: () => void;
+  onDropFiles?: (files: File[]) => void;
   isAnalyzing: boolean;
+  analyzeStep?: 0 | 1 | 2 | 3;
 }
 
 export const RankingSourceSection: React.FC<RankingSourceSectionProps> = ({
@@ -56,10 +58,44 @@ export const RankingSourceSection: React.FC<RankingSourceSectionProps> = ({
   onRemoveMultiVideo,
   onStartAnalyze,
   onStartGenerateScript,
-  isAnalyzing
+  onDropFiles,
+  isAnalyzing,
+  analyzeStep = 0
 }) => {
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [hoveredVideoId, setHoveredVideoId] = useState<string | null>(null);
+  const [isDragOver, setIsDragOver] = useState<boolean>(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      const files = Array.from(e.dataTransfer.files);
+      onDropFiles?.(files);
+    }
+  };
+
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const files = Array.from(e.target.files);
+      onDropFiles?.(files);
+      e.target.value = '';
+    }
+  };
 
   const filteredVideos = videoLibrary.filter(v =>
     v.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -176,6 +212,38 @@ export const RankingSourceSection: React.FC<RankingSourceSectionProps> = ({
         </div>
       </div>
 
+      {/* 2.5 로컬 파일 드래그앤드롭 및 파일 선택 바 (픽셀링 원천 JN 규격) */}
+      <div
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+        onClick={() => fileInputRef.current?.click()}
+        className={cn(
+          "border-2 border-dashed rounded-xl p-3 text-center cursor-pointer transition flex flex-col items-center justify-center gap-1",
+          isDragOver
+            ? "border-primary bg-primary/10 text-primary shadow-inner"
+            : "border-border hover:border-primary/60 bg-muted/20 hover:bg-muted/40 text-muted-foreground"
+        )}
+      >
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="video/mp4,video/webm,video/quicktime,.mov,.mkv,.m4v"
+          multiple
+          className="hidden"
+          onChange={handleFileInputChange}
+        />
+        <div className="flex items-center gap-2">
+          <UploadCloud className="w-4 h-4 text-primary" />
+          <span className="text-xs font-bold text-foreground">
+            로컬 영상 파일 드래그 & 드롭 또는 클릭하여 가져오기
+          </span>
+        </div>
+        <p className="text-[10px] text-muted-foreground">
+          MP4, MOV, WEBM, MKV 지원 · 소스 목록 최상단에 즉시 등록됩니다
+        </p>
+      </div>
+
       {/* 3. 모드별 영상 소스 선택 그리드 */}
       {creationMode === 'single-video' ? (
         <div className="space-y-3">
@@ -183,7 +251,7 @@ export const RankingSourceSection: React.FC<RankingSourceSectionProps> = ({
             <div className="flex items-center gap-2">
               <Film className="w-4 h-4 text-primary" />
               <span className="text-xs font-bold text-foreground">
-                분석할 원본 영상 선택 (보관함 07_Downloads)
+                분석할 원본 영상 선택 (총 {filteredVideos.length}개)
               </span>
             </div>
             <div className="relative w-48">
@@ -203,7 +271,8 @@ export const RankingSourceSection: React.FC<RankingSourceSectionProps> = ({
             {filteredVideos.map(video => {
               const isSelected = selectedVideo?.id === video.id;
               const isHovered = hoveredVideoId === video.id;
-              const videoSrc = getMediaUrl(video.videoPath || video.sourceUrl || '');
+              const videoSrc = video.videoPath || video.sourceUrl || (video.metadata?.rawFilePath ? getMediaUrl(video.metadata.rawFilePath) : '');
+              const thumbSrc = video.thumbnailUrl || (video.metadata?.rawThumbnailPath ? getMediaUrl(video.metadata.rawThumbnailPath) : '');
 
               return (
                 <div
@@ -229,11 +298,15 @@ export const RankingSourceSection: React.FC<RankingSourceSectionProps> = ({
                         playsInline
                         className="w-full h-full object-cover"
                       />
-                    ) : video.thumbnailUrl ? (
+                    ) : thumbSrc ? (
                       <img
-                        src={video.thumbnailUrl}
+                        src={thumbSrc}
                         alt={video.title}
                         className="w-full h-full object-cover"
+                        onError={(e) => {
+                          // fallback if image fails
+                          (e.target as HTMLElement).style.display = 'none';
+                        }}
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-muted-foreground text-xs">
@@ -287,6 +360,32 @@ export const RankingSourceSection: React.FC<RankingSourceSectionProps> = ({
               );
             })}
           </div>
+
+          {/* AI 분석 중 3단계 프로그레스 알림 바 */}
+          {isAnalyzing && (
+            <div className="p-3 rounded-xl bg-primary/10 border border-primary/30 space-y-2 animate-pulse">
+              <div className="flex items-center justify-between text-xs font-bold text-primary">
+                <span className="flex items-center gap-1.5">
+                  <Sparkles className="w-4 h-4 animate-spin" />
+                  {analyzeStep === 1 && "1/3 원본 영상 씬 분할 및 비트 스캔 중..."}
+                  {analyzeStep === 2 && "2/3 LLM 순위 분석 및 랭킹 대본 작성 중..."}
+                  {analyzeStep === 3 && "3/3 템플릿 맞춤형 계획 수립 완료!"}
+                  {analyzeStep === 0 && "AI 하이라이트 씬 분석 중..."}
+                </span>
+                <span className="text-[10px] font-mono">
+                  {analyzeStep === 1 ? "33%" : analyzeStep === 2 ? "66%" : "100%"}
+                </span>
+              </div>
+              <div className="w-full bg-primary/20 h-1.5 rounded-full overflow-hidden">
+                <div
+                  className="bg-primary h-full transition-all duration-500 rounded-full"
+                  style={{
+                    width: analyzeStep === 1 ? '33%' : analyzeStep === 2 ? '66%' : '100%'
+                  }}
+                />
+              </div>
+            </div>
+          )}
 
           {/* AI 분석 발주 버튼 */}
           <div className="pt-2">
@@ -344,6 +443,22 @@ export const RankingSourceSection: React.FC<RankingSourceSectionProps> = ({
               );
             })}
           </div>
+
+          {/* AI 분석 중 프로그레스 알림 바 (Multi-Source) */}
+          {isAnalyzing && (
+            <div className="p-3 rounded-xl bg-primary/10 border border-primary/30 space-y-2 animate-pulse">
+              <div className="flex items-center justify-between text-xs font-bold text-primary">
+                <span className="flex items-center gap-1.5">
+                  <Sparkles className="w-4 h-4 animate-spin" />
+                  {analyzeStep === 2 ? "LLM 순위 분석 및 랭킹 대본 자동 구성 중..." : "대본 생성 중..."}
+                </span>
+                <span className="text-[10px] font-mono">60%</span>
+              </div>
+              <div className="w-full bg-primary/20 h-1.5 rounded-full overflow-hidden">
+                <div className="bg-primary h-full transition-all duration-500 rounded-full w-3/5" />
+              </div>
+            </div>
+          )}
 
           <div className="pt-2">
             <Button

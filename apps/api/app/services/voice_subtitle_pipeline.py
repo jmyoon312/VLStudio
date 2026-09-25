@@ -68,7 +68,7 @@ class VoiceSubtitlePipeline:
     Automated voice and subtitle generation pipeline
     
     Engines:
-    - TTS: Kokoro, Qwen, ElevenLabs, Edge-TTS (fallback)
+    - TTS: Supertonic, Kokoro, ElevenLabs, Typecast
     - Subtitle: Faster-Whisper (word-level timestamps)
     - Format: SRT, VTT, or both
     """
