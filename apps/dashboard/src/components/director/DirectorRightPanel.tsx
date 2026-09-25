@@ -91,10 +91,47 @@ export const DirectorRightPanel: React.FC<DirectorRightPanelProps> = ({
     const [workspaceCategories, setWorkspaceCategories] = useState<any[]>([]);
     const [exportsList, setExportsList] = useState<any[]>([]);
     const [terminalLogs, setTerminalLogs] = useState<string[]>([]);
-    const [browserUrl, setBrowserUrl] = useState('http://localhost:20128');
+    const [browserUrl, setBrowserUrl] = useState('https://www.google.com/search?igu=1');
     const [browserMode, setBrowserMode] = useState<'snapshot' | 'live'>('snapshot');
+    const [localBrowserSnapshot, setLocalBrowserSnapshot] = useState<BrowserSnapshotData | null>(browserSnapshot || null);
+    const [isSearchingBrowser, setIsSearchingBrowser] = useState(false);
     const [searchFilter, setSearchFilter] = useState('');
     const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        if (browserSnapshot) {
+            setLocalBrowserSnapshot(browserSnapshot);
+            setBrowserMode('snapshot');
+        }
+    }, [browserSnapshot]);
+
+    const handleExecuteBrowserSearch = async (queryOrUrl: string) => {
+        if (!queryOrUrl.trim() || isSearchingBrowser) return;
+        setIsSearchingBrowser(true);
+        toast.info('구글 실시간 검색 및 화면 캡처 중...');
+        try {
+            const isUrl = queryOrUrl.startsWith('http://') || queryOrUrl.startsWith('https://');
+            const payload = isUrl ? { url: queryOrUrl } : { query: queryOrUrl };
+            const res = await fetch('/api/agent/browser-search', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setLocalBrowserSnapshot(data);
+                setBrowserMode('snapshot');
+                if (data.url) setBrowserUrl(data.url);
+                toast.success('검색 결과 및 화면 캡처가 완료되었습니다.');
+            } else {
+                toast.error('검색 요청 실패');
+            }
+        } catch (e: any) {
+            toast.error(`검색 통신 오류: ${e.message}`);
+        } finally {
+            setIsSearchingBrowser(false);
+        }
+    };
 
     // Auto-switch to preview when a video is explicitly opened
     useEffect(() => {
@@ -554,29 +591,39 @@ export const DirectorRightPanel: React.FC<DirectorRightPanelProps> = ({
                     </div>
                 )}
 
-                {/* 3. Browser Tab (Playwright Snapshot Mirror + Live Web) */}
+                {/* 3. Browser Tab (Google Search & Playwright Snapshot Mirror) */}
                 {activeDockTab === 'browser' && (
                     <div className="flex-1 flex flex-col space-y-3">
-                        <div className="flex items-center gap-2">
-                            <input
-                                type="text"
-                                value={browserUrl}
-                                onChange={(e) => setBrowserUrl(e.target.value)}
-                                className="flex-1 h-8 px-3 rounded-lg border border-border bg-background text-xs text-foreground font-mono focus:outline-hidden"
-                                placeholder="https:// 또는 로컬 URL 입력"
-                            />
+                        {/* URL / Search Input Bar */}
+                        <form 
+                            onSubmit={(e) => {
+                                e.preventDefault();
+                                handleExecuteBrowserSearch(browserUrl);
+                            }}
+                            className="flex items-center gap-2"
+                        >
+                            <div className="relative flex-1">
+                                <Search className="w-3.5 h-3.5 text-muted-foreground absolute left-2.5 top-1/2 -translate-y-1/2" />
+                                <input
+                                    type="text"
+                                    value={browserUrl}
+                                    onChange={(e) => setBrowserUrl(e.target.value)}
+                                    className="w-full h-8 pl-8 pr-3 rounded-lg border border-border bg-background text-xs text-foreground font-mono focus:outline-hidden"
+                                    placeholder="구글 검색어 또는 URL 입력 (예: 2026 숏폼 트렌드, https://...)"
+                                />
+                            </div>
                             <button
-                                type="button"
-                                onClick={() => window.open(browserUrl, '_blank')}
-                                className="h-8 px-2.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold flex items-center gap-1"
-                                title="새 창으로 열기"
+                                type="submit"
+                                disabled={isSearchingBrowser}
+                                className="h-8 px-3 rounded-lg bg-primary text-primary-foreground text-xs font-semibold flex items-center gap-1 disabled:opacity-50 cursor-pointer shrink-0"
+                                title="검색 또는 웹페이지 접속"
                             >
-                                <ExternalLink className="w-3.5 h-3.5" />
-                                열기
+                                <Globe className={`w-3.5 h-3.5 ${isSearchingBrowser ? 'animate-spin' : ''}`} />
+                                <span>{isSearchingBrowser ? '탐색 중...' : '검색/이동'}</span>
                             </button>
-                        </div>
+                        </form>
 
-                        {/* Mode Toggle & Quick Port Shortcuts */}
+                        {/* Mode Toggle & Quick Direct Shortcuts */}
                         <div className="flex items-center justify-between text-[11px]">
                             <div className="flex items-center gap-1.5">
                                 <button
@@ -586,11 +633,16 @@ export const DirectorRightPanel: React.FC<DirectorRightPanelProps> = ({
                                         browserMode === 'snapshot' ? 'bg-primary text-primary-foreground font-bold' : 'bg-muted/60 text-muted-foreground hover:text-foreground'
                                     }`}
                                 >
-                                    스냅샷 미러 {browserSnapshot && '●'}
+                                    스냅샷 미러 {(localBrowserSnapshot || browserSnapshot) && '●'}
                                 </button>
                                 <button
                                     type="button"
-                                    onClick={() => setBrowserMode('live')}
+                                    onClick={() => {
+                                        setBrowserMode('live');
+                                        if (!browserUrl.startsWith('http')) {
+                                            setBrowserUrl('https://www.google.com/search?igu=1');
+                                        }
+                                    }}
                                     className={`px-2 py-0.5 rounded-md text-[10px] font-medium transition-colors ${
                                         browserMode === 'live' ? 'bg-primary text-primary-foreground font-bold' : 'bg-muted/60 text-muted-foreground hover:text-foreground'
                                     }`}
@@ -602,12 +654,13 @@ export const DirectorRightPanel: React.FC<DirectorRightPanelProps> = ({
                                 <button
                                     type="button"
                                     onClick={() => {
-                                        setBrowserUrl('http://localhost:20128');
+                                        setBrowserUrl('https://www.google.com/search?igu=1');
                                         setBrowserMode('live');
                                     }}
                                     className="px-2 py-0.5 rounded-md bg-muted/60 text-muted-foreground hover:text-foreground text-[10px]"
+                                    title="구글 실시간 검색 프레임"
                                 >
-                                    OmniRoute (20128)
+                                    구글 검색
                                 </button>
                                 <button
                                     type="button"
@@ -616,6 +669,7 @@ export const DirectorRightPanel: React.FC<DirectorRightPanelProps> = ({
                                         setBrowserMode('live');
                                     }}
                                     className="px-2 py-0.5 rounded-md bg-muted/60 text-muted-foreground hover:text-foreground text-[10px]"
+                                    title="유튜브 쇼츠 탐색"
                                 >
                                     Shorts
                                 </button>
@@ -625,15 +679,15 @@ export const DirectorRightPanel: React.FC<DirectorRightPanelProps> = ({
                         {/* Snapshot Mirror View */}
                         {browserMode === 'snapshot' && (
                             <div className="flex-1 overflow-y-auto space-y-3">
-                                {browserSnapshot ? (
+                                {(localBrowserSnapshot || browserSnapshot) ? (
                                     <>
                                         <div className="flex items-center gap-2 px-3 py-1.5 bg-muted rounded-lg border border-border text-xs">
                                             <Search className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                                             <span className="font-mono text-muted-foreground truncate flex-1 text-[11px]">
-                                                {browserSnapshot.url}
+                                                {(localBrowserSnapshot || browserSnapshot)?.url}
                                             </span>
                                             <a
-                                                href={browserSnapshot.url}
+                                                href={(localBrowserSnapshot || browserSnapshot)?.url}
                                                 target="_blank"
                                                 rel="noreferrer"
                                                 className="text-primary hover:underline flex items-center gap-0.5 text-[11px]"
@@ -642,27 +696,27 @@ export const DirectorRightPanel: React.FC<DirectorRightPanelProps> = ({
                                             </a>
                                         </div>
 
-                                        {browserSnapshot.screenshot_data_url && (
+                                        {(localBrowserSnapshot || browserSnapshot)?.screenshot_data_url && (
                                             <div className="border border-border rounded-xl overflow-hidden shadow-2xs bg-black">
                                                 <div className="px-2.5 py-1 bg-zinc-900 text-zinc-400 text-[10px] flex items-center justify-between border-b border-zinc-800">
                                                     <span>Playwright Headless Window (1280x800)</span>
-                                                    <span className="truncate max-w-[200px]">{browserSnapshot.title}</span>
+                                                    <span className="truncate max-w-[200px]">{(localBrowserSnapshot || browserSnapshot)?.title}</span>
                                                 </div>
                                                 <img
-                                                    src={browserSnapshot.screenshot_data_url}
+                                                    src={(localBrowserSnapshot || browserSnapshot)?.screenshot_data_url}
                                                     alt="Browser Live Screen"
                                                     className="w-full h-auto object-contain max-h-72"
                                                 />
                                             </div>
                                         )}
 
-                                        {browserSnapshot.search_results && browserSnapshot.search_results.length > 0 && (
+                                        {(localBrowserSnapshot || browserSnapshot)?.search_results && ((localBrowserSnapshot || browserSnapshot)?.search_results?.length || 0) > 0 && (
                                             <div className="space-y-1.5">
                                                 <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-                                                    🔍 수집된 실시간 검색 결과 ({browserSnapshot.search_results.length}건)
+                                                    🔍 수집된 실시간 검색 결과 ({(localBrowserSnapshot || browserSnapshot)?.search_results?.length}건)
                                                 </span>
                                                 <div className="space-y-1.5">
-                                                    {browserSnapshot.search_results.map((res, i) => (
+                                                    {(localBrowserSnapshot || browserSnapshot)?.search_results?.map((res, i) => (
                                                         <div key={i} className="p-2.5 rounded-lg bg-card border border-border/80 text-xs space-y-0.5">
                                                             <a href={res.url} target="_blank" rel="noreferrer" className="font-semibold text-primary hover:underline truncate block">
                                                                 {res.title}
@@ -677,21 +731,56 @@ export const DirectorRightPanel: React.FC<DirectorRightPanelProps> = ({
                                         )}
                                     </>
                                 ) : (
-                                    <div className="text-center py-12 text-muted-foreground border border-dashed border-border rounded-xl">
-                                        <Globe className="w-8 h-8 mx-auto mb-2 opacity-40" />
-                                        <p className="text-xs font-semibold">AI 브라우징 스냅샷 대기 중</p>
-                                        <p className="text-[11px] mt-0.5">에이전트가 웹 검색이나 페이지를 탐색하면 실제 화면이 여기에 캡처됩니다.</p>
+                                    /* Active Google Search Hub (Clean Initial State) */
+                                    <div className="py-6 px-3 border border-border rounded-2xl bg-card/60 space-y-4">
+                                        <div className="text-center space-y-1">
+                                            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center mx-auto text-primary mb-2">
+                                                <Globe className="w-5 h-5" />
+                                            </div>
+                                            <h4 className="text-xs font-bold text-foreground">구글 실시간 검색 & 브라우징</h4>
+                                            <p className="text-[11px] text-muted-foreground leading-relaxed">
+                                                키워드를 검색하면 AI가 Playwright로 구글을 탐색하고 화면을 캡처합니다.
+                                            </p>
+                                        </div>
+
+                                        <div className="space-y-1.5 pt-2 border-t border-border/60">
+                                            <span className="text-[11px] font-semibold text-muted-foreground block">
+                                                추천 검색 키워드
+                                            </span>
+                                            <div className="grid grid-cols-1 gap-1.5">
+                                                {[
+                                                    "🔥 2026 최신 숏폼 트렌드 키워드",
+                                                    "📈 유튜브 쇼츠 급상승 떡상 소재",
+                                                    "🎬 틱톡 바이럴 사연 썰 랭킹",
+                                                    "💡 시청 지속시간 70% 훅 공식"
+                                                ].map((chip, idx) => (
+                                                    <button
+                                                        key={idx}
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setBrowserUrl(chip.replace(/^[^\s]+\s/, ''));
+                                                            handleExecuteBrowserSearch(chip.replace(/^[^\s]+\s/, ''));
+                                                        }}
+                                                        disabled={isSearchingBrowser}
+                                                        className="w-full text-left px-3 py-2 rounded-xl border border-border/80 hover:border-primary/50 hover:bg-muted/50 text-xs text-foreground transition-all flex items-center justify-between group cursor-pointer shadow-2xs"
+                                                    >
+                                                        <span>{chip}</span>
+                                                        <Search className="w-3 h-3 text-muted-foreground group-hover:text-primary transition-colors" />
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
                                     </div>
                                 )}
                             </div>
                         )}
 
-                        {/* Live iframe View */}
+                        {/* Live iframe View (Clean Google Universal Frame) */}
                         {browserMode === 'live' && (
-                            <div className="flex-1 rounded-xl border border-border/80 overflow-hidden bg-background min-h-[300px]">
+                            <div className="flex-1 rounded-xl border border-border/80 overflow-hidden bg-background min-h-[340px]">
                                 <iframe 
-                                    src={browserUrl}
-                                    className="w-full h-full border-none"
+                                    src={browserUrl.startsWith('http') ? browserUrl : `https://www.google.com/search?igu=1&q=${encodeURIComponent(browserUrl)}`}
+                                    className="w-full h-full border-none min-h-[340px]"
                                     title="Embedded Browser Frame"
                                 />
                             </div>
