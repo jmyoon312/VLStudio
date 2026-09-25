@@ -109,6 +109,17 @@ export const PresetCustomizeModal: React.FC<PresetCustomizeModalProps> = ({
     // 5. 17-Tier Full Bible Data
     const [fullBible, setFullBible] = useState<any>({});
 
+    // 🌟 6. Advanced 9:16 NLE Inspector Features (Keyframes Carousel, Safe-Zone, Fonts, Typography)
+    const [keyframesList, setKeyframesList] = useState<any[]>([]);
+    const [selectedKeyframeIndex, setSelectedKeyframeIndex] = useState<number>(0);
+    const [showSafeZone, setShowSafeZone] = useState<boolean>(true);
+    const [fontFamily, setFontFamily] = useState<string>('Pretendard');
+    const [letterSpacing, setLetterSpacing] = useState<number>(-0.5);
+    const [lineHeight, setLineHeight] = useState<number>(1.25);
+    const [captionBgBox, setCaptionBgBox] = useState<boolean>(false);
+    const [captionBgBoxColor, setCaptionBgBoxColor] = useState<string>('rgba(0,0,0,0.65)');
+    const [textShadowBlur, setTextShadowBlur] = useState<number>(4);
+
     // Clone Modal/Field
     const [cloneName, setCloneName] = useState('');
     const [saving, setSaving] = useState(false);
@@ -204,11 +215,24 @@ export const PresetCustomizeModal: React.FC<PresetCustomizeModalProps> = ({
         setOutlinePx(cap.outline_px || 6);
         setCaptionMarginBottom(cap.margin_v_pct || 28);
 
-        // 5. Reference Video Frame & Clean Thumbnail
-        const resolvedBg = style.video_bg_url || (preset as any).sample_image_url || '';
+        // 5. Reference Video Frame, Preserved Keyframes & Clean Thumbnail
+        const kfs = (preset as any).keyframes || (preset as any).extracted_keyframes || [];
+        setKeyframesList(kfs);
+        setSelectedKeyframeIndex(0);
+
+        const firstKfUrl = kfs.length > 0 ? (kfs[0].url || kfs[0].local_path || '') : '';
+        const resolvedBg = firstKfUrl || style.video_bg_url || (preset as any).sample_image_url || (preset as any).thumbnail_url || '';
         setVideoBgUrl(resolvedBg);
-        const resolvedThumb = (preset as any).thumbnail_url || (preset as any).sample_image_url || '';
+        const resolvedThumb = firstKfUrl || (preset as any).thumbnail_url || (preset as any).sample_image_url || (preset as any).sample_thumbnail || '';
         setRefThumbnailUrl(resolvedThumb);
+
+        // Font Family & Typography
+        setFontFamily(cap.font_family || cap.font_id || 'Pretendard');
+        setLetterSpacing(cap.letter_spacing ?? -0.5);
+        setLineHeight(cap.line_height ?? 1.25);
+        setCaptionBgBox(Boolean(cap.box_enabled || cap.box_color));
+        setCaptionBgBoxColor(cap.box_color || 'rgba(0,0,0,0.65)');
+        setTextShadowBlur(cap.shadow_blur ?? 4);
 
         // 6. Jab Hook
         const jab = vg.jab_hook || style.jab_hook || {};
@@ -269,7 +293,7 @@ export const PresetCustomizeModal: React.FC<PresetCustomizeModalProps> = ({
                     color: headerLine1Color,
                     size_px: headerLine1Size,
                     font_style: 'Bold',
-                    font_family: 'Pretendard',
+                    font_family: fontFamily,
                     text_example: headerLine1Text,
                 },
                 {
@@ -278,13 +302,13 @@ export const PresetCustomizeModal: React.FC<PresetCustomizeModalProps> = ({
                     color: headerLine2Color,
                     size_px: headerLine2Size,
                     font_style: 'ExtraBold',
-                    font_family: 'Pretendard',
+                    font_family: fontFamily,
                     text_example: headerLine2Text,
                 },
             ],
             top_title_y_pct: 5.2,
             caption: {
-                font_family: 'Pretendard',
+                font_family: fontFamily,
                 bold: true,
                 size_px: fontSize,
                 color: captionColor,
@@ -292,6 +316,11 @@ export const PresetCustomizeModal: React.FC<PresetCustomizeModalProps> = ({
                 outline_px: outlinePx,
                 position: 'bottom',
                 margin_v_pct: captionMarginBottom,
+                letter_spacing: letterSpacing,
+                line_height: lineHeight,
+                box_enabled: captionBgBox,
+                box_color: captionBgBoxColor,
+                shadow_blur: textShadowBlur,
                 motion_preset: 'word_pop',
                 safe_zone: 'OPTIMAL_68',
             },
@@ -627,16 +656,61 @@ export const PresetCustomizeModal: React.FC<PresetCustomizeModalProps> = ({
                                     </div>
                                 </div>
 
-                                {/* Top 2-Tier Header Titles */}
+                                {/* Top 2-Tier Header Titles & Top Bar Geometry */}
                                 <div className="p-3.5 rounded-2xl border border-border/80 bg-muted/30 space-y-3">
                                     <div className="flex items-center justify-between">
                                         <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
                                             <Type className="w-3.5 h-3.5 text-primary" />
                                             상단 2단 헤더 타이틀 (Top 2-Tier Banner)
                                         </span>
-                                        <span className="text-[11px] text-muted-foreground font-mono">
-                                            상단 바 높이: {topBarHeightPct}%
-                                        </span>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-[11px] text-muted-foreground font-mono">
+                                                바 높이: {topBarHeightPct}%
+                                            </span>
+                                            <input
+                                                type="color"
+                                                value={topBarBgColor}
+                                                onChange={(e) => setTopBarBgColor(e.target.value)}
+                                                className="w-5 h-5 rounded border border-border/80 p-0 cursor-pointer bg-transparent"
+                                                title="상단 바 배경색"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* Top Bar Height Slider & Font Selection */}
+                                    <div className="grid grid-cols-12 gap-3 items-center bg-background/50 p-2 rounded-xl border border-border/40">
+                                        <div className="col-span-5">
+                                            <div className="flex justify-between text-[11px] mb-1">
+                                                <span className="text-muted-foreground">상단 블랙바 높이</span>
+                                                <span className="font-bold font-mono">{topBarHeightPct}%</span>
+                                            </div>
+                                            <Slider
+                                                min={8}
+                                                max={30}
+                                                step={0.5}
+                                                value={[topBarHeightPct]}
+                                                onValueChange={([v]) => setTopBarHeightPct(v)}
+                                            />
+                                        </div>
+                                        <div className="col-span-7">
+                                            <label className="text-[11px] text-muted-foreground block mb-1">글꼴 (Font Family)</label>
+                                            <div className="flex flex-wrap gap-1">
+                                                {['Pretendard', 'Black Han Sans', 'Gmarket Sans', 'Noto Sans KR'].map((f) => (
+                                                    <Button
+                                                        key={f}
+                                                        type="button"
+                                                        size="sm"
+                                                        variant={fontFamily === f ? 'default' : 'outline'}
+                                                        onClick={() => setFontFamily(f)}
+                                                        className={`h-6 text-[10px] px-2 rounded-md ${
+                                                            fontFamily === f ? 'bg-primary text-primary-foreground font-bold' : 'text-muted-foreground border-border/60'
+                                                        }`}
+                                                    >
+                                                        {f === 'Black Han Sans' ? '검은고딕' : f === 'Gmarket Sans' ? 'G마켓' : f}
+                                                    </Button>
+                                                ))}
+                                            </div>
+                                        </div>
                                     </div>
 
                                     {/* Line 1 */}
@@ -834,6 +908,58 @@ export const PresetCustomizeModal: React.FC<PresetCustomizeModalProps> = ({
                                                 value={[captionMarginBottom]}
                                                 onValueChange={([v]) => setCaptionMarginBottom(v)}
                                             />
+                                        </div>
+                                    </div>
+
+                                    {/* Typography Fine-Tuning (Letter Spacing, Line Height, Box, Shadow) */}
+                                    <div className="pt-2 border-t border-border/40 space-y-2">
+                                        <span className="text-[11px] font-bold text-muted-foreground block">
+                                            타이포그래피 정밀 조율 (Typography & Shadow)
+                                        </span>
+                                        <div className="grid grid-cols-3 gap-2 bg-background/40 p-2 rounded-xl border border-border/40">
+                                            <div>
+                                                <div className="flex justify-between text-[10px] mb-1">
+                                                    <span className="text-muted-foreground">자간</span>
+                                                    <span className="font-bold font-mono">{letterSpacing}px</span>
+                                                </div>
+                                                <Slider
+                                                    min={-2}
+                                                    max={4}
+                                                    step={0.5}
+                                                    value={[letterSpacing]}
+                                                    onValueChange={([v]) => setLetterSpacing(v)}
+                                                />
+                                            </div>
+                                            <div>
+                                                <div className="flex justify-between text-[10px] mb-1">
+                                                    <span className="text-muted-foreground">그림자 흐림</span>
+                                                    <span className="font-bold font-mono">{textShadowBlur}px</span>
+                                                </div>
+                                                <Slider
+                                                    min={0}
+                                                    max={12}
+                                                    step={1}
+                                                    value={[textShadowBlur]}
+                                                    onValueChange={([v]) => setTextShadowBlur(v)}
+                                                />
+                                            </div>
+                                            <div className="flex flex-col justify-center">
+                                                <div className="flex items-center justify-between">
+                                                    <span className="text-[10px] font-semibold text-muted-foreground">배경 박스</span>
+                                                    <Switch checked={captionBgBox} onCheckedChange={setCaptionBgBox} />
+                                                </div>
+                                                {captionBgBox && (
+                                                    <div className="flex items-center gap-1.5 mt-1">
+                                                        <input
+                                                            type="color"
+                                                            value={captionBgBoxColor.startsWith('#') ? captionBgBoxColor : '#000000'}
+                                                            onChange={(e) => setCaptionBgBoxColor(e.target.value)}
+                                                            className="w-5 h-5 rounded border border-border/60 p-0 cursor-pointer bg-transparent"
+                                                        />
+                                                        <span className="text-[9px] text-muted-foreground">반투명 박스</span>
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -1131,7 +1257,7 @@ export const PresetCustomizeModal: React.FC<PresetCustomizeModalProps> = ({
 
                     {/* Right: True 9:16 Live Canvas Engine (5 cols) */}
                     <div className="lg:col-span-5 flex flex-col items-center justify-start">
-                        {/* 🌟 3단 뷰 토글 버튼: [👁️ 원본] [🎨 프리셋] [⚖️ 1:1 오버레이] */}
+                        {/* 🌟 4단 뷰 토글 버튼: [👁️ 원본] [🎨 프리셋] [⚖️ 1:1 오버레이] + [🛡️ 세이프존] */}
                         <div className="flex items-center gap-1 bg-muted/70 p-1 rounded-xl mb-2.5 w-full justify-between border border-border/60">
                             <Button
                                 type="button"
@@ -1170,7 +1296,20 @@ export const PresetCustomizeModal: React.FC<PresetCustomizeModalProps> = ({
                                 title="원본 위에 복제 레이어를 반투명으로 겹쳐 1:1 오차 대조"
                             >
                                 <Split className="w-3 h-3" />
-                                1:1 오버레이
+                                오버레이
+                            </Button>
+                            <Button
+                                type="button"
+                                size="sm"
+                                variant={showSafeZone ? 'default' : 'ghost'}
+                                onClick={() => setShowSafeZone(!showSafeZone)}
+                                className={`h-7 text-[11px] font-bold px-2 rounded-lg gap-1 cursor-pointer transition-all ${
+                                    showSafeZone ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xs' : 'text-muted-foreground hover:text-foreground'
+                                }`}
+                                title="유튜브 쇼츠 실제 UI(좋아요, 댓글, 하단 채널명) 및 세이프존 오버레이"
+                            >
+                                <Shield className="w-3 h-3" />
+                                세이프존
                             </Button>
                         </div>
 
@@ -1255,6 +1394,7 @@ export const PresetCustomizeModal: React.FC<PresetCustomizeModalProps> = ({
                                                 style={{
                                                     color: headerLine1Color,
                                                     fontSize: `${Math.max(11, Math.round(headerLine1Size * 0.45))}px`,
+                                                    fontFamily: fontFamily === 'Black Han Sans' ? '"Black Han Sans", sans-serif' : fontFamily === 'Gmarket Sans' ? '"Gmarket Sans", sans-serif' : 'Pretendard, -apple-system, sans-serif',
                                                     textShadow: '0 1px 3px rgba(0,0,0,0.8)',
                                                 }}
                                             >
@@ -1265,6 +1405,7 @@ export const PresetCustomizeModal: React.FC<PresetCustomizeModalProps> = ({
                                                 style={{
                                                     color: headerLine2Color,
                                                     fontSize: `${Math.max(13, Math.round(headerLine2Size * 0.48))}px`,
+                                                    fontFamily: fontFamily === 'Black Han Sans' ? '"Black Han Sans", sans-serif' : fontFamily === 'Gmarket Sans' ? '"Gmarket Sans", sans-serif' : 'Pretendard, -apple-system, sans-serif',
                                                     textShadow: '0 2px 5px rgba(0,0,0,0.9)',
                                                 }}
                                             >
@@ -1293,6 +1434,7 @@ export const PresetCustomizeModal: React.FC<PresetCustomizeModalProps> = ({
                                                                 style={{
                                                                     color: captionLine1Color,
                                                                     fontSize: '12px',
+                                                                    fontFamily: fontFamily === 'Black Han Sans' ? '"Black Han Sans", sans-serif' : 'Pretendard, -apple-system, sans-serif',
                                                                     textShadow: '0 2px 4px rgba(0,0,0,0.9), -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000',
                                                                 }}
                                                             >
@@ -1303,6 +1445,7 @@ export const PresetCustomizeModal: React.FC<PresetCustomizeModalProps> = ({
                                                                 style={{
                                                                     color: captionLine2Color,
                                                                     fontSize: '13px',
+                                                                    fontFamily: fontFamily === 'Black Han Sans' ? '"Black Han Sans", sans-serif' : 'Pretendard, -apple-system, sans-serif',
                                                                     textShadow: '0 2px 4px rgba(0,0,0,0.9), -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000',
                                                                 }}
                                                             >
@@ -1344,16 +1487,28 @@ export const PresetCustomizeModal: React.FC<PresetCustomizeModalProps> = ({
                                         {/* Layer 4: Caption Subtitle (Single Line Mode when bilingual is disabled) */}
                                         {!bilingualEnabled && (
                                             <div
-                                                className="w-full text-center px-2 font-black leading-tight z-20 pointer-events-none transition-all"
+                                                className="w-full text-center px-2 z-20 pointer-events-none transition-all flex justify-center"
                                                 style={{
                                                     marginBottom: `${captionMarginBottom * 0.45}%`,
-                                                    color: captionColor,
-                                                    fontSize: `${Math.max(12, Math.round(fontSize * 0.28))}px`,
-                                                    WebkitTextStroke: `${Math.max(1, outlinePx * 0.22)}px ${outlineColor}`,
-                                                    textShadow: `0 2px 6px ${outlineColor}`,
                                                 }}
                                             >
-                                                {captionText}
+                                                <span
+                                                    className="font-black leading-tight transition-all"
+                                                    style={{
+                                                        color: captionColor,
+                                                        fontSize: `${Math.max(12, Math.round(fontSize * 0.28))}px`,
+                                                        fontFamily: fontFamily === 'Black Han Sans' ? '"Black Han Sans", sans-serif' : fontFamily === 'Gmarket Sans' ? '"Gmarket Sans", sans-serif' : 'Pretendard, -apple-system, sans-serif',
+                                                        letterSpacing: `${letterSpacing}px`,
+                                                        lineHeight: lineHeight,
+                                                        WebkitTextStroke: `${Math.max(1, outlinePx * 0.22)}px ${outlineColor}`,
+                                                        textShadow: `0 2px ${textShadowBlur}px ${outlineColor}`,
+                                                        backgroundColor: captionBgBox ? captionBgBoxColor : 'transparent',
+                                                        padding: captionBgBox ? '2px 8px' : '0',
+                                                        borderRadius: captionBgBox ? '6px' : '0',
+                                                    }}
+                                                >
+                                                    {captionText}
+                                                </span>
                                             </div>
                                         )}
 
@@ -1372,12 +1527,104 @@ export const PresetCustomizeModal: React.FC<PresetCustomizeModalProps> = ({
                                             </div>
                                         )}
                                     </div>
+
+                                    {/* 🛡️ YouTube Shorts Platform UI & Safe Zone Overlay */}
+                                    {showSafeZone && (
+                                        <div className="absolute inset-0 pointer-events-none z-40 flex flex-col justify-between p-2 select-none">
+                                            {/* Safe Zone Boundary Box */}
+                                            <div className="absolute inset-x-2 top-2 bottom-12 border border-dashed border-emerald-400/40 rounded-2xl pointer-events-none" />
+
+                                            {/* Top Icons */}
+                                            <div className="flex justify-between items-center text-[10px] text-white/70 px-1 pt-1">
+                                                <span className="font-bold">Shorts</span>
+                                                <span className="text-[9px] bg-black/40 px-1.5 py-0.5 rounded">🔍</span>
+                                            </div>
+
+                                            {/* Right Action Icons (Like, Comment, Share, Sound) */}
+                                            <div className="absolute right-2 bottom-16 flex flex-col items-center gap-3 text-white">
+                                                <div className="flex flex-col items-center">
+                                                    <div className="w-7 h-7 rounded-full bg-black/40 flex items-center justify-center text-xs">❤️</div>
+                                                    <span className="text-[8px] font-bold mt-0.5">1.2M</span>
+                                                </div>
+                                                <div className="flex flex-col items-center">
+                                                    <div className="w-7 h-7 rounded-full bg-black/40 flex items-center justify-center text-xs">💬</div>
+                                                    <span className="text-[8px] font-bold mt-0.5">3.8K</span>
+                                                </div>
+                                                <div className="flex flex-col items-center">
+                                                    <div className="w-7 h-7 rounded-full bg-black/40 flex items-center justify-center text-xs">↗️</div>
+                                                    <span className="text-[8px] font-bold mt-0.5">공유</span>
+                                                </div>
+                                                <div className="w-6 h-6 rounded-full border border-white/60 bg-black/50 flex items-center justify-center text-[10px] animate-spin">
+                                                    🎵
+                                                </div>
+                                            </div>
+
+                                            {/* Bottom Channel Info & Subscribe */}
+                                            <div className="absolute left-2.5 bottom-3 text-white max-w-[170px] space-y-1">
+                                                <div className="flex items-center gap-1.5">
+                                                    <div className="w-5 h-5 rounded-full bg-red-600 flex items-center justify-center text-[9px] font-bold">V</div>
+                                                    <span className="text-[9px] font-bold truncate">@ViraLoopStudio</span>
+                                                    <span className="bg-red-600 text-white text-[7.5px] font-bold px-1.5 py-0.5 rounded-full">구독</span>
+                                                </div>
+                                                <p className="text-[8px] text-white/80 line-clamp-1">#쇼츠 #알고리즘 #바이럴루프</p>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </div>
 
-                        <span className="text-[10px] text-muted-foreground mt-2 text-center">
-                            📐 원본 레퍼런스 및 1:1 오버레이 검증 캔버스
+                        {/* 🎬 Preserved Keyframes Film Strip Carousel */}
+                        <div className="w-full mt-3 p-2.5 rounded-2xl bg-muted/40 border border-border/80">
+                            <div className="flex items-center justify-between mb-1.5">
+                                <span className="text-[11px] font-bold text-foreground flex items-center gap-1.5">
+                                    <Film className="w-3.5 h-3.5 text-primary" />
+                                    추출된 씬 키프레임 {keyframesList.length > 0 ? `(${keyframesList.length}개)` : ''}
+                                </span>
+                                <span className="text-[10px] text-muted-foreground">
+                                    클릭 시 해당 장면으로 대조
+                                </span>
+                            </div>
+                            {keyframesList.length > 0 ? (
+                                <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-thin">
+                                    {keyframesList.map((kf: any, idx: number) => (
+                                        <button
+                                            key={idx}
+                                            type="button"
+                                            onClick={() => {
+                                                setSelectedKeyframeIndex(idx);
+                                                const kfUrl = kf.url || kf.local_path;
+                                                setVideoBgUrl(kfUrl);
+                                                setRefThumbnailUrl(kfUrl);
+                                            }}
+                                            className={`relative rounded-lg overflow-hidden shrink-0 border-2 transition-all cursor-pointer ${
+                                                selectedKeyframeIndex === idx
+                                                    ? 'border-primary ring-2 ring-primary/30 scale-105'
+                                                    : 'border-border/60 hover:border-border opacity-70 hover:opacity-100'
+                                            }`}
+                                            style={{ width: '48px', height: '64px' }}
+                                        >
+                                            <img
+                                                src={kf.url || kf.local_path}
+                                                alt={`Keyframe ${idx}`}
+                                                className="w-full h-full object-cover"
+                                                onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                                            />
+                                            <span className="absolute bottom-0 inset-x-0 bg-black/80 text-[8px] font-mono text-white text-center py-0.5">
+                                                {kf.label || `${kf.time_s ?? idx}s`}
+                                            </span>
+                                        </button>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="text-center py-2 text-[10px] text-muted-foreground bg-background/50 rounded-lg border border-border/40">
+                                    분석 영상에서 추출된 키프레임 스트립이 여기에 자동 표시됩니다.
+                                </div>
+                            )}
+                        </div>
+
+                        <span className="text-[10px] text-muted-foreground mt-1.5 text-center">
+                            📐 원본 레퍼런스 및 1:1 오버레이 • 쇼츠 세이프존 검증 캔버스
                         </span>
                     </div>
                 </div>

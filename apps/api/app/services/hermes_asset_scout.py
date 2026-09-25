@@ -104,9 +104,10 @@ class HermesAssetScout:
         else:
             out_tmpl = str(DOWNLOADS_DIR / "%(id)s.%(ext)s")
 
+        # Highest quality format selection (4K/1440p/1080p best video + best audio merged to MP4)
         cmd = [
             ytdlp,
-            "-f", "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
+            "-f", "bestvideo+bestaudio/best",
             "--merge-output-format", "mp4",
             "-o", out_tmpl,
             url,
