@@ -81,12 +81,16 @@ class OmniRouteVisionAnalyzer:
 
         logger.info(f"Starting OmniRoute Vision Interleaving Analysis for: {video_file.name}")
 
-        # 1. Extract frames (up to 12 representative frames)
-        frames = await self.media_core.extract_keyframes(video_file, max_frames=12)
+        import time
+        work_dir = Path(os.environ.get("LOCALAPPDATA", "")) / "ViraLoop Studio" / "media" / "02_Operations" / "vision_analysis" / f"task_{int(time.time()*1000)}"
+        work_dir.mkdir(parents=True, exist_ok=True)
+
+        # 1. Extract frames (adaptive keyframes)
+        frames = await self.media_core.extract_adaptive_keyframes(video_file, work_dir=work_dir)
         duration_s = await self.media_core.get_video_duration(video_file)
 
         # 2. Extract audio cues / acoustics
-        audio_info = await self.media_core.analyze_audio_acoustics(video_file)
+        audio_info = await self.media_core.extract_audio_acoustics(video_file)
         silence_intervals = audio_info.get("silence_intervals", [])
         audio_peaks = audio_info.get("audio_peaks", [])
 
