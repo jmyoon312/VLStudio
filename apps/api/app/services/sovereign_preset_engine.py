@@ -281,12 +281,14 @@ def compile_ass_subtitles(
     container_type = vg.get("container_type", "letterbox_sandwich")
     is_floating_capsule = container_type == "floating_capsule"
     header_lines_cfg = []
-    top_y_pct = 5.5
-
+    # 📐 Universal Safe-Zone Dynamic Clamping (Mobile Punch-hole & Shorts UI Shield)
+    raw_top_y = 8.0 if is_floating_capsule else 5.5
     if vg and isinstance(vg, dict):
         cap = vg.get("caption", DEFAULT_STYLE["caption"])
         header_lines_cfg = vg.get("top_header_lines", [])
-        top_y_pct = vg.get("top_title_y_pct", 8.0 if is_floating_capsule else 5.5)
+        raw_top_y = vg.get("top_title_y_pct", 8.0 if is_floating_capsule else 5.5)
+        # Dynamic safe-zone clamping: guarantees title never clips under notch/search bar
+        top_y_pct = max(10.5, min(14.5, float(raw_top_y)))
         title = {
             "enabled": True,
             "size_px": header_lines_cfg[0].get("size_px", 32) * 2 if header_lines_cfg else 72,
@@ -298,7 +300,8 @@ def compile_ass_subtitles(
     else:
         cap = style.get("caption", DEFAULT_STYLE["caption"])
         title = style.get("title", DEFAULT_STYLE["title"])
-        top_y_pct = title.get("margin_v_pct", 5.5)
+        raw_top_y = title.get("margin_v_pct", 5.5)
+        top_y_pct = max(10.5, min(14.5, float(raw_top_y)))
 
     cap_font = cap.get("font_family", "Pretendard, Malgun Gothic")
     cap_size = cap.get("size_px", 64)
@@ -309,7 +312,10 @@ def compile_ass_subtitles(
 
     align_map = {"bottom": 2, "middle": 5, "top": 8}
     cap_align = align_map.get(cap.get("position", "bottom"), 2)
-    cap_margin_v = round(h * cap.get("margin_v_pct", 18) / 100)
+    # Dynamic safe-zone clamping for bottom subtitles: guarantees clear headroom above channel title & sound info
+    raw_cap_margin = float(cap.get("margin_v_pct", 18))
+    safe_cap_margin_pct = max(22.0, min(32.0, raw_cap_margin))
+    cap_margin_v = round(h * safe_cap_margin_pct / 100)
 
     # 1단 & 2단 타이틀 스타일 추출
     line1_color = "#FFFFFF"
@@ -425,18 +431,38 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         raw_text = cue.get("text", "")
         max_c = cap.get("max_chars_per_line", 14)
         
-        # Two-tone highlight keyword check
-        if two_tone_enabled:
-            hi_text = two_tone.get("highlight_text", "").strip()
-            if hi_text and hi_text in raw_text:
-                replaced = raw_text.replace(hi_text, f"{{\\c{two_tone_hi_color}&}}{hi_text}{{\\c{two_tone_base_color}&}}")
-                wrapped = wrap_text(replaced, max_c + 20)
-                text_payload = "\\N".join(wrapped)
-                events.append(f"Dialogue: 0,{start},{end},Caption,,0,0,0,,{text_payload}")
-                continue
+        # 🎨 Universal 2-Tone Kinetic Subtitle Engine (Dynamic Tag & Keyword Parser)
+        import re
+        raw_hi = two_tone.get("highlight_color", "#FFE500") if two_tone_enabled else "#FFE500"
+        raw_base = two_tone.get("base_color", "#FFFFFF") if two_tone_enabled else "#FFFFFF"
+        clean_hi = hex_to_ass_color(raw_hi).rstrip("&")
+        clean_base = hex_to_ass_color(raw_base).rstrip("&")
 
+        # 1. Cleanly wrap text first so ASS tags are never split across lines
         wrapped = wrap_text(raw_text, max_c)
         text_payload = "\\N".join(wrapped)
+
+        # 2. Inject ASS 2-Tone color tags
+        if "[" in text_payload and "]" in text_payload:
+            text_payload = re.sub(
+                r'\[([^\]]+)\]',
+                rf'{{\\c{clean_hi}&}}\1{{\\c{clean_base}&}}',
+                text_payload
+            )
+        elif "**" in text_payload:
+            text_payload = re.sub(
+                r'\*\*([^\*]+)\*\*',
+                rf'{{\\c{clean_hi}&}}\1{{\\c{clean_base}&}}',
+                text_payload
+            )
+        elif two_tone_enabled:
+            hi_text = two_tone.get("highlight_text", "").strip()
+            if hi_text and hi_text in text_payload:
+                text_payload = text_payload.replace(
+                    hi_text,
+                    f"{{\\c{clean_hi}&}}{hi_text}{{\\c{clean_base}&}}"
+                )
+
         events.append(f"Dialogue: 0,{start},{end},Caption,,0,0,0,,{text_payload}")
 
     return header + "\n".join(events) + "\n"
@@ -523,6 +549,15 @@ class SovereignPresetEngine:
             crop_w = int(w * 100 / video_zoom)
             crop_h = int(h * 100 / video_zoom)
             vf_filters.append(f"crop={crop_w}:{crop_h},scale={w}:{h}")
+
+        # 🛡️ Universal Copyright Shield Middleware (Anti-Content ID Shield)
+        cp_defense = style.get("copyright_defense", {}) or {}
+        if cp_defense.get("horizontal_mirror", False) or style.get("enable_copyright_shield", False):
+            vf_filters.append("hflip")
+        scale_mult = float(cp_defense.get("scale_multiplier", 1.0) or 1.0)
+        if scale_mult > 1.0:
+            # Micro-zoom to break source video fingerprint
+            vf_filters.append(f"scale=trunc(iw*{scale_mult}/2)*2:trunc(ih*{scale_mult}/2)*2,crop={w}:{h}")
 
         # Top Bar & Bottom Bar Frame Injection (Only when letterbox is active)
         if not is_fullscreen:

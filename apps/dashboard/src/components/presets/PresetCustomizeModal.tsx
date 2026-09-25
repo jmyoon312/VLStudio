@@ -165,6 +165,7 @@ export const PresetCustomizeModal: React.FC<PresetCustomizeModalProps> = ({
 
     // Selected Bible section for interactive accordion view
     const [selectedBibleSection, setSelectedBibleSection] = useState<string | null>(null);
+    const [isTheaterMode, setIsTheaterMode] = useState<boolean>(false);
 
     useEffect(() => {
         if (!preset) return;
@@ -176,12 +177,23 @@ export const PresetCustomizeModal: React.FC<PresetCustomizeModalProps> = ({
         setContentRules(preset.content_rules || []);
         setCloneName(`${preset.name} (커스텀 복제본)`);
 
-        const style = preset.style || {};
+        const rawPreset = preset as any;
+        const style = preset.style || rawPreset.blueprint || rawPreset.manifest || rawPreset.layout || {};
         const vg = style.visual_geometry || {};
         const ep = style.editing_pacing || {};
         const ad = style.audio_dsp || {};
-        const bible = style.production_bible_17 || (preset as any).production_bible_17 || {};
+        const bible = style.production_bible_17 
+            || rawPreset.production_bible_17 
+            || rawPreset.manifest?.production_bible_17 
+            || rawPreset.layout?.production_bible_17 
+            || rawPreset.blueprint?.production_bible_17 
+            || {};
         setFullBible(bible);
+
+        const isTheater = vg.container_type === 'sandwich_theater' 
+            || rawPreset.container_type === 'sandwich_theater' 
+            || (preset.name && preset.name.includes('눈물한가득'));
+        setIsTheaterMode(Boolean(isTheater));
 
         // 🌟 1.5. Container Archetype & Specialized Modern Form Factors
         const rawContainer = vg.container_type || (vg.canvas_type === 'fullscreen_overlay' ? 'floating_capsule' : 'letterbox_sandwich');
@@ -298,7 +310,12 @@ export const PresetCustomizeModal: React.FC<PresetCustomizeModalProps> = ({
         setCaptionMarginBottom(cap.margin_v_pct || 28);
 
         // 5. Reference Video Frame, Preserved Keyframes & Clean Thumbnail
-        const kfs = (preset as any).keyframes || (preset as any).extracted_keyframes || [];
+        const kfs = (preset as any).keyframes 
+            || (preset as any).extracted_keyframes 
+            || style.keyframes 
+            || (preset as any).manifest?.keyframes 
+            || (preset as any).blueprint?.keyframes 
+            || [];
         setKeyframesList(kfs);
         setSelectedKeyframeIndex(0);
 
@@ -343,6 +360,49 @@ export const PresetCustomizeModal: React.FC<PresetCustomizeModalProps> = ({
         setBgmVolumeDb(ad.bgm_volume_db ?? -20.0);
         setVocalDucking(ad.vocal_ducking ?? true);
     }, [preset, open]);
+
+    // 🌟 Self-Healing: 비동기 프리셋 온전 데이터(17대 바이블, 실측 키프레임) 자동 하이드레이션
+    useEffect(() => {
+        if (!open || !preset) return;
+        const targetId = preset.id || (preset as any).preset_id || (preset as any).benchmark_id;
+        if (!targetId) return;
+
+        const needsBible = !fullBible || Object.keys(fullBible).length === 0;
+        const needsKeyframes = !keyframesList || keyframesList.length === 0;
+
+        if (needsBible || needsKeyframes) {
+            fetch(`/api/sovereign-presets/${encodeURIComponent(targetId)}`)
+                .then(res => res.ok ? res.json() : null)
+                .then(hydrated => {
+                    if (!hydrated) return;
+                    if (needsBible) {
+                        const hydBible = hydrated.production_bible_17 
+                            || hydrated.style?.production_bible_17 
+                            || hydrated.manifest?.production_bible_17 
+                            || hydrated.layout?.production_bible_17 
+                            || hydrated.blueprint?.production_bible_17;
+                        if (hydBible && Object.keys(hydBible).length > 0) {
+                            setFullBible(hydBible);
+                        }
+                    }
+                    if (needsKeyframes) {
+                        const hydKfs = hydrated.keyframes 
+                            || hydrated.extracted_keyframes 
+                            || hydrated.style?.keyframes;
+                        if (hydKfs && hydKfs.length > 0) {
+                            setKeyframesList(hydKfs);
+                            if (!videoBgUrl && hydKfs[0]?.url) {
+                                setVideoBgUrl(hydKfs[0].url);
+                            }
+                            if (!refThumbnailUrl && hydKfs[0]?.url) {
+                                setRefThumbnailUrl(hydKfs[0].url);
+                            }
+                        }
+                    }
+                })
+                .catch(() => {});
+        }
+    }, [open, preset, fullBible, keyframesList, videoBgUrl, refThumbnailUrl]);
 
     if (!preset) return null;
 
@@ -1915,16 +1975,22 @@ export const PresetCustomizeModal: React.FC<PresetCustomizeModalProps> = ({
                                         ) : (
                                             /* CASE: 정통 레터박스 샌드위치 / 상단 띠형 (Type A & Other Archetypes) */
                                             <>
-                                                {/* Layer 1: Top Black Bar & 2-Tier Header */}
+                                                {/* Layer 1: Top Black Bar & 2-Tier Header (Burgundy Velvet Curtain if Theater Mode) */}
                                                 <div
-                                                    className="w-full z-20 flex flex-col items-center justify-center px-2 py-1 transition-all"
+                                                    className="w-full z-20 flex flex-col items-center justify-center px-2 py-1 transition-all relative overflow-hidden"
                                                     style={{
                                                         backgroundColor: topBarBgColor,
+                                                        background: isTheaterMode 
+                                                            ? 'linear-gradient(180deg, #4A0E17 0%, #2A080D 75%, #150305 100%)' 
+                                                            : topBarBgColor,
                                                         minHeight: `${topBarHeightPct}%`,
                                                     }}
                                                 >
+                                                    {isTheaterMode && (
+                                                        <div className="absolute inset-x-0 top-0 h-full pointer-events-none opacity-40 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-amber-400/30 via-rose-950/20 to-transparent" />
+                                                    )}
                                                     <span
-                                                        className="font-bold text-center leading-tight truncate w-full transition-all"
+                                                        className="font-bold text-center leading-tight truncate w-full transition-all relative z-10"
                                                         style={{
                                                             color: headerLine1Color,
                                                             fontSize: `${Math.max(11, Math.round(headerLine1Size * 0.45))}px`,
@@ -1935,7 +2001,7 @@ export const PresetCustomizeModal: React.FC<PresetCustomizeModalProps> = ({
                                                         {headerLine1Text}
                                                     </span>
                                                     <span
-                                                        className="font-black text-center leading-tight truncate w-full transition-all mt-0.5"
+                                                        className="font-black text-center leading-tight truncate w-full transition-all mt-0.5 relative z-10"
                                                         style={{
                                                             color: headerLine2Color,
                                                             fontSize: `${Math.max(13, Math.round(headerLine2Size * 0.48))}px`,
@@ -2046,8 +2112,28 @@ export const PresetCustomizeModal: React.FC<PresetCustomizeModalProps> = ({
                                                     </div>
                                                 )}
 
-                                                {/* Layer 5: Bottom Source Bar & Black Band (Only if explicitly enabled) */}
-                                                {bottomSourceEnabled && (
+                                                {/* Layer 5: Bottom Source Bar & Black Band (Or Cinema Seats Silhouette if Theater Mode) */}
+                                                {isTheaterMode ? (
+                                                    <div
+                                                        className="w-full z-20 flex flex-col items-center justify-end px-2 pt-1 pb-1 transition-all border-t border-rose-950/40 relative overflow-hidden"
+                                                        style={{
+                                                            minHeight: `${Math.max(10, bottomBarHeightPct)}%`,
+                                                            background: 'linear-gradient(0deg, #0A0203 0%, #1A0507 70%, transparent 100%)'
+                                                        }}
+                                                    >
+                                                        {/* Cinema Seats Silhouette */}
+                                                        <div className="w-full flex items-center justify-center gap-1 opacity-70 pb-0.5">
+                                                            {[...Array(6)].map((_, seatIdx) => (
+                                                                <div key={seatIdx} className="w-6 h-3.5 rounded-t-md bg-neutral-900 border-t border-rose-900/40 shadow-xs" />
+                                                            ))}
+                                                        </div>
+                                                        {bottomSourceEnabled && (
+                                                            <span className="text-[8.5px] text-neutral-400 truncate font-medium">
+                                                                {bottomSourceText}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                ) : bottomSourceEnabled ? (
                                                     <div
                                                         className="w-full z-20 flex items-center justify-center px-2 transition-all border-t border-white/5"
                                                         style={{
@@ -2059,7 +2145,7 @@ export const PresetCustomizeModal: React.FC<PresetCustomizeModalProps> = ({
                                                             {bottomSourceText}
                                                         </span>
                                                     </div>
-                                                )}
+                                                ) : null}
                                             </>
                                         )}
                                     </div>
@@ -2179,7 +2265,7 @@ export const PresetCustomizeModal: React.FC<PresetCustomizeModalProps> = ({
                             {deleting ? '삭제 중...' : '프리셋 삭제'}
                         </Button>
                         <span className="text-[11px] text-muted-foreground font-mono hidden sm:inline">
-                            ID: {preset.id}
+                            ID: {preset.id || (preset as any).preset_id || (preset as any).benchmark_id || '-'}
                         </span>
                     </div>
 

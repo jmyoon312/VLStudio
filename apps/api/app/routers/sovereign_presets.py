@@ -724,15 +724,87 @@ def get_sovereign_preset(preset_id: str) -> Dict[str, Any]:
     if preset_id == "live-logs":
         return get_live_logs()
 
+    import urllib.parse
+    clean_id = urllib.parse.unquote(preset_id)
     filepath = PRESETS_DIR / f"{preset_id}.json"
     if not filepath.exists():
+        filepath = PRESETS_DIR / f"{clean_id}.json"
+
+    data = None
+    if filepath.exists():
+        try:
+            with open(filepath, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        except Exception as e:
+            logger.warning(f"Error reading preset file {filepath}: {e}")
+
+    if not data:
+        # Fallback to SQLite DB (ShortsTemplate)
+        from ..database import SessionLocal
+        from ..models import ShortsTemplate
+        db = SessionLocal()
+        try:
+            tmpl = db.query(ShortsTemplate).filter(
+                (ShortsTemplate.id == preset_id) | (ShortsTemplate.id == clean_id) |
+                (ShortsTemplate.name == preset_id) | (ShortsTemplate.name == clean_id)
+            ).first()
+            if tmpl:
+                manifest = tmpl.manifest or {}
+                layout = tmpl.layout or {}
+                blueprint = manifest if manifest else layout
+                bible = blueprint.get("production_bible_17", {})
+                data = {
+                    "id": tmpl.id,
+                    "name": tmpl.name,
+                    "category": tmpl.badge or "custom",
+                    "description": tmpl.description,
+                    "archetype": tmpl.archetype,
+                    "style": blueprint,
+                    "blueprint": blueprint,
+                    "production_bible_17": bible,
+                    "recipe": tmpl.description or "",
+                    "content_rules": [
+                        f"상단 바 높이: {blueprint.get('visual_geometry', {}).get('top_bar', {}).get('height_pct', 15)}%",
+                        f"컷 전환 주기: {blueprint.get('editing_pacing', {}).get('avg_cut_sec', 1.8)}초",
+                        f"WPM 발화 속도: {blueprint.get('audio_dsp', {}).get('wpm', 340)}"
+                    ]
+                }
+        finally:
+            db.close()
+
+    if not data:
         raise HTTPException(status_code=404, detail="Preset not found")
 
-    try:
-        with open(filepath, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error reading preset: {e}")
+    # Auto-hydrate keyframes if missing from presets/keyframes directory
+    if not data.get("keyframes"):
+        for candidate_id in [data.get("id"), preset_id, clean_id]:
+            if not candidate_id:
+                continue
+            kf_dir = PRESETS_DIR / "keyframes" / candidate_id
+            if kf_dir.exists():
+                kfs = []
+                for kf_file in sorted(kf_dir.glob("*.jpg")):
+                    kfs.append({
+                        "index": len(kfs),
+                        "label": kf_file.stem,
+                        "url": f"/api/files/stream?path={kf_file}",
+                        "local_path": str(kf_file)
+                    })
+                if kfs:
+                    data["keyframes"] = kfs
+                    data["extracted_keyframes"] = kfs
+                    if not data.get("thumbnail_url"):
+                        data["thumbnail_url"] = kfs[0]["url"]
+                    break
+
+    # Ensure production_bible_17 is at top-level
+    if not data.get("production_bible_17"):
+        style_bible = (data.get("style") or {}).get("production_bible_17")
+        manifest_bible = (data.get("manifest") or {}).get("production_bible_17")
+        layout_bible = (data.get("layout") or {}).get("production_bible_17")
+        data["production_bible_17"] = style_bible or manifest_bible or layout_bible or {}
+
+    return data
 
 
 @router.put("/{preset_id}")

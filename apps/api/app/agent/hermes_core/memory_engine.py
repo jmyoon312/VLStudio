@@ -205,11 +205,14 @@ class HermesMemoryEngine:
             mem.active_target_audience = mem.active_target_audience or "대중 숏폼 시청자"
 
     @classmethod
-    def build_memory_context_prompt(cls, mem: WorkingMemory, current_prompt: str) -> str:
+    def build_memory_context_prompt(cls, mem: Optional[WorkingMemory], current_prompt: str) -> str:
         """
         Builds authoritative, structured Working Memory prompt block (Mem0 / Letta Sovereign Protocol).
         Injected into the LLM system instructions to guarantee continuous recall.
         """
+        if not mem:
+            return ""
+
         lines = [
             "======================================================================",
             "🧠 [Hermes Active Working Memory & Context Slot (Mem0 Sovereign Memory)]",
@@ -296,7 +299,7 @@ class HermesMemoryEngine:
 
         # Now append current user prompt
         prompt_with_mutation_cue = current_prompt
-        if mem.is_mutation_prompt and mem.mutation_type == "voice_change" and mem.active_script:
+        if mem and mem.is_mutation_prompt and mem.mutation_type == "voice_change" and mem.active_script:
             prompt_with_mutation_cue = (
                 f"{current_prompt}\n\n"
                 f"[Hermes Working Memory 지시: 이전 활성 대본을 유지하며 요청된 목소리(여성 보이스 Aoede 또는 Kore)로 "
@@ -339,7 +342,7 @@ class HermesMemoryEngine:
                 messages.append({"role": role_mapped, "content": str(c).strip()})
 
         prompt_with_mutation_cue = current_prompt
-        if mem.is_mutation_prompt and mem.mutation_type == "voice_change" and mem.active_script:
+        if mem and mem.is_mutation_prompt and mem.mutation_type == "voice_change" and mem.active_script:
             prompt_with_mutation_cue = (
                 f"{current_prompt}\n\n"
                 f"[Hermes Working Memory 지시: 이전 활성 대본을 유지하며 요청된 목소리(여성 보이스 Aoede 또는 Kore / supertonic_ko_female)로 "

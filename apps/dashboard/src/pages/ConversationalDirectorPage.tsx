@@ -1073,49 +1073,54 @@ export const ConversationalDirectorPage: React.FC = () => {
             {/* Center Chat & Studio Canvas */}
             <main className="flex-1 flex flex-col h-full min-w-0 bg-background overflow-hidden relative">
                 {/* Modern Director Toolbar Header (Codex Desktop 1:1 Clean Header) */}
-                <header className="h-12 border-b border-border/60 px-4 flex items-center justify-between shrink-0 bg-card/50 backdrop-blur-md z-10">
-                    {/* Left: Active Thread Title & Preset Status */}
+                <header className="h-12 border-b border-border/60 px-4 flex items-center justify-between shrink-0 bg-card/50 backdrop-blur-md z-10 gap-3">
+                    {/* Left: Active Thread Title (Isolated to prevent shifting other buttons) */}
                     <div className="flex items-center gap-2.5 min-w-0">
-                        <span className="font-semibold text-xs sm:text-sm text-foreground truncate max-w-[200px] sm:max-w-[320px]">
+                        <span 
+                            className="font-semibold text-xs sm:text-sm text-foreground truncate max-w-[200px] sm:max-w-[340px]"
+                            title={threads.find(t => t.id === activeThreadId)?.title || '신규 연출 세션'}
+                        >
                             {threads.find(t => t.id === activeThreadId)?.title || '신규 연출 세션'}
                         </span>
-
-                        {activePreset ? (
-                            <div 
-                                onClick={() => setCustomizeModalOpen(true)}
-                                className="shrink-0 flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-border/80 bg-muted/40 hover:bg-muted text-xs cursor-pointer transition-colors shadow-2xs whitespace-nowrap"
-                                title="클릭하여 쇼츠 스타일 편집 열기"
-                            >
-                                <SlidersHorizontal className="w-3 h-3 text-primary shrink-0" />
-                                <span className="font-medium text-foreground truncate max-w-[120px]">{activePreset.name}</span>
-                            </div>
-                        ) : (
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setLoadModalOpen(true)}
-                                className="h-7 text-xs border-dashed gap-1 text-muted-foreground shrink-0 px-2"
-                            >
-                                <SlidersHorizontal className="w-3 h-3" />
-                                <span>프리셋 선택</span>
-                            </Button>
-                        )}
                     </div>
 
-                    {/* Right: Sidecar Browser Toggle, Video Panel Toggle & Quick Actions */}
-                    <div className="flex items-center gap-1.5 shrink-0">
-                        {/* Live Sidecar Browser Toggle Button */}
+                    {/* Right: Preset Management, Workspace Right Panel Toggle & Quick Actions */}
+                    <div className="flex items-center gap-2 shrink-0">
+                        {/* Selected Preset Badge/Chip (Shows current preset with quick edit & remove) */}
+                        {activePreset && (
+                            <div 
+                                className="flex items-center gap-1.5 pl-2.5 pr-1.5 py-1 rounded-lg border border-primary/30 bg-primary/10 hover:bg-primary/15 text-xs text-primary transition-all shadow-2xs whitespace-nowrap"
+                            >
+                                <button
+                                    type="button"
+                                    onClick={() => setCustomizeModalOpen(true)}
+                                    className="flex items-center gap-1.5 font-semibold hover:underline cursor-pointer"
+                                    title="스타일 상세 설정(편집) 열기"
+                                >
+                                    <SlidersHorizontal className="w-3 h-3 text-primary shrink-0" />
+                                    <span className="truncate max-w-[130px]">{activePreset.name}</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setActivePreset(null)}
+                                    className="p-0.5 text-primary/70 hover:text-primary rounded hover:bg-primary/20 cursor-pointer"
+                                    title="프리셋 적용 해제"
+                                >
+                                    <X className="w-3 h-3" />
+                                </button>
+                            </div>
+                        )}
+
+                        {/* Always-Visible Fixed "프리셋 선택" Button */}
                         <Button
-                            variant={sidecarBrowserOpen ? "default" : "outline"}
+                            variant="outline"
                             size="sm"
-                            onClick={() => setSidecarBrowserOpen(!sidecarBrowserOpen)}
-                            className={`h-7 px-2.5 text-xs font-medium gap-1.5 rounded-lg shadow-2xs transition-all ${
-                                sidecarBrowserOpen ? 'bg-primary text-primary-foreground font-semibold' : 'text-foreground hover:bg-muted'
-                            }`}
-                            title="우측 실시간 내장 브라우저 뷰 열기/닫기"
+                            onClick={() => setLoadModalOpen(true)}
+                            className="h-7 text-xs gap-1.5 border-border/80 hover:bg-muted font-medium shrink-0 px-2.5 shadow-2xs text-foreground cursor-pointer"
+                            title="프리셋 보관함 열기 (다른 프리셋 선택 및 관리)"
                         >
-                            <Globe className="w-3.5 h-3.5" />
-                            <span className="hidden md:inline">실시간 브라우저</span>
+                            <SlidersHorizontal className="w-3 h-3 text-primary" />
+                            <span>프리셋 선택</span>
                         </Button>
 
                         {/* Workspace Right Panel Toggle (Always Visible) */}

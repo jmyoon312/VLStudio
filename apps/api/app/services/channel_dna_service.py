@@ -73,7 +73,12 @@ class ChannelDNAService:
 
             try:
                 logger.info(f"[ChannelDNA] Fetching live shorts metadata (Recent 6 + Popular 6) from: {channel_url}")
-                target_fetch_url = channel_url.rstrip("/")
+                target_fetch_url = channel_url.strip().rstrip("/")
+                if target_fetch_url.startswith("@"):
+                    target_fetch_url = f"https://www.youtube.com/{target_fetch_url}"
+                elif not target_fetch_url.startswith("http"):
+                    target_fetch_url = f"https://www.youtube.com/@{target_fetch_url}"
+
                 if not target_fetch_url.endswith("/shorts") and not target_fetch_url.endswith("/videos"):
                     target_fetch_url = f"{target_fetch_url}/shorts"
 
@@ -1703,6 +1708,7 @@ class ChannelDNAService:
             logger.info(f"✅ [ChannelDNAService] Successfully exported Benchmark {benchmark_id} to Sovereign Preset: {preset_id}")
             return {
                 "success": True,
+                **preset_payload,
                 "preset_id": preset_id,
                 "name": clean_name,
                 "file_path": str(preset_file),

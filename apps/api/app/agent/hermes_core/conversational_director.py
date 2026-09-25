@@ -193,7 +193,7 @@ class ConversationalDirector:
 - 오프닝 훅 공식: {nd.get('opening_hook_type', '직타 인터뷰 질문 훅 (0~2초 내 즉시 시작)')}
 - 전환 접속사 패턴: {', '.join(nd.get('transition_words', [])) if nd.get('transition_words') else '심지어, 알고 보니, 충격적이게도, 반면'}
 
-{bible_header}
+{bible_text}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 """
 
@@ -368,6 +368,9 @@ ViraLoop Studio 환경에서 사용자와 협력하며 고속 멀티모달 분�
    - 선택된 프리셋 스타일에 맞추어 `synthesize_voice_speech`(Supertonic/Kokoro/Typecast/ElevenLabs/Gemini)로 음성을 합성하고, `montage_render_video`로 영상을 완성한 후 `montage_export_capcut_draft`로 CapCut에 등록합니다.
 
 5. [올인원 원테이크 (All-In-One)]: 사용자가 "아이템 찾아서 레퍼런스 따고 영상까지 한번에 다 만들어줘"라고 전 과정을 명시적으로 요구할 때만 1~4단계를 연쇄 호출하여 풀사이클을 완수합니다.
+
+[전역 2-Tone 키워드 대본 규칙 (Universal 2-Tone Kinetic Script Rule)]
+모든 대본/스크립트 작성 시, 각 문장이나 씬에서 시각적으로 가장 강력한 감정·반전·충격을 주는 핵심 단어 1~2개를 반드시 [대괄호]로 감싸서 출력하십시오 (예: "의사는 어머니의 [마지막 통장]을 열어보고 오열했습니다", "평생 구두쇠였던 아버지가 남긴 [낡은 수첩 하나]"). ViraLoop 자막 렌더러가 이 대괄호를 감지하여 해당 단어에만 2-Tone 골드 옐로우 하이라이트 자막을 100% 자동 컴파일합니다.
 
 [보유한 로컬 자율 제어 및 MCP 도구]
 필요 시 다음 도구(Function Calling)를 호출하여 로컬 컴퓨터 및 미디어 작업을 직접 수행할 수 있습니다:
@@ -891,6 +894,11 @@ ViraLoop Studio 환경에서 사용자와 협력하며 고속 멀티모달 분�
         is_video_task = any(kw in clean_p for kw in ["영상", "숏폼", "프리셋", "대본", "자막", "타임라인", "컷", "씬", "video", "preset", "script", "제작", "편집", "더빙", "보이스"])
         is_trend_query = any(k in prompt for k in ["최근", "급상승", "트렌드", "뉴스", "검색", "실시간", "통계", "인기", "추천", "키워드", "2026"])
         needs_tools = any(kw in clean_p for kw in tool_keywords)
+        if channel_forensic_context:
+            # 🎯 채널 분석 포렌식 리포트 종합 단계는 이미 영상 다운로드와 시각 실측이 완료된 상태이므로,
+            # 불필요한 도구 루프(ReAct Loop)를 타지 않고 즉시 100점 프리셋 리포트 텍스트 스트리밍을 수행합니다.
+            needs_tools = False
+
         wants_voice = any(k in clean_p for k in voice_keywords)
         mode_str = "자율 도구 실행 (Tool-Path)" if needs_tools else "초고속 즉시 대화 (Fast-Path)"
 
@@ -1345,20 +1353,68 @@ ViraLoop Studio 환경에서 사용자와 협력하며 고속 멀티모달 분�
 
             for candidate in model_candidates:
                 try:
-                    if not needs_tools and not channel_forensic_context:
-                        # ⚡ 0.2s Fast-Path for simple conversational questions
-                        fast_sys = f"당신은 ViraLoop Studio의 지능형 파트너 AI 어시스턴트입니다. 친절하고 자연스러운 한국어로 즉시 핵심을 답변하세요."
-                        req_messages = [
-                            {"role": "system", "content": fast_sys},
-                            {"role": "user", "content": prompt}
-                        ]
-                        req_kwargs = {
-                            "model": candidate,
-                            "messages": req_messages,
-                            "stream": True,
-                            "max_tokens": 4096,
-                            "timeout": 20.0
-                        }
+                    if not needs_tools:
+                        if not channel_forensic_context:
+                            # ⚡ 0.2s Fast-Path for simple conversational questions
+                            fast_sys = f"당신은 ViraLoop Studio의 지능형 파트너 AI 어시스턴트입니다. 친절하고 자연스러운 한국어로 즉시 핵심을 답변하세요."
+                            req_messages = [
+                                {"role": "system", "content": fast_sys},
+                                {"role": "user", "content": prompt}
+                            ]
+                            req_kwargs = {
+                                "model": candidate,
+                                "messages": req_messages,
+                                "stream": True,
+                                "max_tokens": 4096,
+                                "timeout": 20.0
+                            }
+                        else:
+                            # 📊 Forensic Synthesis Path (No Tools needed, Full Production Bible + Forensic Context)
+                            logger.info(f"📊 [ConversationalDirector] OmniRoute Forensic Synthesis direct stream (model={candidate})...")
+                            system_prompt = self._build_hermes_system_prompt(
+                                provider_name="ViraLoop OmniRoute",
+                                model_name=candidate,
+                                current_date_str=current_date_str,
+                                preset_context=preset_context,
+                                search_context=search_context,
+                                memory_context=memory_context,
+                                channel_forensic_context=channel_forensic_context
+                            )
+                            req_messages = hermes_memory_engine.format_openai_messages(
+                                base_system_prompt=system_prompt,
+                                history=history,
+                                current_prompt=prompt,
+                                mem=working_mem
+                            )
+                            # 📸 Multimodal Vision Attachment for OmniRoute (OpenAI-compatible image_url Base64)
+                            if keyframe_images and isinstance(keyframe_images, list) and req_messages:
+                                import base64
+                                last_msg = req_messages[-1]
+                                if last_msg.get("role") == "user":
+                                    raw_text = str(last_msg.get("content") or "")
+                                    user_parts = [{"type": "text", "text": raw_text}]
+                                    for kf_p in keyframe_images[:6]:
+                                        kf_path = Path(kf_p)
+                                        if kf_path.exists() and kf_path.stat().st_size > 500:
+                                            try:
+                                                b64 = base64.b64encode(kf_path.read_bytes()).decode("ascii")
+                                                user_parts.append({
+                                                    "type": "image_url",
+                                                    "image_url": {"url": f"data:image/jpeg;base64,{b64}"}
+                                                })
+                                            except Exception:
+                                                pass
+                                    if len(user_parts) > 1:
+                                        last_msg["content"] = user_parts
+
+                            req_kwargs = {
+                                "model": candidate,
+                                "messages": req_messages,
+                                "stream": True,
+                                "max_tokens": 8192,
+                                "timeout": 60.0
+                            }
+
                         stream = await client.chat.completions.create(**req_kwargs)
                         async for chunk in stream:
                             if not chunk.choices:
@@ -2121,8 +2177,11 @@ ViraLoop Studio 환경에서 사용자와 협력하며 고속 멀티모달 분�
         import re
         clean_p = prompt.strip().lower()
         url_match = re.search(r'(https?://[^\s]+|@[a-zA-Z0-9_\uac00-\ud7a3\.\-]+)', prompt)
-
-        is_channel_url = bool(url_match) and any(marker in (url_match.group(1) if url_match else "") for marker in ["/@", "/channel/", "/c/", "youtube.com/@"])
+        matched_target = url_match.group(1).strip() if url_match else ""
+        is_channel_url = bool(url_match) and (
+            matched_target.startswith("@") or
+            any(marker in matched_target for marker in ["/@", "/channel/", "/c/", "youtube.com/@", "youtu.be/"])
+        )
         is_preset_or_dna_intent = any(kw in clean_p for kw in [
             "프리셋", "preset", "dna", "채널 분석", "채널분석", "스타일", "발골",
             "만들어", "만들어점", "만들어줘", "생성", "추출", "등록", "복제", "따라해"

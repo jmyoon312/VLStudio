@@ -195,7 +195,12 @@ export const SavePresetToFolderModal: React.FC<SavePresetToFolderModalProps> = (
                     const data = await res.json();
                     toast.success(`'${presetName}' 프리셋이 [${targetFolder.name}] 폴더에 성공적으로 저장되었습니다.`);
                     if (data.data) {
-                        onSaved?.(data.data);
+                        const savedObj = {
+                            ...data.data,
+                            id: data.data.id || data.data.preset_id,
+                            style: data.data.style || data.data.blueprint
+                        };
+                        onSaved?.(savedObj);
                     }
                     onOpenChange(false);
                 } else {
