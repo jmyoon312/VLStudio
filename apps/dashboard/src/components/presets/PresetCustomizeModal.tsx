@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
     Sliders, Copy, Save, Sparkles, X, Plus, Type, Eye, Trash2, Check,
     Layers, Clock, Volume2, BookOpen, Film, Flame, Shield, HelpCircle,
-    RotateCcw, Sparkle, Video, ExternalLink, Split, Palette
+    RotateCcw, Sparkle, Video, ExternalLink, Split, Palette, Layout, MousePointer, Tag
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { SovereignPreset } from './PresetLibraryModal';
@@ -54,6 +54,43 @@ export const PresetCustomizeModal: React.FC<PresetCustomizeModalProps> = ({
     const [newRuleInput, setNewRuleInput] = useState('');
 
     // 2. Visual Geometry (6-Tier Layers)
+    // 🌟 5-Tier Header Container Archetype: floating_capsule | letterbox_sandwich | full_width_band | social_post_bar | none
+    const [containerType, setContainerType] = useState<'floating_capsule' | 'letterbox_sandwich' | 'full_width_band' | 'social_post_bar' | 'none'>('letterbox_sandwich');
+
+    // Floating Capsule Settings (패션탐정냥 Type B)
+    const [capsuleBgColor, setCapsuleBgColor] = useState<string>('#000000');
+    const [capsuleBorderRadius, setCapsuleBorderRadius] = useState<number>(24);
+    const [capsuleTopY, setCapsuleTopY] = useState<number>(8.0);
+    const [capsuleWidthPct, setCapsuleWidthPct] = useState<number>(88);
+
+    // Sub-tape Sticker Label (서브 테이프 라벨)
+    const [subTapeEnabled, setSubTapeEnabled] = useState<boolean>(false);
+    const [subTapeText, setSubTapeText] = useState<string>('손도 저렇게 작은 줄 몰랐음');
+    const [subTapeEmoji, setSubTapeEmoji] = useState<string>('😲💅');
+    const [subTapeBgColor, setSubTapeBgColor] = useState<string>('#FDE68A');
+    const [subTapeTextColor, setSubTapeTextColor] = useState<string>('#1E293B');
+    const [subTapeTopY, setSubTapeTopY] = useState<number>(19.5);
+
+    // Visual Pointer (시각 포인터/곡선 화살표)
+    const [pointerEnabled, setPointerEnabled] = useState<boolean>(false);
+    const [pointerLabel, setPointerLabel] = useState<string>('168 vs 163');
+    const [pointerColor, setPointerColor] = useState<string>('#EF4444');
+    const [pointerX, setPointerX] = useState<number>(65);
+    const [pointerY, setPointerY] = useState<number>(44);
+
+    // Two-tone Keyword Caption (2톤 강조 자막)
+    const [twoToneEnabled, setTwoToneEnabled] = useState<boolean>(false);
+    const [twoToneHighlight, setTwoToneHighlight] = useState<string>('키가 5cm');
+    const [twoToneHighlightColor, setTwoToneHighlightColor] = useState<string>('#FFE500');
+    const [twoToneBaseText, setTwoToneBaseText] = useState<string>('더 큰');
+    const [twoToneBaseColor, setTwoToneBaseColor] = useState<string>('#FFFFFF');
+
+    // Top Source Label
+    const [topSourceEnabled, setTopSourceEnabled] = useState<boolean>(false);
+    const [topSourceText, setTopSourceText] = useState<string>('출처: Melon, 2025 MMA 에스파');
+    const [topSourceColor, setTopSourceColor] = useState<string>('#CBD5E1');
+    const [topSourceTopY, setTopSourceTopY] = useState<number>(4.0);
+
     const [topBarHeightPct, setTopBarHeightPct] = useState<number>(18.3);
     const [topBarBgColor, setTopBarBgColor] = useState<string>('#000000');
     
@@ -145,6 +182,49 @@ export const PresetCustomizeModal: React.FC<PresetCustomizeModalProps> = ({
         const ad = style.audio_dsp || {};
         const bible = style.production_bible_17 || (preset as any).production_bible_17 || {};
         setFullBible(bible);
+
+        // 🌟 1.5. Container Archetype & Specialized Modern Form Factors
+        const rawContainer = vg.container_type || (vg.canvas_type === 'fullscreen_overlay' ? 'floating_capsule' : 'letterbox_sandwich');
+        setContainerType(rawContainer);
+
+        // Floating Capsule
+        const capBox = vg.floating_capsule || {};
+        setCapsuleBgColor(capBox.bg_color || '#000000');
+        setCapsuleBorderRadius(capBox.border_radius_px ?? 24);
+        setCapsuleTopY(capBox.top_y_pct ?? 8.0);
+        setCapsuleWidthPct(capBox.width_pct ?? 88);
+
+        // Sub-tape sticker
+        const subTape = vg.sub_tape_label || {};
+        setSubTapeEnabled(Boolean(subTape.enabled));
+        setSubTapeText(subTape.text || '손도 저렇게 작은 줄 몰랐음');
+        setSubTapeEmoji(subTape.emoji || '😲💅');
+        setSubTapeBgColor(subTape.bg_color || '#FDE68A');
+        setSubTapeTextColor(subTape.text_color || '#1E293B');
+        setSubTapeTopY(subTape.top_y_pct ?? 19.5);
+
+        // Visual pointers
+        const ptr = vg.visual_pointers || {};
+        setPointerEnabled(Boolean(ptr.enabled));
+        setPointerLabel(ptr.label || '168 vs 163');
+        setPointerColor(ptr.color || '#EF4444');
+        setPointerX(ptr.target_x_pct ?? 65);
+        setPointerY(ptr.target_y_pct ?? 44);
+
+        // Two-tone caption
+        const twoTone = vg.two_tone_caption || {};
+        setTwoToneEnabled(Boolean(twoTone.enabled));
+        setTwoToneHighlight(twoTone.highlight_text || '키가 5cm');
+        setTwoToneHighlightColor(twoTone.highlight_color || '#FFE500');
+        setTwoToneBaseText(twoTone.base_text || '더 큰');
+        setTwoToneBaseColor(twoTone.base_color || '#FFFFFF');
+
+        // Top source
+        const topSrc = vg.top_source || {};
+        setTopSourceEnabled(Boolean(topSrc.enabled));
+        setTopSourceText(topSrc.text || '출처: Melon, 2025 MMA 에스파');
+        setTopSourceColor(topSrc.color || '#CBD5E1');
+        setTopSourceTopY(topSrc.top_pct ?? 4.0);
 
         // 2. Top Bar & 2-Tier Header
         const topBar = vg.top_bar || style.top_header || {};
@@ -280,12 +360,55 @@ export const PresetCustomizeModal: React.FC<PresetCustomizeModalProps> = ({
 
     const buildFullStylePayload = () => {
         const baseStyle = preset.style || {};
+        const isLetterbox = containerType === 'letterbox_sandwich';
         const updatedVg = {
-            canvas_type: 'sandwich',
+            container_type: containerType,
+            canvas_type: isLetterbox ? 'sandwich' : 'fullscreen_overlay',
+            floating_capsule: {
+                enabled: containerType === 'floating_capsule',
+                bg_color: capsuleBgColor,
+                border_radius_px: capsuleBorderRadius,
+                top_y_pct: capsuleTopY,
+                width_pct: capsuleWidthPct,
+            },
+            sub_tape_label: {
+                enabled: subTapeEnabled,
+                text: subTapeText,
+                emoji: subTapeEmoji,
+                bg_color: subTapeBgColor,
+                text_color: subTapeTextColor,
+                top_y_pct: subTapeTopY,
+            },
+            visual_pointers: {
+                enabled: pointerEnabled,
+                label: pointerLabel,
+                color: pointerColor,
+                target_x_pct: pointerX,
+                target_y_pct: pointerY,
+                arrow_type: 'curved_red',
+            },
+            two_tone_caption: {
+                enabled: twoToneEnabled,
+                highlight_text: twoToneHighlight,
+                highlight_color: twoToneHighlightColor,
+                base_text: twoToneBaseText,
+                base_color: twoToneBaseColor,
+                outline_color: outlineColor,
+                outline_px: outlinePx,
+                font_family: fontFamily,
+                safe_zone_y: 69.0,
+                margin_v_pct: captionMarginBottom,
+            },
+            top_source: {
+                enabled: topSourceEnabled,
+                text: topSourceText,
+                color: topSourceColor,
+                top_pct: topSourceTopY,
+            },
             top_bar: {
-                enabled: true,
+                enabled: isLetterbox,
                 bg_color: topBarBgColor,
-                height_pct: topBarHeightPct,
+                height_pct: isLetterbox ? topBarHeightPct : 0,
                 opacity: 1.0,
             },
             top_header_lines: [
@@ -308,7 +431,7 @@ export const PresetCustomizeModal: React.FC<PresetCustomizeModalProps> = ({
                     text_example: headerLine2Text,
                 },
             ],
-            top_title_y_pct: 5.2,
+            top_title_y_pct: containerType === 'floating_capsule' ? capsuleTopY : 5.2,
             caption: {
                 font_family: fontFamily,
                 bold: true,
@@ -345,9 +468,9 @@ export const PresetCustomizeModal: React.FC<PresetCustomizeModalProps> = ({
                 text: bottomSourceText,
             },
             bottom_bar: {
-                enabled: true,
+                enabled: isLetterbox,
                 bg_color: '#000000',
-                height_pct: bottomBarHeightPct,
+                height_pct: isLetterbox ? bottomBarHeightPct : 0,
             },
         };
 
@@ -371,7 +494,7 @@ export const PresetCustomizeModal: React.FC<PresetCustomizeModalProps> = ({
             schema_version: 2,
             blueprint_name: name,
             output: { size: '1080x1920', fps: 30, aspect_ratio: '9:16' },
-            canvas_type: 'LETTERBOX_SOLID',
+            canvas_type: isLetterbox ? 'LETTERBOX_SOLID' : 'fullscreen_overlay',
             video_bg_url: videoBgUrl,
             top_header: {
                 enabled: true,
@@ -658,41 +781,116 @@ export const PresetCustomizeModal: React.FC<PresetCustomizeModalProps> = ({
                                     </div>
                                 </div>
 
+                                {/* 🌟 5대 헤더 컨테이너 형태 셀렉터 */}
+                                <div className="p-3.5 rounded-2xl border border-border/80 bg-muted/30 space-y-2.5">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                                            <Layout className="w-3.5 h-3.5 text-primary" />
+                                            헤더 컨테이너 형태 (Container Archetype)
+                                        </span>
+                                        <Badge variant="outline" className="text-[10px] font-mono bg-primary/10 text-primary border-primary/30">
+                                            {containerType === 'floating_capsule' ? '패션탐정냥 Type B (모던 플로팅)' :
+                                             containerType === 'letterbox_sandwich' ? '올뉴띵킹 Type A (정통 레터박스)' :
+                                             containerType === 'full_width_band' ? '군림보 (상단 풀 띠형)' :
+                                             containerType === 'social_post_bar' ? '썰형 / 소셜 바' : '헤더 없음'}
+                                        </Badge>
+                                    </div>
+                                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5">
+                                        {[
+                                            { id: 'floating_capsule', label: '모던 플로팅 캡슐', desc: '패션탐정냥 (알약+테이프)' },
+                                            { id: 'letterbox_sandwich', label: '정통 레터박스', desc: '올뉴띵킹 (상하단 띠)' },
+                                            { id: 'full_width_band', label: '상단 풀 띠형', desc: '군림보 (100% 꽉찬 띠)' },
+                                            { id: 'social_post_bar', label: '소셜 포스트 바', desc: '썰형 / 블라인드 프로필' },
+                                            { id: 'none', label: '헤더 없음', desc: '미스터비스트 (자막 집중)' },
+                                        ].map((item) => (
+                                            <button
+                                                key={item.id}
+                                                type="button"
+                                                onClick={() => setContainerType(item.id as any)}
+                                                className={`p-2 rounded-xl border text-left flex flex-col justify-between transition-all cursor-pointer ${
+                                                    containerType === item.id
+                                                        ? 'border-primary bg-primary/10 text-primary font-bold shadow-2xs ring-1 ring-primary/40'
+                                                        : 'border-border/60 bg-background/50 hover:bg-muted/40 text-muted-foreground'
+                                                }`}
+                                            >
+                                                <span className="text-[11px] font-bold block">{item.label}</span>
+                                                <span className="text-[9px] opacity-70 block mt-0.5">{item.desc}</span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
                                 {/* Top 2-Tier Header Titles & Top Bar Geometry */}
                                 <div className="p-3.5 rounded-2xl border border-border/80 bg-muted/30 space-y-3">
                                     <div className="flex items-center justify-between">
                                         <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
                                             <Type className="w-3.5 h-3.5 text-primary" />
-                                            상단 2단 헤더 타이틀 (Top 2-Tier Banner)
+                                            {containerType === 'floating_capsule' ? '플로팅 캡슐 타이틀 (Pill Title)' : '상단 2단 헤더 타이틀 (Top 2-Tier Banner)'}
                                         </span>
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-[11px] text-muted-foreground font-mono">
-                                                바 높이: {topBarHeightPct}%
-                                            </span>
-                                            <input
-                                                type="color"
-                                                value={topBarBgColor}
-                                                onChange={(e) => setTopBarBgColor(e.target.value)}
-                                                className="w-5 h-5 rounded border border-border/80 p-0 cursor-pointer bg-transparent"
-                                                title="상단 바 배경색"
-                                            />
-                                        </div>
+                                        {containerType === 'letterbox_sandwich' && (
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-[11px] text-muted-foreground font-mono">
+                                                    바 높이: {topBarHeightPct}%
+                                                </span>
+                                                <input
+                                                    type="color"
+                                                    value={topBarBgColor}
+                                                    onChange={(e) => setTopBarBgColor(e.target.value)}
+                                                    className="w-5 h-5 rounded border border-border/80 p-0 cursor-pointer bg-transparent"
+                                                    title="상단 바 배경색"
+                                                />
+                                            </div>
+                                        )}
+                                        {containerType === 'floating_capsule' && (
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-[11px] text-muted-foreground font-mono">
+                                                    상단 Y: {capsuleTopY}%
+                                                </span>
+                                                <input
+                                                    type="color"
+                                                    value={capsuleBgColor}
+                                                    onChange={(e) => setCapsuleBgColor(e.target.value)}
+                                                    className="w-5 h-5 rounded border border-border/80 p-0 cursor-pointer bg-transparent"
+                                                    title="캡슐 배경색"
+                                                />
+                                            </div>
+                                        )}
                                     </div>
 
                                     {/* Top Bar Height Slider & Font Selection */}
                                     <div className="grid grid-cols-12 gap-3 items-center bg-background/50 p-2 rounded-xl border border-border/40">
                                         <div className="col-span-5">
-                                            <div className="flex justify-between text-[11px] mb-1">
-                                                <span className="text-muted-foreground">상단 블랙바 높이</span>
-                                                <span className="font-bold font-mono">{topBarHeightPct}%</span>
-                                            </div>
-                                            <Slider
-                                                min={8}
-                                                max={30}
-                                                step={0.5}
-                                                value={[topBarHeightPct]}
-                                                onValueChange={([v]) => setTopBarHeightPct(v)}
-                                            />
+                                            {containerType === 'letterbox_sandwich' ? (
+                                                <>
+                                                    <div className="flex justify-between text-[11px] mb-1">
+                                                        <span className="text-muted-foreground">상단 블랙바 높이</span>
+                                                        <span className="font-bold font-mono">{topBarHeightPct}%</span>
+                                                    </div>
+                                                    <Slider
+                                                        min={8}
+                                                        max={30}
+                                                        step={0.5}
+                                                        value={[topBarHeightPct]}
+                                                        onValueChange={([v]) => setTopBarHeightPct(v)}
+                                                    />
+                                                </>
+                                            ) : containerType === 'floating_capsule' ? (
+                                                <>
+                                                    <div className="flex justify-between text-[11px] mb-1">
+                                                        <span className="text-muted-foreground">캡슐 모서리 둥글기</span>
+                                                        <span className="font-bold font-mono">{capsuleBorderRadius}px</span>
+                                                    </div>
+                                                    <Slider
+                                                        min={10}
+                                                        max={36}
+                                                        step={1}
+                                                        value={[capsuleBorderRadius]}
+                                                        onValueChange={([v]) => setCapsuleBorderRadius(v)}
+                                                    />
+                                                </>
+                                            ) : (
+                                                <span className="text-[11px] text-muted-foreground">풀스크린 다이내믹 배치</span>
+                                            )}
                                         </div>
                                         <div className="col-span-7">
                                             <label className="text-[11px] text-muted-foreground block mb-1">글꼴 (Font Family)</label>
@@ -776,6 +974,100 @@ export const PresetCustomizeModal: React.FC<PresetCustomizeModalProps> = ({
                                             />
                                         </div>
                                     </div>
+                                </div>
+
+                                {/* 🌟 서브 테이프 스티커 & 시각 포인터 & 상단 출처 (패션탐정냥 시그니처 컴포넌트) */}
+                                <div className="p-3.5 rounded-2xl border border-border/80 bg-muted/30 space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                                            <Tag className="w-3.5 h-3.5 text-amber-500" />
+                                            서브 테이프 라벨 (스티커 코멘트 & 이모지)
+                                        </span>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-[11px] font-semibold text-muted-foreground">스티커 활성화</span>
+                                            <Switch checked={subTapeEnabled} onCheckedChange={setSubTapeEnabled} />
+                                        </div>
+                                    </div>
+
+                                    {subTapeEnabled && (
+                                        <div className="space-y-2 pt-1 border-t border-border/40">
+                                            <div className="grid grid-cols-12 gap-2 items-center">
+                                                <div className="col-span-7">
+                                                    <label className="text-[11px] text-muted-foreground block mb-0.5">스티커 문구</label>
+                                                    <Input
+                                                        value={subTapeText}
+                                                        onChange={(e) => setSubTapeText(e.target.value)}
+                                                        placeholder="손도 저렇게 작은 줄 몰랐음"
+                                                        className="h-7 text-xs bg-background border-border/80 font-bold"
+                                                    />
+                                                </div>
+                                                <div className="col-span-2">
+                                                    <label className="text-[11px] text-muted-foreground block mb-0.5">이모지</label>
+                                                    <Input
+                                                        value={subTapeEmoji}
+                                                        onChange={(e) => setSubTapeEmoji(e.target.value)}
+                                                        placeholder="😲💅"
+                                                        className="h-7 text-xs bg-background border-border/80 text-center font-bold"
+                                                    />
+                                                </div>
+                                                <div className="col-span-3 flex items-center gap-1.5 pt-4">
+                                                    <input
+                                                        type="color"
+                                                        value={subTapeBgColor}
+                                                        onChange={(e) => setSubTapeBgColor(e.target.value)}
+                                                        className="w-6 h-6 rounded border border-border/80 p-0 cursor-pointer bg-transparent"
+                                                        title="테이프 배경색"
+                                                    />
+                                                    <input
+                                                        type="color"
+                                                        value={subTapeTextColor}
+                                                        onChange={(e) => setSubTapeTextColor(e.target.value)}
+                                                        className="w-6 h-6 rounded border border-border/80 p-0 cursor-pointer bg-transparent"
+                                                        title="텍스트 색"
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* 시각 포인터 & 상단 출처 한 줄 추가 */}
+                                    <div className="pt-2 border-t border-border/40 grid grid-cols-2 gap-3">
+                                        <div className="flex items-center justify-between p-2 rounded-xl bg-background/50 border border-border/40">
+                                            <div>
+                                                <span className="text-[11px] font-bold text-foreground block">시각 화살표 포인터</span>
+                                                <span className="text-[9.5px] text-muted-foreground">붉은 곡선 화살표 + 수치 라벨</span>
+                                            </div>
+                                            <Switch checked={pointerEnabled} onCheckedChange={setPointerEnabled} />
+                                        </div>
+                                        <div className="flex items-center justify-between p-2 rounded-xl bg-background/50 border border-border/40">
+                                            <div>
+                                                <span className="text-[11px] font-bold text-foreground block">상단 출처 표기</span>
+                                                <span className="text-[9.5px] text-muted-foreground">Melon / 방송사 출처 라벨</span>
+                                            </div>
+                                            <Switch checked={topSourceEnabled} onCheckedChange={setTopSourceEnabled} />
+                                        </div>
+                                    </div>
+                                    {pointerEnabled && (
+                                        <div className="grid grid-cols-12 gap-2 items-center bg-background/50 p-2 rounded-xl border border-border/40">
+                                            <div className="col-span-6">
+                                                <label className="text-[11px] text-muted-foreground block mb-0.5">포인터 라벨</label>
+                                                <Input
+                                                    value={pointerLabel}
+                                                    onChange={(e) => setPointerLabel(e.target.value)}
+                                                    placeholder="168 vs 163"
+                                                    className="h-7 text-xs bg-background border-border/80 font-bold text-rose-500"
+                                                />
+                                            </div>
+                                            <div className="col-span-3">
+                                                <label className="text-[11px] text-muted-foreground block mb-0.5">X 위치 ({pointerX}%)</label>
+                                                <Slider min={20} max={85} step={1} value={[pointerX]} onValueChange={([v]) => setPointerX(v)} />
+                                            </div>
+                                            <div className="col-span-3">
+                                                <label className="text-[11px] text-muted-foreground block mb-0.5">Y 위치 ({pointerY}%)</label>
+                                                <Slider min={20} max={75} step={1} value={[pointerY]} onValueChange={([v]) => setPointerY(v)} />
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
 
                                 {/* Caption Style & Bilingual Support */}
@@ -883,6 +1175,42 @@ export const PresetCustomizeModal: React.FC<PresetCustomizeModalProps> = ({
                                             </div>
                                         </>
                                     )}
+
+                                    {/* 🌟 2톤 키워드 강조 자막 설정 */}
+                                    <div className="pt-2 border-t border-border/40 space-y-2">
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-[11px] font-bold text-foreground flex items-center gap-1.5">
+                                                <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                                                2톤 키워드 강조 자막 (Two-Tone Highlight)
+                                            </span>
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-[10.5px] text-muted-foreground">노란색 강조 활성화</span>
+                                                <Switch checked={twoToneEnabled} onCheckedChange={setTwoToneEnabled} />
+                                            </div>
+                                        </div>
+                                        {twoToneEnabled && (
+                                            <div className="grid grid-cols-12 gap-2 items-center bg-background/50 p-2 rounded-xl border border-border/40">
+                                                <div className="col-span-6">
+                                                    <label className="text-[10.5px] text-muted-foreground block mb-0.5">강조 키워드 (노랑)</label>
+                                                    <Input
+                                                        value={twoToneHighlight}
+                                                        onChange={(e) => setTwoToneHighlight(e.target.value)}
+                                                        placeholder="키가 5cm"
+                                                        className="h-7 text-xs bg-background border-border/80 font-black text-amber-400"
+                                                    />
+                                                </div>
+                                                <div className="col-span-6">
+                                                    <label className="text-[10.5px] text-muted-foreground block mb-0.5">기본 문구 (흰색)</label>
+                                                    <Input
+                                                        value={twoToneBaseText}
+                                                        onChange={(e) => setTwoToneBaseText(e.target.value)}
+                                                        placeholder="더 큰"
+                                                        className="h-7 text-xs bg-background border-border/80 font-bold"
+                                                    />
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
 
                                     <div className="grid grid-cols-2 gap-3 pt-1 border-t border-border/40">
                                         <div>
@@ -1383,54 +1711,163 @@ export const PresetCustomizeModal: React.FC<PresetCustomizeModalProps> = ({
                                             opacity: previewViewMode === 'overlay' ? overlayOpacity / 100 : 1.0,
                                         }}
                                     >
-                                        {/* Layer 1: Top Black Bar & 2-Tier Header */}
-                                        <div
-                                            className="w-full z-20 flex flex-col items-center justify-center px-2 py-1 transition-all"
-                                            style={{
-                                                backgroundColor: topBarBgColor,
-                                                minHeight: `${topBarHeightPct}%`,
-                                            }}
-                                        >
-                                            <span
-                                                className="font-bold text-center leading-tight truncate w-full transition-all"
-                                                style={{
-                                                    color: headerLine1Color,
-                                                    fontSize: `${Math.max(11, Math.round(headerLine1Size * 0.45))}px`,
-                                                    fontFamily: fontFamily === 'Black Han Sans' ? '"Black Han Sans", sans-serif' : fontFamily === 'Gmarket Sans' ? '"Gmarket Sans", sans-serif' : 'Pretendard, -apple-system, sans-serif',
-                                                    textShadow: '0 1px 3px rgba(0,0,0,0.8)',
-                                                }}
-                                            >
-                                                {headerLine1Text}
-                                            </span>
-                                            <span
-                                                className="font-black text-center leading-tight truncate w-full transition-all mt-0.5"
-                                                style={{
-                                                    color: headerLine2Color,
-                                                    fontSize: `${Math.max(13, Math.round(headerLine2Size * 0.48))}px`,
-                                                    fontFamily: fontFamily === 'Black Han Sans' ? '"Black Han Sans", sans-serif' : fontFamily === 'Gmarket Sans' ? '"Gmarket Sans", sans-serif' : 'Pretendard, -apple-system, sans-serif',
-                                                    textShadow: '0 2px 5px rgba(0,0,0,0.9)',
-                                                }}
-                                            >
-                                                {headerLine2Text}
-                                            </span>
-                                        </div>
+                                        {containerType === 'floating_capsule' ? (
+                                            /* 🌟 FASHION DETECTIVE (패션탐정냥 Type B: 9:16 Fullscreen Video Canvas + Floating Capsule + Sub-tape + Pointer + Two-tone Caption) */
+                                            <div className="absolute inset-0 w-full h-full flex flex-col justify-between overflow-hidden">
+                                                {/* Fullscreen Background Video/Keyframe */}
+                                                <div className="absolute inset-0 w-full h-full bg-black z-0">
+                                                    {videoBgUrl ? (
+                                                        <img 
+                                                            src={videoBgUrl} 
+                                                            alt="Reference Keyframe" 
+                                                            className="w-full h-full object-cover transition-transform duration-500 select-none pointer-events-none"
+                                                            style={{ transform: `scale(${zoomPct / 100})` }}
+                                                        />
+                                                    ) : (
+                                                        <div className="w-full h-full bg-neutral-900 flex flex-col items-center justify-center p-3">
+                                                            <Film className="w-8 h-8 text-white/30 mb-2" />
+                                                            <span className="text-[11px] font-bold text-white/80 text-center">9:16 풀스크린 미디어 캔버스</span>
+                                                        </div>
+                                                    )}
+                                                    {/* Subtle Gradient Overlays */}
+                                                    <div className="absolute inset-x-0 top-0 h-32 pointer-events-none bg-gradient-to-b from-black/60 via-black/20 to-transparent" />
+                                                    <div className="absolute inset-x-0 bottom-0 h-40 pointer-events-none bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
+                                                </div>
 
-                                        {/* Layer 2: Center Sandwich Media Canvas (Real Reference Video / 16:9 Letterbox) */}
-                                        <div className="flex-1 w-full relative overflow-hidden flex items-center justify-center z-10 bg-black">
-                                            {videoBgUrl ? (
-                                                <div className="w-full aspect-[16/9] relative overflow-hidden flex items-center justify-center bg-black">
-                                                    <img 
-                                                        src={videoBgUrl} 
-                                                        alt="Reference Keyframe" 
-                                                        className="w-full h-full object-cover transition-transform duration-500 select-none pointer-events-none"
-                                                        style={{ transform: `scale(${zoomPct / 100})` }}
-                                                    />
-                                                    {/* Subtle Vignette */}
-                                                    <div className="absolute inset-0 pointer-events-none bg-gradient-to-t from-black/60 via-transparent to-black/30" />
-                                                    
-                                                    {/* Bilingual Captions Overlay (In-Video Optimal Placement) */}
-                                                    {bilingualEnabled && (
-                                                        <div className="absolute bottom-2 inset-x-2 flex flex-col items-center justify-center gap-0.5 pointer-events-none select-none z-30">
+                                                {/* Top Section: Top Source & Floating Capsule & Sub-tape */}
+                                                <div className="w-full z-20 flex flex-col items-center px-3 pt-2">
+                                                    {/* Top Source Label */}
+                                                    {topSourceEnabled && (
+                                                        <span 
+                                                            className="text-[9px] font-medium tracking-tight mb-1 text-center"
+                                                            style={{ color: topSourceColor }}
+                                                        >
+                                                            {topSourceText}
+                                                        </span>
+                                                    )}
+
+                                                    {/* Floating Black Capsule Pill */}
+                                                    <div 
+                                                        className="px-3.5 py-1.5 shadow-2xl flex flex-col items-center justify-center border border-white/20 transition-all select-none"
+                                                        style={{
+                                                            backgroundColor: capsuleBgColor,
+                                                            borderRadius: `${capsuleBorderRadius}px`,
+                                                            maxWidth: `${capsuleWidthPct}%`,
+                                                            width: 'auto',
+                                                        }}
+                                                    >
+                                                        <span
+                                                            className="font-bold text-center leading-tight truncate w-full"
+                                                            style={{
+                                                                color: headerLine1Color,
+                                                                fontSize: `${Math.max(11, Math.round(headerLine1Size * 0.45))}px`,
+                                                                fontFamily: fontFamily === 'Black Han Sans' ? '"Black Han Sans", sans-serif' : 'Pretendard, -apple-system, sans-serif',
+                                                                textShadow: '0 1px 3px rgba(0,0,0,0.8)',
+                                                            }}
+                                                        >
+                                                            {headerLine1Text}
+                                                        </span>
+                                                        <span
+                                                            className="font-black text-center leading-tight truncate w-full mt-0.5"
+                                                            style={{
+                                                                color: headerLine2Color,
+                                                                fontSize: `${Math.max(13, Math.round(headerLine2Size * 0.48))}px`,
+                                                                fontFamily: fontFamily === 'Black Han Sans' ? '"Black Han Sans", sans-serif' : 'Pretendard, -apple-system, sans-serif',
+                                                                textShadow: '0 2px 5px rgba(0,0,0,0.9)',
+                                                            }}
+                                                        >
+                                                            {headerLine2Text}
+                                                        </span>
+                                                    </div>
+
+                                                    {/* Sub-tape Sticker Label right below capsule */}
+                                                    {subTapeEnabled && (
+                                                        <div 
+                                                            className="mt-1 px-2.5 py-0.5 rounded shadow-lg flex items-center justify-center gap-1 border border-amber-300 font-bold transition-all select-none"
+                                                            style={{
+                                                                backgroundColor: subTapeBgColor,
+                                                                color: subTapeTextColor,
+                                                            }}
+                                                        >
+                                                            <span className="text-[10px] font-black tracking-tight whitespace-nowrap">
+                                                                {subTapeText} {subTapeEmoji}
+                                                            </span>
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                {/* Center Section: Visual Pointer (Red curved arrow & label) */}
+                                                {pointerEnabled && (
+                                                    <div 
+                                                        className="absolute z-30 flex items-center gap-1 pointer-events-none select-none"
+                                                        style={{
+                                                            left: `${pointerX}%`,
+                                                            top: `${pointerY}%`,
+                                                            transform: 'translate(-50%, -50%)',
+                                                        }}
+                                                    >
+                                                        {/* Curved Arrow SVG */}
+                                                        <svg className="w-6 h-6 -rotate-12 drop-shadow-md" viewBox="0 0 24 24" fill="none" stroke={pointerColor} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                                                            <path d="M14 9l6 6-6 6" />
+                                                            <path d="M4 4v7a4 4 0 0 0 4 4h11" />
+                                                        </svg>
+                                                        <Badge className="bg-red-600/90 text-white font-black text-[9px] px-1.5 py-0.2 shadow-md">
+                                                            {pointerLabel}
+                                                        </Badge>
+                                                    </div>
+                                                )}
+
+                                                {/* Jab Hook in middle if enabled */}
+                                                {jabEnabled && (
+                                                    <div
+                                                        className="absolute top-[48%] left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-md shadow-xl transition-all z-30"
+                                                        style={{
+                                                            backgroundColor: '#000000',
+                                                            border: `1.5px solid ${jabColor}`,
+                                                            color: jabColor,
+                                                            transform: `translateX(-50%) rotate(${jabTilt}deg)`,
+                                                        }}
+                                                    >
+                                                        <span className="text-[10px] font-black tracking-tight flex items-center gap-1 whitespace-nowrap">
+                                                            {jabText}
+                                                        </span>
+                                                    </div>
+                                                )}
+
+                                                {/* Bottom Section: Two-Tone or Standard Captions */}
+                                                <div 
+                                                    className="w-full text-center px-2 z-20 pointer-events-none transition-all flex flex-col items-center justify-center"
+                                                    style={{
+                                                        marginBottom: `${captionMarginBottom * 0.45}%`,
+                                                    }}
+                                                >
+                                                    {twoToneEnabled ? (
+                                                        <div className="font-black leading-tight flex items-center justify-center gap-1 flex-wrap">
+                                                            <span
+                                                                style={{
+                                                                    color: twoToneHighlightColor,
+                                                                    fontSize: `${Math.max(13, Math.round(fontSize * 0.32))}px`,
+                                                                    fontFamily: fontFamily === 'Black Han Sans' ? '"Black Han Sans", sans-serif' : 'Pretendard, -apple-system, sans-serif',
+                                                                    WebkitTextStroke: `${Math.max(1, outlinePx * 0.22)}px ${outlineColor}`,
+                                                                    textShadow: `0 2px ${textShadowBlur}px ${outlineColor}`,
+                                                                }}
+                                                            >
+                                                                {twoToneHighlight}
+                                                            </span>
+                                                            <span
+                                                                style={{
+                                                                    color: twoToneBaseColor,
+                                                                    fontSize: `${Math.max(13, Math.round(fontSize * 0.32))}px`,
+                                                                    fontFamily: fontFamily === 'Black Han Sans' ? '"Black Han Sans", sans-serif' : 'Pretendard, -apple-system, sans-serif',
+                                                                    WebkitTextStroke: `${Math.max(1, outlinePx * 0.22)}px ${outlineColor}`,
+                                                                    textShadow: `0 2px ${textShadowBlur}px ${outlineColor}`,
+                                                                }}
+                                                            >
+                                                                {twoToneBaseText}
+                                                            </span>
+                                                        </div>
+                                                    ) : bilingualEnabled ? (
+                                                        <div className="flex flex-col items-center gap-0.5">
                                                             <span 
                                                                 className="font-bold text-center leading-tight tracking-tight px-1"
                                                                 style={{
@@ -1454,79 +1891,176 @@ export const PresetCustomizeModal: React.FC<PresetCustomizeModalProps> = ({
                                                                 {captionLine2Ko}
                                                             </span>
                                                         </div>
-                                                    )}
-
-                                                    {/* Jab Hook Overlay */}
-                                                    {jabEnabled && (
-                                                        <div
-                                                            className="absolute top-[28%] left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-md shadow-xl transition-all z-30"
+                                                    ) : (
+                                                        <span
+                                                            className="font-black leading-tight transition-all"
                                                             style={{
-                                                                backgroundColor: '#000000',
-                                                                border: `1.5px solid ${jabColor}`,
-                                                                color: jabColor,
-                                                                transform: `translateX(-50%) rotate(${jabTilt}deg)`,
+                                                                color: captionColor,
+                                                                fontSize: `${Math.max(12, Math.round(fontSize * 0.28))}px`,
+                                                                fontFamily: fontFamily === 'Black Han Sans' ? '"Black Han Sans", sans-serif' : fontFamily === 'Gmarket Sans' ? '"Gmarket Sans", sans-serif' : 'Pretendard, -apple-system, sans-serif',
+                                                                letterSpacing: `${letterSpacing}px`,
+                                                                lineHeight: lineHeight,
+                                                                WebkitTextStroke: `${Math.max(1, outlinePx * 0.22)}px ${outlineColor}`,
+                                                                textShadow: `0 2px ${textShadowBlur}px ${outlineColor}`,
+                                                                backgroundColor: captionBgBox ? captionBgBoxColor : 'transparent',
+                                                                padding: captionBgBox ? '2px 8px' : '0',
+                                                                borderRadius: captionBgBox ? '6px' : '0',
                                                             }}
                                                         >
-                                                            <span className="text-[10px] font-black tracking-tight flex items-center gap-1 whitespace-nowrap">
-                                                                {jabText}
+                                                            {captionText}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            /* CASE: 정통 레터박스 샌드위치 / 상단 띠형 (Type A & Other Archetypes) */
+                                            <>
+                                                {/* Layer 1: Top Black Bar & 2-Tier Header */}
+                                                <div
+                                                    className="w-full z-20 flex flex-col items-center justify-center px-2 py-1 transition-all"
+                                                    style={{
+                                                        backgroundColor: topBarBgColor,
+                                                        minHeight: `${topBarHeightPct}%`,
+                                                    }}
+                                                >
+                                                    <span
+                                                        className="font-bold text-center leading-tight truncate w-full transition-all"
+                                                        style={{
+                                                            color: headerLine1Color,
+                                                            fontSize: `${Math.max(11, Math.round(headerLine1Size * 0.45))}px`,
+                                                            fontFamily: fontFamily === 'Black Han Sans' ? '"Black Han Sans", sans-serif' : fontFamily === 'Gmarket Sans' ? '"Gmarket Sans", sans-serif' : 'Pretendard, -apple-system, sans-serif',
+                                                            textShadow: '0 1px 3px rgba(0,0,0,0.8)',
+                                                        }}
+                                                    >
+                                                        {headerLine1Text}
+                                                    </span>
+                                                    <span
+                                                        className="font-black text-center leading-tight truncate w-full transition-all mt-0.5"
+                                                        style={{
+                                                            color: headerLine2Color,
+                                                            fontSize: `${Math.max(13, Math.round(headerLine2Size * 0.48))}px`,
+                                                            fontFamily: fontFamily === 'Black Han Sans' ? '"Black Han Sans", sans-serif' : fontFamily === 'Gmarket Sans' ? '"Gmarket Sans", sans-serif' : 'Pretendard, -apple-system, sans-serif',
+                                                            textShadow: '0 2px 5px rgba(0,0,0,0.9)',
+                                                        }}
+                                                    >
+                                                        {headerLine2Text}
+                                                    </span>
+                                                </div>
+
+                                                {/* Layer 2: Center Sandwich Media Canvas (Real Reference Video / 16:9 Letterbox) */}
+                                                <div className="flex-1 w-full relative overflow-hidden flex items-center justify-center z-10 bg-black">
+                                                    {videoBgUrl ? (
+                                                        <div className="w-full aspect-[16/9] relative overflow-hidden flex items-center justify-center bg-black">
+                                                            <img 
+                                                                src={videoBgUrl} 
+                                                                alt="Reference Keyframe" 
+                                                                className="w-full h-full object-cover transition-transform duration-500 select-none pointer-events-none"
+                                                                style={{ transform: `scale(${zoomPct / 100})` }}
+                                                            />
+                                                            {/* Subtle Vignette */}
+                                                            <div className="absolute inset-0 pointer-events-none bg-gradient-to-t from-black/60 via-transparent to-black/30" />
+                                                            
+                                                            {/* Bilingual Captions Overlay (In-Video Optimal Placement) */}
+                                                            {bilingualEnabled && (
+                                                                <div className="absolute bottom-2 inset-x-2 flex flex-col items-center justify-center gap-0.5 pointer-events-none select-none z-30">
+                                                                    <span 
+                                                                        className="font-bold text-center leading-tight tracking-tight px-1"
+                                                                        style={{
+                                                                            color: captionLine1Color,
+                                                                            fontSize: '12px',
+                                                                            fontFamily: fontFamily === 'Black Han Sans' ? '"Black Han Sans", sans-serif' : 'Pretendard, -apple-system, sans-serif',
+                                                                            textShadow: '0 2px 4px rgba(0,0,0,0.9), -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000',
+                                                                        }}
+                                                                    >
+                                                                        {captionLine1En}
+                                                                    </span>
+                                                                    <span 
+                                                                        className="font-black text-center leading-tight tracking-tight px-1 mt-0.5"
+                                                                        style={{
+                                                                            color: captionLine2Color,
+                                                                            fontSize: '13px',
+                                                                            fontFamily: fontFamily === 'Black Han Sans' ? '"Black Han Sans", sans-serif' : 'Pretendard, -apple-system, sans-serif',
+                                                                            textShadow: '0 2px 4px rgba(0,0,0,0.9), -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000',
+                                                                        }}
+                                                                    >
+                                                                        {captionLine2Ko}
+                                                                    </span>
+                                                                </div>
+                                                            )}
+
+                                                            {/* Jab Hook Overlay */}
+                                                            {jabEnabled && (
+                                                                <div
+                                                                    className="absolute top-[28%] left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-md shadow-xl transition-all z-30"
+                                                                    style={{
+                                                                        backgroundColor: '#000000',
+                                                                        border: `1.5px solid ${jabColor}`,
+                                                                        color: jabColor,
+                                                                        transform: `translateX(-50%) rotate(${jabTilt}deg)`,
+                                                                    }}
+                                                                >
+                                                                    <span className="text-[10px] font-black tracking-tight flex items-center gap-1 whitespace-nowrap">
+                                                                        {jabText}
+                                                                    </span>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    ) : (
+                                                        <div className="w-full aspect-[16/9] bg-neutral-900 border-y border-neutral-800 flex flex-col items-center justify-center p-3 relative overflow-hidden">
+                                                            <Film className="w-8 h-8 text-white/30 mb-2" />
+                                                            <span className="text-[11px] font-bold text-white/80 text-center">
+                                                                16:9 와이드 미디어 샌드위치 캔버스
+                                                            </span>
+                                                            <span className="text-[9px] text-white/50 mt-1 font-mono">
+                                                                0초 훅 줌 {zoomPct}% • {avgCutSec}s 컷 리듬
                                                             </span>
                                                         </div>
                                                     )}
                                                 </div>
-                                            ) : (
-                                                <div className="w-full aspect-[16/9] bg-neutral-900 border-y border-neutral-800 flex flex-col items-center justify-center p-3 relative overflow-hidden">
-                                                    <Film className="w-8 h-8 text-white/30 mb-2" />
-                                                    <span className="text-[11px] font-bold text-white/80 text-center">
-                                                        16:9 와이드 미디어 샌드위치 캔버스
-                                                    </span>
-                                                    <span className="text-[9px] text-white/50 mt-1 font-mono">
-                                                        0초 훅 줌 {zoomPct}% • {avgCutSec}s 컷 리듬
-                                                    </span>
-                                                </div>
-                                            )}
-                                        </div>
 
-                                        {/* Layer 4: Caption Subtitle (Single Line Mode when bilingual is disabled) */}
-                                        {!bilingualEnabled && (
-                                            <div
-                                                className="w-full text-center px-2 z-20 pointer-events-none transition-all flex justify-center"
-                                                style={{
-                                                    marginBottom: `${captionMarginBottom * 0.45}%`,
-                                                }}
-                                            >
-                                                <span
-                                                    className="font-black leading-tight transition-all"
-                                                    style={{
-                                                        color: captionColor,
-                                                        fontSize: `${Math.max(12, Math.round(fontSize * 0.28))}px`,
-                                                        fontFamily: fontFamily === 'Black Han Sans' ? '"Black Han Sans", sans-serif' : fontFamily === 'Gmarket Sans' ? '"Gmarket Sans", sans-serif' : 'Pretendard, -apple-system, sans-serif',
-                                                        letterSpacing: `${letterSpacing}px`,
-                                                        lineHeight: lineHeight,
-                                                        WebkitTextStroke: `${Math.max(1, outlinePx * 0.22)}px ${outlineColor}`,
-                                                        textShadow: `0 2px ${textShadowBlur}px ${outlineColor}`,
-                                                        backgroundColor: captionBgBox ? captionBgBoxColor : 'transparent',
-                                                        padding: captionBgBox ? '2px 8px' : '0',
-                                                        borderRadius: captionBgBox ? '6px' : '0',
-                                                    }}
-                                                >
-                                                    {captionText}
-                                                </span>
-                                            </div>
-                                        )}
+                                                {/* Layer 4: Caption Subtitle (Single Line Mode when bilingual is disabled) */}
+                                                {!bilingualEnabled && (
+                                                    <div
+                                                        className="w-full text-center px-2 z-20 pointer-events-none transition-all flex justify-center"
+                                                        style={{
+                                                            marginBottom: `${captionMarginBottom * 0.45}%`,
+                                                        }}
+                                                    >
+                                                        <span
+                                                            className="font-black leading-tight transition-all"
+                                                            style={{
+                                                                color: captionColor,
+                                                                fontSize: `${Math.max(12, Math.round(fontSize * 0.28))}px`,
+                                                                fontFamily: fontFamily === 'Black Han Sans' ? '"Black Han Sans", sans-serif' : fontFamily === 'Gmarket Sans' ? '"Gmarket Sans", sans-serif' : 'Pretendard, -apple-system, sans-serif',
+                                                                letterSpacing: `${letterSpacing}px`,
+                                                                lineHeight: lineHeight,
+                                                                WebkitTextStroke: `${Math.max(1, outlinePx * 0.22)}px ${outlineColor}`,
+                                                                textShadow: `0 2px ${textShadowBlur}px ${outlineColor}`,
+                                                                backgroundColor: captionBgBox ? captionBgBoxColor : 'transparent',
+                                                                padding: captionBgBox ? '2px 8px' : '0',
+                                                                borderRadius: captionBgBox ? '6px' : '0',
+                                                            }}
+                                                        >
+                                                            {captionText}
+                                                        </span>
+                                                    </div>
+                                                )}
 
-                                        {/* Layer 5: Bottom Source Bar & Black Band (Only if explicitly enabled) */}
-                                        {bottomSourceEnabled && (
-                                            <div
-                                                className="w-full z-20 flex items-center justify-center px-2 transition-all border-t border-white/5"
-                                                style={{
-                                                    backgroundColor: '#000000',
-                                                    minHeight: `${bottomBarHeightPct}%`,
-                                                }}
-                                            >
-                                                <span className="text-[9px] text-neutral-400 truncate font-medium">
-                                                    {bottomSourceText}
-                                                </span>
-                                            </div>
+                                                {/* Layer 5: Bottom Source Bar & Black Band (Only if explicitly enabled) */}
+                                                {bottomSourceEnabled && (
+                                                    <div
+                                                        className="w-full z-20 flex items-center justify-center px-2 transition-all border-t border-white/5"
+                                                        style={{
+                                                            backgroundColor: '#000000',
+                                                            minHeight: `${bottomBarHeightPct}%`,
+                                                        }}
+                                                    >
+                                                        <span className="text-[9px] text-neutral-400 truncate font-medium">
+                                                            {bottomSourceText}
+                                                        </span>
+                                                    </div>
+                                                )}
+                                            </>
                                         )}
                                     </div>
 

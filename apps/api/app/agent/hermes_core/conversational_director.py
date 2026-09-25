@@ -143,7 +143,12 @@ class ConversationalDirector:
         h1 = header_lines[0] if header_lines else {}
         h2 = header_lines[-1] if header_lines else {}
 
-        bible_header = f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n[📚 17대 프로덕션 바이블 세부 데이터]\n{bible_text}" if bible_text else ""
+        container_type = vg.get('container_type', 'letterbox_sandwich')
+        floating_capsule = vg.get('floating_capsule', {})
+        sub_tape = vg.get('sub_tape_label', {})
+        pointers = vg.get('visual_pointers', {})
+        two_tone = vg.get('two_tone_caption', {})
+        top_src = vg.get('top_source', {})
 
         return f"""
 [🎬 현재 활성화된 소버린 프리셋 공식 프로덕션 블루프린트 v2 & 17대 바이블 스펙]:
@@ -156,20 +161,25 @@ class ConversationalDirector:
 - 공식 콘텐츠 룰(Content Rules):
 {rules_str}
 
-2. 📐 Visual Geometry (6대 시각 레이어 실측 규격):
-- 캔버스 도킹 방식: {vg.get('canvas_type', 'sandwich')} (상하단 바 사이 중앙 정방형 맞춤)
-- [Layer 1: 상단 배경 바]: 높이 {top_bar.get('height_pct', 18.0)}%, 배경색 {top_bar.get('bg_color', '#000000')}
-- [Layer 2: 상단 2단 헤더 타이틀]:
-  * 1줄 (상황/조건절): {h1.get('color', '#FFE838')} ({h1.get('size_px', 28)}px / {h1.get('font_style', 'ExtraBold')})
-  * 2줄 (핵심 훅 명사): {h2.get('color', '#FFFFFF')} ({h2.get('size_px', 32)}px / {h2.get('font_style', 'ExtraBold')})
+2. 📐 Visual Geometry (시각 레이어 실측 규격):
+- 헤더 컨테이너 형태: {container_type} ({'모던 플로팅 캡슐 (패션탐정냥 Type B)' if container_type == 'floating_capsule' else '정통 레터박스 샌드위치 (올뉴띵킹 Type A)' if container_type == 'letterbox_sandwich' else '상단 풀 와이드 띠 (군림보)' if container_type == 'full_width_band' else '소셜 포스트 바 (썰형)' if container_type == 'social_post_bar' else '헤더 없음'})
+- 캔버스 도킹 방식: {vg.get('canvas_type', 'sandwich')} ({'9:16 풀스크린 배경 비디오' if container_type == 'floating_capsule' or vg.get('canvas_type') == 'fullscreen_overlay' else '상하단 바 사이 중앙 정방형 맞춤'})
+{f"- [Layer 0: 상단 출처 표기]: {top_src.get('text', '')} (상단 {top_src.get('top_pct', 4.0)}%)" if top_src.get('enabled') else ""}
+- [Layer 1: 상단 헤더 컨테이너]:
+  * 형태: {container_type}
+  * 1줄 (상황/조건절): {h1.get('color', '#FFE838')} ({h1.get('size_px', 28)}px / {h1.get('font_style', 'ExtraBold')}) - 예: "{h1.get('text_example', '')}"
+  * 2줄 (핵심 훅 명사): {h2.get('color', '#FFFFFF')} ({h2.get('size_px', 32)}px / {h2.get('font_style', 'ExtraBold')}) - 예: "{h2.get('text_example', '')}"
+{f"- [Layer 1-B: 서브 테이프 스티커 라벨]: 배경 {sub_tape.get('bg_color', '#FDE68A')}, 텍스트: '{sub_tape.get('text', '')} {sub_tape.get('emoji', '')}'" if sub_tape.get('enabled') else ""}
+{f"- [Layer 2: 시각 포인터/화살표 강조]: {pointers.get('arrow_type', 'curved_red')} 화살표, 타겟 라벨: '{pointers.get('label', '')}' (x:{pointers.get('target_x_pct', 65)}%, y:{pointers.get('target_y_pct', 44)}%)" if pointers.get('enabled') else ""}
 - [Layer 3: 본문 자막(Caption)]:
   * 글자 크기: {cap.get('size_px', 48)}px, 글자색: {cap.get('color', '#FFFFFF')}
   * 외곽선: {cap.get('outline_px', 6)}px ({cap.get('outline_color', '#000000')})
   * 수직 위치: 하단 {cap.get('margin_v_pct', 23.5)}% (세이프존 {cap.get('safe_zone', 'OPTIMAL_76')} 준수)
+{f"  * 2톤 키워드 강조 자막: 강조어 [{two_tone.get('highlight_text', '')}] ({two_tone.get('highlight_color', '#FFE500')}) + 기본어 [{two_tone.get('base_text', '')}] ({two_tone.get('base_color', '#FFFFFF')})" if two_tone.get('enabled') else ""}
 - [Layer 4: 돌발 쨉쨉이 (Jab Hook)]:
-  * 활성화: {'사용' if jab.get('enabled', False) else '미사용 (토크쇼/육성 집중형)'}
+  * 활성화: {'사용' if jab.get('enabled', False) else '미사용'}
   * 주기: {jab.get('avg_interval_sec', 4.5)}초 평균
-- [Layer 6: 하단 배경 바]: 높이 {vg.get('bottom_bar', {}).get('height_pct', 18.0)}%, 배경색 {vg.get('bottom_bar', {}).get('bg_color', '#000000')}
+{f"- [Layer 6: 하단 배경 바]: 높이 {vg.get('bottom_bar', {}).get('height_pct', 6.0)}%, 배경색 {vg.get('bottom_bar', {}).get('bg_color', '#000000')}" if vg.get('bottom_bar', {}).get('enabled') else "- [Layer 6: 하단 배경 바]: 미사용 (풀스크린)"}
 
 3. ⏱️ Editing Pacing (타임라인 편집 호흡):
 - 0~2.5초 오프닝 훅 줌: {int((ep.get('opening_hook_zoom', 1.0) - 1.0) * 100)}%

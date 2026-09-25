@@ -68,6 +68,16 @@ export interface CapCutProjectExportOptions {
     bgColor?: string;
     borderRadius?: number;
   };
+  subTapeLabel?: {
+    enabled: boolean;
+    text: string;
+    emoji?: string;
+    bgColor?: string;
+    textColor?: string;
+    fontSize?: number;
+    yPct?: number;
+    rotationDeg?: number;
+  };
   jab?: {
     enabled: boolean;
     text: string;
@@ -210,6 +220,7 @@ export function buildFullCapCutProjectBundle(opts: CapCutProjectExportOptions) {
   // 2. Tracks 컨테이너
   const videoTrack = { id: generateId(), type: 'video', name: 'V1 Video Track', flag: 0, segments: [] as any[] };
   const topTitleTrack = { id: generateId(), type: 'text', name: 'T1 Top Title Track', flag: 0, segments: [] as any[] };
+  const subTapeTrack = { id: generateId(), type: 'text', name: 'T1-Sub Tape Sticker Track', flag: 0, segments: [] as any[] };
   const jabTrack = { id: generateId(), type: 'text', name: 'T2 Jab Hook Track', flag: 0, segments: [] as any[] };
   const subtitleTrack = { id: generateId(), type: 'text', name: 'SUB Subtitles Track', flag: 2, segments: [] as any[] };
   const songSourceTrack = { id: generateId(), type: 'text', name: 'pixi-song-source', flag: 2, segments: [] as any[] };
@@ -334,6 +345,62 @@ export function buildFullCapCutProjectBundle(opts: CapCutProjectExportOptions) {
         extra_material_refs: [titleMatId],
       });
     }
+  }
+
+  // -------------------------------------------------------------
+  // [B-2] T1-Sub 서브 테이프 라벨 스티커 매핑 (패션탐정냥 등 2단 서브 헤더 100% 무누락)
+  // -------------------------------------------------------------
+  if (opts.subTapeLabel && opts.subTapeLabel.enabled && opts.subTapeLabel.text?.trim()) {
+    const tape = opts.subTapeLabel;
+    const tapeText = `${tape.text} ${tape.emoji || ''}`.trim();
+    const tapeMatId = generateId();
+    const tapeSegId = generateId();
+    const tapeCoord = toCapCutCoord(50, tape.yPct || 19.5, 1, tape.fontSize || 22, canvasWidth, canvasHeight);
+    const tapeSize = toCapcutFontSize(tape.fontSize || 22, 5.5, canvasHeight);
+
+    materials.texts.push({
+      id: tapeMatId,
+      name: 'T1-Sub Tape Sticker',
+      type: 'subtitle',
+      content: JSON.stringify({
+        text: tapeText,
+        styles: [
+          {
+            fill: { content: { render_type: 'solid', solid: { color: hexToRgb01(tape.textColor || '#1E293B') } } },
+            size: tapeSize,
+            bold: true,
+            useLetterColor: true,
+            range: [0, tapeText.length],
+          },
+        ],
+      }),
+      font_name: 'Pretendard',
+      font_size: tapeSize,
+      alignment: 1, // center
+      background_style: 1,
+      background_color: tape.bgColor || '#FDE68A',
+      background_alpha: 1.0,
+      background_round_radius: 0.15,
+      border_color: '#000000',
+      border_width: 0.08,
+      border_mode: 1,
+      shadow_color: 'rgba(0,0,0,0.4)',
+      shadow_alpha: 0.5,
+      shadow_distance: 2,
+    });
+
+    subTapeTrack.segments.push({
+      id: tapeSegId,
+      material_id: tapeMatId,
+      render_index: 2900,
+      target_timerange: { start: 0, duration: totalMicros },
+      type: 'text',
+      clip: {
+        transform: { x: tapeCoord.transform_x, y: tapeCoord.transform_y },
+        rotation: tape.rotationDeg || 0,
+      },
+      extra_material_refs: [tapeMatId],
+    });
   }
 
   // -------------------------------------------------------------
@@ -772,6 +839,7 @@ export function buildFullCapCutProjectBundle(opts: CapCutProjectExportOptions) {
   // 3. 트랙 집계
   const activeTracks: any[] = [videoTrack];
   if (topTitleTrack.segments.length > 0) activeTracks.push(topTitleTrack);
+  if (subTapeTrack.segments.length > 0) activeTracks.push(subTapeTrack);
   if (jabTrack.segments.length > 0) activeTracks.push(jabTrack);
   if (subtitleTrack.segments.length > 0) activeTracks.push(subtitleTrack);
   if (songSourceTrack.segments.length > 0) activeTracks.push(songSourceTrack);

@@ -1545,6 +1545,27 @@ class ChannelDNAService:
                         if not sample_dest.exists():
                             shutil.copy2(str(best_video), str(sample_dest))
                         sample_video_path = str(best_video)
+
+                        # Auto-extract 6 multi-scene keyframes
+                        keyframes_dir = presets_dir / "keyframes" / preset_id
+                        keyframes_dir.mkdir(parents=True, exist_ok=True)
+                        extracted_kfs = []
+                        times = [0.5, 2.0, 5.0, 8.5, 12.0, 18.0]
+                        for idx_kf, t_sec in enumerate(times):
+                            kf_dest = keyframes_dir / f"kf_{idx_kf+1}_{t_sec}s.jpg"
+                            try:
+                                cmd_kf = ["ffmpeg", "-y", "-loglevel", "error", "-ss", str(t_sec), "-i", str(best_video), "-frames:v", "1", "-q:v", "2", str(kf_dest)]
+                                subprocess.run(cmd_kf, timeout=8)
+                                if kf_dest.exists():
+                                    extracted_kfs.append({
+                                        "index": idx_kf,
+                                        "time_s": t_sec,
+                                        "label": f"{t_sec}s",
+                                        "url": f"/api/files/stream?path={kf_dest}",
+                                        "local_path": str(kf_dest)
+                                    })
+                            except Exception:
+                                pass
                     except Exception as e_thumb:
                         logger.warning(f"Could not extract benchmark first frame: {e_thumb}")
 
@@ -1558,7 +1579,10 @@ class ChannelDNAService:
                 "channel_title": bench.channel_title,
                 "thumbnail_url": thumbnail_url,
                 "sample_thumbnail": thumbnail_url,
+                "sample_image_url": thumbnail_url,
                 "source_video_path": sample_video_path,
+                "keyframes": extracted_kfs if 'extracted_kfs' in locals() and extracted_kfs else [],
+                "extracted_keyframes": extracted_kfs if 'extracted_kfs' in locals() and extracted_kfs else [],
                 "version": 2,
                 "recipe": f"{bench.channel_title} 채널의 12편 정밀 발골 4대 DNA 기반 시그니처 프로덕션 블루프린트",
                 "content_rules": [

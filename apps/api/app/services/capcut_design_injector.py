@@ -81,27 +81,52 @@ def normalize_design_preset(raw: Dict[str, Any]) -> Dict[str, Any]:
     bot_bar = vg.get("bottom_bar", style.get("bottom_bar", {}))
     h_lines = vg.get("top_header_lines", [])
 
+    # Container type & archetypes
+    container_type = vg.get("container_type", style.get("container_type", "letterbox_sandwich"))
+    floating_capsule = vg.get("floating_capsule", {})
+    sub_tape = vg.get("sub_tape_label", {})
+    two_tone = vg.get("two_tone_caption", {})
+    top_source = vg.get("top_source", "")
+
     # Frame Top & Bottom Bars
     has_top = bool(top_bar.get("enabled", True) if "enabled" in top_bar else top_bar.get("hasTopBarBg", True))
+    if container_type in ("floating_capsule", "none"):
+        has_top = False
+
     top_h = float(top_bar.get("height_pct", top_bar.get("topBarHeightPct", 18.0)))
     top_color = top_bar.get("bg_color", top_bar.get("bar_bg", "#000000"))
 
     has_bot = bool(bot_bar.get("enabled", False) if "enabled" in bot_bar else bot_bar.get("hasBottomBarBg", False))
+    if container_type in ("floating_capsule", "none"):
+        has_bot = False
+
     bot_h = float(bot_bar.get("height_pct", bot_bar.get("bottomBarHeightPct", 11.0)))
     bot_color = bot_bar.get("bg_color", bot_bar.get("bar_bg", "#000000"))
 
     # Roles: 제목 (Title 1 & 2)
     line1_text = top_header.get("line1", {}).get("text") or (h_lines[0].get("text") if h_lines else raw.get("name", "영상 대제목 1줄"))
-    line1_col = top_header.get("line1", {}).get("color") or (h_lines[0].get("color") if h_lines else "#FFFFFF")
+    line1_col = top_header.get("line1", {}).get("color") or (h_lines[0].get("color") if h_lines else "#FFE500" if container_type == "floating_capsule" else "#FFFFFF")
     line1_size = float(top_header.get("line1", {}).get("size_px") or (h_lines[0].get("size_px") if h_lines else 28))
 
     line2_text = top_header.get("line2", {}).get("text") or (h_lines[1].get("text") if len(h_lines) > 1 else "핵심 훅 명사")
-    line2_col = top_header.get("line2", {}).get("color") or (h_lines[1].get("color") if len(h_lines) > 1 else "#FFE838")
+    line2_col = top_header.get("line2", {}).get("color") or (h_lines[1].get("color") if len(h_lines) > 1 else "#FFFFFF" if container_type == "floating_capsule" else "#FFE838")
     line2_size = float(top_header.get("line2", {}).get("size_px") or (h_lines[1].get("size_px") if len(h_lines) > 1 else 32))
 
-    # Title Y positioning (in CapCut coords: center of top bar)
-    title_y_pct = top_h * 0.58 if has_top else 11.5
+    # Title Y positioning (in CapCut coords)
+    if container_type == "floating_capsule":
+        title_y_pct = float(floating_capsule.get("top_y_pct", 8.0)) + (float(floating_capsule.get("height_pct", 10.5)) / 2.0)
+    elif container_type == "none":
+        title_y_pct = 10.0
+    else:
+        title_y_pct = top_h * 0.58 if has_top else 11.5
     title_tx, title_ty = to_capcut_coord(50.0, title_y_pct)
+
+    # Sub-tape sticker positioning
+    st_text = sub_tape.get("text", "")
+    st_emoji = sub_tape.get("emoji", "")
+    st_enabled = bool(sub_tape.get("enabled", False) and (st_text or st_emoji))
+    st_y_pct = float(sub_tape.get("top_y_pct", 19.5))
+    st_tx, st_ty = to_capcut_coord(50.0, st_y_pct)
 
     # Subtitle (Dialogue / 대사)
     bilingual = style.get("bilingual_caption", {})
@@ -126,6 +151,7 @@ def normalize_design_preset(raw: Dict[str, Any]) -> Dict[str, Any]:
     return {
         "version": 3,
         "name": raw.get("name", "ViraLoop Universal Preset"),
+        "container_type": container_type,
         "frame": {
             "has_top_bar": has_top,
             "top_height_pct": top_h,
@@ -143,6 +169,31 @@ def normalize_design_preset(raw: Dict[str, Any]) -> Dict[str, Any]:
                 "font_size": max(15.0, round(line2_size * 0.52, 1)),
                 "color": line1_col,
                 "line2_color": line2_col,
+                "is_floating_capsule": container_type == "floating_capsule",
+                "bg_color": floating_capsule.get("bg_color", "#000000"),
+                "border_radius": floating_capsule.get("border_radius_px", 24),
+            },
+            "sub_tape_label": {
+                "enabled": st_enabled,
+                "text": f"{st_text} {st_emoji}".strip(),
+                "x": st_tx,
+                "y": st_ty,
+                "bg_color": sub_tape.get("bg_color", "#FDE68A"),
+                "text_color": sub_tape.get("text_color", "#1E293B"),
+                "font_size": 11.5,
+                "tilt_deg": float(sub_tape.get("tilt_deg", 0.0)),
+            },
+            "two_tone_caption": {
+                "enabled": bool(two_tone.get("enabled", False)),
+                "highlight_text": two_tone.get("highlight_text", ""),
+                "highlight_color": two_tone.get("highlight_color", "#FFE500"),
+                "base_color": two_tone.get("base_color", "#FFFFFF"),
+            },
+            "top_source": {
+                "enabled": bool(top_source),
+                "text": top_source,
+                "font_size": 9.0,
+                "color": "#CBD5E1",
             },
             "상황설명": {
                 "x": sit_tx,
@@ -642,12 +693,56 @@ def create_completed_capcut_draft(
     }
     draft["tracks"].append(title_track)
 
-    # Subtitles Track (From cues)
+    # Sub-Tape Sticker Track (e.g. 패션탐정냥 Type B)
+    sub_tape_spec = roles.get("sub_tape_label", {})
+    if sub_tape_spec.get("enabled") and sub_tape_spec.get("text"):
+        st_text = str(sub_tape_spec.get("text")).strip()
+        st_mat_id = str(uuid.uuid4()).upper()
+        st_seg_id = str(uuid.uuid4()).upper()
+        st_rgb = hex_to_rgb01(sub_tape_spec.get("text_color", "#1E293B"))
+        st_tx = float(sub_tape_spec.get("x", 0.0))
+        st_ty = float(sub_tape_spec.get("y", 0.61))
+        st_font_size = float(sub_tape_spec.get("font_size", 11.5))
+
+        st_content_json = json.dumps({
+            "styles": [{
+                "fill": {"content": {"solid": {"color": st_rgb}}},
+                "range": [0, len(st_text)],
+                "size": st_font_size
+            }],
+            "text": st_text
+        }, ensure_ascii=False)
+
+        draft["materials"]["texts"].append({
+            "id": st_mat_id,
+            "type": "text",
+            "content": st_content_json,
+            "font_size": st_font_size,
+            "typesetting": 0
+        })
+
+        draft["tracks"].append({
+            "id": str(uuid.uuid4()).upper(), "type": "text", "attribute": 0, "flag": 0, "name": "Sub Tape Sticker",
+            "segments": [{
+                "id": st_seg_id, "type": "text", "material_id": st_mat_id,
+                "target_timerange": {"duration": total_duration_us, "start": 0},
+                "source_timerange": {"duration": total_duration_us, "start": 0},
+                "render_index": 150,
+                "clip": {"alpha": 1.0, "transform": {"x": st_tx, "y": st_ty}}
+            }]
+        })
+
+    # Subtitles Track (From cues, with 2-Tone Keyword Highlighting)
     cap_spec = roles.get("대사", {})
     cap_font_size = float(cap_spec.get("font_size", 14.0))
     cap_rgb = hex_to_rgb01(cap_spec.get("color", "#FFFFFF"))
     cap_x = float(cap_spec.get("x", 0.0))
     cap_y = float(cap_spec.get("y", -0.64))
+
+    two_tone_spec = roles.get("two_tone_caption", {})
+    tt_enabled = bool(two_tone_spec.get("enabled"))
+    tt_highlight = str(two_tone_spec.get("highlight_text", "")).strip()
+    tt_color_rgb = hex_to_rgb01(two_tone_spec.get("highlight_color", "#FFE500"))
 
     subtitle_track = {
         "id": str(uuid.uuid4()).upper(), "type": "text", "attribute": 0, "flag": 0, "name": "Subtitles",
@@ -665,12 +760,24 @@ def create_completed_capcut_draft(
         c_mat_id = str(uuid.uuid4()).upper()
         c_seg_id = str(uuid.uuid4()).upper()
 
+        c_styles = [{
+            "fill": {"content": {"solid": {"color": cap_rgb}}},
+            "range": [0, len(cue_text)],
+            "size": cap_font_size
+        }]
+
+        # Two-tone keyword highlight
+        if tt_enabled and tt_highlight and tt_highlight in cue_text:
+            hl_start = cue_text.find(tt_highlight)
+            hl_end = hl_start + len(tt_highlight)
+            c_styles.append({
+                "fill": {"content": {"solid": {"color": tt_color_rgb}}},
+                "range": [hl_start, hl_end],
+                "size": round(cap_font_size * 1.08, 1)
+            })
+
         c_content = json.dumps({
-            "styles": [{
-                "fill": {"content": {"solid": {"color": cap_rgb}}},
-                "range": [0, len(cue_text)],
-                "size": cap_font_size
-            }],
+            "styles": c_styles,
             "text": cue_text
         }, ensure_ascii=False)
 

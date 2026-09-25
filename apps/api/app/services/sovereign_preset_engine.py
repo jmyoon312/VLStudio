@@ -61,7 +61,47 @@ DEFAULT_BLUEPRINT_V2 = {
     "blueprint_name": "Standard Sovereign Blueprint v2",
     "output": {"size": "1080x1920", "fps": 30, "aspect_ratio": "9:16"},
     "visual_geometry": {
+        "container_type": "letterbox_sandwich",  # floating_capsule | letterbox_sandwich | full_width_band | social_post_bar | none
         "canvas_type": "sandwich_1_1",  # sandwich_1_1 | letterbox_top_bottom | fullscreen_overlay
+        "floating_capsule": {
+            "enabled": False,
+            "bg_color": "#000000",
+            "border_color": "rgba(255, 255, 255, 0.2)",
+            "border_radius_px": 24,
+            "top_y_pct": 8.0,
+            "height_pct": 10.5,
+            "padding_h_px": 20
+        },
+        "sub_tape_label": {
+            "enabled": False,
+            "bg_color": "#FDE68A",
+            "text": "",
+            "emoji": "",
+            "text_color": "#1E293B",
+            "font_weight": "Bold",
+            "top_y_pct": 19.5,
+            "tilt_deg": 0
+        },
+        "visual_pointers": {
+            "enabled": False,
+            "arrow_type": "curved_red",
+            "color": "#EF4444",
+            "label": "",
+            "target_x_pct": 65.0,
+            "target_y_pct": 44.0
+        },
+        "two_tone_caption": {
+            "enabled": False,
+            "highlight_text": "",
+            "base_text": "",
+            "highlight_color": "#FFE500",
+            "base_color": "#FFFFFF",
+            "outline_color": "#000000",
+            "outline_px": 6,
+            "font_family": "Pretendard",
+            "safe_zone_y": 69.0,
+            "margin_v_pct": 31.0
+        },
         "top_bar": {
             "enabled": True,
             "bg_color": "#000000",
@@ -152,6 +192,10 @@ def normalize_to_blueprint_v2(style: Dict[str, Any]) -> Dict[str, Any]:
 
     # Already v2
     if style.get("schema_version") == 2 and "visual_geometry" in style:
+        vg = style.get("visual_geometry", {})
+        if "container_type" not in vg:
+            c_type = "floating_capsule" if vg.get("canvas_type") == "fullscreen_overlay" else "letterbox_sandwich"
+            vg["container_type"] = c_type
         return style
 
     # Legacy v1 to v2 migration
@@ -232,20 +276,22 @@ def compile_ass_subtitles(
     margin_lr = round(w * 0.04)
 
     # V2 Blueprint Compatibility Adapter
-    vg = style.get("visual_geometry")
+    vg = style.get("visual_geometry", {})
     top_header = style.get("top_header", {})
+    container_type = vg.get("container_type", "letterbox_sandwich")
+    is_floating_capsule = container_type == "floating_capsule"
     header_lines_cfg = []
     top_y_pct = 5.5
 
     if vg and isinstance(vg, dict):
         cap = vg.get("caption", DEFAULT_STYLE["caption"])
         header_lines_cfg = vg.get("top_header_lines", [])
-        top_y_pct = vg.get("top_title_y_pct", 5.5)
+        top_y_pct = vg.get("top_title_y_pct", 8.0 if is_floating_capsule else 5.5)
         title = {
             "enabled": True,
             "size_px": header_lines_cfg[0].get("size_px", 32) * 2 if header_lines_cfg else 72,
             "color": header_lines_cfg[0].get("color", "#FFFFFF") if header_lines_cfg else "#FFFFFF",
-            "box_color": vg.get("top_bar", {}).get("bg_color"),
+            "box_color": vg.get("top_bar", {}).get("bg_color") if not is_floating_capsule else None,
             "margin_v_pct": top_y_pct,
             "outline_px": 7
         }
@@ -296,12 +342,30 @@ def compile_ass_subtitles(
     title_box = title.get("box_color")
     title_outline_color = hex_to_ass_color(title_box or title.get("outline_color", "#000000"))
     title_bold = -1 if title.get("bold", True) else 0
-    border_style = 3 if title_box else 1
-    title_outline = round(line1_size * 0.25) if title_box else title.get("outline_px", 7)
+    border_style = 3 if (title_box or is_floating_capsule) else 1
+    title_outline = 16 if is_floating_capsule else (round(line1_size * 0.25) if title_box else title.get("outline_px", 7))
     title_margin_v = round(h * top_y_pct / 100)
 
     ass_l1_color = hex_to_ass_color(line1_color)
     ass_l2_color = hex_to_ass_color(line2_color)
+
+    # Sub-tape and Top-source specifications
+    sub_tape = vg.get("sub_tape_label", {})
+    sub_tape_enabled = sub_tape.get("enabled", False) and bool(sub_tape.get("text"))
+    tape_margin_v = round(h * (sub_tape.get("top_y_pct", 19.5)) / 100)
+    tape_bg_color = hex_to_ass_color(sub_tape.get("bg_color", "#FDE68A"))
+    tape_text_color = hex_to_ass_color(sub_tape.get("text_color", "#1E293B"))
+
+    top_source = vg.get("top_source", {})
+    top_source_enabled = top_source.get("enabled", False) and bool(top_source.get("text"))
+    source_margin_v = round(h * (top_source.get("top_pct", 4.0)) / 100)
+    source_color = hex_to_ass_color(top_source.get("color", "#CBD5E1"))
+
+    # Two-tone caption config
+    two_tone = vg.get("two_tone_caption", {})
+    two_tone_enabled = two_tone.get("enabled", False)
+    two_tone_hi_color = hex_to_ass_color(two_tone.get("highlight_color", "#FFE500"))
+    two_tone_base_color = hex_to_ass_color(two_tone.get("base_color", "#FFFFFF"))
 
     header = f"""[Script Info]
 ; ViraLoop Sovereign Preset Renderer
@@ -316,11 +380,19 @@ YCbCr Matrix: None
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
 Style: Caption,{cap_font},{cap_size},{cap_color},&H000000FF,{cap_outline_color},&H00000000,{cap_bold},0,0,0,100,100,0,0,1,{cap_outline},0,{cap_align},{margin_lr},{margin_lr},{cap_margin_v},1
 Style: Title,{title_font},{line1_size},{ass_l1_color},&H000000FF,{title_outline_color},&H00000000,{title_bold},0,0,0,100,100,0,0,{border_style},{title_outline},0,8,{margin_lr},{margin_lr},{title_margin_v},1
+Style: SubTape,{title_font},34,{tape_text_color},&H000000FF,&H00000000,{tape_bg_color},-1,0,0,0,100,100,0,0,3,10,0,8,{margin_lr},{margin_lr},{tape_margin_v},1
+Style: TopSource,{title_font},24,{source_color},&H000000FF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,2,0,8,{margin_lr},{margin_lr},{source_margin_v},1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 """
     events = []
+
+    # Top Source dialogue event
+    if top_source_enabled:
+        s_text = top_source.get("text", "")
+        events.append(f"Dialogue: 1,{format_ass_time(0)},{format_ass_time(duration_ms)},TopSource,,0,0,0,,{s_text}")
+
     # Title dialogue line (2단 텍스트 색상 및 폰트 크기 인라인 제어)
     if title.get("enabled", True) and title_lines:
         cleaned_lines = []
@@ -339,7 +411,12 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             title_text = ""
 
         if title_text:
-            events.append(f"Dialogue: 1,{format_ass_time(0)},{format_ass_time(duration_ms)},Title,,0,0,0,,{title_text}")
+            events.append(f"Dialogue: 2,{format_ass_time(0)},{format_ass_time(duration_ms)},Title,,0,0,0,,{title_text}")
+
+    # Sub-tape sticker dialogue event
+    if sub_tape_enabled:
+        t_text = f"{sub_tape.get('text', '')} {sub_tape.get('emoji', '')}".strip()
+        events.append(f"Dialogue: 3,{format_ass_time(0)},{format_ass_time(duration_ms)},SubTape,,0,0,0,,{t_text}")
 
     # Caption dialogue lines
     for cue in cues:
@@ -347,6 +424,17 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         end = format_ass_time(cue.get("end_ms", 0))
         raw_text = cue.get("text", "")
         max_c = cap.get("max_chars_per_line", 14)
+        
+        # Two-tone highlight keyword check
+        if two_tone_enabled:
+            hi_text = two_tone.get("highlight_text", "").strip()
+            if hi_text and hi_text in raw_text:
+                replaced = raw_text.replace(hi_text, f"{{\\c{two_tone_hi_color}&}}{hi_text}{{\\c{two_tone_base_color}&}}")
+                wrapped = wrap_text(replaced, max_c + 20)
+                text_payload = "\\N".join(wrapped)
+                events.append(f"Dialogue: 0,{start},{end},Caption,,0,0,0,,{text_payload}")
+                continue
+
         wrapped = wrap_text(raw_text, max_c)
         text_payload = "\\N".join(wrapped)
         events.append(f"Dialogue: 0,{start},{end},Caption,,0,0,0,,{text_payload}")
@@ -421,35 +509,44 @@ class SovereignPresetEngine:
         escaped_ass = str(ass_file).replace("\\", "/").replace(":", "\\:")
         video_zoom = style.get("video", {}).get("zoom_pct", 100)
         
-        vf_filters = [f"scale={w}:{h}:force_original_aspect_ratio=decrease,pad={w}:{h}:(ow-iw)/2:(oh-ih)/2"]
+        vg = style.get("visual_geometry", {})
+        container_type = vg.get("container_type", "letterbox_sandwich")
+        canvas_type = vg.get("canvas_type", "sandwich_1_1")
+        is_fullscreen = container_type in ["floating_capsule", "full_width_band", "social_post_bar", "none"] or canvas_type == "fullscreen_overlay"
+
+        if is_fullscreen:
+            vf_filters = [f"scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h}"]
+        else:
+            vf_filters = [f"scale={w}:{h}:force_original_aspect_ratio=decrease,pad={w}:{h}:(ow-iw)/2:(oh-ih)/2"]
+
         if video_zoom > 100:
             crop_w = int(w * 100 / video_zoom)
             crop_h = int(h * 100 / video_zoom)
             vf_filters.append(f"crop={crop_w}:{crop_h},scale={w}:{h}")
 
-        # Top Bar & Bottom Bar Frame Injection (Pixel-perfect letterboxing)
-        vg = style.get("visual_geometry", {})
-        top_bar = vg.get("top_bar", style.get("top_header", {}))
-        if top_bar and (top_bar.get("enabled", True) if "enabled" in top_bar else top_bar.get("hasTopBarBg", True)):
-            tb_h_pct = float(top_bar.get("height_pct", top_bar.get("topBarHeightPct", 0)) or 0)
-            if tb_h_pct > 0:
-                tb_color = str(top_bar.get("bg_color", top_bar.get("bar_bg", "#000000"))).replace("#", "")
-                if len(tb_color) == 6:
-                    vf_filters.append(f"drawbox=x=0:y=0:w={w}:h=round({h}*{tb_h_pct}/100):color=0x{tb_color}@1:t=fill")
-                else:
-                    vf_filters.append(f"drawbox=x=0:y=0:w={w}:h=round({h}*{tb_h_pct}/100):color=black@1:t=fill")
+        # Top Bar & Bottom Bar Frame Injection (Only when letterbox is active)
+        if not is_fullscreen:
+            top_bar = vg.get("top_bar", style.get("top_header", {}))
+            if top_bar and (top_bar.get("enabled", True) if "enabled" in top_bar else top_bar.get("hasTopBarBg", True)):
+                tb_h_pct = float(top_bar.get("height_pct", top_bar.get("topBarHeightPct", 0)) or 0)
+                if tb_h_pct > 0:
+                    tb_color = str(top_bar.get("bg_color", top_bar.get("bar_bg", "#000000"))).replace("#", "")
+                    if len(tb_color) == 6:
+                        vf_filters.append(f"drawbox=x=0:y=0:w={w}:h=round({h}*{tb_h_pct}/100):color=0x{tb_color}@1:t=fill")
+                    else:
+                        vf_filters.append(f"drawbox=x=0:y=0:w={w}:h=round({h}*{tb_h_pct}/100):color=black@1:t=fill")
 
-        bottom_bar = vg.get("bottom_bar", style.get("bottom_bar", {}))
-        if bottom_bar and (bottom_bar.get("enabled", False) if "enabled" in bottom_bar else bottom_bar.get("hasBottomBarBg", False)):
-            bb_h_pct = float(bottom_bar.get("height_pct", bottom_bar.get("bottomBarHeightPct", 0)) or 0)
-            if bb_h_pct > 0:
-                bb_color = str(bottom_bar.get("bg_color", bottom_bar.get("bar_bg", "#000000"))).replace("#", "")
-                y_box = f"round({h}*(100-{bb_h_pct})/100)"
-                h_box = f"round({h}*{bb_h_pct}/100)"
-                if len(bb_color) == 6:
-                    vf_filters.append(f"drawbox=x=0:y={y_box}:w={w}:h={h_box}:color=0x{bb_color}@1:t=fill")
-                else:
-                    vf_filters.append(f"drawbox=x=0:y={y_box}:w={w}:h={h_box}:color=black@1:t=fill")
+            bottom_bar = vg.get("bottom_bar", style.get("bottom_bar", {}))
+            if bottom_bar and (bottom_bar.get("enabled", False) if "enabled" in bottom_bar else bottom_bar.get("hasBottomBarBg", False)):
+                bb_h_pct = float(bottom_bar.get("height_pct", bottom_bar.get("bottomBarHeightPct", 0)) or 0)
+                if bb_h_pct > 0:
+                    bb_color = str(bottom_bar.get("bg_color", bottom_bar.get("bar_bg", "#000000"))).replace("#", "")
+                    y_box = f"round({h}*(100-{bb_h_pct})/100)"
+                    h_box = f"round({h}*{bb_h_pct}/100)"
+                    if len(bb_color) == 6:
+                        vf_filters.append(f"drawbox=x=0:y={y_box}:w={w}:h={h_box}:color=0x{bb_color}@1:t=fill")
+                    else:
+                        vf_filters.append(f"drawbox=x=0:y={y_box}:w={w}:h={h_box}:color=black@1:t=fill")
 
         vf_filters.append(f"subtitles='{escaped_ass}'")
         vf_string = ",".join(vf_filters)
