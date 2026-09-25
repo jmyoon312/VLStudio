@@ -1321,7 +1321,10 @@ ViraLoop Studio 환경에서 사용자와 협력하며 고속 멀티모달 분�
             logger.info("🎬 [ConversationalDirector] Executing OmniRoute Sovereign Engine...")
             from openai import AsyncOpenAI
             client = AsyncOpenAI(base_url=clean_base_url, api_key=omni_api_key, timeout=30.0)
-            model_candidates = ["viraloop1"]
+            target_omni_model = str(model or getattr(db_settings, "script_analysis_model", None) or getattr(db_settings, "default_llm_model", None) or "viraloop1").strip()
+            model_candidates = [target_omni_model]
+            if target_omni_model != "viraloop1":
+                model_candidates.append("viraloop1")
             omni_success = False
 
             for candidate in model_candidates:
@@ -1367,7 +1370,7 @@ ViraLoop Studio 환경에서 사용자와 협력하며 고속 멀티모달 분�
                         # 🛠️ Tool-Path: Full Production Bible + 10 MCP Tools Autonomous ReAct Loop
                         system_prompt = self._build_hermes_system_prompt(
                             provider_name="ViraLoop OmniRoute",
-                            model_name="viraloop1",
+                            model_name=candidate,
                             current_date_str=current_date_str,
                             preset_context=preset_context,
                             search_context=search_context,
@@ -1380,6 +1383,27 @@ ViraLoop Studio 환경에서 사용자와 협력하며 고속 멀티모달 분�
                             current_prompt=prompt,
                             mem=working_mem
                         )
+
+                        # 📸 Multimodal Vision Attachment for OmniRoute (OpenAI standard image_url)
+                        if keyframe_images and isinstance(keyframe_images, list) and req_messages:
+                            import base64
+                            last_msg = req_messages[-1]
+                            if last_msg.get("role") == "user":
+                                raw_text = str(last_msg.get("content") or "")
+                                user_parts = [{"type": "text", "text": raw_text}]
+                                for kf_p in keyframe_images[:6]:
+                                    kf_path = Path(kf_p)
+                                    if kf_path.exists() and kf_path.stat().st_size > 500:
+                                        try:
+                                            b64 = base64.b64encode(kf_path.read_bytes()).decode("ascii")
+                                            user_parts.append({
+                                                "type": "image_url",
+                                                "image_url": {"url": f"data:image/jpeg;base64,{b64}"}
+                                            })
+                                        except Exception:
+                                            pass
+                                if len(user_parts) > 1:
+                                    last_msg["content"] = user_parts
 
                         MAX_AGENT_TURNS = 12
                         turn = 0
@@ -1399,7 +1423,16 @@ ViraLoop Studio 환경에서 사용자와 협력하며 고속 멀티모달 분�
                                 "timeout": 30.0
                             }
 
-                            stream = await client.chat.completions.create(**req_kwargs)
+                            try:
+                                stream = await client.chat.completions.create(**req_kwargs)
+                            except Exception as stream_err:
+                                if "image" in str(stream_err).lower() and isinstance(req_messages[-1].get("content"), list):
+                                    logger.warning(f"OmniRoute model rejected multimodal images, falling back to text: {stream_err}")
+                                    req_messages[-1]["content"] = prompt
+                                    req_kwargs["messages"] = req_messages
+                                    stream = await client.chat.completions.create(**req_kwargs)
+                                else:
+                                    raise
 
                             async for chunk in stream:
                                 if not chunk.choices:
