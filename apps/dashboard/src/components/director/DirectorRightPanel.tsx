@@ -75,7 +75,7 @@ export const DirectorRightPanel: React.FC<DirectorRightPanelProps> = ({
     governanceMode = 'full_auto',
     onToggleGovernanceMode,
     onExecuteManualCommand,
-    defaultTab = 'terminal',
+    defaultTab = 'browser',
 }) => {
     const [activeDockTab, setActiveDockTab] = useState<DockTab>(defaultTab);
     const [manualCmd, setManualCmd] = useState('');
@@ -130,6 +130,25 @@ export const DirectorRightPanel: React.FC<DirectorRightPanelProps> = ({
             toast.error(`검색 통신 오류: ${e.message}`);
         } finally {
             setIsSearchingBrowser(false);
+        }
+    };
+
+    const handleOpenGoogleLogin = async () => {
+        toast.info('구글 영구 세션 로그인 창을 여는 중...');
+        try {
+            const res = await fetch('/api/agent/browser-login-window', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url: 'https://accounts.google.com' })
+            });
+            const data = await res.json();
+            if (data.success) {
+                toast.success('구글 로그인 창이 열렸습니다. 로그인 완료 후 창을 닫으시면 세션이 영구 보존됩니다.');
+            } else {
+                toast.error(`로그인 창 실행 실패: ${data.error}`);
+            }
+        } catch (e: any) {
+            toast.error(`통신 오류: ${e.message}`);
         }
     };
 
@@ -357,21 +376,8 @@ export const DirectorRightPanel: React.FC<DirectorRightPanelProps> = ({
                 </div>
             </div>
 
-            {/* Quick Dock Navigation Pill Bar */}
+            {/* Quick Dock Navigation Pill Bar (Browser is First Default Tab) */}
             <div className="px-3 py-1.5 border-b border-border/40 bg-muted/10 flex items-center gap-1 overflow-x-auto text-xs scrollbar-none">
-                <button
-                    type="button"
-                    onClick={() => setActiveDockTab('terminal')}
-                    className={`px-2 py-0.5 rounded-md flex items-center gap-1 text-[11px] font-medium transition-colors shrink-0 ${
-                        activeDockTab === 'terminal' ? 'bg-primary text-primary-foreground font-bold' : 'text-muted-foreground hover:text-foreground'
-                    }`}
-                >
-                    <Terminal className="w-3 h-3 text-sky-400" />
-                    터미널
-                    {commandLogs.length > 0 && (
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse ml-0.5" />
-                    )}
-                </button>
                 <button
                     type="button"
                     onClick={() => setActiveDockTab('browser')}
@@ -430,6 +436,19 @@ export const DirectorRightPanel: React.FC<DirectorRightPanelProps> = ({
                 >
                     <Film className="w-3 h-3 text-purple-400" />
                     결과물 보관함
+                </button>
+                <button
+                    type="button"
+                    onClick={() => setActiveDockTab('terminal')}
+                    className={`px-2 py-0.5 rounded-md flex items-center gap-1 text-[11px] font-medium transition-colors shrink-0 ${
+                        activeDockTab === 'terminal' ? 'bg-primary text-primary-foreground font-bold' : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                >
+                    <Terminal className="w-3 h-3 text-sky-400" />
+                    터미널
+                    {commandLogs.length > 0 && (
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse ml-0.5" />
+                    )}
                 </button>
                 {activeVideo && (
                     <button
@@ -673,6 +692,15 @@ export const DirectorRightPanel: React.FC<DirectorRightPanelProps> = ({
                                 >
                                     Shorts
                                 </button>
+                                <button
+                                    type="button"
+                                    onClick={handleOpenGoogleLogin}
+                                    className="px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/30 text-[10px] font-semibold flex items-center gap-1 cursor-pointer transition-colors"
+                                    title="구글 로그인 브라우저 창 열기 (로그인 후 세션이 04_Profiles에 영구 보존됩니다)"
+                                >
+                                    <Shield className="w-3 h-3" />
+                                    <span>구글 로그인 세션</span>
+                                </button>
                             </div>
                         </div>
 
@@ -769,6 +797,26 @@ export const DirectorRightPanel: React.FC<DirectorRightPanelProps> = ({
                                                     </button>
                                                 ))}
                                             </div>
+                                        </div>
+
+                                        {/* Google Session Preservation Info Card */}
+                                        <div className="p-3 rounded-xl border border-emerald-500/30 bg-emerald-500/5 text-xs space-y-1.5">
+                                            <div className="flex items-center justify-between">
+                                                <span className="font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5 text-[11px]">
+                                                    <Shield className="w-3.5 h-3.5" />
+                                                    구글/유튜브 영구 세션 보존 (`04_Profiles`)
+                                                </span>
+                                                <button
+                                                    type="button"
+                                                    onClick={handleOpenGoogleLogin}
+                                                    className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline cursor-pointer"
+                                                >
+                                                    로그인 창 열기 →
+                                                </button>
+                                            </div>
+                                            <p className="text-[11px] text-muted-foreground leading-relaxed">
+                                                구글/유튜브에 1회 로그인해 두시면 쿠키 및 인증이 영구 보존되어, 검색 봇 차단(reCAPTCHA)을 우회하고 최신 떡상 영상과 채널 알고리즘 데이터를 실시간 수집할 수 있습니다.
+                                            </p>
                                         </div>
                                     </div>
                                 )}

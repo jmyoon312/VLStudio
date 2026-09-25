@@ -436,5 +436,18 @@ async def open_workspace_folder(req: OpenFolderRequest):
     target = DOWNLOADS_DIR if req.folder == "downloads" else EXPORTS_DIR
     return local_os_controller.open_folder(custom_path=str(target))
 
+class BrowserLoginWindowRequest(BaseModel):
+    url: Optional[str] = "https://accounts.google.com"
+
+@router.post("/browser-login-window")
+async def open_browser_login_window(req: BrowserLoginWindowRequest):
+    """
+    Launches an interactive Chromium window with persistent user profile (04_Profiles)
+    so the user can log into Google/YouTube.
+    """
+    from app.services.local_os_controller import local_os_controller
+    return local_os_controller.open_browser_login_window(url=req.url or "https://accounts.google.com")
+
+
 
 

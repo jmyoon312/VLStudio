@@ -295,6 +295,9 @@ class LocalOSController:
         snapshots_dir = MEDIA_ROOT / "02_Operations" / "browser_snapshots"
         snapshots_dir.mkdir(parents=True, exist_ok=True)
 
+        user_data_dir = MEDIA_ROOT / "04_Profiles" / "browser_user_data"
+        user_data_dir.mkdir(parents=True, exist_ok=True)
+
         target_url = url
         if not target_url and query:
             target_url = f"https://www.google.com/search?q={urllib.parse.quote(query)}"
@@ -304,15 +307,30 @@ class LocalOSController:
 
         try:
             async with async_playwright() as p:
-                browser = await p.chromium.launch(
-                    headless=True,
-                    args=["--disable-blink-features=AutomationControlled", "--no-sandbox"]
-                )
-                context = await browser.new_context(
-                    user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
-                    viewport={"width": 1280, "height": 800}
-                )
-                page = await context.new_page()
+                context = None
+                browser = None
+                try:
+                    # Attempt to use persistent session (preserving Google/YouTube login, cookies, preferences)
+                    context = await p.chromium.launch_persistent_context(
+                        user_data_dir=str(user_data_dir),
+                        headless=True,
+                        args=["--disable-blink-features=AutomationControlled", "--no-sandbox"],
+                        user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+                        viewport={"width": 1280, "height": 800}
+                    )
+                    page = context.pages[0] if context.pages else await context.new_page()
+                except Exception as lock_err:
+                    logger.warning(f"Persistent context locked or in-use, falling back to ephemeral browser: {lock_err}")
+                    browser = await p.chromium.launch(
+                        headless=True,
+                        args=["--disable-blink-features=AutomationControlled", "--no-sandbox"]
+                    )
+                    context = await browser.new_context(
+                        user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+                        viewport={"width": 1280, "height": 800}
+                    )
+                    page = await context.new_page()
+
                 await page.goto(target_url, timeout=20000, wait_until="domcontentloaded")
                 await page.wait_for_timeout(1500)
 
@@ -354,7 +372,10 @@ class LocalOSController:
                     b64 = base64.b64encode(raw_bytes).decode("ascii")
                     screenshot_data_url = f"data:image/png;base64,{b64}"
 
-                await browser.close()
+                if context:
+                    await context.close()
+                if browser:
+                    await browser.close()
 
                 return {
                     "success": True,
@@ -373,6 +394,68 @@ class LocalOSController:
                 "url": target_url,
                 "error": f"브라우저 탐색 실패: {e}"
             }
+
+    @staticmethod
+    def open_browser_login_window(url: str = "https://accounts.google.com") -> Dict[str, Any]:
+        """
+        Launches an interactive Chromium browser window with the persistent user profile
+        at MEDIA_ROOT / '04_Profiles' / 'browser_user_data' so the user can log into Google / YouTube.
+        The login cookies, session tokens, and preferences are permanently preserved.
+        """
+        import subprocess
+
+        user_data_dir = MEDIA_ROOT / "04_Profiles" / "browser_user_data"
+        user_data_dir.mkdir(parents=True, exist_ok=True)
+
+        # Locate Playwright chromium executable or system Chrome / Edge
+        chrome_candidates = [
+            Path(os.environ.get("LOCALAPPDATA", "")) / "ms-playwright" / "chromium-1234" / "chrome-win64" / "chrome.exe",
+            Path("C:/Program Files/Google/Chrome/Application/chrome.exe"),
+            Path("C:/Program Files (x86)/Google/Chrome/Application/chrome.exe"),
+            Path("C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe"),
+            Path("C:/Program Files/Microsoft/Edge/Application/msedge.exe"),
+        ]
+
+        # Scan for Playwright chromium dynamically
+        ms_playwright_dir = Path(os.environ.get("LOCALAPPDATA", "")) / "ms-playwright"
+        if ms_playwright_dir.exists():
+            for p in sorted(ms_playwright_dir.glob("chromium-*/chrome-win64/chrome.exe"), reverse=True):
+                chrome_candidates.insert(0, p)
+            for p in sorted(ms_playwright_dir.glob("chromium-*/chrome-win/chrome.exe"), reverse=True):
+                chrome_candidates.insert(0, p)
+
+        selected_exe = None
+        for cand in chrome_candidates:
+            if cand.exists():
+                selected_exe = cand
+                break
+
+        if not selected_exe:
+            return {
+                "success": False,
+                "error": "Chromium 또는 Chrome 실행 파일을 찾을 수 없습니다."
+            }
+
+        cmd = [
+            str(selected_exe),
+            f"--user-data-dir={str(user_data_dir)}",
+            "--no-first-run",
+            "--no-default-browser-check",
+            url
+        ]
+
+        try:
+            subprocess.Popen(cmd)
+            logger.info(f"🌐 [LocalOSController] Launched browser login window with profile: {user_data_dir}")
+            return {
+                "success": True,
+                "profile_path": str(user_data_dir),
+                "url": url,
+                "message": "구글 세션 로그인 창이 열렸습니다. 로그인을 완료하시면 세션이 영구 보존됩니다."
+            }
+        except Exception as e:
+            logger.error(f"Failed to launch browser login window: {e}")
+            return {"success": False, "error": str(e)}
 
     @staticmethod
     def vision_inspect(
