@@ -219,10 +219,27 @@ def list_sovereign_presets(
 
                     if sample_file.exists():
                         preview_url = f"/api/files/stream?path={sample_file}"
-                    elif data.get("preview_video_url") and not "commondatastorage.googleapis.com" in data.get("preview_video_url"):
-                        preview_url = data.get("preview_video_url")
                     else:
                         preview_url = f"/api/files/stream?path={default_sample}"
+
+                    # Check thumbnail file
+                    thumb_candidate = PRESETS_DIR / "thumbnails" / f"{pid}.jpg"
+                    if thumb_candidate.exists():
+                        thumb_url = f"/api/files/stream?path={thumb_candidate}"
+                    else:
+                        thumb_url = data.get("thumbnail_url") or data.get("sample_thumbnail") or ""
+
+                    # Extract primary colors & typography
+                    style_obj = data.get("style", {})
+                    vg = style_obj.get("visual_geometry", {}) if isinstance(style_obj.get("visual_geometry"), dict) else {}
+                    top_bar = vg.get("top_bar", {}) if isinstance(vg.get("top_bar"), dict) else {}
+                    top_title = vg.get("top_title", {}) if isinstance(vg.get("top_title"), dict) else (style_obj.get("title", {}) if isinstance(style_obj.get("title"), dict) else {})
+                    caption_obj = vg.get("caption", {}) if isinstance(vg.get("caption"), dict) else (style_obj.get("subtitle", {}) if isinstance(style_obj.get("subtitle"), dict) else {})
+
+                    box_color = top_bar.get("bg_color") or top_title.get("box_color") or "#000000"
+                    title_color = top_title.get("color") or top_title.get("text_color") or "#FFE500"
+                    caption_color = caption_obj.get("color") or caption_obj.get("text_color") or "#FFFFFF"
+                    font_family = top_title.get("font") or top_title.get("font_family") or "Pretendard"
 
                     preset_item = {
                         "id": pid,
@@ -232,11 +249,14 @@ def list_sovereign_presets(
                         "source": data.get("source", "user"),
                         "version": data.get("version", 1),
                         "preview_video_url": preview_url,
-                        "thumbnail_url": data.get("thumbnail_url", ""),
+                        "thumbnail_url": thumb_url,
                         "source_video_path": data.get("source_video_path", None),
-                        "metrics": data.get("metrics", {"likes": 10, "views": 250, "saves": 15}),
+                        "channel_url": data.get("channel_url"),
+                        "channel_title": data.get("channel_title") or data.get("channel_name"),
                         "is_favorite": data.get("is_favorite", False),
-                        "style": data.get("style", {}),
+                        "color_palette": [box_color, title_color, caption_color],
+                        "primary_font": font_family,
+                        "style": style_obj,
                         "recipe": data.get("recipe", ""),
                         "content_rules": data.get("content_rules", []),
                         "production_bible_17": data.get("production_bible_17") or (data.get("blueprint", {}).get("production_bible_17") if isinstance(data.get("blueprint"), dict) else None) or {},

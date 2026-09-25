@@ -23,7 +23,8 @@ import {
     SlidersHorizontal,
     Edit3,
     Plus,
-    X
+    X,
+    ExternalLink
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { SovereignPreset } from '../presets/PresetLibraryModal';
@@ -52,6 +53,7 @@ export const PresetLoadModal: React.FC<PresetLoadModalProps> = ({
     const [selectedFolder, setSelectedFolder] = useState<string>('all');
     const [viewMode, setViewMode] = useState<ViewMode>('small_card');
     const [searchQuery, setSearchQuery] = useState('');
+    const [liveHeadline, setLiveHeadline] = useState('');
     const [sortBy, setSortBy] = useState<'latest' | 'popular' | 'views'>('latest');
     const [presets, setPresets] = useState<SovereignPreset[]>([]);
     const [loading, setLoading] = useState(false);
@@ -312,16 +314,31 @@ export const PresetLoadModal: React.FC<PresetLoadModalProps> = ({
                     </div>
 
                     {/* Filter & View mode bar */}
-                    <div className="px-6 py-3 bg-muted/30 border-b border-border/40 flex items-center justify-between gap-3">
-                        <div className="relative flex-1 max-w-md">
-                            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                            <Input
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                onKeyDown={handleSearchKeyDown}
-                                placeholder="이름 또는 태그 검색"
-                                className="h-8 pl-8 text-xs bg-background border-border/70 rounded-lg"
-                            />
+                    <div className="px-6 py-2.5 bg-muted/30 border-b border-border/40 flex items-center justify-between gap-2.5 flex-wrap sm:flex-nowrap">
+                        <div className="flex items-center gap-2 flex-1 max-w-xl">
+                            {/* Search */}
+                            <div className="relative flex-1">
+                                <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                                <Input
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    onKeyDown={handleSearchKeyDown}
+                                    placeholder="프리셋 이름 또는 태그 검색..."
+                                    className="h-8 pl-8 text-xs bg-background border-border/70 rounded-lg"
+                                />
+                            </div>
+
+                            {/* Live Headline Preview Input */}
+                            <div className="relative flex-1 max-w-xs hidden sm:block">
+                                <Sparkles className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-amber-500" />
+                                <Input
+                                    value={liveHeadline}
+                                    onChange={(e) => setLiveHeadline(e.target.value)}
+                                    placeholder="문장 미리보기 (내 대본 첫줄)..."
+                                    className="h-8 pl-7 text-[11px] bg-background border-border/70 rounded-lg placeholder:text-muted-foreground/70"
+                                    title="입력한 문장이 9:16 실물 미니어처 캔버스에 즉시 실시간 합성됩니다"
+                                />
+                            </div>
                         </div>
 
                         <div className="flex items-center gap-2">
@@ -342,7 +359,7 @@ export const PresetLoadModal: React.FC<PresetLoadModalProps> = ({
                                     type="button"
                                     onClick={() => setViewMode('big_card')}
                                     className={`p-1.5 rounded-md ${viewMode === 'big_card' ? 'bg-muted text-foreground' : 'text-muted-foreground'}`}
-                                    title="큰 카드"
+                                    title="큰 9:16 스마트폰 카드"
                                 >
                                     <LayoutGrid className="w-3.5 h-3.5" />
                                 </button>
@@ -350,7 +367,7 @@ export const PresetLoadModal: React.FC<PresetLoadModalProps> = ({
                                     type="button"
                                     onClick={() => setViewMode('small_card')}
                                     className={`p-1.5 rounded-md ${viewMode === 'small_card' ? 'bg-muted text-foreground' : 'text-muted-foreground'}`}
-                                    title="작은 카드"
+                                    title="작은 9:16 스마트폰 카드"
                                 >
                                     <Grid2X2 className="w-3.5 h-3.5" />
                                 </button>
@@ -358,7 +375,7 @@ export const PresetLoadModal: React.FC<PresetLoadModalProps> = ({
                                     type="button"
                                     onClick={() => setViewMode('list')}
                                     className={`p-1.5 rounded-md ${viewMode === 'list' ? 'bg-muted text-foreground' : 'text-muted-foreground'}`}
-                                    title="목록"
+                                    title="목록 뷰"
                                 >
                                     <List className="w-3.5 h-3.5" />
                                 </button>
@@ -386,27 +403,58 @@ export const PresetLoadModal: React.FC<PresetLoadModalProps> = ({
                                 viewMode === 'big_card'
                                     ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'
                                     : viewMode === 'small_card'
-                                    ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4'
+                                    ? 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5'
                                     : 'grid-cols-1'
                             }`}>
                                 {presets.map((preset) => {
                                     const isHovered = hoveredPresetId === preset.id;
                                     const isSelected = activePresetId === preset.id;
 
+                                    // Computed real styling metadata
+                                    const styleObj = preset.style || {};
+                                    const vg = (styleObj as any).visual_geometry || {};
+                                    const topBar = vg.top_bar || styleObj.title || {};
+                                    const topTitle = vg.top_title || styleObj.title || {};
+                                    const captionObj = vg.caption || styleObj.subtitle || {};
+                                    const pacing = (styleObj as any).editing_pacing || (preset as any).pacing_dna || {};
+
+                                    const boxColor = topBar.bg_color || topTitle.box_color || '#000000';
+                                    const titleColor = topTitle.color || topTitle.text_color || '#FFE500';
+                                    const captionColor = captionObj.color || captionObj.text_color || '#FFFFFF';
+                                    const topHeightPct = topBar.height_pct || topBar.height || 16;
+                                    const captionYPct = captionObj.y_pct || captionObj.position_y || 80;
+                                    const captionStroke = captionObj.stroke_width || captionObj.stroke || 3;
+                                    const cutTempo = pacing.avg_cut_sec || '0.8';
+                                    const primaryFont = (preset as any).primary_font || topTitle.font || topTitle.font_family || 'Pretendard';
+
+                                    // 2-Line High-Density Core Spec (Zero Vanity Fluff)
+                                    const line1Spec = `📌 [상단바] ${boxColor.toUpperCase()} ${topHeightPct}% · ${titleColor.toUpperCase()} (${primaryFont})`;
+                                    const line2Spec = `💬 [자막] 하단 ${captionYPct}% (외곽선 ${captionStroke}px) · ${cutTempo}초 컷 전환`;
+
+                                    const displayText = liveHeadline.trim() || preset.name;
+
                                     return (
                                         <div
                                             key={preset.id}
                                             onMouseEnter={() => setHoveredPresetId(preset.id)}
                                             onMouseLeave={() => setHoveredPresetId(null)}
-                                            onClick={() => handleSelect(preset)}
-                                            className={`group relative rounded-xl border transition-all cursor-pointer overflow-hidden flex flex-col bg-card hover:shadow-md ${
+                                            onDoubleClick={() => handleSelect(preset)}
+                                            className={`group relative rounded-2xl border transition-all overflow-hidden flex flex-col bg-card hover:shadow-lg ${
                                                 isSelected
-                                                    ? 'border-primary ring-2 ring-primary/20'
-                                                    : 'border-border/70 hover:border-border'
+                                                    ? 'border-primary ring-2 ring-primary/30 shadow-md'
+                                                    : 'border-border/70 hover:border-primary/50'
                                             }`}
                                         >
-                                            {/* Preview Thumbnail / Video Screen */}
-                                            <div className="relative aspect-video bg-neutral-900 overflow-hidden flex items-center justify-center">
+                                            {/* 9:16 Smartphone Vertical Frame Area */}
+                                            <div 
+                                                className="relative aspect-[9/16] bg-neutral-950 overflow-hidden cursor-pointer select-none"
+                                                onClick={() => {
+                                                    // Clicking on frame opens detailed inspector for in-depth specs!
+                                                    setInspectPreset(preset);
+                                                    setInspectOpen(true);
+                                                }}
+                                            >
+                                                {/* 1. Video playback on hover */}
                                                 {isHovered && preset.preview_video_url ? (
                                                     <video
                                                         src={preset.preview_video_url}
@@ -424,101 +472,168 @@ export const PresetLoadModal: React.FC<PresetLoadModalProps> = ({
                                                             className="w-full h-full object-cover"
                                                             onError={(e) => { e.currentTarget.style.display = 'none'; }}
                                                         />
-                                                        <div className="absolute inset-0 bg-black/20 hover:bg-transparent transition-colors flex items-center justify-center">
-                                                            <div className="w-6 h-6 rounded-full bg-black/50 text-white flex items-center justify-center backdrop-blur-xs group-hover:scale-110 transition-transform">
-                                                                <Play className="w-3 h-3 text-white fill-white ml-0.5" />
-                                                            </div>
-                                                        </div>
                                                     </div>
                                                 ) : (
-                                                    <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-neutral-800 to-neutral-950 p-2 text-center select-none">
-                                                        {preset.style?.title?.enabled && (
-                                                            <div 
-                                                                className="text-[9px] font-bold px-1.5 py-0.5 rounded truncate max-w-[90%] mb-1"
+                                                    /* 2. High-Fidelity 9:16 Real Smartphone Canvas Miniature */
+                                                    <div className="w-full h-full relative bg-gradient-to-b from-neutral-900 via-neutral-950 to-black p-2.5 flex flex-col justify-between overflow-hidden">
+                                                        {/* Top Bar Miniature */}
+                                                        <div 
+                                                            className="w-full rounded-md px-2 py-1.5 flex items-center justify-center text-center shadow-xs transition-transform"
+                                                            style={{
+                                                                backgroundColor: boxColor,
+                                                                minHeight: `${Math.max(14, Math.min(24, topHeightPct))}%`,
+                                                            }}
+                                                        >
+                                                            <span 
+                                                                className="text-[10px] font-black line-clamp-2 leading-tight tracking-tight"
                                                                 style={{
-                                                                    backgroundColor: preset.style.title.box_color || '#000',
-                                                                    color: preset.style.title.color || '#FFF'
+                                                                    color: titleColor,
+                                                                    fontFamily: primaryFont
                                                                 }}
                                                             >
-                                                                {preset.name}
+                                                                {displayText}
+                                                            </span>
+                                                        </div>
+
+                                                        {/* Center Stage: Safe Zone & Play Indicator */}
+                                                        <div className="my-auto flex flex-col items-center justify-center">
+                                                            <div className="w-8 h-8 rounded-full bg-white/10 group-hover:bg-primary/20 flex items-center justify-center backdrop-blur-xs transition-all group-hover:scale-110">
+                                                                <Play className="w-4 h-4 text-white/90 group-hover:text-primary fill-current ml-0.5" />
                                                             </div>
-                                                        )}
-                                                        <div className="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center backdrop-blur-xs group-hover:scale-110 transition-transform">
-                                                            <Play className="w-3.5 h-3.5 text-white fill-white ml-0.5" />
+                                                            <span className="text-[9px] font-mono text-muted-foreground/60 mt-1">9:16 세로 캔버스</span>
+                                                        </div>
+
+                                                        {/* Bottom Subtitle Miniature */}
+                                                        <div className="w-full pb-8 text-center px-1">
+                                                            <div 
+                                                                className="inline-block px-2 py-0.5 rounded text-[10px] font-bold"
+                                                                style={{
+                                                                    color: captionColor,
+                                                                    textShadow: `0 0 ${captionStroke}px #000, 0 0 ${captionStroke * 2}px #000`,
+                                                                    fontFamily: primaryFont
+                                                                }}
+                                                            >
+                                                                {liveHeadline.trim() || '자막 스타일 실시간 프리뷰'}
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 )}
 
-                                                {/* Top Badge: Folder Category & Version */}
-                                                <div className="absolute top-2 left-2 z-10 flex items-center gap-1 flex-wrap max-w-[80%]">
-                                                    {preset.category && (
-                                                        <Badge variant="secondary" className="text-[9.5px] px-1.5 py-0.5 bg-primary/90 text-primary-foreground border-0 backdrop-blur-xs font-bold shadow-2xs">
-                                                            {folders.find(f => f.id === preset.category)?.icon || '📁'} {folders.find(f => f.id === preset.category)?.name.split('/')[0].trim() || preset.category}
+                                                {/* Top Badges Overlay */}
+                                                <div className="absolute top-2 left-2 right-2 z-10 flex items-center justify-between pointer-events-none">
+                                                    <div className="flex items-center gap-1 flex-wrap max-w-[70%]">
+                                                        {preset.category && (
+                                                            <Badge variant="secondary" className="text-[9.5px] px-1.5 py-0.5 bg-black/75 text-white border border-white/15 backdrop-blur-xs font-bold shadow-2xs">
+                                                                {folders.find(f => f.id === preset.category)?.icon || '📁'} {folders.find(f => f.id === preset.category)?.name.split('/')[0].trim() || preset.category}
+                                                            </Badge>
+                                                        )}
+                                                        <Badge variant="secondary" className="text-[9px] px-1.5 py-0.5 bg-black/60 text-white/90 border border-white/10 backdrop-blur-xs font-mono">
+                                                            v{preset.version || 1}
                                                         </Badge>
-                                                    )}
-                                                    <Badge variant="secondary" className="text-[9px] px-1.5 py-0.5 bg-black/60 text-white border-0 backdrop-blur-xs">
-                                                        v{preset.version || 1}
-                                                    </Badge>
-                                                </div>
+                                                    </div>
 
-                                                {/* Top Right Action: Favorite */}
-                                                <button
-                                                    type="button"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        toast.success(`${preset.name} 즐겨찾기 상태가 변경되었습니다.`);
-                                                    }}
-                                                    className="absolute top-2 right-2 z-10 p-1.5 rounded-full bg-black/50 text-white/80 hover:text-amber-400 backdrop-blur-xs transition-colors"
-                                                >
-                                                    <Star className={`w-3.5 h-3.5 ${preset.is_favorite ? 'fill-amber-400 text-amber-400' : ''}`} />
-                                                </button>
-                                            </div>
+                                                    <div className="flex items-center gap-1 pointer-events-auto">
+                                                        {/* Reference YouTube Link (if available) */}
+                                                        {preset.channel_url && (
+                                                            <a
+                                                                href={preset.channel_url}
+                                                                target="_blank"
+                                                                rel="noreferrer"
+                                                                onClick={(e) => e.stopPropagation()}
+                                                                className="p-1.5 rounded-full bg-black/60 text-white/80 hover:text-rose-400 backdrop-blur-xs transition-colors"
+                                                                title="원본 레퍼런스 채널/영상 보기"
+                                                            >
+                                                                <ExternalLink className="w-3 h-3" />
+                                                            </a>
+                                                        )}
 
-                                            {/* Info Content */}
-                                            <div className="p-3 flex-1 flex flex-col justify-between">
-                                                <div>
-                                                    <div className="flex items-center justify-between gap-1">
-                                                        <h4 className="text-xs font-bold text-foreground truncate group-hover:text-primary transition-colors">
-                                                            {preset.name}
-                                                        </h4>
+                                                        {/* Favorite Star */}
                                                         <button
                                                             type="button"
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
+                                                                toast.success(`${preset.name} 즐겨찾기 상태가 변경되었습니다.`);
+                                                            }}
+                                                            className="p-1.5 rounded-full bg-black/60 text-white/80 hover:text-amber-400 backdrop-blur-xs transition-colors cursor-pointer"
+                                                        >
+                                                            <Star className={`w-3.5 h-3.5 ${preset.is_favorite ? 'fill-amber-400 text-amber-400' : ''}`} />
+                                                        </button>
+                                                    </div>
+                                                </div>
+
+                                                {/* 🌟 Frame Bottom: 사족 없는 꽉 찬 2줄 핵심 요약 오버레이 */}
+                                                <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/95 via-black/85 to-transparent p-2.5 pt-7 text-white select-none pointer-events-none">
+                                                    <p className="text-[10px] font-semibold text-amber-300/90 truncate leading-snug">
+                                                        {line1Spec}
+                                                    </p>
+                                                    <p className="text-[10px] font-medium text-white/85 truncate mt-0.5 leading-snug">
+                                                        {line2Spec}
+                                                    </p>
+                                                </div>
+                                            </div>
+
+                                            {/* Info & Action Controls (Below Frame) */}
+                                            <div className="p-2.5 flex-1 flex flex-col justify-between gap-2 bg-card">
+                                                <div>
+                                                    <div className="flex items-center justify-between gap-1">
+                                                        <h4 
+                                                            className="text-xs font-bold text-foreground truncate cursor-pointer hover:text-primary transition-colors"
+                                                            onClick={() => {
                                                                 setInspectPreset(preset);
                                                                 setInspectOpen(true);
                                                             }}
-                                                            className="text-muted-foreground hover:text-foreground p-1 rounded-md"
-                                                            title="프리셋 커스텀 수정"
+                                                            title={preset.name}
                                                         >
-                                                            <SlidersHorizontal className="w-3 h-3" />
-                                                        </button>
+                                                            {preset.name}
+                                                        </h4>
                                                     </div>
-                                                    <p className="text-[11px] text-muted-foreground mt-0.5">
-                                                        {preset.style?.output?.size || '1080 × 1920'} · {preset.style?.output?.fps || '30'}fps
-                                                    </p>
-                                                    <p className="text-[11px] text-muted-foreground/80 mt-1 line-clamp-2 leading-relaxed">
-                                                        {preset.recipe || '사용자 지정 숏폼 템플릿'}
-                                                    </p>
+
+                                                    {/* Color Dots & Font Badge */}
+                                                    <div className="flex items-center justify-between gap-1 mt-1 text-[10px] text-muted-foreground">
+                                                        <div className="flex items-center gap-1.5">
+                                                            <span className="text-[9.5px] font-mono text-muted-foreground/80">색상:</span>
+                                                            <div className="flex items-center -space-x-1">
+                                                                <span className="w-3 h-3 rounded-full border border-background shadow-xs shrink-0" style={{ backgroundColor: boxColor }} title={`상단바: ${boxColor}`} />
+                                                                <span className="w-3 h-3 rounded-full border border-background shadow-xs shrink-0" style={{ backgroundColor: titleColor }} title={`타이틀: ${titleColor}`} />
+                                                                <span className="w-3 h-3 rounded-full border border-background shadow-xs shrink-0" style={{ backgroundColor: captionColor }} title={`자막: ${captionColor}`} />
+                                                            </div>
+                                                        </div>
+
+                                                        <span className="text-[9.5px] font-medium bg-muted/60 px-1.5 py-0.5 rounded border border-border/50 truncate max-w-[90px]" title={`폰트: ${primaryFont}`}>
+                                                            {primaryFont}
+                                                        </span>
+                                                    </div>
                                                 </div>
 
-                                                {/* Metrics */}
-                                                <div className="mt-3 pt-2 border-t border-border/40 flex items-center justify-between text-[10px] text-muted-foreground">
-                                                    <div className="flex items-center gap-2.5">
-                                                        <span className="flex items-center gap-1">
-                                                            <Heart className="w-3 h-3 text-rose-500/80" />
-                                                            {preset.metrics?.likes || 0}
-                                                        </span>
-                                                        <span className="flex items-center gap-1">
-                                                            <Eye className="w-3 h-3" />
-                                                            {preset.metrics?.views || 0}
-                                                        </span>
-                                                        <span className="flex items-center gap-1">
-                                                            <Bookmark className="w-3 h-3 text-amber-500/80" />
-                                                            {preset.metrics?.saves || 0}
-                                                        </span>
-                                                    </div>
-                                                    <ChevronRight className="w-3.5 h-3.5 text-muted-foreground group-hover:translate-x-0.5 transition-transform" />
+                                                {/* 🌟 Action Buttons Row: [🔍 상세 스펙] vs [✨ 대화창 적용] 명확 분리 */}
+                                                <div className="grid grid-cols-2 gap-1.5 pt-2 border-t border-border/60">
+                                                    <Button
+                                                        type="button"
+                                                        variant="outline"
+                                                        size="sm"
+                                                        onClick={() => {
+                                                            setInspectPreset(preset);
+                                                            setInspectOpen(true);
+                                                        }}
+                                                        className="h-7 text-[11px] px-1.5 font-semibold border-border hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer"
+                                                    >
+                                                        <SlidersHorizontal className="w-3 h-3 mr-1" />
+                                                        상세 스펙
+                                                    </Button>
+
+                                                    <Button
+                                                        type="button"
+                                                        size="sm"
+                                                        onClick={() => handleSelect(preset)}
+                                                        className={`h-7 text-[11px] px-1.5 font-bold shadow-xs cursor-pointer gap-1 ${
+                                                            isSelected 
+                                                                ? 'bg-emerald-600 hover:bg-emerald-700 text-white' 
+                                                                : 'bg-primary hover:bg-primary/90 text-primary-foreground'
+                                                        }`}
+                                                    >
+                                                        {isSelected ? <Check className="w-3 h-3" /> : <Sparkles className="w-3 h-3" />}
+                                                        {isSelected ? '선택됨' : '대화창 적용'}
+                                                    </Button>
                                                 </div>
                                             </div>
                                         </div>
@@ -539,6 +654,10 @@ export const PresetLoadModal: React.FC<PresetLoadModalProps> = ({
                     onPresetUpdated={(updated) => {
                         fetchPresets();
                         setInspectPreset(updated);
+                    }}
+                    onSelectPreset={(p) => {
+                        handleSelect(p);
+                        setInspectOpen(false);
                     }}
                 />
             )}

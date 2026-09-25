@@ -21,6 +21,7 @@ interface PresetCustomizeModalProps {
     onOpenChange: (open: boolean) => void;
     preset: SovereignPreset | null;
     onPresetUpdated: (updatedPreset: SovereignPreset) => void;
+    onSelectPreset?: (preset: SovereignPreset) => void;
 }
 
 export const PresetCustomizeModal: React.FC<PresetCustomizeModalProps> = ({
@@ -28,6 +29,7 @@ export const PresetCustomizeModal: React.FC<PresetCustomizeModalProps> = ({
     onOpenChange,
     preset,
     onPresetUpdated,
+    onSelectPreset,
 }) => {
     const navigate = useNavigate();
     const [inspectorTab, setInspectorTab] = useState<'visual' | 'pacing' | 'audio' | 'bible'>('visual');
@@ -1701,11 +1703,25 @@ export const PresetCustomizeModal: React.FC<PresetCustomizeModalProps> = ({
                             type="button"
                             onClick={handleUpdateCurrent}
                             disabled={saving}
-                            className="h-8 text-xs gap-1.5 bg-primary text-primary-foreground font-bold shadow-xs cursor-pointer"
+                            className="h-8 text-xs gap-1.5 bg-muted hover:bg-muted/80 text-foreground font-bold border border-border shadow-xs cursor-pointer"
                         >
                             <Save className="w-3.5 h-3.5" />
-                            {saving ? '저장 중...' : '현재 프리셋에 덮어쓰기 저장'}
+                            {saving ? '저장 중...' : '프리셋 덮어쓰기 저장'}
                         </Button>
+
+                        {onSelectPreset && (
+                            <Button
+                                type="button"
+                                onClick={() => {
+                                    onSelectPreset(preset);
+                                    onOpenChange(false);
+                                }}
+                                className="h-8 text-xs gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground font-bold shadow-md cursor-pointer"
+                            >
+                                <Sparkles className="w-3.5 h-3.5" />
+                                대화창에 이 프리셋 적용
+                            </Button>
+                        )}
                     </div>
                 </DialogFooter>
             </DialogContent>
