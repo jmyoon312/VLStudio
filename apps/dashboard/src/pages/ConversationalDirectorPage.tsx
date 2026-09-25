@@ -214,7 +214,7 @@ export const ConversationalDirectorPage: React.FC = () => {
     const [stagedPresetName, setStagedPresetName] = useState('시그니처 프리셋');
 
     // Right Panel & Sidecar Browser state (Codex Desktop 1:1)
-    const [rightPanelOpen, setRightPanelOpen] = useState(false);
+    const [rightPanelOpen, setRightPanelOpen] = useState(true);
     const [activeVideoView, setActiveVideoView] = useState<ActiveVideoView | null>(null);
     const [sidecarBrowserOpen, setSidecarBrowserOpen] = useState(false);
     const [browserActiveUrl, setBrowserActiveUrl] = useState<string>('https://www.google.com/search?igu=1');
@@ -1118,18 +1118,20 @@ export const ConversationalDirectorPage: React.FC = () => {
                             <span className="hidden md:inline">실시간 브라우저</span>
                         </Button>
 
-                        {/* Video Right Panel Toggle */}
-                        {activeVideoView && (
-                            <Button
-                                variant={rightPanelOpen ? "default" : "outline"}
-                                size="sm"
-                                onClick={() => setRightPanelOpen(!rightPanelOpen)}
-                                className="h-7 px-2.5 text-xs font-medium gap-1.5 rounded-lg shadow-2xs"
-                            >
-                                <PanelRight className="w-3.5 h-3.5" />
-                                <span className="hidden sm:inline">영상</span>
-                            </Button>
-                        )}
+                        {/* Workspace Right Panel Toggle (Always Visible) */}
+                        <Button
+                            variant={rightPanelOpen ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setRightPanelOpen(!rightPanelOpen)}
+                            className="h-7 px-2.5 text-xs font-semibold gap-1.5 rounded-lg shadow-2xs"
+                            title="자율 제어 작업실 패널 열기/닫기 (터미널, 비전 실측, 브라우저)"
+                        >
+                            <PanelRight className="w-3.5 h-3.5" />
+                            <span className="hidden sm:inline">작업실 패널</span>
+                            {commandLogs.length > 0 && (
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                            )}
+                        </Button>
 
                         <Button
                             variant="ghost"
