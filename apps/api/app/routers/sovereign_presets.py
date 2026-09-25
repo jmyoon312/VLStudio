@@ -205,8 +205,13 @@ def get_workspace_files() -> Dict[str, Any]:
         cat_path = media_root / cat["id"]
         files = []
         if cat_path.exists():
-            for item in sorted(cat_path.glob("**/*"), key=lambda p: p.stat().st_mtime if p.is_file() else 0, reverse=True)[:30]:
+            for item in sorted(cat_path.glob("**/*"), key=lambda p: p.stat().st_mtime if p.is_file() else 0, reverse=True):
                 if item.is_file():
+                    # Filter out internal frame slices and temporary part files
+                    if item.name.startswith("frame_") or item.name.endswith((".part", ".ytdl")) or item.name in ["jobs_state.json"]:
+                        continue
+                    if len(files) >= 30:
+                        break
                     stat = item.stat()
                     rel_path = str(item.relative_to(cat_path))
                     files.append({

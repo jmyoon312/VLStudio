@@ -187,7 +187,6 @@ export const DirectorRightPanel: React.FC<DirectorRightPanelProps> = ({
         if (!open) return;
         if (activeDockTab === 'backlot') fetchExports();
         if (activeDockTab === 'files') fetchWorkspaceFiles();
-        if (activeDockTab === 'terminal') fetchLiveLogs();
     }, [open, activeDockTab]);
 
     if (!open) return null;
@@ -756,17 +755,15 @@ export const DirectorRightPanel: React.FC<DirectorRightPanelProps> = ({
                                         )}
                                     </div>
                                 ))
-                            ) : terminalLogs.length > 0 ? (
-                                terminalLogs.map((log, idx) => (
-                                    <div key={idx} className="leading-relaxed whitespace-pre-wrap break-all">
-                                        {log}
-                                    </div>
-                                ))
                             ) : (
-                                <div className="text-zinc-500 py-8 text-center">
-                                    <Terminal className="w-8 h-8 mx-auto mb-2 opacity-40" />
-                                    <p className="font-semibold">AI 에이전트 쉘 명령어 대기 중</p>
-                                    <p className="text-[10px] mt-1 text-zinc-600">아스트라, 제미나이, 옴니루트의 실시간 쉘 실행이 여기에 출력됩니다.</p>
+                                <div className="text-zinc-500 py-12 text-center">
+                                    <Terminal className="w-8 h-8 mx-auto mb-2 opacity-40 text-emerald-400" />
+                                    <p className="font-semibold text-zinc-300">PowerShell Core 샌드박스 대기 중</p>
+                                    <p className="text-[11px] mt-1 text-zinc-500">
+                                        AI 에이전트(아스트라, 제미나이, 옴니루트)가 영상 제작 명령을 내리면<br />
+                                        yt-dlp 다운로드, ffmpeg 변환, 미디어 조립 과정이 실시간으로 출력됩니다.
+                                    </p>
+                                    <p className="text-[10px] mt-2 text-zinc-600">하단 입력창을 통해 대표님께서 직접 명령어를 테스트하실 수도 있습니다.</p>
                                 </div>
                             )}
                             <div ref={terminalBottomRef} />
