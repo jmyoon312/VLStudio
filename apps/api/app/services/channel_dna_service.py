@@ -1518,6 +1518,36 @@ class ChannelDNAService:
             presets_dir.mkdir(parents=True, exist_ok=True)
             preset_file = presets_dir / f"{preset_id}.json"
 
+            # Auto-extract first frame from the downloaded channel videos
+            thumbs_dir = presets_dir / "thumbnails"
+            thumbs_dir.mkdir(parents=True, exist_ok=True)
+            samples_dir = presets_dir / "samples"
+            samples_dir.mkdir(parents=True, exist_ok=True)
+
+            thumbnail_url = ""
+            sample_video_path = None
+            clean_folder_title = re.sub(r'[\\/*?:"<>|]', "", bench.channel_title or "").strip() or "Channel"
+            dl_channel_dir = Path(local_appdata) / "ViraLoop Studio" / "media" / "07_Downloads" / clean_folder_title
+
+            if dl_channel_dir.exists():
+                mp4_files = list(dl_channel_dir.glob("*.mp4"))
+                if mp4_files:
+                    mp4_files.sort(key=lambda x: x.stat().st_size, reverse=True)
+                    best_video = mp4_files[0]
+                    thumb_dest = thumbs_dir / f"{preset_id}.jpg"
+                    sample_dest = samples_dir / f"{preset_id}.mp4"
+                    try:
+                        import subprocess, shutil
+                        cmd = ["ffmpeg", "-y", "-loglevel", "error", "-ss", "0.0", "-i", str(best_video), "-frames:v", "1", "-q:v", "2", str(thumb_dest)]
+                        subprocess.run(cmd, timeout=10)
+                        if thumb_dest.exists():
+                            thumbnail_url = f"/api/files/stream?path={thumb_dest}"
+                        if not sample_dest.exists():
+                            shutil.copy2(str(best_video), str(sample_dest))
+                        sample_video_path = str(best_video)
+                    except Exception as e_thumb:
+                        logger.warning(f"Could not extract benchmark first frame: {e_thumb}")
+
             preset_payload = {
                 "id": preset_id,
                 "name": clean_name,
@@ -1525,6 +1555,10 @@ class ChannelDNAService:
                 "category_tab": category_tab or "user",
                 "source": "channel_forensic",
                 "channel_url": bench.channel_url,
+                "channel_title": bench.channel_title,
+                "thumbnail_url": thumbnail_url,
+                "sample_thumbnail": thumbnail_url,
+                "source_video_path": sample_video_path,
                 "version": 2,
                 "recipe": f"{bench.channel_title} 채널의 12편 정밀 발골 4대 DNA 기반 시그니처 프로덕션 블루프린트",
                 "content_rules": [

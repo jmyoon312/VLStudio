@@ -215,12 +215,10 @@ def list_sovereign_presets(
                 if isinstance(data, dict) and "style" in data:
                     pid = data.get("id", file.stem)
                     sample_file = Path(LOCAL_APPDATA) / "ViraLoop Studio" / "media" / "03_Assets" / "presets" / "samples" / f"{pid}.mp4"
-                    default_sample = Path(LOCAL_APPDATA) / "ViraLoop Studio" / "media" / "03_Assets" / "presets" / "samples" / "preview_sample.mp4"
-
                     if sample_file.exists():
                         preview_url = f"/api/files/stream?path={sample_file}"
                     else:
-                        preview_url = f"/api/files/stream?path={default_sample}"
+                        preview_url = None
 
                     # Check thumbnail file
                     thumb_candidate = PRESETS_DIR / "thumbnails" / f"{pid}.jpg"
