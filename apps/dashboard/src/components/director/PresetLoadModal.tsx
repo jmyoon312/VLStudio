@@ -24,7 +24,8 @@ import {
     Edit3,
     Plus,
     X,
-    ExternalLink
+    ExternalLink,
+    Trash2
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { SovereignPreset } from '../presets/PresetLibraryModal';
@@ -138,6 +139,27 @@ export const PresetLoadModal: React.FC<PresetLoadModalProps> = ({
             console.error('Failed to load presets:', err);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleDeletePreset = async (preset: SovereignPreset, e: React.MouseEvent) => {
+        e.stopPropagation();
+        const confirmed = window.confirm(`'${preset.name}' 프리셋을 완전히 삭제하시겠습니까?\n\n※ 연관된 썸네일, 비디오 샘플 및 데이터베이스 정보가 모두 영구 삭제되어 정리됩니다.`);
+        if (!confirmed) return;
+
+        try {
+            const res = await fetch(`/api/sovereign-presets/${preset.id}`, {
+                method: 'DELETE'
+            });
+            if (res.ok) {
+                toast.success(`[${preset.name}] 프리셋 및 관련 파일이 모두 깔끔하게 삭제되었습니다.`);
+                fetchPresets();
+            } else {
+                const err = await res.json().catch(() => ({}));
+                toast.error(err.detail || '프리셋 삭제에 실패했습니다.');
+            }
+        } catch {
+            toast.error('프리셋 삭제 통신 오류');
         }
     };
 
@@ -558,6 +580,18 @@ export const PresetLoadModal: React.FC<PresetLoadModalProps> = ({
                                                         >
                                                             <Star className={`w-3.5 h-3.5 ${preset.is_favorite ? 'fill-amber-400 text-amber-400' : ''}`} />
                                                         </button>
+
+                                                        {/* Delete Preset (Custom & Benchmark Presets) */}
+                                                        {preset.source !== 'pixeling_official' && preset.source !== 'viraloop_official' && !preset.id.includes('official') && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={(e) => handleDeletePreset(preset, e)}
+                                                                className="p-1.5 rounded-full bg-black/60 text-white/70 hover:text-rose-400 hover:bg-rose-950/60 backdrop-blur-xs transition-colors cursor-pointer"
+                                                                title="프리셋 및 관련 파일(영상/이미지/DB) 영구 삭제"
+                                                            >
+                                                                <Trash2 className="w-3.5 h-3.5" />
+                                                            </button>
+                                                        )}
                                                     </div>
                                                 </div>
 
@@ -649,7 +683,10 @@ export const PresetLoadModal: React.FC<PresetLoadModalProps> = ({
             {inspectPreset && (
                 <PresetCustomizeModal
                     open={inspectOpen}
-                    onOpenChange={setInspectOpen}
+                    onOpenChange={(v) => {
+                        setInspectOpen(v);
+                        if (!v) fetchPresets();
+                    }}
                     preset={inspectPreset}
                     onPresetUpdated={(updated) => {
                         fetchPresets();

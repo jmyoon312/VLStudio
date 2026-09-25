@@ -816,26 +816,79 @@ def clone_sovereign_preset(preset_id: str, req: PresetCloneRequest) -> Dict[str,
 
 @router.delete("/{preset_id}")
 def delete_sovereign_preset(preset_id: str) -> Dict[str, Any]:
-    """Delete a custom sovereign preset."""
+    """Delete a sovereign preset and cleanly wipe all associated thumbnail, video, and DB artifacts."""
     filepath = PRESETS_DIR / f"{preset_id}.json"
     if not filepath.exists():
-        raise HTTPException(status_code=404, detail="Preset not found")
+        raise HTTPException(status_code=404, detail="해당 프리셋을 찾을 수 없습니다.")
 
     try:
         with open(filepath, "r", encoding="utf-8") as f:
             data = json.load(f)
 
         # Protect official presets from accidental deletion
-        if data.get("source") == "pixeling_official" or data.get("source") == "viraloop_official":
-            raise HTTPException(status_code=403, detail="Official presets cannot be deleted. Clone them instead.")
+        if data.get("source") == "pixeling_official" or data.get("source") == "viraloop_official" or "official" in preset_id:
+            raise HTTPException(status_code=403, detail="공식 시스템 프리셋은 삭제할 수 없습니다. 대신 복제하여 사용하세요.")
 
-        filepath.unlink()
-        return {"success": True, "deleted_id": preset_id}
+        cleaned_files = []
+
+        # 1. Delete preset JSON
+        filepath.unlink(missing_ok=True)
+        cleaned_files.append(str(filepath))
+
+        # 2. Delete sample video in presets/samples/
+        sample_video = PRESETS_DIR / "samples" / f"{preset_id}.mp4"
+        if sample_video.exists():
+            sample_video.unlink(missing_ok=True)
+            cleaned_files.append(str(sample_video))
+
+        # 3. Delete thumbnails in presets/thumbnails/
+        for ext in [".jpg", ".png", ".jpeg", ".webp"]:
+            thumb_file = PRESETS_DIR / "thumbnails" / f"{preset_id}{ext}"
+            if thumb_file.exists():
+                thumb_file.unlink(missing_ok=True)
+                cleaned_files.append(str(thumb_file))
+
+        # Also check thumbnail_url path if present
+        thumb_url = data.get("thumbnail_url") or ""
+        if "path=" in thumb_url:
+            raw_path = thumb_url.split("path=")[-1]
+            try:
+                p_obj = Path(raw_path)
+                if p_obj.exists() and ("presets" in str(p_obj) or "thumbnails" in str(p_obj)):
+                    p_obj.unlink(missing_ok=True)
+                    cleaned_files.append(str(p_obj))
+            except Exception:
+                pass
+
+        # 4. Delete DB entry from ShortsTemplate if exists
+        try:
+            from app.database import SessionLocal
+            from app.models import ShortsTemplate
+            dbs = SessionLocal()
+            try:
+                tmpls = dbs.query(ShortsTemplate).filter(
+                    (ShortsTemplate.id == preset_id) | (ShortsTemplate.name == data.get("name"))
+                ).all()
+                for tmpl in tmpls:
+                    dbs.delete(tmpl)
+                dbs.commit()
+            finally:
+                dbs.close()
+        except Exception as db_err:
+            logger.warning(f"Error removing ShortsTemplate DB record for {preset_id}: {db_err}")
+
+        logger.info(f"✅ Cleanly deleted preset '{preset_id}' and {len(cleaned_files)} associated files")
+        return {
+            "success": True, 
+            "deleted_id": preset_id,
+            "name": data.get("name"),
+            "cleaned_files": cleaned_files
+        }
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Failed to delete preset {preset_id}: {e}")
-        raise HTTPException(status_code=500, detail=f"Error deleting preset: {e}")
+        raise HTTPException(status_code=500, detail=f"프리셋 삭제 오류: {e}")
 
 
 @router.post("/harvest-pixeling")
