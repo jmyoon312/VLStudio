@@ -942,62 +942,15 @@ export const DirectorRightPanel: React.FC<DirectorRightPanelProps> = ({
 
                         {/* Live iframe View (Clean Google Universal Frame) */}
                         {browserMode === 'live' && (
-                            <div className="flex-1 flex flex-col space-y-1.5 min-h-[340px]">
-                                {/* Quick Navigation Sub-Bar for Live Frame */}
-                                <div className="flex items-center justify-between px-2.5 py-1 rounded-lg bg-muted/60 border border-border/80 text-[11px]">
-                                    <div className="flex items-center gap-1.5">
-                                        <button
-                                            type="button"
-                                            onClick={handleGoBack}
-                                            className="px-2 py-0.5 rounded-md bg-background border border-border/80 text-foreground hover:bg-muted font-medium flex items-center gap-1 cursor-pointer transition-colors shadow-2xs"
-                                            title="이전 주소로 뒤로 가기"
-                                        >
-                                            <ArrowLeft className="w-3 h-3 text-muted-foreground" />
-                                            <span>뒤로</span>
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={handleGoHome}
-                                            className="px-2 py-0.5 rounded-md bg-background border border-border/80 text-foreground hover:bg-muted font-medium flex items-center gap-1 cursor-pointer transition-colors shadow-2xs"
-                                            title="구글 검색 첫 화면으로 바로 복귀"
-                                        >
-                                            <Home className="w-3 h-3 text-primary" />
-                                            <span>구글 홈</span>
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => navigateToUrl('https://www.youtube.com/shorts')}
-                                            className="px-2 py-0.5 rounded-md bg-background border border-border/80 text-foreground hover:bg-muted font-medium flex items-center gap-1 cursor-pointer transition-colors shadow-2xs"
-                                            title="유튜브 쇼츠 홈으로 이동"
-                                        >
-                                            <Film className="w-3 h-3 text-red-500" />
-                                            <span>쇼츠 홈</span>
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={handleRefreshBrowser}
-                                            className="px-2 py-0.5 rounded-md bg-background border border-border/80 text-muted-foreground hover:text-foreground font-medium flex items-center gap-1 cursor-pointer transition-colors shadow-2xs"
-                                            title="실시간 프레임 새로고침"
-                                        >
-                                            <RotateCw className="w-3 h-3" />
-                                            <span>새로고침</span>
-                                        </button>
-                                    </div>
-                                    <span className="text-[10px] text-muted-foreground hidden sm:inline">
-                                        💡 화면 내 <strong>Google 로고</strong> 클릭 시에도 홈으로 복귀
-                                    </span>
-                                </div>
-
-                                <div className="flex-1 rounded-xl border border-border/80 overflow-hidden bg-background min-h-[320px]">
-                                    <iframe 
-                                        key={iframeKey}
-                                        src={browserUrl.startsWith('http') ? browserUrl : `https://www.google.com/search?igu=1&q=${encodeURIComponent(browserUrl)}`}
-                                        className="w-full h-full border-none min-h-[320px]"
-                                        title="Embedded Browser Frame"
-                                        allow="clipboard-read; clipboard-write"
-                                        referrerPolicy="no-referrer"
-                                    />
-                                </div>
+                            <div className="flex-1 rounded-xl border border-border/80 overflow-hidden bg-background min-h-[360px]">
+                                <iframe 
+                                    key={iframeKey}
+                                    src={browserUrl.startsWith('http') ? browserUrl : `https://www.google.com/search?igu=1&q=${encodeURIComponent(browserUrl)}`}
+                                    className="w-full h-full border-none min-h-[360px]"
+                                    title="Embedded Browser Frame"
+                                    allow="clipboard-read; clipboard-write"
+                                    referrerPolicy="no-referrer"
+                                />
                             </div>
                         )}
                     </div>
