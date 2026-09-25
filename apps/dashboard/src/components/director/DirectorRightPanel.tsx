@@ -23,7 +23,11 @@ import {
     FolderPlus,
     Film,
     ArrowUpRight,
-    Search
+    Search,
+    ArrowLeft,
+    ArrowRight,
+    Home,
+    RotateCw
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -149,6 +153,80 @@ export const DirectorRightPanel: React.FC<DirectorRightPanelProps> = ({
             }
         } catch (e: any) {
             toast.error(`통신 오류: ${e.message}`);
+        }
+    };
+
+    // Browser Navigation History & Controls
+    const [browserHistory, setBrowserHistory] = useState<string[]>(['https://www.google.com/search?igu=1']);
+    const [historyIndex, setHistoryIndex] = useState<number>(0);
+    const [iframeKey, setIframeKey] = useState<number>(0);
+
+    const navigateToUrl = (newUrl: string, recordHistory = true) => {
+        if (!newUrl.trim()) return;
+        const formatted = (newUrl.startsWith('http://') || newUrl.startsWith('https://')) 
+            ? newUrl.trim() 
+            : (browserMode === 'live' ? `https://www.google.com/search?igu=1&q=${encodeURIComponent(newUrl.trim())}` : newUrl.trim());
+        setBrowserUrl(formatted);
+        if (recordHistory) {
+            setBrowserHistory(prev => {
+                const nextHistory = prev.slice(0, historyIndex + 1);
+                return [...nextHistory, formatted];
+            });
+            setHistoryIndex(prev => prev + 1);
+        }
+        if (browserMode === 'snapshot') {
+            handleExecuteBrowserSearch(formatted);
+        } else {
+            setIframeKey(k => k + 1);
+        }
+    };
+
+    const handleGoBack = () => {
+        if (historyIndex > 0) {
+            const prevIndex = historyIndex - 1;
+            setHistoryIndex(prevIndex);
+            const prevUrl = browserHistory[prevIndex];
+            setBrowserUrl(prevUrl);
+            if (browserMode === 'snapshot') {
+                handleExecuteBrowserSearch(prevUrl);
+            } else {
+                setIframeKey(k => k + 1);
+            }
+        } else {
+            handleGoHome();
+        }
+    };
+
+    const handleGoForward = () => {
+        if (historyIndex < browserHistory.length - 1) {
+            const nextIndex = historyIndex + 1;
+            setHistoryIndex(nextIndex);
+            const nextUrl = browserHistory[nextIndex];
+            setBrowserUrl(nextUrl);
+            if (browserMode === 'snapshot') {
+                handleExecuteBrowserSearch(nextUrl);
+            } else {
+                setIframeKey(k => k + 1);
+            }
+        }
+    };
+
+    const handleGoHome = () => {
+        const homeUrl = 'https://www.google.com/search?igu=1';
+        setBrowserUrl(homeUrl);
+        setLocalBrowserSnapshot(null);
+        setBrowserHistory(prev => [...prev, homeUrl]);
+        setHistoryIndex(prev => prev + 1);
+        setIframeKey(k => k + 1);
+        toast.info('구글 홈으로 이동했습니다.');
+    };
+
+    const handleRefreshBrowser = () => {
+        setIframeKey(k => k + 1);
+        if (browserMode === 'snapshot' && browserUrl) {
+            handleExecuteBrowserSearch(browserUrl);
+        } else {
+            toast.success('화면을 새로고침했습니다.');
         }
     };
 
@@ -613,34 +691,73 @@ export const DirectorRightPanel: React.FC<DirectorRightPanelProps> = ({
                 {/* 3. Browser Tab (Google Search & Playwright Snapshot Mirror) */}
                 {activeDockTab === 'browser' && (
                     <div className="flex-1 flex flex-col space-y-3">
-                        {/* URL / Search Input Bar */}
-                        <form 
-                            onSubmit={(e) => {
-                                e.preventDefault();
-                                handleExecuteBrowserSearch(browserUrl);
-                            }}
-                            className="flex items-center gap-2"
-                        >
-                            <div className="relative flex-1">
-                                <Search className="w-3.5 h-3.5 text-muted-foreground absolute left-2.5 top-1/2 -translate-y-1/2" />
-                                <input
-                                    type="text"
-                                    value={browserUrl}
-                                    onChange={(e) => setBrowserUrl(e.target.value)}
-                                    className="w-full h-8 pl-8 pr-3 rounded-lg border border-border bg-background text-xs text-foreground font-mono focus:outline-hidden"
-                                    placeholder="구글 검색어 또는 URL 입력 (예: 2026 숏폼 트렌드, https://...)"
-                                />
+                        {/* URL / Search Input Bar with Browser Navigation Controls */}
+                        <div className="flex items-center gap-1.5">
+                            {/* Browser Navigation buttons (Back, Forward, Home, Refresh) */}
+                            <div className="flex items-center bg-muted/50 border border-border/80 rounded-lg p-0.5 shrink-0">
+                                <button
+                                    type="button"
+                                    onClick={handleGoBack}
+                                    className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-background/80 transition-colors cursor-pointer"
+                                    title="뒤로 가기"
+                                >
+                                    <ArrowLeft className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={handleGoForward}
+                                    disabled={historyIndex >= browserHistory.length - 1}
+                                    className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-background/80 transition-colors disabled:opacity-30 cursor-pointer"
+                                    title="앞으로 가기"
+                                >
+                                    <ArrowRight className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={handleGoHome}
+                                    className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-background/80 transition-colors cursor-pointer"
+                                    title="홈으로 (구글 첫 화면)"
+                                >
+                                    <Home className="w-3.5 h-3.5 text-primary" />
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={handleRefreshBrowser}
+                                    className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-background/80 transition-colors cursor-pointer"
+                                    title="새로고침"
+                                >
+                                    <RotateCw className="w-3.5 h-3.5" />
+                                </button>
                             </div>
-                            <button
-                                type="submit"
-                                disabled={isSearchingBrowser}
-                                className="h-8 px-3 rounded-lg bg-primary text-primary-foreground text-xs font-semibold flex items-center gap-1 disabled:opacity-50 cursor-pointer shrink-0"
-                                title="검색 또는 웹페이지 접속"
+
+                            <form 
+                                onSubmit={(e) => {
+                                    e.preventDefault();
+                                    navigateToUrl(browserUrl);
+                                }}
+                                className="flex items-center gap-1.5 flex-1 min-w-0"
                             >
-                                <Globe className={`w-3.5 h-3.5 ${isSearchingBrowser ? 'animate-spin' : ''}`} />
-                                <span>{isSearchingBrowser ? '탐색 중...' : '검색/이동'}</span>
-                            </button>
-                        </form>
+                                <div className="relative flex-1 min-w-0">
+                                    <Search className="w-3.5 h-3.5 text-muted-foreground absolute left-2.5 top-1/2 -translate-y-1/2" />
+                                    <input
+                                        type="text"
+                                        value={browserUrl}
+                                        onChange={(e) => setBrowserUrl(e.target.value)}
+                                        className="w-full h-8 pl-8 pr-3 rounded-lg border border-border bg-background text-xs text-foreground font-mono focus:outline-hidden truncate"
+                                        placeholder="구글 검색어 또는 URL 입력..."
+                                    />
+                                </div>
+                                <button
+                                    type="submit"
+                                    disabled={isSearchingBrowser}
+                                    className="h-8 px-2.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold flex items-center gap-1 disabled:opacity-50 cursor-pointer shrink-0"
+                                    title="검색 또는 웹페이지 접속"
+                                >
+                                    <Globe className={`w-3.5 h-3.5 ${isSearchingBrowser ? 'animate-spin' : ''}`} />
+                                    <span>이동</span>
+                                </button>
+                            </form>
+                        </div>
 
                         {/* Mode Toggle & Quick Direct Shortcuts */}
                         <div className="flex items-center justify-between text-[11px]">
@@ -826,20 +943,54 @@ export const DirectorRightPanel: React.FC<DirectorRightPanelProps> = ({
                         {/* Live iframe View (Clean Google Universal Frame) */}
                         {browserMode === 'live' && (
                             <div className="flex-1 flex flex-col space-y-1.5 min-h-[340px]">
-                                <div className="px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-[11px] text-emerald-600 dark:text-emerald-400 flex items-center justify-between">
-                                    <span className="truncate">
-                                        🔒 <strong>소연 계정 연동 완료</strong>: 실시간 프레임은 웹 보안상 제3자 iframe으로 표시되며, 실제 로그인 세션 탐색은 <strong>[스냅샷 미러]</strong>에서 완벽 동작합니다.
+                                {/* Quick Navigation Sub-Bar for Live Frame */}
+                                <div className="flex items-center justify-between px-2.5 py-1 rounded-lg bg-muted/60 border border-border/80 text-[11px]">
+                                    <div className="flex items-center gap-1.5">
+                                        <button
+                                            type="button"
+                                            onClick={handleGoBack}
+                                            className="px-2 py-0.5 rounded-md bg-background border border-border/80 text-foreground hover:bg-muted font-medium flex items-center gap-1 cursor-pointer transition-colors shadow-2xs"
+                                            title="이전 주소로 뒤로 가기"
+                                        >
+                                            <ArrowLeft className="w-3 h-3 text-muted-foreground" />
+                                            <span>뒤로</span>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={handleGoHome}
+                                            className="px-2 py-0.5 rounded-md bg-background border border-border/80 text-foreground hover:bg-muted font-medium flex items-center gap-1 cursor-pointer transition-colors shadow-2xs"
+                                            title="구글 검색 첫 화면으로 바로 복귀"
+                                        >
+                                            <Home className="w-3 h-3 text-primary" />
+                                            <span>구글 홈</span>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => navigateToUrl('https://www.youtube.com/shorts')}
+                                            className="px-2 py-0.5 rounded-md bg-background border border-border/80 text-foreground hover:bg-muted font-medium flex items-center gap-1 cursor-pointer transition-colors shadow-2xs"
+                                            title="유튜브 쇼츠 홈으로 이동"
+                                        >
+                                            <Film className="w-3 h-3 text-red-500" />
+                                            <span>쇼츠 홈</span>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={handleRefreshBrowser}
+                                            className="px-2 py-0.5 rounded-md bg-background border border-border/80 text-muted-foreground hover:text-foreground font-medium flex items-center gap-1 cursor-pointer transition-colors shadow-2xs"
+                                            title="실시간 프레임 새로고침"
+                                        >
+                                            <RotateCw className="w-3 h-3" />
+                                            <span>새로고침</span>
+                                        </button>
+                                    </div>
+                                    <span className="text-[10px] text-muted-foreground hidden sm:inline">
+                                        💡 화면 내 <strong>Google 로고</strong> 클릭 시에도 홈으로 복귀
                                     </span>
-                                    <button 
-                                        type="button"
-                                        onClick={() => setBrowserMode('snapshot')}
-                                        className="text-primary hover:underline font-bold shrink-0 ml-2 text-[10px]"
-                                    >
-                                        스냅샷 미러 전환 →
-                                    </button>
                                 </div>
+
                                 <div className="flex-1 rounded-xl border border-border/80 overflow-hidden bg-background min-h-[320px]">
                                     <iframe 
+                                        key={iframeKey}
                                         src={browserUrl.startsWith('http') ? browserUrl : `https://www.google.com/search?igu=1&q=${encodeURIComponent(browserUrl)}`}
                                         className="w-full h-full border-none min-h-[320px]"
                                         title="Embedded Browser Frame"
