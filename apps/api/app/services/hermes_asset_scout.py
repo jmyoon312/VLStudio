@@ -107,6 +107,7 @@ class HermesAssetScout:
         # Highest quality format selection (4K/1440p/1080p best video + best audio merged to MP4)
         cmd = [
             ytdlp,
+            "--extractor-args", "youtube:player_client=android,web",
             "-f", "bestvideo+bestaudio/best",
             "--merge-output-format", "mp4",
             "-o", out_tmpl,

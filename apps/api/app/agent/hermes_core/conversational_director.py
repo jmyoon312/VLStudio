@@ -729,7 +729,8 @@ ViraLoop Studio 환경에서 사용자와 협력하며 고속 멀티모달 분�
         previous_deliverable: Optional[Dict[str, Any]] = None,
         reference_media_path: Optional[str] = None,
         history: Optional[List[Dict[str, Any]]] = None,
-        channel_forensic_context: Optional[str] = None
+        channel_forensic_context: Optional[str] = None,
+        keyframe_images: Optional[List[str]] = None
     ) -> AsyncGenerator[Dict[str, Any], None]:
         """
         Handles general conversation, questions, brainstorming, and web grounding.
@@ -1163,10 +1164,65 @@ ViraLoop Studio 환경에서 사용자와 협력하며 고속 멀티모달 분�
 
             logger.info("🌐 [ConversationalDirector] Executing Google Gemini Official Direct Stream...")
             gemini_success = False
-            target_gemini_model = model or getattr(db_settings, "google_grounding_model", None) or getattr(db_settings, "default_llm_model", None) or "gemini-3.8-flash"
-            g_ver = "2.5" if "3" in str(target_gemini_model) else "2.0"
-            api_endpoint_model = f"gemini-{g_ver}-flash"
-            gemini_candidates = [api_endpoint_model]
+            raw_gemini_model = str(model or getattr(db_settings, "google_grounding_model", None) or getattr(db_settings, "script_analysis_model", None) or getattr(db_settings, "default_llm_model", None) or "").strip()
+            clean_gemini_model = raw_gemini_model.lower().replace(" ", "-").replace("_", "-") if raw_gemini_model else ""
+            if clean_gemini_model and not clean_gemini_model.startswith("gemini"):
+                clean_gemini_model = f"gemini-{clean_gemini_model}"
+            gemini_candidates = [m for m in [clean_gemini_model, raw_gemini_model] if m]
+            if not gemini_candidates:
+                gemini_candidates = ["gemini-flash"]
+
+            # Build full system guidance with preset, search, memory, and channel forensic context!
+            system_guidance = self._build_hermes_system_prompt(
+                provider_name="Google Gemini",
+                model_name=display_model,
+                current_date_str=current_date_str,
+                preset_context=preset_context,
+                search_context=search_context,
+                memory_context=memory_context,
+                channel_forensic_context=channel_forensic_context or ""
+            )
+
+            # Format multi-turn conversation history
+            history_prompt_str = ""
+            if history and isinstance(history, list):
+                h_lines = []
+                for h in history[-8:]:
+                    r = "사용자" if h.get("role") == "user" else "AI 디렉터"
+                    c = str(h.get("content") or "").strip()
+                    if c:
+                        h_lines.append(f"[{r}]: {c[:400]}")
+                if h_lines:
+                    history_prompt_str = "[이전 대화 기록 및 맥락]\n" + "\n".join(h_lines) + "\n\n"
+
+            effective_prompt = f"{system_guidance}\n\n{history_prompt_str}[현재 사용자 요청]\n{prompt}"
+            gemini_parts: List[Dict[str, Any]] = [{"text": effective_prompt}]
+
+            # 📸 Multimodal Vision Attachment for Gemini:
+            attached_images: List[str] = []
+            if keyframe_images and isinstance(keyframe_images, list):
+                attached_images.extend(keyframe_images[:6])
+            elif reference_media_path and os.path.exists(reference_media_path) and reference_media_path.lower().endswith(('.jpg', '.jpeg', '.png', '.webp')):
+                attached_images.append(reference_media_path)
+
+            import base64
+            for img_p in attached_images:
+                try:
+                    p_obj = Path(img_p)
+                    if p_obj.exists() and p_obj.stat().st_size > 500:
+                        mime = "image/png" if p_obj.suffix.lower() == ".png" else "image/jpeg"
+                        b64_data = base64.b64encode(p_obj.read_bytes()).decode("ascii")
+                        gemini_parts.append({
+                            "inline_data": {
+                                "mime_type": mime,
+                                "data": b64_data
+                            }
+                        })
+                except Exception as img_err:
+                    logger.warning(f"Failed to attach image to Gemini payload: {img_err}")
+
+            if len(attached_images) > 0:
+                logger.info(f"📸 [Gemini Multimodal] Attached {len(attached_images)} real keyframe images to Gemini vision prompt!")
 
             for g_key in gemini_keys:
                 if gemini_success:
@@ -1175,14 +1231,15 @@ ViraLoop Studio 환경에서 사용자와 협력하며 고속 멀티모달 분�
                     try:
                         url = f"https://generativelanguage.googleapis.com/v1beta/models/{m_cand}:streamGenerateContent?key={g_key}&alt=sse"
                         payload = {
-                            "contents": [{"parts": [{"text": prompt}]}],
+                            "contents": [{"parts": gemini_parts}],
                             "generationConfig": {"temperature": 0.7, "maxOutputTokens": 8192}
                         }
                         if needs_tools:
                             payload["tools"] = get_gemini_tools()
 
-                        resp = requests.post(url, json=payload, stream=True, timeout=20.0)
+                        resp = requests.post(url, json=payload, stream=True, timeout=90.0)
                         if resp.status_code != 200:
+                            logger.warning(f"⚠️ Gemini HTTP {resp.status_code} ({m_cand}): {resp.text[:300]}")
                             continue
 
                         for line in resp.iter_lines():
@@ -1269,7 +1326,7 @@ ViraLoop Studio 환경에서 사용자와 협력하며 고속 멀티모달 분�
 
             for candidate in model_candidates:
                 try:
-                    if not needs_tools:
+                    if not needs_tools and not channel_forensic_context:
                         # ⚡ 0.2s Fast-Path for simple conversational questions
                         fast_sys = f"당신은 ViraLoop Studio의 지능형 파트너 AI 어시스턴트입니다. 친절하고 자연스러운 한국어로 즉시 핵심을 답변하세요."
                         req_messages = [
@@ -1314,7 +1371,8 @@ ViraLoop Studio 환경에서 사용자와 협력하며 고속 멀티모달 분�
                             current_date_str=current_date_str,
                             preset_context=preset_context,
                             search_context=search_context,
-                            memory_context=memory_context
+                            memory_context=memory_context,
+                            channel_forensic_context=channel_forensic_context or ""
                         )
                         req_messages = hermes_memory_engine.format_openai_messages(
                             base_system_prompt=system_prompt,
@@ -2065,13 +2123,15 @@ ViraLoop Studio 환경에서 사용자와 협력하며 고속 멀티모달 분�
                             p_title = ev.get("title", "쇼츠 영상")
                             p_cnt = f"{ev.get('view_count', 0):,}회" if ev.get("view_count") else ""
                             p_type = ev.get("selection_type", "")
+                            p_status = ev.get("status", "completed")
+                            is_ok = p_status == "completed"
                             yield {
                                 "type": "step",
                                 "item_index": item_index,
                                 "total_items": total_items,
                                 "step_id": f"dl_{ev.get('video_id', p_idx)}",
-                                "title": f"📥 [{p_idx}/{p_total}] {p_title[:24]}... 다운로드 완료",
-                                "status": "completed",
+                                "title": f"📥 [{p_idx}/{p_total}] {p_title[:24]}... {'다운로드 완료' if is_ok else '다운로드 실패(스킵)'}",
+                                "status": "completed" if is_ok else "failed",
                                 "detail": f"{p_type} | {p_cnt} (ID: {ev.get('video_id')})"
                             }
                     except asyncio.TimeoutError:
@@ -2083,13 +2143,15 @@ ViraLoop Studio 환경에서 사용자와 협력하며 고속 멀티모달 분�
                         p_idx = ev.get("index", 1)
                         p_total = ev.get("total", 12)
                         p_title = ev.get("title", "쇼츠 영상")
+                        p_status = ev.get("status", "completed")
+                        is_ok = p_status == "completed"
                         yield {
                             "type": "step",
                             "item_index": item_index,
                             "total_items": total_items,
                             "step_id": f"dl_{ev.get('video_id', p_idx)}",
-                            "title": f"📥 [{p_idx}/{p_total}] {p_title[:24]}... 다운로드 완료",
-                            "status": "completed",
+                            "title": f"📥 [{p_idx}/{p_total}] {p_title[:24]}... {'다운로드 완료' if is_ok else '다운로드 실패(스킵)'}",
+                            "status": "completed" if is_ok else "failed",
                             "detail": f"ID: {ev.get('video_id')}"
                         }
 
@@ -2097,16 +2159,18 @@ ViraLoop Studio 환경에서 사용자와 협력하며 고속 멀티모달 분�
                 bench_id = dna_res.get("id")
                 videos = dna_res.get("analyzed_videos") or []
                 c_title = dna_res.get("channel_title", target_channel)
+                downloaded_paths = dna_res.get("downloaded_video_paths") or []
+                dl_count = len(downloaded_paths)
 
-                # 단계별 실시간 스텝 완결 전송
+                # 단계별 실시간 스텝 완결 전송 (정직한 다운로드 수치 반영)
                 yield {
                     "type": "step",
                     "item_index": item_index,
                     "total_items": total_items,
                     "step_id": "step_fetch_12_shorts",
-                    "title": f"🔍 {c_title} 최신/인기 쇼츠 12편 전편 실시간 다운로드 완료",
-                    "status": "completed",
-                    "detail": f"총 {len(videos)}편 쇼츠 로컬 확보 및 12편 전체 배치 씬 체인지/ASL 실측 완료"
+                    "title": f"🔍 {c_title} 최신/인기 쇼츠 실시간 다운로드 ({dl_count}/{len(videos)}편 로컬 확보)",
+                    "status": "completed" if dl_count > 0 else "failed",
+                    "detail": f"총 {dl_count}편 쇼츠 로컬 확보 및 12편 전체 배치 씬 체인지/ASL 실측 완료"
                 }
                 yield {
                     "type": "step",
@@ -2144,9 +2208,9 @@ ViraLoop Studio 환경에서 사용자와 협력하며 고속 멀티모달 분�
                 channel_forensic_context = f"""
 채널명: {c_title}
 분석 대상 쇼츠 편수: {len(videos)}편
-실측 대표 영상 로컬 다운로드 경로: {dna_res.get('downloaded_video_path') or '07_Downloads 로컬 저장 완료'}
+실측 대표 영상 로컬 다운로드 성공 편수: {dl_count}편 (경로: {dna_res.get('downloaded_video_path') or '07_Downloads 로컬 저장'})
 
-[스캔 및 실측된 대표 쇼츠 12편 목록]
+[스캔 및 실측된 대표 쇼츠 12편 실제 제목 및 조회수 목록]
 | # | 영상 제목 | 비디오 ID | 실시간 조회수 |
 |---|---|---|---|
 {video_table}
@@ -2167,6 +2231,10 @@ ViraLoop Studio 환경에서 사용자와 협력하며 고속 멀티모달 분�
    - BGM 볼륨 & 덕킹: {ad.get('bgm_volume_db', -24.0)}dB
 4. Narrative DNA:
    - 오프닝 훅 공식: {nd.get('opening_hook_type', '직타 훅')}
+
+[CRITICAL 채널 정체성 절대 분석 지침 (Zero Hallucination Law)]
+1. 반드시 위 [스캔 및 실측된 대표 쇼츠 12편 목록]의 실제 영상 제목들과 실측 수치, 첨부된 실제 영상 프레임 이미지만을 근거로 채널의 진짜 콘텐츠 정체성(예: 감동 실화 스토리텔링, 영화/드라마 씬 요약 해설 등)을 분석하십시오.
+2. 채널 이름의 단어 뜻만 보고 K-POP 발라드, 음악 리릭 비디오 등으로 임의 추측하거나 소설(환각)을 작성하는 행위를 엄격히 영구 금지합니다.
 """
                 yield {
                     "type": "channel_dna_ready", 
@@ -2176,7 +2244,8 @@ ViraLoop Studio 환경에서 사용자와 협력하며 고속 멀티모달 분�
                     "dna": dna_res
                 }
 
-                # 4. 가짜 정적 응답 대신, Codex Astra (또는 선택된 AI 지능 모델)로 직접 넘겨 심층 분석 및 보고 스트리밍 실행!
+                # 4. 가짜 정적 응답 대신, 선택된 AI 지능 모델로 직접 넘겨 심층 분석 및 보고 스트리밍 실행 (키프레임 이미지 직접 바인딩!)
+                extracted_kfs = dna_res.get("keyframes") or []
                 async for evt in self._handle_conversational_chat(
                     prompt=prompt,
                     preset=preset,
@@ -2186,7 +2255,8 @@ ViraLoop Studio 환경에서 사용자와 협력하며 고속 멀티모달 분�
                     previous_deliverable=previous_deliverable,
                     reference_media_path=reference_media_path,
                     history=history,
-                    channel_forensic_context=channel_forensic_context
+                    channel_forensic_context=channel_forensic_context,
+                    keyframe_images=extracted_kfs
                 ):
                     yield evt
                 return
