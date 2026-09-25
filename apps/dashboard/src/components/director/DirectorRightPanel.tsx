@@ -830,6 +830,8 @@ export const DirectorRightPanel: React.FC<DirectorRightPanelProps> = ({
                                     src={browserUrl.startsWith('http') ? browserUrl : `https://www.google.com/search?igu=1&q=${encodeURIComponent(browserUrl)}`}
                                     className="w-full h-full border-none min-h-[340px]"
                                     title="Embedded Browser Frame"
+                                    allow="clipboard-read; clipboard-write"
+                                    referrerPolicy="no-referrer"
                                 />
                             </div>
                         )}
