@@ -1302,7 +1302,7 @@ export const BrainVaultPage: React.FC = () => {
                             <CardHeader className="bg-muted/30 border-b border-border p-4">
                                 <CardTitle className="text-xs font-black text-foreground flex items-center gap-2">
                                     <span className="p-1.5 rounded-lg bg-violet-500/10 text-violet-400 text-[10px] font-mono">L6</span>
-                                    게이트키퍼 품질 검수 기준
+                                    고품질 검수 기준
                                 </CardTitle>
                                 <CardDescription className="text-[10px]">
                                     최소 합격 기준 점수 및 자동 재시도 한도

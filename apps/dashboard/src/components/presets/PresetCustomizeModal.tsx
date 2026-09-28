@@ -145,6 +145,37 @@ export const PresetCustomizeModal: React.FC<PresetCustomizeModalProps> = ({
     const [bgmVolumeDb, setBgmVolumeDb] = useState<number>(-20.0);
     const [vocalDucking, setVocalDucking] = useState<boolean>(true);
 
+    // 🌟 Interactive Layer (댓글 카드, 3단 상품 트래커, 퀴즈 카드 등 특수 오버레이)
+    const [interactiveType, setInteractiveType] = useState<'none' | 'comment_card' | 'product_tracker' | 'quiz_card'>('none');
+    
+    // Comment Card (꿀딸기 스타일)
+    const [commentCardEnabled, setCommentCardEnabled] = useState<boolean>(false);
+    const [commentAuthor, setCommentAuthor] = useState<string>('@딸기러버_official');
+    const [commentText, setCommentText] = useState<string>('이모티콘만 보고 멤버들 맞추는 거 실화냐 ㅋㅋㅋ');
+    const [commentLikes, setCommentLikes] = useState<string>('1.2만');
+    const [commentTopY, setCommentTopY] = useState<number>(28.0);
+
+    // Product Tracker (빵별 스타일)
+    const [productTrackerEnabled, setProductTrackerEnabled] = useState<boolean>(false);
+    const [productItem1, setProductItem1] = useState<string>('1위 앙버터');
+    const [productItem2, setProductItem2] = useState<string>('2위 소금빵');
+    const [productItem3, setProductItem3] = useState<string>('3위 몽블랑');
+    const [productCurrentStep, setProductCurrentStep] = useState<number>(1);
+
+    // Quiz Card (나 잘한다해짜나 스타일)
+    const [quizCardEnabled, setQuizCardEnabled] = useState<boolean>(false);
+    const [quizQuestion, setQuizQuestion] = useState<string>('❓ 다음 중 진짜 멤버는?');
+    const [quizOption1, setQuizOption1] = useState<string>('1. 카리나');
+    const [quizOption2, setQuizOption2] = useState<string>('2. 윈터');
+    const [quizOption3, setQuizOption3] = useState<string>('3. 닝닝');
+    const [quizAnswerIdx, setQuizAnswerIdx] = useState<number>(2);
+
+    // Speaker Colors & Stepwise Expansion (다중 화자 구분 & 단계적 2줄 확장 - 킥맨/나잘한다 스타일)
+    const [speakerColorsEnabled, setSpeakerColorsEnabled] = useState<boolean>(false);
+    const [speakerAColor, setSpeakerAColor] = useState<string>('#FF80AB');
+    const [speakerBColor, setSpeakerBColor] = useState<string>('#80D8FF');
+    const [stepwiseExpansion, setStepwiseExpansion] = useState<boolean>(false);
+
     // 5. 17-Tier Full Bible Data
     const [fullBible, setFullBible] = useState<any>({});
 
@@ -366,6 +397,42 @@ export const PresetCustomizeModal: React.FC<PresetCustomizeModalProps> = ({
         setSilenceCutS(ad.silence_cut_threshold_s ?? 0.15);
         setBgmVolumeDb(ad.bgm_volume_db ?? -20.0);
         setVocalDucking(ad.vocal_ducking ?? true);
+
+        // 9.5. Interactive Overlays & Multi-speaker Setup
+        const il = style.interactive_layer || rawPreset.interactive_layer || vg.interactive_layer || {};
+        const ilType = il.type || (il.comment_card?.enabled ? 'comment_card' : il.product_tracker?.enabled ? 'product_tracker' : il.quiz_card?.enabled ? 'quiz_card' : 'none');
+        setInteractiveType(ilType);
+
+        const cc = il.comment_card || {};
+        setCommentCardEnabled(Boolean(cc.enabled || ilType === 'comment_card'));
+        setCommentAuthor(cc.author || '@딸기러버_official');
+        setCommentText(cc.text || cc.comment_text || '이모티콘만 보고 멤버들 맞추는 거 실화냐 ㅋㅋㅋ');
+        setCommentLikes(cc.likes || '1.2만');
+        setCommentTopY(cc.top_y_pct ?? 28.0);
+
+        const pt = il.product_tracker || {};
+        setProductTrackerEnabled(Boolean(pt.enabled || ilType === 'product_tracker'));
+        const ptItems = pt.items || ['1위 앙버터', '2위 소금빵', '3위 몽블랑'];
+        setProductItem1(ptItems[0] || '1위 앙버터');
+        setProductItem2(ptItems[1] || '2위 소금빵');
+        setProductItem3(ptItems[2] || '3위 몽블랑');
+        setProductCurrentStep(pt.current_step ?? 1);
+
+        const qc = il.quiz_card || {};
+        setQuizCardEnabled(Boolean(qc.enabled || ilType === 'quiz_card'));
+        setQuizQuestion(qc.question || '❓ 다음 중 진짜 멤버는?');
+        const qcOpts = qc.options || ['1. 카리나', '2. 윈터', '3. 닝닝'];
+        setQuizOption1(qcOpts[0] || '1. 카리나');
+        setQuizOption2(qcOpts[1] || '2. 윈터');
+        setQuizOption3(qcOpts[2] || '3. 닝닝');
+        setQuizAnswerIdx(qc.answer_index ?? 2);
+
+        const sc = style.speaker_colors || rawPreset.speaker_colors || vg.speaker_colors || {};
+        const hasSc = Boolean(sc.speaker_a || sc.speaker_b);
+        setSpeakerColorsEnabled(hasSc);
+        setSpeakerAColor(sc.speaker_a || '#FF80AB');
+        setSpeakerBColor(sc.speaker_b || '#80D8FF');
+        setStepwiseExpansion(Boolean(style.stepwise_expansion || rawPreset.stepwise_expansion || vg.stepwise_expansion));
 
         // 10. Source Targeting DNA - 프리셋별 고유 정체성 동적 바인딩 (Zero Cross-Preset Contamination)
         const st = style.source_targeting || rawPreset.source_targeting || vg.source_targeting;
@@ -676,7 +743,61 @@ export const PresetCustomizeModal: React.FC<PresetCustomizeModalProps> = ({
                 primary_en: { text: captionLine1En, color: captionLine1Color },
                 secondary_ko: { text: captionLine2Ko, color: captionLine2Color },
             },
-            visual_geometry: updatedVg,
+            visual_geometry: {
+                ...updatedVg,
+                interactive_layer: {
+                    type: interactiveType,
+                    comment_card: {
+                        enabled: commentCardEnabled,
+                        author: commentAuthor,
+                        text: commentText,
+                        likes: commentLikes,
+                        top_y_pct: commentTopY,
+                    },
+                    product_tracker: {
+                        enabled: productTrackerEnabled,
+                        items: [productItem1, productItem2, productItem3],
+                        current_step: productCurrentStep,
+                    },
+                    quiz_card: {
+                        enabled: quizCardEnabled,
+                        question: quizQuestion,
+                        options: [quizOption1, quizOption2, quizOption3],
+                        answer_index: quizAnswerIdx,
+                    }
+                },
+                speaker_colors: speakerColorsEnabled ? {
+                    speaker_a: speakerAColor,
+                    speaker_b: speakerBColor,
+                } : null,
+                stepwise_expansion: stepwiseExpansion,
+            },
+            interactive_layer: {
+                type: interactiveType,
+                comment_card: {
+                    enabled: commentCardEnabled,
+                    author: commentAuthor,
+                    text: commentText,
+                    likes: commentLikes,
+                    top_y_pct: commentTopY,
+                },
+                product_tracker: {
+                    enabled: productTrackerEnabled,
+                    items: [productItem1, productItem2, productItem3],
+                    current_step: productCurrentStep,
+                },
+                quiz_card: {
+                    enabled: quizCardEnabled,
+                    question: quizQuestion,
+                    options: [quizOption1, quizOption2, quizOption3],
+                    answer_index: quizAnswerIdx,
+                }
+            },
+            speaker_colors: speakerColorsEnabled ? {
+                speaker_a: speakerAColor,
+                speaker_b: speakerBColor,
+            } : null,
+            stepwise_expansion: stepwiseExpansion,
             editing_pacing: updatedEp,
             audio_dsp: updatedAd,
             production_bible_17: fullBible,
@@ -1466,6 +1587,193 @@ export const PresetCustomizeModal: React.FC<PresetCustomizeModalProps> = ({
                                     </div>
                                 </div>
 
+                                {/* 🌟 4대 역공학 시그니처: 인터랙티브 오버레이 레이어 (댓글·상품·퀴즈 카드) */}
+                                <div className="p-3.5 rounded-2xl border border-border/80 bg-muted/30 space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                                            <Layers className="w-3.5 h-3.5 text-primary" />
+                                            인터랙티브 오버레이 (Interactive Overlays)
+                                        </span>
+                                        <Badge variant="outline" className="text-[10px] font-mono bg-primary/10 text-primary border-primary/30">
+                                            {interactiveType === 'comment_card' ? '꿀딸기 (댓글 카드)' :
+                                             interactiveType === 'product_tracker' ? '빵별 (3단 상품 바)' :
+                                             interactiveType === 'quiz_card' ? '나잘한다 (퀴즈 카드)' : '없음'}
+                                        </Badge>
+                                    </div>
+                                    <div className="grid grid-cols-4 gap-1.5">
+                                        {[
+                                            { id: 'none', label: '오버레이 없음', desc: '표준 숏폼' },
+                                            { id: 'comment_card', label: '💬 댓글 카드', desc: '꿀딸기 인터뷰형' },
+                                            { id: 'product_tracker', label: '📊 3단 상품 바', desc: '빵별 리뷰형' },
+                                            { id: 'quiz_card', label: '❓ 퀴즈 카드', desc: '나잘한다 예능형' },
+                                        ].map((item) => (
+                                            <button
+                                                key={item.id}
+                                                type="button"
+                                                onClick={() => {
+                                                    setInteractiveType(item.id as any);
+                                                    if (item.id === 'comment_card') setCommentCardEnabled(true);
+                                                    if (item.id === 'product_tracker') setProductTrackerEnabled(true);
+                                                    if (item.id === 'quiz_card') setQuizCardEnabled(true);
+                                                }}
+                                                className={`p-2 rounded-xl border text-left flex flex-col justify-between transition-all cursor-pointer ${
+                                                    interactiveType === item.id
+                                                        ? 'border-primary bg-primary/10 text-primary font-bold shadow-2xs ring-1 ring-primary/40'
+                                                        : 'border-border/60 bg-background/50 hover:bg-muted/40 text-muted-foreground'
+                                                }`}
+                                            >
+                                                <span className="text-[11px] font-bold block">{item.label}</span>
+                                                <span className="text-[9px] opacity-70 block mt-0.5">{item.desc}</span>
+                                            </button>
+                                        ))}
+                                    </div>
+
+                                    {/* 1. Comment Card Controls */}
+                                    {interactiveType === 'comment_card' && (
+                                        <div className="p-2.5 rounded-xl bg-background/60 border border-border/50 space-y-2">
+                                            <div className="grid grid-cols-12 gap-2 items-center">
+                                                <div className="col-span-5">
+                                                    <label className="text-[10px] text-muted-foreground block mb-0.5">작성자 닉네임</label>
+                                                    <Input
+                                                        value={commentAuthor}
+                                                        onChange={(e) => setCommentAuthor(e.target.value)}
+                                                        className="h-7 text-xs bg-background border-border/80 font-bold"
+                                                    />
+                                                </div>
+                                                <div className="col-span-4">
+                                                    <label className="text-[10px] text-muted-foreground block mb-0.5">좋아요 수</label>
+                                                    <Input
+                                                        value={commentLikes}
+                                                        onChange={(e) => setCommentLikes(e.target.value)}
+                                                        className="h-7 text-xs bg-background border-border/80 font-semibold"
+                                                    />
+                                                </div>
+                                                <div className="col-span-3">
+                                                    <label className="text-[10px] text-muted-foreground block mb-0.5">Y 위치 ({commentTopY}%)</label>
+                                                    <Slider min={15} max={60} step={1} value={[commentTopY]} onValueChange={([v]) => setCommentTopY(v)} />
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <label className="text-[10px] text-muted-foreground block mb-0.5">댓글 본문</label>
+                                                <Input
+                                                    value={commentText}
+                                                    onChange={(e) => setCommentText(e.target.value)}
+                                                    className="h-7 text-xs bg-background border-border/80"
+                                                />
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* 2. Product Tracker Controls */}
+                                    {interactiveType === 'product_tracker' && (
+                                        <div className="p-2.5 rounded-xl bg-background/60 border border-border/50 space-y-2">
+                                            <div className="grid grid-cols-3 gap-2">
+                                                <div>
+                                                    <label className="text-[10px] text-muted-foreground block mb-0.5">1단계 상품명</label>
+                                                    <Input value={productItem1} onChange={(e) => setProductItem1(e.target.value)} className="h-7 text-xs font-semibold" />
+                                                </div>
+                                                <div>
+                                                    <label className="text-[10px] text-muted-foreground block mb-0.5">2단계 상품명</label>
+                                                    <Input value={productItem2} onChange={(e) => setProductItem2(e.target.value)} className="h-7 text-xs font-semibold" />
+                                                </div>
+                                                <div>
+                                                    <label className="text-[10px] text-muted-foreground block mb-0.5">3단계 상품명</label>
+                                                    <Input value={productItem3} onChange={(e) => setProductItem3(e.target.value)} className="h-7 text-xs font-semibold" />
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center justify-between pt-1 border-t border-border/30">
+                                                <span className="text-[11px] text-muted-foreground">현재 강조 단계</span>
+                                                <div className="flex gap-1">
+                                                    {[1, 2, 3].map((step) => (
+                                                        <Button
+                                                            key={step}
+                                                            type="button"
+                                                            size="sm"
+                                                            variant={productCurrentStep === step ? 'default' : 'outline'}
+                                                            onClick={() => setProductCurrentStep(step)}
+                                                            className="h-6 w-8 text-xs font-bold"
+                                                        >
+                                                            {step}
+                                                        </Button>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* 3. Quiz Card Controls */}
+                                    {interactiveType === 'quiz_card' && (
+                                        <div className="p-2.5 rounded-xl bg-background/60 border border-border/50 space-y-2">
+                                            <div>
+                                                <label className="text-[10px] text-muted-foreground block mb-0.5">퀴즈 질문 문구</label>
+                                                <Input value={quizQuestion} onChange={(e) => setQuizQuestion(e.target.value)} className="h-7 text-xs font-bold text-amber-500" />
+                                            </div>
+                                            <div className="grid grid-cols-3 gap-2">
+                                                <div>
+                                                    <label className="text-[10px] text-muted-foreground block mb-0.5">보기 1</label>
+                                                    <Input value={quizOption1} onChange={(e) => setQuizOption1(e.target.value)} className="h-7 text-xs" />
+                                                </div>
+                                                <div>
+                                                    <label className="text-[10px] text-muted-foreground block mb-0.5">보기 2</label>
+                                                    <Input value={quizOption2} onChange={(e) => setQuizOption2(e.target.value)} className="h-7 text-xs" />
+                                                </div>
+                                                <div>
+                                                    <label className="text-[10px] text-muted-foreground block mb-0.5">보기 3</label>
+                                                    <Input value={quizOption3} onChange={(e) => setQuizOption3(e.target.value)} className="h-7 text-xs" />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* 🌟 다중 화자 자막 색상 & 단계적 2줄 확장 (킥맨 / 나잘한다 스타일) */}
+                                <div className="p-3.5 rounded-2xl border border-border/80 bg-muted/30 space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                                            <Palette className="w-3.5 h-3.5 text-blue-500" />
+                                            화자별 자막 색상 & 단계적 확장 (Speaker Colors)
+                                        </span>
+                                        <Switch checked={speakerColorsEnabled} onCheckedChange={setSpeakerColorsEnabled} />
+                                    </div>
+                                    {speakerColorsEnabled && (
+                                        <div className="space-y-2.5 pt-1 border-t border-border/40">
+                                            <div className="grid grid-cols-2 gap-3">
+                                                <div className="flex items-center justify-between p-2 rounded-xl bg-background/50 border border-border/40">
+                                                    <span className="text-[11px] font-bold text-foreground">화자 A (질문/주인공)</span>
+                                                    <div className="flex items-center gap-1.5">
+                                                        <input
+                                                            type="color"
+                                                            value={speakerAColor}
+                                                            onChange={(e) => setSpeakerAColor(e.target.value)}
+                                                            className="w-5 h-5 rounded border border-border/60 p-0 cursor-pointer bg-transparent"
+                                                        />
+                                                        <span className="text-[10px] font-mono">{speakerAColor}</span>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center justify-between p-2 rounded-xl bg-background/50 border border-border/40">
+                                                    <span className="text-[11px] font-bold text-foreground">화자 B (답변/상대방)</span>
+                                                    <div className="flex items-center gap-1.5">
+                                                        <input
+                                                            type="color"
+                                                            value={speakerBColor}
+                                                            onChange={(e) => setSpeakerBColor(e.target.value)}
+                                                            className="w-5 h-5 rounded border border-border/60 p-0 cursor-pointer bg-transparent"
+                                                        />
+                                                        <span className="text-[10px] font-mono">{speakerBColor}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center justify-between p-2 rounded-xl bg-background/50 border border-border/40">
+                                                <div>
+                                                    <span className="text-[11px] font-bold text-foreground block">단계적 2줄 누적 자막 (Stepwise Expansion)</span>
+                                                    <span className="text-[9.5px] text-muted-foreground">1줄 출력 후 다음 문장이 아랫줄에 누적되어 리듬감 형성</span>
+                                                </div>
+                                                <Switch checked={stepwiseExpansion} onCheckedChange={setStepwiseExpansion} />
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+
                                 {/* Jab Hook & Bottom Source */}
                                 <div className="grid grid-cols-2 gap-3">
                                     <div className="p-3 rounded-2xl border border-border/80 bg-muted/30 space-y-2">
@@ -2228,8 +2536,76 @@ export const PresetCustomizeModal: React.FC<PresetCustomizeModalProps> = ({
                                                     </span>
                                                 </div>
 
+                                                {/* 🌟 빵별 3단 상품 진행 바 (상단 탭 바) */}
+                                                {productTrackerEnabled && (
+                                                    <div className="w-full px-2 pt-1.5 pb-1 z-20 flex gap-1 bg-black/60 backdrop-blur-xs">
+                                                        {[
+                                                            { step: 1, label: productItem1 },
+                                                            { step: 2, label: productItem2 },
+                                                            { step: 3, label: productItem3 },
+                                                        ].map((item) => (
+                                                            <div 
+                                                                key={item.step}
+                                                                className={`flex-1 py-1 rounded text-center text-[9px] font-black transition-all ${
+                                                                    productCurrentStep === item.step
+                                                                        ? 'bg-amber-400 text-black shadow-md ring-1 ring-amber-300'
+                                                                        : 'bg-neutral-800/80 text-white/70'
+                                                                }`}
+                                                            >
+                                                                {item.label}
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+
                                                 {/* Layer 2: Center Sandwich Media Canvas (Real Reference Video / 16:9 Letterbox) */}
                                                 <div className="flex-1 w-full relative overflow-hidden flex items-center justify-center z-10 bg-black">
+                                                    {/* 🌟 꿀딸기 인터뷰 댓글 카드 */}
+                                                    {commentCardEnabled && (
+                                                        <div 
+                                                            className="absolute z-30 inset-x-3 p-2 rounded-xl bg-white/95 text-black shadow-2xl border border-white/60 flex items-start gap-2 select-none"
+                                                            style={{ top: `${commentTopY}%` }}
+                                                        >
+                                                            <div className="w-6 h-6 rounded-full bg-rose-500 text-white flex items-center justify-center text-[10px] font-black shrink-0">
+                                                                💬
+                                                            </div>
+                                                            <div className="flex-1 min-w-0">
+                                                                <div className="flex items-center justify-between">
+                                                                    <span className="text-[10px] font-black text-slate-800 truncate">{commentAuthor}</span>
+                                                                    <span className="text-[9px] text-rose-600 font-bold flex items-center gap-0.5">
+                                                                        ❤️ {commentLikes}
+                                                                    </span>
+                                                                </div>
+                                                                <p className="text-[10px] text-slate-900 font-bold leading-tight mt-0.5 line-clamp-2">
+                                                                    {commentText}
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                    )}
+
+                                                    {/* 🌟 나 잘한다해짜나 퀴즈 카드 */}
+                                                    {quizCardEnabled && (
+                                                        <div className="absolute z-30 inset-x-3 top-[32%] p-2 rounded-xl bg-black/85 backdrop-blur-md border border-amber-400/80 shadow-2xl text-white select-none">
+                                                            <div className="text-[10.5px] font-black text-amber-300 text-center mb-1.5 flex items-center justify-center gap-1">
+                                                                <span>{quizQuestion}</span>
+                                                            </div>
+                                                            <div className="grid grid-cols-3 gap-1">
+                                                                {[quizOption1, quizOption2, quizOption3].map((opt, oIdx) => (
+                                                                    <div 
+                                                                        key={oIdx}
+                                                                        className={`py-1 px-1 rounded text-center text-[9px] font-black border transition-all ${
+                                                                            quizAnswerIdx === (oIdx + 1)
+                                                                                ? 'bg-amber-400 text-black border-amber-300 shadow-md font-black'
+                                                                                : 'bg-neutral-800/80 text-white/90 border-neutral-700'
+                                                                        }`}
+                                                                    >
+                                                                        {opt}
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    )}
+
                                                     {videoBgUrl ? (
                                                         <div className="w-full aspect-[16/9] relative overflow-hidden flex items-center justify-center bg-black">
                                                             <img 
@@ -2302,28 +2678,57 @@ export const PresetCustomizeModal: React.FC<PresetCustomizeModalProps> = ({
                                                 {/* Layer 4: Caption Subtitle (Single Line Mode when bilingual is disabled) */}
                                                 {!bilingualEnabled && (
                                                     <div
-                                                        className="w-full text-center px-2 z-20 pointer-events-none transition-all flex justify-center"
+                                                        className="w-full text-center px-2 z-20 pointer-events-none transition-all flex flex-col items-center justify-center"
                                                         style={{
                                                             marginBottom: `${captionMarginBottom * 0.45}%`,
                                                         }}
                                                     >
-                                                        <span
-                                                            className="font-black leading-tight transition-all"
-                                                            style={{
-                                                                color: captionColor,
-                                                                fontSize: `${Math.max(12, Math.round(fontSize * 0.28))}px`,
-                                                                fontFamily: fontFamily === 'Black Han Sans' ? '"Black Han Sans", sans-serif' : fontFamily === 'Gmarket Sans' ? '"Gmarket Sans", sans-serif' : 'Pretendard, -apple-system, sans-serif',
-                                                                letterSpacing: `${letterSpacing}px`,
-                                                                lineHeight: lineHeight,
-                                                                WebkitTextStroke: `${Math.max(1, outlinePx * 0.22)}px ${outlineColor}`,
-                                                                textShadow: `0 2px ${textShadowBlur}px ${outlineColor}`,
-                                                                backgroundColor: captionBgBox ? captionBgBoxColor : 'transparent',
-                                                                padding: captionBgBox ? '2px 8px' : '0',
-                                                                borderRadius: captionBgBox ? '6px' : '0',
-                                                            }}
-                                                        >
-                                                            {captionText}
-                                                        </span>
+                                                        {speakerColorsEnabled && stepwiseExpansion ? (
+                                                            <div className="flex flex-col items-center gap-0.5">
+                                                                <span
+                                                                    className="font-black leading-tight tracking-tight px-1"
+                                                                    style={{
+                                                                        color: speakerAColor,
+                                                                        fontSize: `${Math.max(12, Math.round(fontSize * 0.28))}px`,
+                                                                        fontFamily: fontFamily === 'Black Han Sans' ? '"Black Han Sans", sans-serif' : 'Pretendard, -apple-system, sans-serif',
+                                                                        WebkitTextStroke: `${Math.max(1, outlinePx * 0.22)}px ${outlineColor}`,
+                                                                        textShadow: `0 2px ${textShadowBlur}px ${outlineColor}`,
+                                                                    }}
+                                                                >
+                                                                    Q. {headerLine1Text || captionText}
+                                                                </span>
+                                                                <span
+                                                                    className="font-black leading-tight tracking-tight px-1 mt-0.5"
+                                                                    style={{
+                                                                        color: speakerBColor,
+                                                                        fontSize: `${Math.max(13, Math.round(fontSize * 0.30))}px`,
+                                                                        fontFamily: fontFamily === 'Black Han Sans' ? '"Black Han Sans", sans-serif' : 'Pretendard, -apple-system, sans-serif',
+                                                                        WebkitTextStroke: `${Math.max(1, outlinePx * 0.22)}px ${outlineColor}`,
+                                                                        textShadow: `0 2px ${textShadowBlur}px ${outlineColor}`,
+                                                                    }}
+                                                                >
+                                                                    A. {captionText}
+                                                                </span>
+                                                            </div>
+                                                        ) : (
+                                                            <span
+                                                                className="font-black leading-tight transition-all"
+                                                                style={{
+                                                                    color: captionColor,
+                                                                    fontSize: `${Math.max(12, Math.round(fontSize * 0.28))}px`,
+                                                                    fontFamily: fontFamily === 'Black Han Sans' ? '"Black Han Sans", sans-serif' : fontFamily === 'Gmarket Sans' ? '"Gmarket Sans", sans-serif' : 'Pretendard, -apple-system, sans-serif',
+                                                                    letterSpacing: `${letterSpacing}px`,
+                                                                    lineHeight: lineHeight,
+                                                                    WebkitTextStroke: `${Math.max(1, outlinePx * 0.22)}px ${outlineColor}`,
+                                                                    textShadow: `0 2px ${textShadowBlur}px ${outlineColor}`,
+                                                                    backgroundColor: captionBgBox ? captionBgBoxColor : 'transparent',
+                                                                    padding: captionBgBox ? '2px 8px' : '0',
+                                                                    borderRadius: captionBgBox ? '6px' : '0',
+                                                                }}
+                                                            >
+                                                                {captionText}
+                                                            </span>
+                                                        )}
                                                     </div>
                                                 )}
 

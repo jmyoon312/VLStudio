@@ -49,6 +49,8 @@ class ThreadUpdate(BaseModel):
     model: Optional[str] = None
     reasoning_effort: Optional[str] = None
     project_id: Optional[str] = None
+    is_pinned: Optional[bool] = None
+    is_archived: Optional[bool] = None
 
 
 class MessageCreate(BaseModel):
@@ -171,6 +173,8 @@ def list_threads(project_id: Optional[str] = None, db: Session = Depends(get_db)
             "provider": t.provider,
             "model": t.model,
             "reasoning_effort": t.reasoning_effort,
+            "is_pinned": bool(getattr(t, "is_pinned", False)),
+            "is_archived": bool(getattr(t, "is_archived", False)),
             "message_count": msg_count,
             "snippet": last_msg.content[:60] if last_msg and last_msg.content else None,
             "created_at": t.created_at.isoformat() if t.created_at else None,
@@ -194,6 +198,8 @@ def create_thread(data: ThreadCreate, db: Session = Depends(get_db)):
         provider=data.provider or "openai",
         model=data.model or "GPT-6 Astra",
         reasoning_effort=data.reasoning_effort or "medium",
+        is_pinned=False,
+        is_archived=False,
         created_at=datetime.now(),
         updated_at=datetime.now()
     )
@@ -208,6 +214,8 @@ def create_thread(data: ThreadCreate, db: Session = Depends(get_db)):
         "provider": th.provider,
         "model": th.model,
         "reasoning_effort": th.reasoning_effort,
+        "is_pinned": False,
+        "is_archived": False,
         "message_count": 0
     }}
 
@@ -230,10 +238,21 @@ def update_thread(thread_id: str, data: ThreadUpdate, db: Session = Depends(get_
         th.reasoning_effort = data.reasoning_effort
     if data.project_id is not None:
         th.project_id = data.project_id
+    if data.is_pinned is not None:
+        th.is_pinned = data.is_pinned
+    if data.is_archived is not None:
+        th.is_archived = data.is_archived
     th.updated_at = datetime.now()
     db.commit()
     db.refresh(th)
-    return {"status": "success", "thread": {"id": th.id, "title": th.title, "preset_id": th.preset_id}}
+    return {"status": "success", "thread": {
+        "id": th.id,
+        "title": th.title,
+        "preset_id": th.preset_id,
+        "project_id": th.project_id,
+        "is_pinned": th.is_pinned,
+        "is_archived": th.is_archived
+    }}
 
 
 @router.delete("/threads/{thread_id}")

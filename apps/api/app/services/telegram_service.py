@@ -13,7 +13,7 @@ logger = logging.getLogger("telegram_service")
 
 class TelegramService:
     """
-    루피(Loopie) AI 텔레그램 원격 양방향 사령탑:
+    루피(Loopie) AI 텔레그램 원격 양방향 비서 서비스:
     - 텔레그램 스마트 푸시 알림 디스패처 (일일 리포트, 대박/저조 분석, 악플 감지, 긴급 장애)
     - 양방향 리스너(Telegram Polling Listener): 대표님의 모바일 자연어 명령 수신 및 루피 AI 브레인 연동 응답
     - 인라인 키보드(Inline Keyboard) 원클릭 댓글 답글 승인 인터랙션
@@ -116,7 +116,7 @@ class TelegramService:
                 summary_snippet = "\n".join([f"• {html.escape(l)}" for l in lines])
 
         msg = (
-            f"🤖 <b>[루피 AI 사령탑] 일일 결산 종합 리포트</b>\n"
+            f"🤖 <b>[루피 AI 총괄 디렉터] 일일 결산 종합 리포트</b>\n"
             f"📅 <b>일자:</b> {html.escape(report_date_str)}\n\n"
             f"💰 <b>다채널 수익 & ROI</b>\n"
             f"• 💵 <b>추정 일일 수익:</b> ₩{rev_val:,}원 (RPM ₩{rpm_val})\n"
@@ -265,13 +265,13 @@ class TelegramService:
 
             if cmd in ["/start", "/help", "도움말"]:
                 help_msg = (
-                    "👋 <b>안녕하세요 대표님! ViraLoop Studio 총괄 사령관 '루피 AI(Loopie)'입니다.</b>\n\n"
-                    "모바일에서 언제든지 스튜디오 현황을 확인하고 명령을 내리실 수 있습니다.\n\n"
+                    "👋 <b>안녕하세요 대표님! ViraLoop Studio 총괄 디렉터 '루피 AI(Loopie)'입니다.</b>\n\n"
+                    "모바일에서 언제든지 스튜디오 현황을 확인하고 작업을 요청하실 수 있습니다.\n\n"
                     "📌 <b>주요 명령어 & 자연어 예시:</b>\n"
                     "• <code>/report</code> 또는 <b>'오늘의 성과는?'</b>, <b>'실시간 수익 브리핑'</b>\n"
                     "• <code>/comments</code> 또는 <b>'댓글 확인'</b>, <b>'시청자 소통 현황'</b>\n"
                     "• <code>/hook</code> 또는 <b>'저조 영상 분석해줘'</b>, <b>'후킹 진단'</b>\n"
-                    "• <b>그 외 질문</b>: 스튜디오 운영, 영상 기획, 알고리즘 전략 등 편하게 말씀해 주시면 루피가 즉각 분석 보고합니다!"
+                    "• <b>그 외 질문</b>: 스튜디오 운영, 영상 기획, 알고리즘 전략 등 편하게 말씀해 주시면 루피가 즉각 분석하여 안내해 드립니다!"
                 )
                 self.send_raw(token, chat_id, help_msg)
                 return
@@ -363,11 +363,11 @@ class TelegramService:
             summary_snippet = (latest_report.summary_markdown[:200] if latest_report and latest_report.summary_markdown else "정상 가동 중")
 
             system_instruction = (
-                "당신은 유튜브 팩토리 시스템 ViraLoop Studio의 총괄 사령관 '루피 AI(Loopie)'입니다. "
-                "대표님(user)께 모바일 텔레그램을 통해 보고와 자문을 드리는 최고 운영 사령관입니다.\n"
+                "당신은 유튜브 프로덕션 시스템 ViraLoop Studio의 총괄 디렉터 '루피 AI(Loopie)'입니다. "
+                "대표님(user)께 모바일 텔레그램을 통해 제작 현황 보고와 기획 자문을 드리는 수석 프로듀서입니다.\n"
                 "절대 원칙:\n"
                 "1. 당신은 오직 '루피 AI'로서만 행동하며, 절대 다른 외부 AI 모델(예: MiMo, Llama, Claude, GPT 등)이나 시스템의 역할을 칭하지 마십시오.\n"
-                "2. 대표님에 대한 극진한 예우와 함께, 데이터와 실행에 기반한 듬직하고 전문적인 비즈니스 톤을 일관되게 유지하십시오.\n"
+                "2. 군대식/SF식 은어나 딱딱한 표현('지휘관', '사령관', '사령탑', '작전', '하수인', '보고드립니다 🫡' 등)을 일절 사용하지 말고, 대표님에 대한 정중한 예우와 함께 전문적이고 친절한 상업 프로덕션 톤을 일관되게 유지하십시오.\n"
                 "3. 모바일에서 한눈에 읽기 편하도록 3~5문장 내외로 명확하고 핵심적으로 답변하십시오."
             )
 
@@ -380,7 +380,7 @@ class TelegramService:
 [대표님 메시지]
 "{text}"
 
-위 대표님의 메시지에 대해 루피 AI 총괄 사령관으로서 성심성의껏 전문적인 보고 및 답변을 작성하십시오.
+위 대표님의 메시지에 대해 루피 AI 총괄 디렉터로서 성심성의껏 전문적인 보고 및 답변을 작성하십시오.
 """
             answer = None
             last_err = None

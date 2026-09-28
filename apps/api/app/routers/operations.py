@@ -12,10 +12,10 @@ from app.utils.file_manager import delete_video_files
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["operations"])
 
-@router.post("/{video_id}/reset", summary="작전 데이터 초기화")
+@router.post("/{video_id}/reset", summary="제작 작업 데이터 초기화")
 async def reset_operation(video_id: int, db: Session = Depends(get_db)):
     """
-    작전 진행 중 생성된 모든 임시 파일 및 결과물 폴더를 삭제하고,
+    제작 진행 중 생성된 모든 임시 파일 및 결과물 폴더를 삭제하고,
     DB의 비트(beats) 데이터를 초기화합니다.
     """
     video = db.query(models.Video).filter(models.Video.id == video_id).first()
@@ -51,12 +51,12 @@ async def reset_operation(video_id: int, db: Session = Depends(get_db)):
     
     db.commit()
     
-    return {"status": "success", "message": "작전이 성공적으로 초기화되었습니다."}
+    return {"status": "success", "message": "제작 작업 데이터가 성공적으로 초기화되었습니다."}
 
-@router.post("/{video_id}/delete", summary="작전 완전 폐기")
+@router.post("/{video_id}/delete", summary="프로젝트 완전 삭제")
 async def delete_operation(video_id: int, db: Session = Depends(get_db)):
     """
-    작전 데이터뿐만 아니라 원본 소스 파일, 썸네일, DB 레코드까지 모두 삭제합니다.
+    제작 데이터뿐만 아니라 원본 소스 파일, 썸네일, DB 레코드까지 모두 삭제합니다.
     """
     video = db.query(models.Video).filter(models.Video.id == video_id).first()
     if not video:
@@ -82,4 +82,4 @@ async def delete_operation(video_id: int, db: Session = Depends(get_db)):
     db.delete(video)
     db.commit()
 
-    return {"status": "success", "message": "작전 및 모든 관련 파일이 영구 삭제되었습니다."}
+    return {"status": "success", "message": "프로젝트 및 모든 관련 파일이 영구 삭제되었습니다."}

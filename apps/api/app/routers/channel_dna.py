@@ -176,7 +176,7 @@ def create_brand_channel(benchmark_id: int, req: CreateBrandChannelRequest):
         db.refresh(brand)
         return {
             "success": True,
-            "message": f"브랜드 채널 '{req.channel_name}'이(가) 성공적으로 생성되어 AI 사령탑에 배속되었습니다.",
+            "message": f"브랜드 채널 '{req.channel_name}'이(가) 성공적으로 생성되어 AI 제작팀에 배정되었습니다.",
             "channel_id": brand.channel_id,
             "brand_id": brand.id
         }

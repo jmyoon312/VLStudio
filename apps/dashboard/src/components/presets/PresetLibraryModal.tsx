@@ -445,6 +445,27 @@ export const PresetLibraryModal: React.FC<PresetLibraryModalProps> = ({
                                                         줌 {preset.style.video.zoom_pct}%
                                                     </span>
                                                 )}
+                                                {/* 🌟 4대 역공학 시그니처 뱃지 */}
+                                                {((preset as any).style?.interactive_layer?.comment_card?.enabled || (preset as any).interactive_layer?.comment_card?.enabled || preset.name?.includes('꿀딸기')) && (
+                                                    <span className="text-[11px] px-2 py-0.5 rounded bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 font-bold flex items-center gap-1">
+                                                        💬 댓글 카드
+                                                    </span>
+                                                )}
+                                                {((preset as any).style?.interactive_layer?.product_tracker?.enabled || (preset as any).interactive_layer?.product_tracker?.enabled || preset.name?.includes('빵별')) && (
+                                                    <span className="text-[11px] px-2 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 font-bold flex items-center gap-1">
+                                                        📊 3단 상품 바
+                                                    </span>
+                                                )}
+                                                {((preset as any).style?.interactive_layer?.quiz_card?.enabled || (preset as any).interactive_layer?.quiz_card?.enabled || preset.name?.includes('나 잘한다')) && (
+                                                    <span className="text-[11px] px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border border-cyan-500/20 font-bold flex items-center gap-1">
+                                                        ❓ 퀴즈 카드
+                                                    </span>
+                                                )}
+                                                {((preset as any).style?.speaker_colors || (preset as any).speaker_colors || (preset as any).style?.stepwise_expansion || preset.name?.includes('킥맨')) && (
+                                                    <span className="text-[11px] px-2 py-0.5 rounded bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20 font-bold flex items-center gap-1">
+                                                        🎨 화자별 2색 자막
+                                                    </span>
+                                                )}
                                             </div>
 
                                             {/* Content Rules snippet */}

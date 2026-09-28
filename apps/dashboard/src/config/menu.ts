@@ -47,6 +47,8 @@ import {
     Film
 } from 'lucide-react';
 
+import { LoopieNavIcon } from '../components/director/LoopieAvatar';
+
 export interface MenuItem {
     name: string;
     path: string;
@@ -69,7 +71,7 @@ export const getMenuGroups = (captainId: string | null): MenuGroup[] => [
         mode: "AI_ORCHESTRATION",
         defaultExpanded: true,
         items: [
-            { name: '대화형 총괄 연출', path: '/director', icon: Sparkles, highlight: true },
+            { name: '루피 AI 디렉터', path: '/director', icon: LoopieNavIcon, highlight: true },
             { name: '인스턴트 제작', path: '/instant-studio', icon: Zap, highlight: true },
             { name: '스튜디오 관제', path: '/war-room', icon: Cpu, highlight: true },
             { name: '제작 파이프라인', path: '/pipeline-builder', icon: GitBranch, highlight: true },

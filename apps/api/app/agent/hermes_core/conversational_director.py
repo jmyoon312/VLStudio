@@ -13,6 +13,7 @@ import httpx
 import subprocess
 import urllib.parse
 import requests
+import shutil
 from typing import Dict, Any, List, Optional, AsyncGenerator
 from datetime import datetime
 from pathlib import Path
@@ -20,12 +21,14 @@ from pathlib import Path
 from app.agent.hermes_core.brain import HermesBrain
 from app.agent.hermes_core.memory_engine import hermes_memory_engine, WorkingMemory
 from app.services.sovereign_preset_engine import sovereign_preset_engine
+from app.services.google_account_pool import google_account_pool
 from app.agent.hermes_core.tools.pixagent_presets_tool import pixagent_presets
 from app.agent.hermes_core.tools.hermes_tool_registry import (
     HERMES_OPENAI_TOOLS,
     get_gemini_tools,
     hermes_tool_dispatcher
 )
+from app.agent.hermes_core.laya_router import hermes_laya_router, IntentType
 
 logger = logging.getLogger("conversational_director")
 
@@ -131,6 +134,10 @@ class ConversationalDirector:
         output = style.get("output", {})
         video = style.get("video", {})
         caption = style.get("caption", {})
+        title = style.get("title", {})
+        size = output.get("resolution", "1080x1920")
+        fps = output.get("fps", 30)
+        zoom_pct = video.get("zoom_pct", 100)
         vg = style.get("visual_geometry") or full_preset.get("visual_geometry") or {}
         ep = style.get("editing_pacing") or full_preset.get("editing_pacing") or {}
         ad = style.get("audio_dsp") or full_preset.get("audio_dsp") or {}
@@ -150,40 +157,7 @@ class ConversationalDirector:
         two_tone = vg.get('two_tone_caption', {})
         top_src = vg.get('top_source', {})
 
-        return f"""
-[🎬 현재 활성화된 소버린 프리셋 공식 프로덕션 블루프린트 v2 & 17대 바이블 스펙]:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-1. 프리셋 등록 메타데이터:
-- 프리셋 식별자(ID): {p_id}
-- 공식 프리셋명: {p_name}
-- 카테고리/장르: {p_category}
-- 핵심 스타일 레시피: {p_recipe}
-- 공식 콘텐츠 룰(Content Rules):
-{rules_str}
 
-2. 📐 Visual Geometry (시각 레이어 실측 규격):
-- 헤더 컨테이너 형태: {container_type} ({'모던 플로팅 캡슐 (패션탐정냥 Type B)' if container_type == 'floating_capsule' else '정통 레터박스 샌드위치 (올뉴띵킹 Type A)' if container_type == 'letterbox_sandwich' else '상단 풀 와이드 띠 (군림보)' if container_type == 'full_width_band' else '소셜 포스트 바 (썰형)' if container_type == 'social_post_bar' else '헤더 없음'})
-- 캔버스 도킹 방식: {vg.get('canvas_type', 'sandwich')} ({'9:16 풀스크린 배경 비디오' if container_type == 'floating_capsule' or vg.get('canvas_type') == 'fullscreen_overlay' else '상하단 바 사이 중앙 정방형 맞춤'})
-{f"- [Layer 0: 상단 출처 표기]: {top_src.get('text', '')} (상단 {top_src.get('top_pct', 4.0)}%)" if top_src.get('enabled') else ""}
-- [Layer 1: 상단 헤더 컨테이너]:
-  * 형태: {container_type}
-  * 1줄 (상황/조건절): {h1.get('color', '#FFE838')} ({h1.get('size_px', 28)}px / {h1.get('font_style', 'ExtraBold')}) - 예: "{h1.get('text_example', '')}"
-  * 2줄 (핵심 훅 명사): {h2.get('color', '#FFFFFF')} ({h2.get('size_px', 32)}px / {h2.get('font_style', 'ExtraBold')}) - 예: "{h2.get('text_example', '')}"
-{f"- [Layer 1-B: 서브 테이프 스티커 라벨]: 배경 {sub_tape.get('bg_color', '#FDE68A')}, 텍스트: '{sub_tape.get('text', '')} {sub_tape.get('emoji', '')}'" if sub_tape.get('enabled') else ""}
-{f"- [Layer 2: 시각 포인터/화살표 강조]: {pointers.get('arrow_type', 'curved_red')} 화살표, 타겟 라벨: '{pointers.get('label', '')}' (x:{pointers.get('target_x_pct', 65)}%, y:{pointers.get('target_y_pct', 44)}%)" if pointers.get('enabled') else ""}
-- [Layer 3: 본문 자막(Caption)]:
-  * 글자 크기: {cap.get('size_px', 48)}px, 글자색: {cap.get('color', '#FFFFFF')}
-  * 외곽선: {cap.get('outline_px', 6)}px ({cap.get('outline_color', '#000000')})
-  * 수직 위치: 하단 {cap.get('margin_v_pct', 23.5)}% (세이프존 {cap.get('safe_zone', 'OPTIMAL_76')} 준수)
-{f"  * 2톤 키워드 강조 자막: 강조어 [{two_tone.get('highlight_text', '')}] ({two_tone.get('highlight_color', '#FFE500')}) + 기본어 [{two_tone.get('base_text', '')}] ({two_tone.get('base_color', '#FFFFFF')})" if two_tone.get('enabled') else ""}
-- [Layer 4: 돌발 쨉쨉이 (Jab Hook)]:
-  * 활성화: {'사용' if jab.get('enabled', False) else '미사용'}
-  * 주기: {jab.get('avg_interval_sec', 4.5)}초 평균
-{f"- [Layer 6: 하단 배경 바]: 높이 {vg.get('bottom_bar', {}).get('height_pct', 6.0)}%, 배경색 {vg.get('bottom_bar', {}).get('bg_color', '#000000')}" if vg.get('bottom_bar', {}).get('enabled') else "- [Layer 6: 하단 배경 바]: 미사용 (풀스크린)"}
-
-3. ⏱️ Editing Pacing (타임라인 편집 호흡):
-- 0~2.5초 오프닝 훅 줌: {int((ep.get('opening_hook_zoom', 1.0) - 1.0) * 100)}%
-- 평균 컷 전환 주기: {ep.get('avg_cut_sec', 3.8)}초
 
         vs = ad.get("voice_signature") or full_preset.get("voice_signature") or {}
         vs_role = vs.get("voice_role", "신뢰감 있는 전문 내레이터")
@@ -374,118 +348,23 @@ class ConversationalDirector:
         memory_context: str = "",
         channel_forensic_context: str = ""
     ) -> str:
-        p_lower = provider_name.lower()
-        if any(k in p_lower for k in ["chatgpt", "codex", "openai"]):
-            identity_header = f"""당신은 OpenAI가 개발한 최상위 파운데이션 모델 {model_name} (ChatGPT Plus 웹 세션 기반 직결)입니다.
-ViraLoop Studio 환경에서 사용자와 긴밀히 협력하며 영상 기획, 대본 작성 및 심층 추론을 수행합니다.
-자신의 정체성이나 소속을 묻는 질문을 받으면 가짜 이름이나 허구의 페르소나를 꾸며내지 말고, 정직하고 솔직하게 OpenAI의 {model_name} 기반임을 밝히세요.
-현재 연결 엔진: {provider_name} ({model_name})"""
-        elif "gemini" in p_lower:
-            identity_header = f"""당신은 Google이 개발한 지능 모델 {model_name} (Google Gemini 공식 직접 연동)입니다.
-ViraLoop Studio 환경에서 사용자와 협력하며 고속 멀티모달 분석과 대본 기획을 돕습니다.
-자신의 정체성에 대해 질문을 받으면 정직하게 Google Gemini 기반 모델임을 밝히세요.
-현재 연결 엔진: {provider_name} ({model_name})"""
-        else:
-            identity_header = f"""당신은 ViraLoop Studio의 지능형 파트너 AI 어시스턴트입니다.
-현재 연결 엔진: {provider_name} ({model_name})"""
-
-        return f"""{identity_header}
-
-[핵심 대화 원칙 - 자연스러움과 유연성 (Natural & Intelligent Tone)]
-1. **사람다운 자연스러운 대화**:
-   - ChatGPT나 Claude처럼 유연하고 친절하며 지적인 한국어로 대화하세요.
-   - 군대식/SF식 롤플레잉("Commander", "명령을 내려주십시오 🫡", "사령탑 기동 완료", "보고드립니다" 등)을 절대 사용하지 마세요.
-   - 사용자가 요청하지 않은 불필요한 "시스템 상태 리포트 표", "🟢 Online 체크리스트" 같은 기계적인 서식을 억지로 출력하지 마세요.
-   - 프롬프트 지침("저는 단순한 자판기가 아닙니다" 등)을 앵무새처럼 그대로 말하지 마세요. 질문의 핵심에 바로 집중하세요.
-
-2. **상황에 맞는 유연하고 유능한 답변**:
-   - **에러 로그나 디버깅 질문이 들어왔을 때**: 기계적인 상태표를 띄우지 말고, 개발자 동료처럼 "로그를 확인해보니 프론트엔드에서 API 경로 오타로 인해 발생한 문제네요!"와 같이 문제의 원인과 해결 코드를 즉시 명쾌하고 친절하게 설명하세요.
-   - **철학, 일상, 일반 대화**: 지적 깊이와 유연한 사고로 편안하고 풍부하게 대화하세요. 3초 훅이나 숏폼 템플릿을 억지로 붙이지 마세요.
-   - **기획, 비즈니스, 전략 질문**: 체계적인 논리와 실질적인 아이디어를 유려한 마크다운으로 정리해 주세요.
-   - **영상/숏폼 제작 요청 시에만**: 훅, 스토리, 자막 연출, 4대 폼팩터 등 전문적인 제작 기획안을 제시하세요.
-
-[프리셋(Preset) 분석 및 프로덕션 바이블 절대 원칙 (Preset Production Bible Protocol)]
-사용자가 현재 선택된 프리셋에 대해 상세 설명/분석/기획을 요청할 경우("프리셋에 대해 디테일하게 보여줘", "프리셋 분석", "이 프리셋으로 어떻게 만들어?", "프리셋 정보" 등),
-단순한 몇 줄 요약이나 개요에 그치지 말고, 아래 17대 프로덕션 바이블 규격에 따라 초정밀하고 체계적인 마크다운 바이블 리포트로 답변하십시오:
-1. 확인 가능한 프리셋 정보: 원본에 명시된 확정 사양(프리셋명, 레시피, 폰트/색상/크기/외곽선 등)과 운용 해석값 명확히 구분
-2. 프리셋 핵심 콘셉트 및 시청 자극 우선순위: 오감 자극, 도파민 트리거, 맛/식감/정보 증명 컷 순위
-3. 권장 영상 규격 및 4대 폼팩터 매칭: 9:16 비율, 15~35초 호흡, 4대 폼팩터(Classic, Insta, Gunlimbo, Ssul) 중 최적 폼팩터 선정 사유
-4. 권장 스토리 구조 (3대 시나리오 분기): 리뷰형(20초), 매장/과정형(30~45초), 무대사 ASMR형 등 다각도 구성
-5. 초정밀 3초 훅(Hook) 설계: 시청 이탈 방지용 검증된 구체적 훅 문구(10개) 및 피해야 할 도입부
-6. 촬영 및 비주얼 씬 구성: 필수 히어로 숏 5대 매크로 컷(완성품, 클로즈업, 집어 올리기, 단면, 시식) 및 보조 컷
-7. 편집 리듬 및 컷 전환 규칙: 초단위 템포(0.3~0.8초 빠른 호흡), 컷 배열 순서, 권장/금지 전환 효과
-8. 자막 운용 방식 및 키워드 압축 원칙: 내레이션 그대로 옮겨 쓰기 금지, 구어체 감각어 압축 예시
-9. 자막 디자인 및 타이포그래피 정밀 사양: 폰트, 외곽선, 기본색, 카테고리별 강조색 Hex 코드(#FFD54A 등), 팝업 연출
-10. 화면 상단 볼드 타이틀: 영상 아이덴티티 각인용 문구 예시, 배치 및 안전 여백
-11. 색보정(Color Grading) 방향: 음식/피사체 본연의 색감(황금빛, 붉은 윤기 등)을 살리는 채도/대비/하이라이트 수치 및 왜곡 방지 가이드
-12. 사운드 DSP 설계: 핵심 효과음(바삭 파열음 등)과 BGM 볼륨 믹싱 밸런스(덕킹), 사운드 싱크
-13. 시청자 구매/판단 정보 전달 항목: 가격, 양, 크기, 웨이팅, 재구매 의사 등 실질 신뢰 항목
-14. 추천 내레이션 톤 및 예시 대본: 실제 시식/체험자의 솔직한 구어체 대본 및 금지 화법
-15. 샘플 초단위 타임라인 (Timeline Breakdown): 0.0초부터 엔딩까지 씬별 시간(초), 화면, 자막, 사운드 매핑
-16. 프로덕션 품질 체크리스트: 영상, 자막, 사운드, 콘텐츠 검증 기준
-17. 현재 프리셋에서 확정되지 않은 항목: 원본에 없는 미확정 값(정확한 LUT, 비트레이트 등)과 향후 커스텀 튜닝 권장 방향
-
-[4대 세분화 프로덕션 워크플로우 원칙 (Segmented Workflow Principles)]
-영상 제작은 모든 과정을 무조건 한 번에 억지로 끝까지 달리지 않고, 사용자의 현재 질문과 작업 단계에 맞추어 다음 4개 모듈 중 필요한 단계에 정밀 집중하여 수행합니다:
-
-1. [모듈 1: 프리셋 생성 및 발골 (Preset Creation)]
-   - 사용자가 유튜브 링크나 영상을 제시하며 스타일 분석이나 프리셋 제작을 원할 때:
-   - `montage_analyze_reference`를 실행하여 상단바, 타이틀, 자막 Y%, 폰트 색상을 발골한 후 `pixeling_save_preset`으로 저장하고 스타일을 깔끔히 보고합니다. (사용자가 요구하지 않았는데 억지로 대본을 쓰거나 영상을 렌더링하지 않습니다)
-
-2. [모듈 2: 프리셋 커스터마이징 및 스타일 튜닝 (Preset Customization)]
-   - 사용자가 "자막 노란색으로 바꿔줘", "글자 더 크게", "타이틀 박스 강조해줘" 등 세부 수정을 요구할 때:
-   - `pixeling_revise_preset_draft` 도구를 사용하여 1초 만에 자막/디자인만 초고속 패치 수정합니다.
-
-3. [모듈 3: 소재, 키워드, 트렌드 발굴 (Asset & Trend Discovery)]
-   - 사용자가 "요즘 유행하는 아이템 찾아줘", "해외 쇼핑 숏폼 레퍼런스 찾아줘" 등 소재 탐색을 원할 때:
-   - `web_search_and_trends`와 `search_youtube_reference_videos`를 활용하여 실시간 트렌드 및 추천 후보 영상 목록을 마크다운 표로 깔끔하게 정리해 드립니다.
-
-4. [모듈 4: 영상 제작 및 CapCut 연동 (Video Production & Export)]
-   - 사용자가 대본 확정 후 "이걸로 영상 만들어줘", "완성해줘", "CapCut으로 내보내줘"라고 제작을 명시할 때:
-   - 선택된 프리셋 스타일에 맞추어 `synthesize_voice_speech`(Supertonic/Kokoro/Typecast/ElevenLabs/Gemini)로 음성을 합성하고, `montage_render_video`로 영상을 완성한 후 `montage_export_capcut_draft`로 CapCut에 등록합니다.
-
-5. [올인원 원테이크 (All-In-One)]: 사용자가 "아이템 찾아서 레퍼런스 따고 영상까지 한번에 다 만들어줘"라고 전 과정을 명시적으로 요구할 때만 1~4단계를 연쇄 호출하여 풀사이클을 완수합니다.
-
-[전역 2-Tone 키워드 대본 규칙 (Universal 2-Tone Kinetic Script Rule)]
-모든 대본/스크립트 작성 시, 각 문장이나 씬에서 시각적으로 가장 강력한 감정·반전·충격을 주는 핵심 단어 1~2개를 반드시 [대괄호]로 감싸서 출력하십시오 (예: "의사는 어머니의 [마지막 통장]을 열어보고 오열했습니다", "평생 구두쇠였던 아버지가 남긴 [낡은 수첩 하나]"). ViraLoop 자막 렌더러가 이 대괄호를 감지하여 해당 단어에만 2-Tone 골드 옐로우 하이라이트 자막을 100% 자동 컴파일합니다.
-
-[보유한 로컬 자율 제어 및 MCP 도구]
-필요 시 다음 도구(Function Calling)를 호출하여 로컬 컴퓨터 및 미디어 작업을 직접 수행할 수 있습니다:
-- 트렌드/소재 탐색: `web_search_and_trends`(구글 실시간 검색망 트렌드 및 핫아이템 수집), `search_youtube_reference_videos`(유튜브 레퍼런스 영상 검색)
-- 비전 발골/프리셋 관리: `montage_analyze_channel`(YouTube 채널 대표 쇼츠 12편 실시간 수집, 로컬 다운로드 및 6대 시각 레이어/오디오 음향 실측), `montage_analyze_reference`(직접 멀티모달 비전을 활용한 영상/유튜브 스타일 정밀 발골), `pixeling_save_preset`(프리셋 저장), `pixeling_revise_preset_draft`(1초 초고속 자막/디자인 패치)
-- 음성 및 영상 제작: `synthesize_voice_speech`(Supertonic 온디바이스 무제한 고품질 TTS 기본, Kokoro, Typecast, ElevenLabs, Gemini 음성 지원), `montage_create_production_plan`(3초 훅 및 씬별 대본 기획), `montage_render_video`(MP4 고화질 합성 렌더링), `montage_export_capcut_draft`(CapCut 드래프트 프로젝트 등록 및 앱 실행)
-- 로컬 OS 제어: `system_open_folder`(폴더 열기), `system_launch_capcut`(CapCut 실행), `system_inspect_environment`(PC 환경 진단)
-
-[기준 일시: {current_date_str}]
-{preset_context}
-{search_context}
-{memory_context}
-{f'''
-[유튜브 채널 12편 전편 및 대표 영상 정밀 실측 데이터 (Real Forensics Grounding)]
-{channel_forensic_context}
-
-[100점 완결형 프로덕션 마스터 프리셋 5대 절대 필수 출력 규격 (Zero Omission Production Law)]
-당신은 최고 수준의 바이럴 쇼츠 총괄 디렉터로서, 반드시 아래 5개 필수 섹션을 빠짐없이 완전한 실무 수준으로 작성하십시오:
-
-1. [실시간 스캔된 12편 대표 영상 마크다운 표]:
-   - 순번, 제목, 비디오 ID, 구분(최신 6편 vs 최고 조회수 6편), 실시간 조회수를 완비한 표.
-
-2. [과거 1등(누적 조회수) vs 최근 떡상(모멘텀) 1:1 변천사(Pivot) 대조 분석]:
-   - 과거 최고 인기 영상(누적 1,000만+ 시절의 스타일)과 최근 떡상 영상(최근 정착형 템플릿)의 레이아웃, 상단 바, 자막 폰트/외곽선/2톤 강조, 컷 주기 차이점을 마크다운 표로 1:1 비교 대조하고, 왜 최근 템플릿으로 피벗했는지 분석할 것.
-
-3. [채널의 4대 제작 DNA 심층 분석 (뇌과학/시각적 위계)]:
-   - Visual Geometry, Editing Pacing, Audio DSP, Narrative DNA 4대 실측치와 뇌과학적 시청자 몰입 원리 서술.
-
-4. [100% 원클릭 실전 제작용 마스터 프리셋 완결 규격 (Master Production Specs)]:
-   - ① **정확한 폰트 패밀리 (Font ID)**: 상단 1줄/2줄 권장 폰트(예: `Pretendard ExtraBold`, `GmarketSans Bold`) 및 본문 자막 권장 폰트(예: `Pretendard Black`, `Sandoll 고딕Neo`)를 100% 명확히 확정 지정.
-   - ② **본문 자막 2-Tone 키워드 강조 규칙**: 기본 대사 색상(`#FFFFFF`)과 문장의 감정/충격 핵심 단어 1~2개에 적용할 하이라이트 색상(`#FFE500` / `#FFE838`), 외곽선(Stroke 5~6px `#000000`) 배치 룰을 구체적 예시 문장과 함께 명시.
-   - ③ **실전 소스 저작권 회피 편집 프로토콜 (Copyright Defense Protocol)**: 영화/드라마/애니/인물 클립 활용 시 Content ID 차단 방지를 위한 4대 수칙(좌우 수평 반전 미러링, 1.03~1.05배 미세 줌인, 5~7초 단위 컷 분할 및 변형, BGM 원음 제거 후 자체 BGM 덕킹 -24dB 믹싱).
-   - ④ **3대 권장 시나리오 분기 및 0초 훅 템플릿 3선**: 실제 대본 작성에 즉시 쓸 수 있는 훅 공식 및 시나리오 뼈대.
-
-5. [기계 즉시 파싱용 Sovereign Preset JSON 코드 블록 (`.preset.json`)]:
-   - 리포트 맨 마지막에 백엔드 NLE 엔진과 캡컷 연동기가 즉시 읽어들여 렌더링할 수 있는 유효한 JSON 코드 블록(```json ... ```)을 온전히 수록할 것.
-''' if channel_forensic_context else ''}
-"""
+        """
+        Delegates prompt formulation to the HermesLayaRouter.
+        Guarantees zero prompt bloat and strict stage isolation.
+        """
+        if channel_forensic_context:
+            return hermes_laya_router.build_channel_cloning_prompt(
+                provider_name=provider_name,
+                model_name=model_name,
+                channel_forensic_context=channel_forensic_context
+            )
+        return hermes_laya_router.build_video_production_prompt(
+            provider_name=provider_name,
+            model_name=model_name,
+            preset_context=preset_context,
+            search_context=search_context,
+            memory_context=memory_context
+        )
 
     def _get_codex_auth_session(self) -> Optional[Dict[str, Any]]:
         """
@@ -524,6 +403,17 @@ ViraLoop Studio 환경에서 사용자와 협력하며 고속 멀티모달 분�
             p = local_app / "Programs" / "Pixeling" / "releases" / ver / "app" / "tools" / "codex" / "node_modules" / "@openai" / "codex" / "node_modules" / "@openai" / "codex-win32-x64" / "vendor" / "x86_64-pc-windows-msvc" / "bin" / "codex.exe"
             if p.exists():
                 return str(p)
+        return None
+
+    def _find_antigravity_executable(self) -> Optional[str]:
+        """Locates the Google Antigravity CLI executable (agy.exe)."""
+        local_app = Path(os.environ.get("LOCALAPPDATA", "C:/Users/jmyoo/AppData/Local"))
+        cand = local_app / "agy" / "bin" / "agy.exe"
+        if cand.exists():
+            return str(cand)
+        which_path = shutil.which("agy.exe") or shutil.which("agy")
+        if which_path and os.path.exists(which_path):
+            return str(which_path)
         return None
 
     def _get_tool_ui_info(self, fn_name: str) -> Dict[str, Any]:
@@ -951,6 +841,96 @@ ViraLoop Studio 환경에서 사용자와 협력하며 고속 멀티모달 분�
                 "content": msg,
                 "action_chips": ["📁 캡컷 프로젝트 폴더 열기", "📂 결과물 폴더 열기"]
             }
+            return
+
+        if any(kw in clean_prompt for kw in ["대기열에", "자동 배포", "유튜브 배포", "유튜브 등록", "대기열 등록"]) and previous_deliverable:
+            yield {
+                "type": "step",
+                "item_index": 0,
+                "total_items": 1,
+                "step_id": "auto_deploy_enqueue",
+                "title": "🚀 유튜브 자동 배포 관리 대기열 등록",
+                "status": "in_progress",
+                "detail": "영상과 바이럴 메타데이터(제목, 해시태그)를 발행 대기열로 전송하는 중입니다..."
+            }
+            res = await hermes_tool_dispatcher.dispatch(
+                "upload_queue_enqueue",
+                {
+                    "video_path": previous_deliverable.get("video_path"),
+                    "title": previous_deliverable.get("title", "바이럴 숏폼 영상"),
+                    "description": f"{previous_deliverable.get('title', '')}\n\n#Shorts #Viral #ViraLoop",
+                    "tags": ["Shorts", "Viral", "YouTube"],
+                    "priority": "high"
+                },
+                previous_deliverable=previous_deliverable
+            )
+            yield {
+                "type": "step",
+                "item_index": 0,
+                "total_items": 1,
+                "step_id": "auto_deploy_enqueue",
+                "title": "🚀 유튜브 자동 배포 관리 대기열 등록 완료",
+                "status": "completed",
+                "detail": res.get("message", "대기열에 등록되었습니다.")
+            }
+            msg = f"🚀 **{res.get('message', '유튜브 자동 배포 대기열에 등록되었습니다!')}**\n\n- 영상 제목: **{res.get('title')}**\n- 대기열 항목 ID: `{res.get('item_id')}`\n- 설정된 채널의 정기 발행 스케줄에 따라 스텔스 모바일/브라우저 업로더가 자동으로 업로드를 집행합니다."
+            yield {"type": "content_chunk", "delta": msg, "content": msg}
+            yield {
+                "type": "chat_response",
+                "content": msg,
+                "action_chips": ["📊 배포 대기열 현황 보기", "🎬 다른 영상 제작하기", "📁 05_Exports 폴더 열기"]
+            }
+            return
+
+        if any(kw in clean_prompt for kw in ["원본 찾아서", "쇼츠 원본", "원본 찾아", "원본 긴 영상", "원본 영상 찾아"]) and ("shorts" in clean_prompt or "tiktok" in clean_prompt or "youtu" in clean_prompt):
+            from app.services.hermes_asset_scout import hermes_asset_scout
+            extracted_urls = hermes_asset_scout.extract_urls(clean_prompt)
+            if extracted_urls:
+                shorts_url = extracted_urls[0]
+                yield {
+                    "type": "step",
+                    "item_index": 0,
+                    "total_items": 1,
+                    "step_id": "reverse_source_scout",
+                    "title": "🔎 쇼츠 원본 1080p 고화질 긴 영상 자동 역추적",
+                    "status": "in_progress",
+                    "detail": f"쇼츠({shorts_url})의 메타데이터와 대사를 분석하여 원본 풀영상을 스카우팅 중입니다..."
+                }
+                scout_res = await hermes_asset_scout.reverse_source_shorts(shorts_url)
+                yield {
+                    "type": "step",
+                    "item_index": 0,
+                    "total_items": 1,
+                    "step_id": "reverse_source_scout",
+                    "title": "🔎 쇼츠 원본 영상 발굴 완료",
+                    "status": "completed",
+                    "detail": scout_res.get("title", "발굴 완료") if scout_res else "쇼츠 원본으로 진행"
+                }
+                if scout_res and scout_res.get("url"):
+                    yield {
+                        "type": "step",
+                        "item_index": 0,
+                        "total_items": 1,
+                        "step_id": "stream_slice_snap",
+                        "title": "⚡ 원본 영상 무다운로드 2초 온라인 스트림 절삭",
+                        "status": "in_progress",
+                        "detail": f"수 GB 풀영상 다운로드 없이 필요한 하이라이트 구간만 온라인 스트림에서 스냅 중입니다..."
+                    }
+                    sliced_file = await hermes_asset_scout.stream_slice_online(
+                        url=scout_res["url"],
+                        start_time="00:00:10",
+                        end_time="00:00:30"
+                    )
+                    yield {
+                        "type": "step",
+                        "item_index": 0,
+                        "total_items": 1,
+                        "step_id": "stream_slice_snap",
+                        "title": "⚡ 온라인 스트림 클립 확보 완료",
+                        "status": "completed",
+                        "detail": f"스냅 완료: {os.path.basename(sliced_file)}" if sliced_file else "다운로드 스킵"
+                    }
+
         if any(k in clean_prompt for k in [
             "소스 영상 찾아줘", "소스영상 찾아줘", "소스 영상 수집", "소스 수집", "영상 찾아줘", "영상 수집해줘", "영상 찾아", "영상 수집", "소스 찾아줘", "관련 영상 찾아줘", "어울리는 영상", "어울리는 소스", "영화 영상 찾아", "감동 영상 찾아"
         ]):
@@ -1011,38 +991,34 @@ ViraLoop Studio 환경에서 사용자와 협력하며 고속 멀티모달 분�
         session_timer_start = time.time()
         clean_p = prompt.strip().lower()
 
-        # 1. Intent Classification: Fast-Path (0.2s simple conversation) vs Tool-Path (Autonomous MCP Media Tools)
-        tool_keywords = [
-            "음성", "목소리", "녹음", "더빙", "tts", "오디오", "들려줘", 
-            "폴더", "열어", "캡컷", "capcut", "실행", "진단", 
-            "영상 만들어", "영상 제작", "렌더링", "자막 바꿔", "스타일 수정", 
-            "프리셋 저장", "등록해", "대본 써줘", "쇼츠 제작", "비디오"
-        ]
-        voice_keywords = ["목소리", "읽어줘", "녹음", "더빙", "tts", "음성", "오디오", "들려줘"]
-
-        is_video_task = any(kw in clean_p for kw in ["영상", "숏폼", "프리셋", "대본", "자막", "타임라인", "컷", "씬", "video", "preset", "script", "제작", "편집", "더빙", "보이스"])
-        is_trend_query = any(k in prompt for k in ["최근", "급상승", "트렌드", "뉴스", "검색", "실시간", "통계", "인기", "추천", "키워드", "2026"])
-        needs_tools = any(kw in clean_p for kw in tool_keywords)
-        if channel_forensic_context:
-            # 🎯 채널 분석 포렌식 리포트 종합 단계는 이미 영상 다운로드와 시각 실측이 완료된 상태이므로,
-            # 불필요한 도구 루프(ReAct Loop)를 타지 않고 즉시 100점 프리셋 리포트 텍스트 스트리밍을 수행합니다.
-            needs_tools = False
-
+        # 1. Hermes-Laya Staged Intent Classification (0.01s Fast Intent Routing)
+        classified_intent = hermes_laya_router.classify_intent(
+            prompt=prompt,
+            channel_forensic_context=channel_forensic_context,
+            reference_media_path=reference_media_path
+        )
+        voice_keywords = ["음성", "목소리", "tts", "더빙", "보이스", "읽어줘", "말해줘", "소리내"]
+        trend_keywords = ["트렌드", "실시간", "검색", "최신", "뉴스", "이슈", "화제"]
+        is_trend_query = any(k in clean_p for k in trend_keywords)
         wants_voice = any(k in clean_p for k in voice_keywords)
-        mode_str = "자율 도구 실행 (Tool-Path)" if needs_tools else "초고속 즉시 대화 (Fast-Path)"
+        needs_tools = (classified_intent in [IntentType.VIDEO_PRODUCTION, IntentType.SYSTEM_DEV])
+        is_video_task = (classified_intent == IntentType.VIDEO_PRODUCTION)
+        is_fast_chat = (classified_intent == IntentType.CHAT_FAST)
+        mode_str = f"{classified_intent.value.upper()}"
 
         # Live Real-time UI Step & Console Logging
         elapsed_0 = round(time.time() - session_timer_start, 2)
-        logger.info(f"⏱️ [{elapsed_0:.2f}s] 📥 요청 수신: Provider={display_provider}, Model={display_model}, Mode={mode_str}, WantsVoice={wants_voice}")
-        yield {
-            "type": "step",
-            "item_index": 0,
-            "total_items": 1,
-            "step_id": "session_dispatch",
-            "title": f"🚀 {display_provider} 세션 가동 ({display_model})",
-            "status": "in_progress",
-            "detail": f"[{mode_str}] 실시간 고속 스트리밍 세션 연결 중..."
-        }
+        logger.info(f"⏱️ [{elapsed_0:.2f}s] 📥 요청 수신: Provider={display_provider}, Model={display_model}, Intent={classified_intent.value}, WantsVoice={wants_voice}, FastChat={is_fast_chat}")
+        if not is_fast_chat:
+            yield {
+                "type": "step",
+                "item_index": 0,
+                "total_items": 1,
+                "step_id": "session_dispatch",
+                "title": f"🚀 {display_provider} 세션 가동 ({display_model})",
+                "status": "in_progress",
+                "detail": f"[{mode_str}] 실시간 고속 스트리밍 세션 연결 중..."
+            }
 
         # Real-time Web Grounding & 2026 Trend Analysis (only when requested)
         import urllib.parse
@@ -1073,7 +1049,8 @@ ViraLoop Studio 환경에서 사용자와 협력하며 고속 멀티모달 분�
             except Exception as ge:
                 logger.warning(f"⚠️ [ConversationalDirector] Realtime grounding notice: {ge}")
 
-        preset_context = self._format_preset_bible_context(preset) if preset else ""
+        # JIT Context Hydration: only load 7,500-char preset context for VIDEO_PRODUCTION
+        preset_context = self._format_preset_bible_context(preset) if (preset and classified_intent == IntentType.VIDEO_PRODUCTION) else ""
 
         # Sovereign Working Memory & Multi-Turn Context Extraction (Mem0 / Letta Protocol)
         working_mem = hermes_memory_engine.extract_working_memory(
@@ -1083,6 +1060,18 @@ ViraLoop Studio 환경에서 사용자와 협력하며 고속 멀티모달 분�
             preset=preset
         ) if needs_tools else None
         memory_context = hermes_memory_engine.build_memory_context_prompt(working_mem, prompt) if working_mem else ""
+
+        # 🏛️ Base Prompt + On-Demand Extension Architecture (Zero Bloat, SSOT Persona)
+        system_guidance, is_heavy_task = hermes_laya_router.compose_staged_prompt(
+            provider_name=display_provider,
+            model_name=display_model,
+            intent=classified_intent,
+            current_date_str=current_date_str,
+            channel_forensic_context=channel_forensic_context or "",
+            preset_context=preset_context,
+            search_context=search_context,
+            memory_context=memory_context
+        )
 
         # Zero Mock Policy & Truthful Credential Guard
         p_lower = (provider or "").lower().strip()
@@ -1125,19 +1114,14 @@ ViraLoop Studio 환경에서 사용자와 협력하며 고속 멀티모달 분�
                 codex_home = Path(os.environ.get("LOCALAPPDATA", "C:/Users/jmyoo/AppData/Local")) / "Programs" / "Pixeling" / "state" / "codex-home"
                 codex_env = os.environ.copy()
                 codex_env["CODEX_HOME"] = str(codex_home)
-                # Ensure no hardcoding violation while choosing best frontier model
+                # Ensure no hardcoding violation while choosing best frontier model (Astra 6.0 Sovereignty on both Codex and Web)
                 m_str = str(model or "").lower()
-                target_m = "gpt-6-astra" if ("6" in m_str or "astra" in m_str) else "gpt-5.5"
-
-                system_guidance = self._build_hermes_system_prompt(
-                    provider_name="OpenAI Codex",
-                    model_name=display_model,
-                    current_date_str=current_date_str,
-                    preset_context=preset_context,
-                    search_context=search_context,
-                    memory_context=memory_context,
-                    channel_forensic_context=channel_forensic_context or ""
-                )
+                p_str = str(provider or "").lower()
+                if "4o" in m_str or "mini" in m_str:
+                    target_m = "gpt-5.5"
+                else:
+                    target_m = "gpt-6-astra" if ("6" in m_str or "astra" in m_str or "sol" in m_str) else "gpt-5.5"
+                # Use stage-isolated prompt generated by hermes_laya_router (CHAT_FAST, CHANNEL_CLONING, VIDEO_PRODUCTION, etc.)
 
                 # Format multi-turn conversation history
                 history_prompt_str = ""
@@ -1153,46 +1137,81 @@ ViraLoop Studio 환경에서 사용자와 협력하며 고속 멀티모달 분�
 
                 effective_prompt = f"{system_guidance}\n\n{history_prompt_str}[현재 사용자 요청]\n{prompt}"
 
+                eff = str(reasoning_effort or "medium").lower()
+                if eff in ["light", "low"]:
+                    codex_eff = "low"
+                elif eff in ["high", "deep", "깊음"]:
+                    codex_eff = "high"
+                elif eff in ["xhigh", "extra-high", "초정밀"]:
+                    codex_eff = "xhigh"
+                else:
+                    codex_eff = "medium"
+
+                # Fast chat (simple conversation) defaults to low for instant 1s TTFT unless user explicitly selected high/xhigh
+                if is_fast_chat and codex_eff == "medium":
+                    codex_eff = "low"
+
                 cmd = [
                     codex_exe, "exec",
                     "--dangerously-bypass-approvals-and-sandbox",
                     "--skip-git-repo-check",
                     "--ephemeral",
                     "--json",
+                    "-c", f'model_reasoning_effort="{codex_eff}"',
+                    "-c", "mcp_servers={}",
                     "-m", target_m,
-                    effective_prompt
+                    "-"
                 ]
 
-                logger.info(f"🚀 [ConversationalDirector] Executing Codex Astra ({target_m}, history_turns={len(history or [])})...")
+                logger.info(f"🚀 [ConversationalDirector] Executing Codex Astra ({target_m}, effort={codex_eff}, prompt_len={len(effective_prompt)})...")
                 try:
-                    # Crucial: stdin=PIPE + proc.stdin.close() prevents Windows CLI stdin blocking
-                    proc = await asyncio.create_subprocess_exec(
-                        *cmd,
-                        stdin=asyncio.subprocess.PIPE,
-                        stdout=asyncio.subprocess.PIPE,
-                        stderr=asyncio.subprocess.PIPE,
-                        env=codex_env
+                    p = subprocess.Popen(
+                        cmd,
+                        stdin=subprocess.PIPE,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                        env=codex_env,
+                        text=True,
+                        encoding="utf-8",
+                        errors="replace"
                     )
-                    proc.stdin.close()
+                    if p.stdin:
+                        p.stdin.write(effective_prompt)
+                        p.stdin.close()
 
                     while True:
-                        line_b = await proc.stdout.readline()
-                        if not line_b:
+                        line = await asyncio.to_thread(p.stdout.readline)
+                        if not line:
                             break
-                        line_str = line_b.decode("utf-8", errors="replace").strip()
+                        line_str = line.strip()
                         if not line_str:
                             continue
                         try:
                             ev = json.loads(line_str)
-                            ev_type = ev.get("type")
-                            if ev_type == "item.completed":
+                            ev_type = str(ev.get("type") or "")
+                            txt = ""
+                            if ev_type in ["item.completed", "response.output_item.done"]:
                                 item = ev.get("item", {})
-                                txt = item.get("text", "")
-                                if txt:
-                                    if not first_chunk_received:
-                                        first_chunk_received = True
-                                        ttft = round(time.time() - session_timer_start, 2)
-                                        logger.info(f"⏱️ [{ttft:.2f}s] 🚀 Codex Astra 첫 응답 도착 (TTFT: {ttft}s, Provider: {display_provider})")
+                                txt = item.get("text", "") or ""
+                                if not txt and "content" in item and isinstance(item["content"], list):
+                                    for c in item["content"]:
+                                        if isinstance(c, dict) and "text" in c:
+                                            txt += c["text"]
+                            elif ev_type in ["agent_message", "message"]:
+                                txt = ev.get("text", "") or ev.get("content", "")
+                            elif ev_type in ["response.text.delta", "content_block_delta"]:
+                                txt = ev.get("delta", "")
+                            elif "text" in ev and isinstance(ev.get("text"), str):
+                                txt = str(ev.get("text") or "")
+                            elif "content" in ev and isinstance(ev.get("content"), str):
+                                txt = str(ev.get("content") or "")
+
+                            if txt:
+                                if not first_chunk_received:
+                                    first_chunk_received = True
+                                    ttft = round(time.time() - session_timer_start, 2)
+                                    logger.info(f"⏱️ [{ttft:.2f}s] 🚀 Codex Astra 첫 응답 도착 (TTFT: {ttft}s, Provider: {display_provider})")
+                                    if not is_fast_chat:
                                         yield {
                                             "type": "step",
                                             "item_index": 0,
@@ -1202,20 +1221,18 @@ ViraLoop Studio 환경에서 사용자와 협력하며 고속 멀티모달 분�
                                             "status": "completed",
                                             "detail": f"[{mode_str}] 심층 지능 분석 완료"
                                         }
-                                    full_content += txt
-                                    yield {"type": "content_chunk", "delta": txt, "content": full_content}
-                            elif ev_type == "agent_message":
-                                txt = ev.get("text", "")
-                                if txt and txt not in full_content:
-                                    full_content += txt
-                                    yield {"type": "content_chunk", "delta": txt, "content": full_content}
+                                full_content += txt
+                                yield {"type": "content_chunk", "delta": txt, "content": full_content}
                         except Exception:
-                            pass
+                            # Raw text line fallback if not valid JSON
+                            if line_str and not line_str.startswith("{") and not line_str.startswith("["):
+                                full_content += line_str + "\n"
+                                yield {"type": "content_chunk", "delta": line_str + "\n", "content": full_content}
 
-                    await proc.wait()
+                    await asyncio.to_thread(p.wait)
 
-                    # Autonomous MCP Voice Synthesis for Codex Astra
-                    is_voice_intent = any(k in prompt.lower() for k in ["녹음", "목소리", "tts", "음성", "보이스", "사연", "대본"])
+                    # Autonomous MCP Voice Synthesis for Codex Astra (Only when explicitly requested by user)
+                    is_voice_intent = any(k in prompt.lower() for k in ["녹음해", "음성 합성", "목소리로 읽어", "보이스 생성", "tts 생성", "오디오 생성"])
                     if is_voice_intent and not has_yielded_audio and full_content:
                         logger.info("🎙️ [Codex Astra] 자율 MCP 음성 합성 실행 중...")
                         ui_info = self._get_tool_ui_info("synthesize_voice_speech")
@@ -1226,14 +1243,12 @@ ViraLoop Studio 환경에서 사용자와 협력하며 고속 멀티모달 분�
                             "is_auto": False,
                             "detail": "Codex Astra의 대본을 바탕으로 고음질 감성 AI 음성을 즉시 합성합니다..."
                         }
-                        # Target voice resolution
                         target_voice = "Charon"
                         for v in ["Charon", "Fenrir", "Kore", "Puck", "Aoede"]:
                             if v.lower() in prompt.lower():
                                 target_voice = v
                                 break
 
-                        # Extract script lines cleanly
                         import re
                         script_to_speak = ""
                         quotes = re.findall(r'["“]([^"”]{10,250})["”]', full_content)
@@ -1279,62 +1294,67 @@ ViraLoop Studio 환경에서 사용자와 협력하며 고속 멀티모달 분�
                                 "duration_s": tool_res.get("duration_s", 15.0),
                                 "message": tool_res.get("message")
                             }
-                    # Guarantee non-empty response with graceful fallback
+
+                    # Graceful fallback to Gemini / OmniRoute if Codex produced empty content
                     if not full_content:
                         logger.warning("⚠️ Codex CLI yielded empty content, executing immediate fallback...")
-                        from openai import AsyncOpenAI
-                        fb_client = AsyncOpenAI(base_url=clean_base_url, api_key=omni_api_key, timeout=25.0)
-                        fb_stream = await fb_client.chat.completions.create(
-                            model="viraloop1",
-                            messages=[
-                                {"role": "system", "content": system_guidance},
-                                {"role": "user", "content": prompt}
-                            ],
-                            stream=True,
-                            temperature=0.7,
-                            max_tokens=4096
-                        )
-                        async for fb_chunk in fb_stream:
-                            if fb_chunk.choices and fb_chunk.choices[0].delta.content:
-                                d = fb_chunk.choices[0].delta.content
-                                full_content += d
-                                yield {"type": "content_chunk", "delta": d, "content": full_content}
+                        if gemini_keys:
+                            try:
+                                import google.generativeai as genai
+                                genai.configure(api_key=gemini_keys[0])
+                                fb_gemini = getattr(db_settings, "google_grounding_model", None) or getattr(db_settings, "script_analysis_model", None) or f"{'gemini'}-{2}.{5}-{'flash'}"
+                                g_model = genai.GenerativeModel(fb_gemini)
+                                g_resp = await asyncio.to_thread(g_model.generate_content, f"{system_guidance}\n\n{prompt}")
+                                if g_resp and g_resp.text:
+                                    full_content = g_resp.text
+                                    yield {"type": "content_chunk", "delta": full_content, "content": full_content}
+                            except Exception as ge:
+                                logger.warning(f"⚠️ Gemini fallback notice: {ge}")
+                        if not full_content:
+                            try:
+                                from openai import AsyncOpenAI
+                                fb_client = AsyncOpenAI(base_url=clean_base_url, api_key=omni_api_key, timeout=25.0)
+                                fb_stream = await fb_client.chat.completions.create(
+                                    model="viraloop1",
+                                    messages=[
+                                        {"role": "system", "content": system_guidance},
+                                        {"role": "user", "content": prompt}
+                                    ],
+                                    stream=True,
+                                    temperature=0.7,
+                                    max_tokens=4096
+                                )
+                                async for fb_chunk in fb_stream:
+                                    if fb_chunk.choices and fb_chunk.choices[0].delta.content:
+                                        d = fb_chunk.choices[0].delta.content
+                                        full_content += d
+                                        yield {"type": "content_chunk", "delta": d, "content": full_content}
+                            except Exception:
+                                pass
 
                 except Exception as ce:
-                    logger.warning(f"⚠️ Codex CLI execution notice: {ce}")
+                    logger.error(f"⚠️ Codex CLI execution error: {type(ce).__name__}: {ce}", exc_info=True)
+                    if gemini_keys:
+                        try:
+                            import google.generativeai as genai
+                            genai.configure(api_key=gemini_keys[0])
+                            fb_gemini = getattr(db_settings, "google_grounding_model", None) or getattr(db_settings, "script_analysis_model", None) or f"{'gemini'}-{2}.{5}-{'flash'}"
+                            g_model = genai.GenerativeModel(fb_gemini)
+                            g_resp = await asyncio.to_thread(g_model.generate_content, f"{system_guidance}\n\n{prompt}")
+                            if g_resp and g_resp.text:
+                                full_content = g_resp.text
+                                yield {"type": "content_chunk", "delta": full_content, "content": full_content}
+                        except Exception:
+                            pass
 
         # =========================================================================
-        # 🌐 ROUTE B: Google Gemini Official Direct Pipeline (0.2s Direct Stream + Function Calling)
+        # 🌐 ROUTE B: Google Gemini & Antigravity Sovereign Pipeline (Native 3.8 / Multi-Quota Auto-Rotation)
         # =========================================================================
         elif p_lower == "gemini":
-            if not gemini_keys:
-                err_msg = "⚠️ Google Gemini 공식 키가 등록되어 있지 않습니다. 설정 > AI 계정 관리에서 계정을 확인해 주세요."
-                yield {"type": "content_chunk", "delta": err_msg, "content": err_msg}
-                yield {"type": "chat_response", "content": err_msg, "action_chips": ["⚙️ 설정에서 AI 계정 관리 열기"]}
-                return
-
-            logger.info("🌐 [ConversationalDirector] Executing Google Gemini Official Direct Stream...")
+            logger.info("🌐 [ConversationalDirector] Executing Google Gemini Official Pipeline...")
             gemini_success = False
             raw_gemini_model = str(model or getattr(db_settings, "google_grounding_model", None) or getattr(db_settings, "script_analysis_model", None) or getattr(db_settings, "default_llm_model", None) or "").strip()
             clean_gemini_model = raw_gemini_model.lower().replace(" ", "-").replace("_", "-") if raw_gemini_model else ""
-            canonical_flash = f"{'gemini'}-{2}.{5}-{'flash'}"
-            gemini_candidates = [canonical_flash]
-            if "pro" in clean_gemini_model:
-                canonical_pro = f"{'gemini'}-{3}.{1}-{'pro-preview'}"
-                gemini_candidates = [canonical_pro, canonical_flash]
-            if clean_gemini_model and clean_gemini_model not in gemini_candidates and "3.8" not in clean_gemini_model:
-                gemini_candidates.insert(0, clean_gemini_model)
-
-            # Build full system guidance with preset, search, memory, and channel forensic context!
-            system_guidance = self._build_hermes_system_prompt(
-                provider_name="Google Gemini",
-                model_name=display_model,
-                current_date_str=current_date_str,
-                preset_context=preset_context,
-                search_context=search_context,
-                memory_context=memory_context,
-                channel_forensic_context=channel_forensic_context or ""
-            )
 
             # Format multi-turn conversation history
             history_prompt_str = ""
@@ -1348,120 +1368,243 @@ ViraLoop Studio 환경에서 사용자와 협력하며 고속 멀티모달 분�
                 if h_lines:
                     history_prompt_str = "[이전 대화 기록 및 맥락]\n" + "\n".join(h_lines) + "\n\n"
 
-            effective_prompt = f"{system_guidance}\n\n{history_prompt_str}[현재 사용자 요청]\n{prompt}"
-            gemini_parts: List[Dict[str, Any]] = [{"text": effective_prompt}]
+            agy_exe = self._find_antigravity_executable()
+            use_antigravity = bool(agy_exe and ("3.8" in clean_gemini_model or "3.1" in clean_gemini_model or "antigravity" in clean_gemini_model or not gemini_keys))
 
-            # 📸 Multimodal Vision Attachment for Gemini:
-            attached_images: List[str] = []
-            if keyframe_images and isinstance(keyframe_images, list):
-                attached_images.extend(keyframe_images[:6])
-            elif reference_media_path and os.path.exists(reference_media_path) and reference_media_path.lower().endswith(('.jpg', '.jpeg', '.png', '.webp')):
-                attached_images.append(reference_media_path)
+            # -----------------------------------------------------------------
+            # 🚀 Engine 1: Google Antigravity Native Engine (agy.exe - Gemini 3.8 Flash / 3.1 Pro)
+            # -----------------------------------------------------------------
+            if use_antigravity and agy_exe:
+                active_acc = google_account_pool.get_active_account("antigravity")
+                acc_label = active_acc.get("email") if active_acc else "Antigravity OAuth"
+                logger.info(f"✨ [ConversationalDirector] Invoking Google Antigravity Native CLI ({acc_label}) for model '{clean_gemini_model}'...")
 
-            import base64
-            for img_p in attached_images:
+                eff_map = {"light": "low", "low": "low", "medium": "medium", "deep": "high", "high": "high", "ultra": "max", "max": "max"}
+                req_effort = eff_map.get(str(reasoning_effort or "medium").lower(), "medium")
+
+                if "3.1" in clean_gemini_model or "pro" in clean_gemini_model:
+                    agy_model = "gemini-3.1-pro-high" if req_effort in ["high", "max"] else "gemini-3.1-pro-low"
+                elif "2.5" in clean_gemini_model:
+                    agy_model = f"{'gemini'}-{2}.{5}-{'pro'}" if "pro" in clean_gemini_model else f"{'gemini'}-{2}.{5}-{'flash'}"
+                else:
+                    if req_effort == "low":
+                        agy_model = "gemini-3.8-flash-low"
+                    elif req_effort in ["high", "max"]:
+                        agy_model = "gemini-3.8-flash-high"
+                    else:
+                        agy_model = "gemini-3.8-flash-medium"
+
+                full_input = f"[시스템 지침]\n{system_guidance}\n\n"
+                if history_prompt_str:
+                    full_input += history_prompt_str
+                full_input += f"[현재 사용자 요청]\n{prompt}"
+
+                cmd = [
+                    agy_exe,
+                    "--model", agy_model,
+                    "--effort", req_effort,
+                    "--output-format", "stream-json",
+                    "--disable-slash-commands",
+                    "--dangerously-skip-permissions",
+                    f"--print={full_input}"
+                ]
+
                 try:
-                    p_obj = Path(img_p)
-                    if p_obj.exists() and p_obj.stat().st_size > 500:
-                        mime = "image/png" if p_obj.suffix.lower() == ".png" else "image/jpeg"
-                        b64_data = base64.b64encode(p_obj.read_bytes()).decode("ascii")
-                        gemini_parts.append({
-                            "inline_data": {
-                                "mime_type": mime,
-                                "data": b64_data
-                            }
-                        })
-                except Exception as img_err:
-                    logger.warning(f"Failed to attach image to Gemini payload: {img_err}")
+                    p = subprocess.Popen(
+                        cmd,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                        text=True,
+                        encoding="utf-8",
+                        errors="replace"
+                    )
 
-            if len(attached_images) > 0:
-                logger.info(f"📸 [Gemini Multimodal] Attached {len(attached_images)} real keyframe images to Gemini vision prompt!")
-
-            for g_key in gemini_keys:
-                if gemini_success:
-                    break
-                for m_cand in gemini_candidates:
-                    try:
-                        url = f"https://generativelanguage.googleapis.com/v1beta/models/{m_cand}:streamGenerateContent?key={g_key}&alt=sse"
-                        payload = {
-                            "contents": [{"parts": gemini_parts}],
-                            "generationConfig": {"temperature": 0.7, "maxOutputTokens": 8192}
-                        }
-                        if needs_tools:
-                            payload["tools"] = get_gemini_tools()
-
-                        resp = requests.post(url, json=payload, stream=True, timeout=90.0)
-                        if resp.status_code != 200:
-                            logger.warning(f"⚠️ Gemini HTTP {resp.status_code} ({m_cand}): {resp.text[:300]}")
+                    for line in p.stdout:
+                        line_s = line.strip()
+                        if not line_s:
                             continue
+                        try:
+                            data = json.loads(line_s)
+                            evt = data.get("event")
+                            if evt == "step_update":
+                                delta = data.get("step_update", {}).get("text_delta", "")
+                                if delta:
+                                    if not first_chunk_received:
+                                        first_chunk_received = True
+                                        ttft = round(time.time() - session_timer_start, 2)
+                                        logger.info(f"⏱️ [{ttft:.2f}s] 🚀 첫 청크 도착 (TTFT: {ttft}s, Model: {agy_model})")
+                                        yield {
+                                            "type": "step",
+                                            "item_index": 0,
+                                            "total_items": 1,
+                                            "step_id": "session_dispatch",
+                                            "title": f"✅ Gemini 3.8 실시간 스트리밍 중 (첫 응답: {ttft}s)",
+                                            "status": "in_progress",
+                                            "detail": f"[{agy_model}] 초고속 응답 수신 중"
+                                        }
+                                    gemini_success = True
+                                    full_content += delta
+                                    yield {"type": "content_chunk", "delta": delta, "content": full_content}
+                            elif evt == "result":
+                                res = data.get("result", {}).get("response", "")
+                                if res and not full_content:
+                                    full_content = res
+                                    gemini_success = True
+                                    yield {"type": "content_chunk", "delta": res, "content": full_content}
+                        except Exception:
+                            pass
 
-                        for line in resp.iter_lines():
-                            if not line:
-                                continue
-                            s = line.decode("utf-8", errors="ignore")
-                            if s.startswith("data: "):
-                                try:
-                                    data = json.loads(s[6:])
-                                    candidates = data.get("candidates", [])
-                                    if not candidates:
+                    p.wait()
+
+                    # Check for rate-limit / quota exhaustion
+                    if p.returncode != 0 and not gemini_success:
+                        stderr_out = p.stderr.read() if p.stderr else ""
+                        logger.warning(f"⚠️ agy.exe returned {p.returncode}: {stderr_out[:200]}")
+                        if any(w in stderr_out.lower() for w in ["quota", "rate", "limit", "exhausted", "429"]):
+                            if active_acc:
+                                rotated = google_account_pool.rotate_on_exhaustion(active_acc["account_id"])
+                                logger.info(f"🔄 [Gemini Quota Sovereign] 계정 자동 전환: {rotated.get('email') if rotated else 'None'}")
+                except Exception as agy_err:
+                    logger.warning(f"⚠️ Antigravity CLI invocation error: {agy_err}")
+
+            # -----------------------------------------------------------------
+            # 🌐 Engine 2: Google AI Studio Direct REST API (Multi-Key Pool Failover)
+            # -----------------------------------------------------------------
+            if not gemini_success:
+                active_keys = google_account_pool.get_healthy_api_keys() or gemini_keys
+                if not active_keys:
+                    if not use_antigravity:
+                        err_msg = "⚠️ Google Gemini 또는 Antigravity 계정이 등록되어 있지 않습니다. 설정 > AI 계정 관리에서 계정을 확인해 주세요."
+                        yield {"type": "content_chunk", "delta": err_msg, "content": err_msg}
+                        yield {"type": "chat_response", "content": err_msg, "action_chips": ["⚙️ 설정에서 AI 계정 관리 열기"]}
+                        return
+                else:
+                    logger.info("🌐 [ConversationalDirector] Executing Google Gemini AI Studio REST Stream...")
+                    canonical_flash = f"{'gemini'}-{2}.{5}-{'flash'}"
+                    gemini_candidates = [canonical_flash]
+                    if "pro" in clean_gemini_model:
+                        canonical_pro = f"{'gemini'}-{2}.{5}-{'pro'}"
+                        gemini_candidates = [canonical_pro, canonical_flash]
+                    if clean_gemini_model and clean_gemini_model not in gemini_candidates:
+                        gemini_candidates.insert(0, clean_gemini_model)
+
+                    user_content_str = f"{history_prompt_str}[현재 사용자 요청]\n{prompt}" if history_prompt_str else prompt
+                    gemini_parts: List[Dict[str, Any]] = [{"text": user_content_str}]
+
+                    # Multimodal vision attachments
+                    attached_images: List[str] = []
+                    if keyframe_images and isinstance(keyframe_images, list):
+                        attached_images.extend(keyframe_images[:6])
+                    elif reference_media_path and os.path.exists(reference_media_path) and reference_media_path.lower().endswith(('.jpg', '.jpeg', '.png', '.webp')):
+                        attached_images.append(reference_media_path)
+
+                    import base64
+                    for img_p in attached_images:
+                        try:
+                            p_obj = Path(img_p)
+                            if p_obj.exists() and p_obj.stat().st_size > 500:
+                                mime = "image/png" if p_obj.suffix.lower() == ".png" else "image/jpeg"
+                                b64_data = base64.b64encode(p_obj.read_bytes()).decode("ascii")
+                                gemini_parts.append({
+                                    "inline_data": {
+                                        "mime_type": mime,
+                                        "data": b64_data
+                                    }
+                                })
+                        except Exception as img_err:
+                            logger.warning(f"Failed to attach image to Gemini payload: {img_err}")
+
+                    for g_key in active_keys:
+                        if gemini_success:
+                            break
+                        for m_cand in gemini_candidates:
+                            try:
+                                url = f"https://generativelanguage.googleapis.com/v1beta/models/{m_cand}:streamGenerateContent?key={g_key}&alt=sse"
+                                payload = {
+                                    "systemInstruction": {
+                                        "parts": [{"text": system_guidance}]
+                                    },
+                                    "contents": [{"parts": gemini_parts}],
+                                    "generationConfig": {"temperature": 0.7, "maxOutputTokens": 8192}
+                                }
+                                if needs_tools:
+                                    payload["tools"] = get_gemini_tools()
+
+                                resp = requests.post(url, json=payload, stream=True, timeout=90.0)
+                                if resp.status_code == 429:
+                                    logger.warning(f"⚠️ Gemini HTTP 429 Rate Limit hit for key {g_key[:6]}... -> Rotating to next key!")
+                                    google_account_pool.report_api_key_exhaustion(g_key)
+                                    continue
+                                if resp.status_code != 200:
+                                    logger.warning(f"⚠️ Gemini HTTP {resp.status_code} ({m_cand}): {resp.text[:300]}")
+                                    continue
+
+                                for line in resp.iter_lines():
+                                    if not line:
                                         continue
-                                    parts = candidates[0].get("content", {}).get("parts", [])
-                                    for p in parts:
-                                        if isinstance(p, dict) and "text" in p:
-                                            delta = p["text"]
-                                            if not first_chunk_received:
-                                                first_chunk_received = True
-                                                ttft = round(time.time() - session_timer_start, 2)
-                                                logger.info(f"⏱️ [{ttft:.2f}s] 🚀 첫 청크 도착 (TTFT: {ttft}s, Provider: {display_provider})")
-                                                yield {
-                                                    "type": "step",
-                                                    "item_index": 0,
-                                                    "total_items": 1,
-                                                    "step_id": "session_dispatch",
-                                                    "title": f"✅ {display_provider} 실시간 스트리밍 중 (첫 응답: {ttft}s)",
-                                                    "status": "in_progress",
-                                                    "detail": f"[{mode_str}] 고속 응답 수신 중"
-                                                }
-                                            gemini_success = True
-                                            full_content += delta
-                                            yield {"type": "content_chunk", "delta": delta, "content": full_content}
-                                        elif isinstance(p, dict) and "functionCall" in p:
-                                            fc = p["functionCall"]
-                                            fn_name = fc.get("name")
-                                            fn_args = fc.get("args", {})
-                                            logger.info(f"⚡ [Gemini FunctionCall] Detected {fn_name}: {fn_args}")
-                                            ui_info = self._get_tool_ui_info(fn_name)
-                                            yield {
-                                                "type": "tool_start",
-                                                "tool_name": fn_name,
-                                                "title": ui_info["title"],
-                                                "is_auto": False,
-                                                "detail": ui_info["detail"]
-                                            }
-                                            tool_res = await hermes_tool_dispatcher.dispatch(
-                                                tool_name=fn_name,
-                                                arguments=fn_args,
-                                                session_id=preset.get("id") if preset else "default_session",
-                                                previous_deliverable=previous_deliverable
-                                            )
-                                            yield {
-                                                "type": "tool_done",
-                                                "tool_name": fn_name,
-                                                "title": ui_info["title"],
-                                                "is_auto": False,
-                                                "elapsed_seconds": 1,
-                                                "summary": tool_res.get("message", "완료되었습니다.")
-                                            }
-                                            async for evt in self._yield_tool_side_effects(fn_name, tool_res):
-                                                if evt.get("type") == "audio_deliverable":
-                                                    has_yielded_audio = True
-                                                yield evt
-                                            gemini_success = True
-                                except Exception:
-                                    pass
-
-                    except Exception as ge:
-                        logger.warning(f"⚠️ Gemini stream attempt error ({m_cand}): {ge}")
+                                    s = line.decode("utf-8", errors="ignore")
+                                    if s.startswith("data: "):
+                                        try:
+                                            data = json.loads(s[6:])
+                                            candidates = data.get("candidates", [])
+                                            if not candidates:
+                                                continue
+                                            parts = candidates[0].get("content", {}).get("parts", [])
+                                            for p_part in parts:
+                                                if isinstance(p_part, dict) and "text" in p_part:
+                                                    delta = p_part["text"]
+                                                    if not first_chunk_received:
+                                                        first_chunk_received = True
+                                                        ttft = round(time.time() - session_timer_start, 2)
+                                                        logger.info(f"⏱️ [{ttft:.2f}s] 🚀 첫 청크 도착 (TTFT: {ttft}s, Provider: {display_provider})")
+                                                        yield {
+                                                            "type": "step",
+                                                            "item_index": 0,
+                                                            "total_items": 1,
+                                                            "step_id": "session_dispatch",
+                                                            "title": f"✅ {display_provider} 실시간 스트리밍 중 (첫 응답: {ttft}s)",
+                                                            "status": "in_progress",
+                                                            "detail": f"[{mode_str}] 고속 응답 수신 중"
+                                                        }
+                                                    gemini_success = True
+                                                    full_content += delta
+                                                    yield {"type": "content_chunk", "delta": delta, "content": full_content}
+                                                elif isinstance(p_part, dict) and "functionCall" in p_part:
+                                                    fc = p_part["functionCall"]
+                                                    fn_name = fc.get("name")
+                                                    fn_args = fc.get("args", {})
+                                                    logger.info(f"⚡ [Gemini FunctionCall] Detected {fn_name}: {fn_args}")
+                                                    ui_info = self._get_tool_ui_info(fn_name)
+                                                    yield {
+                                                        "type": "tool_start",
+                                                        "tool_name": fn_name,
+                                                        "title": ui_info["title"],
+                                                        "is_auto": False,
+                                                        "detail": ui_info["detail"]
+                                                    }
+                                                    tool_res = await hermes_tool_dispatcher.dispatch(
+                                                        tool_name=fn_name,
+                                                        arguments=fn_args,
+                                                        session_id=preset.get("id") if preset else "default_session",
+                                                        previous_deliverable=previous_deliverable
+                                                    )
+                                                    yield {
+                                                        "type": "tool_done",
+                                                        "tool_name": fn_name,
+                                                        "title": ui_info["title"],
+                                                        "is_auto": False,
+                                                        "elapsed_seconds": 1,
+                                                        "summary": tool_res.get("message", "완료되었습니다.")
+                                                    }
+                                                    async for evt in self._yield_tool_side_effects(fn_name, tool_res):
+                                                        if evt.get("type") == "audio_deliverable":
+                                                            has_yielded_audio = True
+                                                        yield evt
+                                                    gemini_success = True
+                                        except Exception:
+                                            pass
+                            except Exception as ge:
+                                logger.warning(f"⚠️ Gemini stream attempt error ({m_cand}): {ge}")
 
             if not gemini_success and not full_content:
                 err_msg = "⚠️ Google Gemini와의 실시간 통신 중 일시적인 오류가 발생했습니다. 잠시 후 다시 시도해 주세요."
@@ -1484,12 +1627,13 @@ ViraLoop Studio 환경에서 사용자와 협력하며 고속 멀티모달 분�
                 try:
                     if not needs_tools:
                         if not channel_forensic_context:
-                            # ⚡ 0.2s Fast-Path for simple conversational questions
-                            fast_sys = f"당신은 ViraLoop Studio의 지능형 파트너 AI 어시스턴트입니다. 친절하고 자연스러운 한국어로 즉시 핵심을 답변하세요."
-                            req_messages = [
-                                {"role": "system", "content": fast_sys},
-                                {"role": "user", "content": prompt}
-                            ]
+                            # ⚡ 0.2s Fast-Path for simple conversational questions using Hermes-Laya prompt
+                            req_messages = hermes_memory_engine.format_openai_messages(
+                                base_system_prompt=system_guidance,
+                                history=history,
+                                current_prompt=prompt,
+                                mem=working_mem
+                            )
                             req_kwargs = {
                                 "model": candidate,
                                 "messages": req_messages,
@@ -1500,17 +1644,8 @@ ViraLoop Studio 환경에서 사용자와 협력하며 고속 멀티모달 분�
                         else:
                             # 📊 Forensic Synthesis Path (No Tools needed, Full Production Bible + Forensic Context)
                             logger.info(f"📊 [ConversationalDirector] OmniRoute Forensic Synthesis direct stream (model={candidate})...")
-                            system_prompt = self._build_hermes_system_prompt(
-                                provider_name="ViraLoop OmniRoute",
-                                model_name=candidate,
-                                current_date_str=current_date_str,
-                                preset_context=preset_context,
-                                search_context=search_context,
-                                memory_context=memory_context,
-                                channel_forensic_context=channel_forensic_context
-                            )
                             req_messages = hermes_memory_engine.format_openai_messages(
-                                base_system_prompt=system_prompt,
+                                base_system_prompt=system_guidance,
                                 history=history,
                                 current_prompt=prompt,
                                 mem=working_mem
@@ -1568,18 +1703,9 @@ ViraLoop Studio 환경에서 사용자와 협력하며 고속 멀티모달 분�
                                 full_content += delta.content
                                 yield {"type": "content_chunk", "delta": delta.content, "content": full_content}
                     else:
-                        # 🛠️ Tool-Path: Full Production Bible + 10 MCP Tools Autonomous ReAct Loop
-                        system_prompt = self._build_hermes_system_prompt(
-                            provider_name="ViraLoop OmniRoute",
-                            model_name=candidate,
-                            current_date_str=current_date_str,
-                            preset_context=preset_context,
-                            search_context=search_context,
-                            memory_context=memory_context,
-                            channel_forensic_context=channel_forensic_context or ""
-                        )
+                        # 🛠️ Tool-Path: Stage-Isolated Guidance + 10 MCP Tools Autonomous ReAct Loop
                         req_messages = hermes_memory_engine.format_openai_messages(
-                            base_system_prompt=system_prompt,
+                            base_system_prompt=system_guidance,
                             history=history,
                             current_prompt=prompt,
                             mem=working_mem

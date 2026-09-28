@@ -524,7 +524,7 @@ class GoogleTrendEngine:
 
     async def generate_executive_trend_briefing(self, db: Session, force_refresh: bool = False) -> Dict[str, Any]:
         """
-        루피 AI 사령탑 실시간 트렌드 지능 브리핑
+        루피 AI 총괄 디렉터 실시간 트렌드 지능 브리핑
         상위 8대 실시간 트렌드를 종합 분석하여 대중 심리 지형도, 골든타임 1순위, 4대 채널 맞춤 배분을 LLM으로 생성
         """
         now = datetime.now()
@@ -548,8 +548,8 @@ class GoogleTrendEngine:
         db_settings = crud.get_settings(db)
         client = LLMClient(settings=db_settings)
 
-        system_prompt = """당신은 숏폼 AI 공장 바이럴루프(ViraLoop)의 최고 전략 사령탑 '루피 총사령탑(Hermes Brain)'입니다.
-오늘 실시간으로 감지된 대한민국 최상위 구글 및 유튜브 트렌드 목록을 독해하여, 제작진과 4대 채널 디렉터들을 위한 '실시간 AI 트렌드 전략 브리핑'을 작성하십시오.
+        system_prompt = """당신은 숏폼 AI 스튜디오 바이럴루프(ViraLoop)의 AI 총괄 디렉터 '루피 수석 프로듀서(Hermes Brain)'입니다.
+오늘 실시간으로 감지된 대한민국 최상위 구글 및 유튜브 트렌드 목록을 독해하여, 제작진과 4대 채널 디렉터들을 위한 '실시간 AI 트렌드 제작 기획 브리핑'을 작성하십시오.
 
 반드시 아래 JSON 형식으로만 응답하십시오:
 {
@@ -613,7 +613,7 @@ class GoogleTrendEngine:
             logger.error(f"[generate_executive_trend_briefing] Error: {e}", exc_info=True)
             fallback_res = {
                 "success": True,
-                "model_used": "루피 사령탑 (규칙 기반 대체)",
+                "model_used": "루피 AI 디렉터 (규칙 기반 대체)",
                 "generated_at": now.strftime("%H:%M:%S"),
                 "briefing": {
                     "macro_sentiment": "현재 대한민국 대중은 '사회적 불공정 사건'과 '생활 밀착형 물가/서민 경제 충격' 이슈에 검색 트래픽이 집중되고 있습니다.",

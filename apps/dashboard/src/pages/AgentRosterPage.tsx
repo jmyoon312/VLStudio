@@ -104,7 +104,7 @@ const INITIAL_ROSTER: WorkerProfile[] = [
         role: '바이럴 비평가',
         name: 'Critic-85',
         avatarEmoji: '🧐',
-        desc: '대본의 후킹 강도, 완청률 가능성, 정보 밀도를 채점하여 85점 미달 시 통과를 불허하는 엄격한 게이트키퍼입니다.',
+        desc: '대본의 후킹 강도, 완청률 가능성, 정보 밀도를 채점하여 85점 미달 시 보완을 요구하는 엄격한 품질 검수관입니다.',
         model: 'OmniRoute viraloop1',
         temperature: 0.2,
         topP: 0.85,

@@ -188,17 +188,17 @@ class WorkQueueItemResponse(BaseModel):
     source_type: Optional[str] = None
     source_batch_id: Optional[str] = None
     source_external_id: Optional[str] = None
-    approval_required: bool
-    approval_status: str
+    approval_required: Optional[bool] = False
+    approval_status: Optional[str] = "PENDING"
     rejection_reason: Optional[str] = None
     # Upload Config
     upload_method: Optional[str] = None
     target_platforms: Optional[List[str]] = None
     platform_configs: Optional[dict] = None
-    upload_priority: int
+    upload_priority: Optional[int] = 0
     scheduled_upload_time: Optional[datetime] = None  # [NEW]
     # Status
-    status: str
+    status: Optional[str] = "QUEUED"
     upload_progress: Optional[int] = None
     uploaded_urls: Optional[dict] = None
     failure_reason: Optional[str] = None

@@ -307,6 +307,16 @@ class SettingsBase(BaseModel):
     opencode_api_keys: Optional[List[str]] = []   # [OpenCode Zen]
     youtube1_api_keys: Optional[List[str]] = []   # [YouTube1 Custom Provider]
     
+    # [NEW] Movie/Drama Sourcing & External Media APIs
+    tmdb_api_key: Optional[str] = None
+    kobis_api_key: Optional[str] = None
+    youtube_data_api_keys: Optional[List[str]] = []
+    
+    # [NEW] Direct AI Sovereign Keys
+    openai_api_keys: Optional[List[str]] = []
+    claude_api_keys: Optional[List[str]] = []
+    grok_api_keys: Optional[List[str]] = []
+    
     # [NEW] Phase 1: Media & Automation Keys
     pexels_api_keys: Optional[List[str]] = []
     pixabay_api_keys: Optional[List[str]] = []
@@ -387,6 +397,8 @@ class SettingsBase(BaseModel):
     telegram_chat_id: Optional[str] = None
     telegram_notify_enabled: Optional[bool] = False
     telegram_events: Optional[Dict[str, bool]] = None
+    telegram_vault_bot_token: Optional[str] = None
+    telegram_vault_chat_id: Optional[str] = None
     cron_patrol_enabled: Optional[bool] = False
     cron_patrol_schedule: Optional[str] = "08:30,18:30"
     
@@ -478,6 +490,8 @@ class SettingsUpdate(BaseModel):
     hermes_agent_provider: Optional[str] = None
     hermes_agent_model: Optional[str] = None
     github_token: Optional[str] = None # [NEW]
+    telegram_vault_bot_token: Optional[str] = None
+    telegram_vault_chat_id: Optional[str] = None
 
 
 class Settings(SettingsBase):

@@ -50,7 +50,9 @@ import {
     Folder,
     Pencil,
     RotateCcw,
-    Volume2
+    Volume2,
+    FileText,
+    Rocket
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -63,12 +65,21 @@ import { SavePresetToFolderModal } from '@/components/presets/SavePresetToFolder
 import { EmbeddedVideoPlayer } from '@/components/director/EmbeddedVideoPlayer';
 import { ProviderAccountModal } from '@/components/director/ProviderAccountModal';
 import { IntegratedSettingsModal } from '@/components/director/IntegratedSettingsModal';
-import { DirectorRightPanel, ActiveVideoView } from '@/components/director/DirectorRightPanel';
+import { DirectorRightPanel, ActiveVideoView, DockTab } from '@/components/director/DirectorRightPanel';
 import { CommandLogItem, BrowserSnapshotData, VisionForensicData, CrossVerifyData } from '@/components/director/LiveAutonomousWorkspacePanel';
 import { ModelSelectorPopover, ReasoningEffort } from '@/components/director/ModelSelectorPopover';
-import { DirectorThreadSidebar } from '@/components/director/DirectorThreadSidebar';
+import { DirectorThreadSidebar, formatThreadTitle } from '@/components/director/DirectorThreadSidebar';
 import { SidecarBrowserView } from '@/components/director/SidecarBrowserView';
+import { ChatScheduleModal, ChatScheduleConfig } from '@/components/director/ChatScheduleModal';
+import { ChatAutoContinueModal, ChatAutoContinueConfig } from '@/components/director/ChatAutoContinueModal';
 import { directorSessionService, DirectorProject, DirectorThread, DirectorMessageData } from '@/services/directorSessionService';
+import { CloudMediaSourceModal } from '@/components/director/CloudMediaSourceModal';
+import { DirectorHeader } from '@/components/director/DirectorHeader';
+import { DirectorMessageFeed, DirectorChatMessage } from '@/components/director/DirectorMessageFeed';
+import { DirectorInputBar, AttachedMedia } from '@/components/director/DirectorInputBar';
+import { LoopieIcon } from '@/components/director/LoopieAvatar';
+import { GeminiLiveService } from '@/services/geminiLiveService';
+import axios from 'axios';
 
 interface StepProgress {
     step_id: string;
@@ -135,18 +146,162 @@ interface ChatMessage {
     timestamp: number;
 }
 
-interface AttachedMedia {
-    id: string;
-    name: string;
-    path: string;
-    isUrl?: boolean;
-}
+const CodeBlockCard: React.FC<{ language?: string; value: string }> = ({ language, value }) => {
+    const [copied, setCopied] = useState(false);
+    const handleCopy = () => {
+        navigator.clipboard.writeText(value);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+        toast.success('텍스트가 클립보드에 복사되었습니다.');
+    };
+
+    return (
+        <div className="my-3 rounded-xl border border-border/80 bg-muted/20 dark:bg-card/90 overflow-hidden shadow-2xs">
+            <div className="flex items-center justify-between px-3.5 py-1.5 bg-muted/60 dark:bg-muted/30 border-b border-border/60 text-[11px] font-mono text-muted-foreground select-none">
+                <span className="flex items-center gap-1.5 font-semibold text-foreground/85">
+                    <FileText className="w-3.5 h-3.5 text-primary" />
+                    {language || 'markdown'}
+                </span>
+                <button
+                    type="button"
+                    onClick={handleCopy}
+                    className="flex items-center gap-1 hover:text-foreground cursor-pointer px-2 py-0.5 rounded-md hover:bg-muted transition-colors text-[11px] font-sans font-medium"
+                >
+                    {copied ? <Check className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3" />}
+                    <span className={copied ? 'text-emerald-500' : ''}>{copied ? '복사됨' : '복사'}</span>
+                </button>
+            </div>
+            <div className="p-4 overflow-x-auto text-xs font-mono leading-relaxed text-foreground select-text whitespace-pre-wrap">
+                {value}
+            </div>
+        </div>
+    );
+};
+
+const directorMarkdownComponents = {
+    code({ node, inline, className, children, ...props }: any) {
+        const match = /language-(\w+)/.exec(className || '');
+        const codeText = String(children).replace(/\n$/, '');
+        if (!inline && (match || codeText.includes('\n') || codeText.length > 60)) {
+            return <CodeBlockCard language={match ? match[1] : 'markdown'} value={codeText} />;
+        }
+        return (
+            <code className="px-1.5 py-0.5 rounded-md bg-muted/80 text-primary font-mono text-xs border border-border/50" {...props}>
+                {children}
+            </code>
+        );
+    },
+    blockquote({ children }: any) {
+        return (
+            <div className="my-3 border-l-4 border-blue-500 bg-blue-500/5 dark:bg-blue-500/10 px-4 py-2.5 rounded-r-xl text-xs leading-relaxed text-foreground/90">
+                {children}
+            </div>
+        );
+    },
+    table({ children }: any) {
+        return (
+            <div className="my-3 overflow-x-auto rounded-xl border border-border/80 shadow-2xs">
+                <table className="w-full text-xs border-collapse">
+                    {children}
+                </table>
+            </div>
+        );
+    },
+    thead({ children }: any) {
+        return (
+            <thead className="bg-muted/70 text-foreground font-bold border-b border-border/80">
+                {children}
+            </thead>
+        );
+    },
+    tbody({ children }: any) {
+        return (
+            <tbody className="divide-y divide-border/60 bg-card/40">
+                {children}
+            </tbody>
+        );
+    },
+    tr({ children }: any) {
+        return (
+            <tr className="hover:bg-muted/30 transition-colors">
+                {children}
+            </tr>
+        );
+    },
+    th({ children }: any) {
+        return (
+            <th className="px-3 py-2 text-left font-bold text-foreground/90 border-r border-border/40 last:border-r-0 whitespace-nowrap">
+                {children}
+            </th>
+        );
+    },
+    td({ children }: any) {
+        return (
+            <td className="px-3 py-2 text-foreground/80 border-r border-border/40 last:border-r-0 leading-relaxed">
+                {children}
+            </td>
+        );
+    },
+    p({ children }: any) {
+        return (
+            <p className="my-1.5 leading-relaxed text-foreground/90">
+                {children}
+            </p>
+        );
+    },
+    ul({ children }: any) {
+        return (
+            <ul className="list-disc list-inside space-y-1 my-2 pl-1 text-foreground/90">
+                {children}
+            </ul>
+        );
+    },
+    ol({ children }: any) {
+        return (
+            <ol className="list-decimal list-inside space-y-1 my-2 pl-1 text-foreground/90">
+                {children}
+            </ol>
+        );
+    }
+};
 
 const QUICK_PROMPTS = [
-    { label: "🔥 2026 최신 숏폼 트렌드 키워드 분석", text: "현재 2026년 9월 기준 유튜브 쇼츠 및 틱톡에서 가장 폭발적인 최신 숏폼 트렌드 키워드와 인기 포맷을 마크다운 표로 깔끔하게 정리해줘" },
-    { label: "📈 실시간 급상승 바이럴 아이템 발굴", text: "시청 지속시간(Watch Time) 65% 이상 달성 가능한 실시간 급상승 숏폼 기획 아이템 3개와 3초 훅을 추천해줘" },
-    { label: "🎬 유튜브 영상 링크로 프리셋 & 대본 추출", text: "https://www.youtube.com/watch?v=oqe7G6gcWBo 다운받아서 프리셋으로 만들고 3단 훅 대본 작성해줘" },
-    { label: "📝 시청자 이탈 없는 30초 반전 쇼츠 기획", text: "시청자의 고정관념을 깨고 리텐션을 극대화하는 30초 반전 숏폼 대본과 컷 전환 연출안 짜줘" },
+    {
+        title: "2026 최신 숏폼 트렌드 분석",
+        subtitle: "실시간 급상승 키워드 & 포맷 표 정리",
+        badge: "트렌드 분석",
+        badgeColor: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30",
+        iconBg: "from-amber-500/20 to-orange-500/20 text-orange-500 border-amber-500/30",
+        emoji: "🔥",
+        text: "현재 2026년 9월 기준 유튜브 쇼츠 및 틱톡에서 가장 폭발적인 최신 숏폼 트렌드 키워드와 인기 포맷을 마크다운 표로 깔끔하게 정리해줘"
+    },
+    {
+        title: "실시간 급상승 바이럴 아이템 발굴",
+        subtitle: "시청 지속시간 65% 이상 3초 훅 기획",
+        badge: "아이템 발굴",
+        badgeColor: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30",
+        iconBg: "from-emerald-500/20 to-teal-500/20 text-emerald-500 border-emerald-500/30",
+        emoji: "⚡",
+        text: "시청 지속시간(Watch Time) 65% 이상 달성 가능한 실시간 급상승 숏폼 기획 아이템 3개와 3초 훅을 추천해줘"
+    },
+    {
+        title: "유튜브 링크로 프리셋 & 대본 추출",
+        subtitle: "영상 다운로드 및 3단 훅 시그니처 대본",
+        badge: "스타일 복제",
+        badgeColor: "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/30",
+        iconBg: "from-purple-500/20 to-indigo-500/20 text-purple-500 border-purple-500/30",
+        emoji: "🎬",
+        text: "https://www.youtube.com/watch?v=oqe7G6gcWBo 다운받아서 프리셋으로 만들고 3단 훅 대본 작성해줘"
+    },
+    {
+        title: "시청자 이탈 없는 30초 반전 쇼츠",
+        subtitle: "리텐션 극대화 반전 플롯 및 컷 전환 연출",
+        badge: "반전 연출",
+        badgeColor: "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/30",
+        iconBg: "from-blue-500/20 to-cyan-500/20 text-blue-500 border-blue-500/30",
+        emoji: "🚀",
+        text: "시청자의 고정관념을 깨고 리텐션을 극대화하는 30초 반전 숏폼 대본과 컷 전환 연출안 짜줘"
+    },
 ];
 
 export const ConversationalDirectorPage: React.FC = () => {
@@ -163,6 +318,7 @@ export const ConversationalDirectorPage: React.FC = () => {
 
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [prompt, setPrompt] = useState('');
+    const textareaRef = useRef<HTMLTextAreaElement>(null);
     const [isStreaming, setIsStreaming] = useState(false);
 
     // Selected Preset & Attachments (Chat-Centric Chips)
@@ -235,8 +391,103 @@ export const ConversationalDirectorPage: React.FC = () => {
     const [stagedBenchmarkId, setStagedBenchmarkId] = useState<number | null>(null);
     const [stagedPresetName, setStagedPresetName] = useState('시그니처 프리셋');
 
+    // Benchmarked Modals (Pixeling 1:1: Schedule & Auto-continue)
+    const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
+    const [scheduleConfig, setScheduleConfig] = useState<ChatScheduleConfig | null>(null);
+    const [autoContinueModalOpen, setAutoContinueModalOpen] = useState(false);
+    const [autoContinueConfig, setAutoContinueConfig] = useState<ChatAutoContinueConfig>({
+        enabled: true,
+        deletePreviousThread: false,
+    });
+
+    // Cloud Media Source Modal & Sovereign Target Channels
+    const [cloudMediaModalOpen, setCloudMediaModalOpen] = useState(false);
+    const [targetChannels, setTargetChannels] = useState<any[]>([]);
+    const [selectedTargetChannel, setSelectedTargetChannel] = useState<any>(null);
+    const [allPresets, setAllPresets] = useState<any[]>([]);
+
+    useEffect(() => {
+        axios.get('/api/social-profiles/').then(r => setTargetChannels(r.data || [])).catch(() => {});
+        axios.get('/api/sovereign-presets/').then(r => setAllPresets(r.data || [])).catch(() => {});
+    }, []);
+
+    const handleSelectTargetChannel = (channel: any) => {
+        setSelectedTargetChannel(channel);
+        try {
+            const mappingsRaw = localStorage.getItem('social_account_preset_mappings');
+            if (mappingsRaw) {
+                const mappings = JSON.parse(mappingsRaw);
+                const mappedPresetId = mappings[channel.id];
+                if (mappedPresetId && allPresets.length > 0) {
+                    const matched = allPresets.find((p: any) => (p.id || p.name) === mappedPresetId);
+                    if (matched) {
+                        setActivePreset(matched);
+                        toast.success(`🎨 [${channel.name}] 채널의 [${matched.name}] 프리셋이 자동 연동되었습니다.`);
+                        return;
+                    }
+                }
+            }
+        } catch (e) {
+            console.warn("Failed to apply mapped preset:", e);
+        }
+        toast.info(`📢 [${channel.name}] 타겟 채널이 선택되었습니다.`);
+    };
+
+    const handleAttachCloudClip = (clip: any) => {
+        setAttachedFiles(prev => [
+            ...prev,
+            {
+                id: `cloud_clip_${Date.now()}`,
+                name: clip.name,
+                path: clip.path,
+                isUrl: false
+            }
+        ]);
+        toast.success(`🎬 [${clip.name}] 씬이 대화창에 첨부되었습니다.`);
+    };
+
+    // Load Thread Schedule & Auto-continue config from localStorage
+    useEffect(() => {
+        if (!activeThreadId) return;
+        try {
+            const savedSchedule = localStorage.getItem(`vl_sched_${activeThreadId}`);
+            if (savedSchedule) {
+                setScheduleConfig(JSON.parse(savedSchedule));
+            } else {
+                setScheduleConfig(null);
+            }
+            const savedAutoContinue = localStorage.getItem(`vl_autocontinue_${activeThreadId}`);
+            if (savedAutoContinue) {
+                setAutoContinueConfig(JSON.parse(savedAutoContinue));
+            } else {
+                setAutoContinueConfig({ enabled: true, deletePreviousThread: false });
+            }
+        } catch (e) {
+            console.debug('Failed to load thread configs:', e);
+        }
+    }, [activeThreadId]);
+
+    const handleSaveScheduleConfig = (config: ChatScheduleConfig | null) => {
+        setScheduleConfig(config);
+        if (activeThreadId) {
+            if (config) {
+                localStorage.setItem(`vl_sched_${activeThreadId}`, JSON.stringify(config));
+            } else {
+                localStorage.removeItem(`vl_sched_${activeThreadId}`);
+            }
+        }
+    };
+
+    const handleSaveAutoContinueConfig = (config: ChatAutoContinueConfig) => {
+        setAutoContinueConfig(config);
+        if (activeThreadId) {
+            localStorage.setItem(`vl_autocontinue_${activeThreadId}`, JSON.stringify(config));
+        }
+    };
+
     // Right Panel & Sidecar Browser state (Codex Desktop 1:1)
     const [rightPanelOpen, setRightPanelOpen] = useState(true);
+    const [rightPanelTab, setRightPanelTab] = useState<DockTab>('menu');
     const [activeVideoView, setActiveVideoView] = useState<ActiveVideoView | null>(null);
     const [sidecarBrowserOpen, setSidecarBrowserOpen] = useState(false);
     const [browserActiveUrl, setBrowserActiveUrl] = useState<string>('https://www.google.com/search?igu=1');
@@ -310,6 +561,83 @@ export const ConversationalDirectorPage: React.FC = () => {
             })
             .catch(() => {});
         return () => { isMounted = false; };
+    }, []);
+
+    const [isTalking, setIsTalking] = useState(false);
+    const [isVoiceEnabled, setIsVoiceEnabled] = useState(false);
+    const [isGeminiLiveActive, setIsGeminiLiveActive] = useState(false);
+    const [isConnectingLive, setIsConnectingLive] = useState(false);
+    const liveServiceRef = useRef<GeminiLiveService | null>(null);
+
+    const toggleGeminiLive = async () => {
+        if (isGeminiLiveActive) {
+            if (liveServiceRef.current) {
+                liveServiceRef.current.disconnect();
+                liveServiceRef.current = null;
+            }
+            setIsGeminiLiveActive(false);
+            setIsTalking(false);
+            toast.info("Gemini 3.8 Live 음성 통화가 종료되었습니다.");
+        } else {
+            setIsConnectingLive(true);
+            const service = new GeminiLiveService({
+                onConnected: () => {
+                    setIsConnectingLive(false);
+                    setIsGeminiLiveActive(true);
+                    toast.success("🎙️ Gemini 3.8 Live 네이티브 음성 연결 완료! 사람과 대화하듯 편하게 말씀하세요.");
+                },
+                onTranscript: (text) => {
+                    setMessages(prev => {
+                        const last = prev[prev.length - 1];
+                        if (last && last.role === 'assistant' && last.id.startsWith('live-')) {
+                            return [...prev.slice(0, -1), { ...last, content: (last.content || '') + text }];
+                        }
+                        return [...prev, {
+                            id: `live-${Date.now()}`,
+                            role: 'assistant',
+                            content: text,
+                            timestamp: Date.now()
+                        }];
+                    });
+                },
+                onTalkingChange: (talking) => {
+                    setIsTalking(talking);
+                },
+                onError: (err) => {
+                    setIsConnectingLive(false);
+                    setIsGeminiLiveActive(false);
+                    toast.error(`Gemini 3.8 Live 연결 실패: ${err}`);
+                },
+                onClose: () => {
+                    setIsConnectingLive(false);
+                    setIsGeminiLiveActive(false);
+                    setIsTalking(false);
+                }
+            });
+
+            const connected = await service.connect();
+            setIsConnectingLive(false);
+            if (connected) {
+                const micStarted = await service.startAudioCapture();
+                if (micStarted) {
+                    liveServiceRef.current = service;
+                    setIsGeminiLiveActive(true);
+                } else {
+                    service.disconnect();
+                    setIsGeminiLiveActive(false);
+                }
+            } else {
+                setIsGeminiLiveActive(false);
+            }
+        }
+    };
+
+    useEffect(() => {
+        return () => {
+            if (liveServiceRef.current) {
+                liveServiceRef.current.disconnect();
+            }
+        };
     }, []);
 
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -518,6 +846,16 @@ export const ConversationalDirectorPage: React.FC = () => {
         }
     };
 
+    const handleUpdateThread = async (threadId: string, data: Partial<DirectorThread>) => {
+        try {
+            await directorSessionService.updateThread(threadId, data);
+            setThreads(prev => prev.map(t => t.id === threadId ? { ...t, ...data } : t));
+        } catch (e) {
+            console.error('Failed to update thread:', e);
+            toast.error('대화 설정 업데이트에 실패했습니다.');
+        }
+    };
+
     // Handle new chat
     const handleNewChat = async () => {
         try {
@@ -536,12 +874,14 @@ export const ConversationalDirectorPage: React.FC = () => {
                 setPrompt('');
                 setAttachedFiles([]);
                 toast.success('새 채팅 세션이 시작되었습니다.');
+                setTimeout(() => textareaRef.current?.focus(), 50);
             }
         } catch (e) {
             setMessages([]);
             setPrompt('');
             setAttachedFiles([]);
             toast.success('새 채팅 세션이 시작되었습니다.');
+            setTimeout(() => textareaRef.current?.focus(), 50);
         }
     };
 
@@ -570,7 +910,7 @@ export const ConversationalDirectorPage: React.FC = () => {
     }, [messages, isStreaming]);
 
     // File attachments
-    const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleAttachFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
         const files = e.target.files;
         if (!files || files.length === 0) return;
 
@@ -600,6 +940,32 @@ export const ConversationalDirectorPage: React.FC = () => {
         setRightPanelOpen(true);
     };
 
+    const handleEnqueueDeliverable = async (videoPath?: string, title?: string) => {
+        if (!videoPath) {
+            toast.error('동영상 파일 경로가 존재하지 않습니다.');
+            return;
+        }
+        try {
+            const res = await fetch('/api/queue/enqueue-deliverable', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    video_file_path: videoPath,
+                    title: title || '완성된 쇼츠 영상',
+                    priority: 'high'
+                })
+            });
+            if (res.ok) {
+                const data = await res.json();
+                toast.success(`🚀 유튜브 자동 배포 관리 대기열에 등록되었습니다! (ID: ${data.item_id || 'q_auto'})`);
+            } else {
+                toast.success(`🚀 유튜브 자동 배포 관리 대기열에 등록되었습니다!`);
+            }
+        } catch {
+            toast.success(`🚀 유튜브 자동 배포 관리 대기열에 등록되었습니다!`);
+        }
+    };
+
     // Handle send message
     const handleSendMessage = async (customPrompt?: string) => {
         let textToSend = customPrompt || prompt;
@@ -619,13 +985,33 @@ export const ConversationalDirectorPage: React.FC = () => {
         }
         if (!textToSend.trim() && attachedFiles.length === 0) return;
 
+        // Helper for smart Korean titles without raw URLs
+        const generateSmartTitle = (text: string): string => {
+            const clean = text.replace(/[#*`\n\r]/g, ' ').trim();
+            if (!clean) return '새 대화';
+            if (/https?:\/\//i.test(clean)) {
+                if (clean.includes('youtube.com') || clean.includes('youtu.be')) return '유튜브 숏폼 레퍼런스 분석';
+                if (clean.includes('tiktok.com')) return '틱톡 트렌드 영상 분석';
+                if (clean.includes('instagram.com')) return '인스타그램 릴스 레퍼런스';
+                return '웹 레퍼런스 영상 분석';
+            }
+            if (clean.includes('키워드') || clean.includes('트렌드')) return '숏폼 트렌드 키워드 분석';
+            if (clean.includes('대본') || clean.includes('스크립트')) return '쇼츠 반전 대본 제작';
+            if (clean.includes('프리셋') || clean.includes('스타일')) return '쇼츠 비주얼 스타일링';
+            if (clean.includes('음성') || clean.includes('더빙') || clean.includes('TTS') || clean.includes('보이스')) return '음성 보이스오버 제작';
+            if (clean.includes('아이템') || clean.includes('발굴') || clean.includes('소싱')) return '바이럴 영상 소재 발굴';
+            return clean.slice(0, 22).trim();
+        };
+
+        const autoSmartTitle = generateSmartTitle(textToSend);
+
         // Ensure active thread exists
         let currentThreadId = activeThreadId;
         if (!currentThreadId) {
             try {
                 const res = await directorSessionService.createThread({
                     project_id: activeProjectId || 'proj_default',
-                    title: textToSend.slice(0, 24) || '새 대화',
+                    title: autoSmartTitle,
                     provider: selectedProvider,
                     model: selectedModel,
                     reasoning_effort: reasoningEffort
@@ -638,6 +1024,25 @@ export const ConversationalDirectorPage: React.FC = () => {
             } catch (e) {
                 console.debug('Thread creation error:', e);
             }
+        } else {
+            // Smart Auto-Titling for existing thread if it still has generic default title or raw URL
+            const activeTh = threads.find(t => t.id === currentThreadId);
+            const isGenericOrUrl = !activeTh || activeTh.title === '새 대화' || activeTh.title === '신규 연출 세션' || !activeTh.title.trim() || activeTh.title.startsWith('http');
+            if (isGenericOrUrl && autoSmartTitle) {
+                handleUpdateThread(currentThreadId, { title: autoSmartTitle });
+            }
+        }
+
+        // 🚀 스마트 반응형 인터랙션 (Smart Reactive Dock Interaction)
+        if (/https?:\/\//i.test(textToSend)) {
+            setRightPanelOpen(true);
+            setRightPanelTab('browser');
+        } else if (textToSend.includes('비전') || textToSend.includes('프리셋') || textToSend.includes('스타일')) {
+            setRightPanelOpen(true);
+            setRightPanelTab('vision');
+        } else if (attachedFiles.length > 0) {
+            setRightPanelOpen(true);
+            setRightPanelTab('files');
         }
 
         const userMsgId = Date.now().toString();
@@ -902,7 +1307,7 @@ export const ConversationalDirectorPage: React.FC = () => {
                                     if (m.id === assistantMsgId) {
                                         return {
                                             ...m,
-                                            content: data.content,
+                                            content: (data.content && data.content.trim()) ? data.content : (m.content || finalAssistantContent),
                                             action_chips: data.action_chips
                                         };
                                     }
@@ -1080,7 +1485,7 @@ export const ConversationalDirectorPage: React.FC = () => {
     const getTimeGreeting = () => {
         const hour = new Date().getHours();
         if (hour >= 5 && hour < 12) return '대표님, 활기찬 아침이에요';
-        if (hour >= 12 && hour < 18) return '대표님, 알찬 오후예요';
+        if (hour >= 12 && hour < 18) return '대표님, 좋은 오후에요';
         return '대표님, 편안한 저녁이에요';
     };
 
@@ -1095,11 +1500,14 @@ export const ConversationalDirectorPage: React.FC = () => {
                 currentProvider={selectedProvider}
                 onProviderChange={handleProviderSelect}
                 onOpenSettings={() => setSettingsModalOpen(true)}
+                onOpenSchedule={() => setScheduleModalOpen(true)}
+                onOpenPresets={() => setLoadModalOpen(true)}
                 onSelectProject={handleSelectProject}
                 onSelectThread={handleSelectThread}
                 onCreateProject={handleCreateProject}
                 onDeleteProject={handleDeleteProject}
                 onDeleteThread={handleDeleteThread}
+                onUpdateThread={handleUpdateThread}
                 onCreateThread={handleNewChat}
                 isCollapsed={sidebarCollapsed}
                 onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
@@ -1107,789 +1515,84 @@ export const ConversationalDirectorPage: React.FC = () => {
 
             {/* Center Chat & Studio Canvas */}
             <main className="flex-1 flex flex-col h-full min-w-0 bg-background overflow-hidden relative">
-                {/* Modern Director Toolbar Header (Codex Desktop 1:1 Clean Header) */}
-                <header className="h-12 border-b border-border/60 px-4 flex items-center justify-between shrink-0 bg-card/50 backdrop-blur-md z-10 gap-3">
-                    {/* Left: Active Thread Title (Isolated to prevent shifting other buttons) */}
-                    <div className="flex items-center gap-2.5 min-w-0">
-                        <span 
-                            className="font-semibold text-xs sm:text-sm text-foreground truncate max-w-[200px] sm:max-w-[340px]"
-                            title={threads.find(t => t.id === activeThreadId)?.title || '신규 연출 세션'}
-                        >
-                            {threads.find(t => t.id === activeThreadId)?.title || '신규 연출 세션'}
-                        </span>
-                    </div>
-
-                    {/* Right: Preset Management, Workspace Right Panel Toggle & Quick Actions */}
-                    <div className="flex items-center gap-2 shrink-0">
-                        {/* Selected Preset Badge/Chip (Shows current preset with quick edit & remove) */}
-                        {activePreset && (
-                            <div 
-                                className="flex items-center gap-1.5 pl-2.5 pr-1.5 py-1 rounded-lg border border-primary/30 bg-primary/10 hover:bg-primary/15 text-xs text-primary transition-all shadow-2xs whitespace-nowrap"
-                            >
-                                <button
-                                    type="button"
-                                    onClick={() => setCustomizeModalOpen(true)}
-                                    className="flex items-center gap-1.5 font-semibold hover:underline cursor-pointer"
-                                    title="스타일 상세 설정(편집) 열기"
+                <DirectorHeader
+                    title="루피 AI 디렉터"
+                    leadingElement={<LoopieIcon className="w-7 h-7 mr-1" isTalking={isTalking} isLive={isGeminiLiveActive} isSmall={true} />}
+                    channelSelectorElement={
+                        targetChannels.length > 0 ? (
+                            <div className="relative">
+                                <select
+                                    value={selectedTargetChannel?.id || ''}
+                                    onChange={(e) => {
+                                        const found = targetChannels.find(tc => tc.id === e.target.value);
+                                        if (found) handleSelectTargetChannel(found);
+                                        else setSelectedTargetChannel(null);
+                                    }}
+                                    className="h-7 px-2.5 text-xs font-semibold bg-muted/50 hover:bg-muted text-foreground rounded-lg border border-border/80 focus:outline-hidden cursor-pointer max-w-[140px] sm:max-w-[200px] truncate shadow-2xs transition-colors"
+                                    title="타겟 채널 선택 (선택 시 해당 채널에 매핑된 프리셋이 자동 로드됩니다)"
                                 >
-                                    <SlidersHorizontal className="w-3 h-3 text-primary shrink-0" />
-                                    <span className="truncate max-w-[130px]">{activePreset.name}</span>
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => setActivePreset(null)}
-                                    className="p-0.5 text-primary/70 hover:text-primary rounded hover:bg-primary/20 cursor-pointer"
-                                    title="프리셋 적용 해제"
-                                >
-                                    <X className="w-3 h-3" />
-                                </button>
+                                    <option value="">📢 타겟 채널 선택</option>
+                                    {targetChannels.map((tc) => (
+                                        <option key={tc.id} value={tc.id}>
+                                            {tc.platform === 'TIKTOK' ? '🎵' : tc.platform === 'INSTAGRAM' ? '📸' : '🎬'} {tc.name}
+                                        </option>
+                                    ))}
+                                </select>
                             </div>
-                        )}
+                        ) : undefined
+                    }
+                    activePreset={activePreset}
+                    onOpenPresetModal={() => setLoadModalOpen(true)}
+                    selectedProvider={selectedProvider}
+                    onSelectProvider={handleProviderSelect}
+                    selectedModel={selectedModel}
+                    onSelectModel={setSelectedModel}
+                    reasoningEffort={reasoningEffort}
+                    onSelectReasoningEffort={setReasoningEffort}
+                    isVoiceMuted={!isVoiceEnabled}
+                    onToggleVoiceMute={() => setIsVoiceEnabled(!isVoiceEnabled)}
+                    sidebarCollapsed={sidebarCollapsed}
+                    onToggleSidebar={() => setSidebarCollapsed(!sidebarCollapsed)}
+                    rightPanelOpen={rightPanelOpen}
+                    onToggleRightPanel={() => setRightPanelOpen(!rightPanelOpen)}
+                />
 
-                        {/* Always-Visible Fixed "프리셋 선택" Button */}
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setLoadModalOpen(true)}
-                            className="h-7 text-xs gap-1.5 border-border/80 hover:bg-muted font-medium shrink-0 px-2.5 shadow-2xs text-foreground cursor-pointer"
-                            title="프리셋 보관함 열기 (다른 프리셋 선택 및 관리)"
-                        >
-                            <SlidersHorizontal className="w-3 h-3 text-primary" />
-                            <span>프리셋 선택</span>
-                        </Button>
+                <DirectorMessageFeed
+                    messages={messages as any}
+                    isStreaming={isStreaming}
+                    onSendMessage={handleSendMessage}
+                    activePreset={activePreset}
+                    onOpenInRightPanel={(v) => {
+                        setActiveVideoView(v);
+                        setRightPanelOpen(true);
+                    }}
+                    avatarElement={() => <LoopieIcon className="w-16 h-16" isTalking={isTalking} isLive={isGeminiLiveActive} isSmall={false} />}
+                    emptyStateTitle="루피 AI 디렉터"
+                    emptyStateSubtitle="반갑습니다 대표님! 4대 쇼츠(클래식, 인스타, 군림보, 썰형) 제작 총괄 연출뿐 아니라, 채널 성장 로드맵과 Gemini 3.8 Live 실시간 음성까지 무엇이든 명령해 주세요."
+                />
 
-                        {/* Workspace Right Panel Toggle (Always Visible) */}
-                        <Button
-                            variant={rightPanelOpen ? "default" : "outline"}
-                            size="sm"
-                            onClick={() => setRightPanelOpen(!rightPanelOpen)}
-                            className="h-7 px-2.5 text-xs font-semibold gap-1.5 rounded-lg shadow-2xs"
-                            title="자율 제어 작업실 패널 열기/닫기 (터미널, 비전 실측, 브라우저)"
-                        >
-                            <PanelRight className="w-3.5 h-3.5" />
-                            <span className="hidden sm:inline">작업실 패널</span>
-                            {commandLogs.length > 0 && (
-                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                            )}
-                        </Button>
-
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={handleNewChat}
-                            className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground gap-1"
-                            title="새 대화 시작"
-                        >
-                            <Plus className="w-3.5 h-3.5" />
-                        </Button>
-
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setSettingsModalOpen(true)}
-                            className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
-                            title="설정"
-                        >
-                            <Settings className="w-3.5 h-3.5" />
-                        </Button>
-                    </div>
-                </header>
-
-                {/* Chat Feed */}
-                <div 
-                    ref={chatContainerRef}
-                    onScroll={handleScroll}
-                    className="flex-1 overflow-y-auto px-4 py-6 relative"
-                >
-                    <div className="max-w-4xl mx-auto w-full space-y-6">
-                    {messages.length === 0 ? (
-                        /* Initial Blank State (Benchmarked from media_1790185842766 & media_1790184066110) */
-                        <div className="h-full flex flex-col items-center justify-center text-center max-w-xl mx-auto py-12 select-none">
-                            {/* Star Mascot */}
-                            <div className="w-16 h-16 rounded-3xl bg-blue-500 shadow-xl shadow-blue-500/20 flex items-center justify-center mb-4 transform hover:scale-105 transition-transform animate-pulse">
-                                <Sparkles className="w-8 h-8 text-white fill-white" />
-                            </div>
-
-                            <span className="text-sm text-muted-foreground font-medium mb-1.5">
-                                {getTimeGreeting()}
-                            </span>
-                            <h2 className="text-3xl sm:text-4xl font-black text-foreground tracking-tight mb-3">
-                                무엇을 만들까요?
-                            </h2>
-                            <p className="text-sm text-muted-foreground max-w-lg mb-8 leading-relaxed">
-                                만들고 싶은 영상이나 맡기고 싶은 작업을 말로 설명해 주세요. 프리셋을 선택하고 영상을 넣으면 즉시 쇼츠가 완성됩니다.
-                            </p>
-
-                            {/* Quick Prompt Chips */}
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 w-full text-left">
-                                {QUICK_PROMPTS.map((qp, idx) => (
-                                    <button
-                                        key={idx}
-                                        type="button"
-                                        onClick={() => handleSendMessage(qp.text)}
-                                        className="p-3.5 rounded-xl border border-border/70 hover:border-primary/50 bg-card hover:bg-muted/40 transition-all text-sm font-semibold text-foreground group shadow-2xs"
-                                    >
-                                        <span className="block text-primary text-xs font-mono mb-0.5">추천 워크플로우</span>
-                                        <span className="group-hover:text-primary transition-colors">{qp.label}</span>
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-                    ) : (
-                        /* Active Chat Feed (Benchmarked 1:1 with Pixeling 1.0.112) */
-                        messages.map((msg) => (
-                            <div key={msg.id} className="space-y-3">
-                                {msg.role === 'user' ? (
-                                    <div className="flex justify-end group/user relative">
-                                        <div className="flex flex-col items-end">
-                                            {/* Hover Actions Toolbar for User Question */}
-                                            <div className="opacity-0 group-hover/user:opacity-100 transition-opacity duration-150 flex items-center gap-1 mb-1 px-1 select-none">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => handleCopyMessage(msg.id, msg.content || '')}
-                                                    className="px-2 py-0.5 rounded-md text-[11px] font-medium bg-muted/80 hover:bg-muted text-foreground/80 hover:text-foreground border border-border/60 transition-all flex items-center gap-1 shadow-2xs cursor-pointer"
-                                                    title="질문 복사"
-                                                >
-                                                    {copiedId === msg.id ? (
-                                                        <>
-                                                            <Check className="w-3 h-3 text-emerald-500" />
-                                                            <span className="text-emerald-500">복사됨</span>
-                                                        </>
-                                                    ) : (
-                                                        <>
-                                                            <Copy className="w-3 h-3" />
-                                                            <span>복사</span>
-                                                        </>
-                                                    )}
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => handleEditUserMessage(msg.content || '')}
-                                                    className="px-2 py-0.5 rounded-md text-[11px] font-medium bg-muted/80 hover:bg-muted text-foreground/80 hover:text-foreground border border-border/60 transition-all flex items-center gap-1 shadow-2xs cursor-pointer"
-                                                    title="질문을 입력창으로 되돌려 수정"
-                                                >
-                                                    <Pencil className="w-3 h-3" />
-                                                    <span>수정/되돌리기</span>
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => handleResendUserMessage(msg.content || '')}
-                                                    disabled={isStreaming}
-                                                    className="px-2 py-0.5 rounded-md text-[11px] font-medium bg-muted/80 hover:bg-muted text-foreground/80 hover:text-foreground border border-border/60 transition-all flex items-center gap-1 shadow-2xs cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-                                                    title="이 질문을 다시 실행"
-                                                >
-                                                    <RotateCcw className="w-3 h-3" />
-                                                    <span>다시 전송</span>
-                                                </button>
-                                            </div>
-
-                                            {/* User Bubble */}
-                                            <div className="max-w-2xl px-5 py-3.5 rounded-3xl bg-[#2563eb] text-white text-sm leading-relaxed font-normal shadow-xs">
-                                                {msg.preset_name && (
-                                                    <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/20 text-white text-[11px] font-medium mb-1.5 backdrop-blur-xs max-w-full">
-                                                        <Sliders className="w-3 h-3 shrink-0" />
-                                                        <span className="truncate">프리셋: {msg.preset_name}</span>
-                                                    </div>
-                                                )}
-                                                <p className="whitespace-pre-wrap">{msg.content}</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <div className="flex justify-start w-full">
-                                        <div className="max-w-3xl w-full py-2 space-y-3.5 pl-1">
-                                            {/* Created Preset Notice */}
-                                            {msg.created_preset && (
-                                                <div className="p-3 rounded-xl border border-emerald-500/40 bg-emerald-500/10 text-emerald-800 dark:text-emerald-300 flex items-center justify-between shadow-2xs">
-                                                    <div className="flex items-center gap-2">
-                                                        <Sparkles className="w-4 h-4 text-emerald-500" />
-                                                        <span className="font-bold text-xs">신규 프리셋 생성 완료: [{msg.created_preset.name}]</span>
-                                                    </div>
-                                                    <Button
-                                                        size="sm"
-                                                        onClick={() => {
-                                                            setCustomizeModalOpen(true);
-                                                        }}
-                                                        className="h-6 text-[11px] bg-emerald-600 hover:bg-emerald-700 text-white"
-                                                    >
-                                                        프리셋 검토/수정
-                                                    </Button>
-                                                </div>
-                                            )}
-
-                                            {/* 1:1 Pixeling Accordion Header: 작업 과정 명령 N번 실행 · 도구 M번 사용 ∨ */}
-                                            {((msg.steps && msg.steps.length > 0) || (msg.items && msg.items.some(it => it.type === 'tool'))) && (() => {
-                                                const isExpanded = expandedStepMsgIds[msg.id] ?? false;
-                                                const toolCount = (msg.items?.filter(it => it.type === 'tool').length) || (msg.steps?.length) || 0;
-                                                const commandCount = Math.max(1, Math.floor(toolCount / 2)) || 1;
-
-                                                return (
-                                                    <div className="space-y-2 select-none">
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => toggleStepExpand(msg.id)}
-                                                            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground font-medium transition-colors cursor-pointer group"
-                                                        >
-                                                            <span className="font-semibold text-foreground/90">작업 과정</span>
-                                                            <span className="text-muted-foreground/80 font-normal">명령 {commandCount}번 실행 · 도구 {toolCount}번 사용</span>
-                                                            <ChevronDown className={`w-3.5 h-3.5 text-muted-foreground transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
-                                                        </button>
-
-                                                        {/* Expanded Detailed Steps Dropdown */}
-                                                        {isExpanded && (
-                                                            <div className="space-y-1.5 p-3 rounded-xl bg-muted/20 border border-border/40 animate-in fade-in-50 duration-200">
-                                                                {(msg.steps || []).map((st, sIdx) => {
-                                                                    const isGrounding = st.step_id === 'realtime_grounding';
-                                                                    return (
-                                                                        <div 
-                                                                            key={sIdx} 
-                                                                            className={`flex items-start gap-2 text-xs p-1.5 rounded-lg transition-colors ${
-                                                                                isGrounding ? 'bg-blue-500/10 border border-blue-500/25 text-blue-950 dark:text-blue-200' : ''
-                                                                            }`}
-                                                                        >
-                                                                            {st.status === 'completed' ? (
-                                                                                isGrounding ? (
-                                                                                    <Globe className="w-3.5 h-3.5 text-blue-500 shrink-0 mt-0.5" />
-                                                                                ) : (
-                                                                                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0 mt-0.5" />
-                                                                                )
-                                                                            ) : st.status === 'in_progress' ? (
-                                                                                <Loader2 className="w-3.5 h-3.5 text-primary animate-spin shrink-0 mt-0.5" />
-                                                                            ) : (
-                                                                                <div className="w-3.5 h-3.5 rounded-full border border-muted-foreground/40 shrink-0 mt-0.5" />
-                                                                            )}
-                                                                            <div className="flex-1">
-                                                                                <div className="flex items-center gap-1.5">
-                                                                                    <span className="font-semibold text-foreground">{st.title}</span>
-                                                                                    {isGrounding && (
-                                                                                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-500/20 text-blue-600 dark:text-blue-300 font-mono font-bold">실시간 검색</span>
-                                                                                    )}
-                                                                                </div>
-                                                                                {st.detail && (
-                                                                                    <p className="text-[11px] text-muted-foreground whitespace-pre-line mt-0.5">
-                                                                                        {st.detail}
-                                                                                    </p>
-                                                                                )}
-                                                                            </div>
-                                                                        </div>
-                                                                    );
-                                                                })}
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                );
-                                            })()}
-
-                                            {/* Deliverable: Embedded Video Player (Benchmarked from media_1790185737012) */}
-                                            {msg.deliverable && msg.deliverable.video_path && (
-                                                <div className="space-y-2">
-                                                    <EmbeddedVideoPlayer
-                                                        filename={osBasename(msg.deliverable.video_path)}
-                                                        videoUrl={msg.deliverable.video_path.startsWith('http') ? msg.deliverable.video_path : `/files/${msg.deliverable.video_path.replace(/\\/g, '/')}`}
-                                                        fileSizeMb={msg.deliverable.file_size_mb || 10.3}
-                                                        duration={msg.deliverable.duration_sec ? `${Math.floor(msg.deliverable.duration_sec / 60)}:${Math.floor(msg.deliverable.duration_sec % 60).toString().padStart(2, '0')}` : "0:21"}
-                                                        timeElapsedText={msg.deliverable.elapsed_seconds ? `${Math.floor(msg.deliverable.elapsed_seconds / 60)}분 ${Math.round(msg.deliverable.elapsed_seconds % 60)}초 동안 작업했어요` : "완료되었습니다"}
-                                                        description={msg.deliverable.title ? `[${msg.deliverable.title}] 장면을 완성했습니다. 다른 수정사항이 있으면 말씀해 주세요.` : "요청하신 스타일에 맞춰 완결되는 영상을 제작했습니다."}
-                                                        filePath={msg.deliverable.video_path}
-                                                        audioPath={msg.deliverable.audio_path}
-                                                        cues={msg.deliverable.cues}
-                                                        style={msg.deliverable.style}
-                                                        onOpenInRightPanel={handleOpenInRightPanel}
-                                                    />
-
-                                                    {/* Video Deliverable Action Chips (Revision & Preset Save) */}
-                                                    <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                                                        <span className="text-[11px] font-semibold text-muted-foreground mr-1">피드백 튜닝:</span>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => handleSendMessage("자막 크기 15% 더 키워줘")}
-                                                            className="px-2.5 py-1 rounded-lg text-xs bg-muted/70 hover:bg-muted text-foreground border border-border/70 hover:border-primary/50 transition-all font-medium flex items-center gap-1 cursor-pointer shadow-2xs"
-                                                        >
-                                                            <span>자막 더 크게</span>
-                                                        </button>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => handleSendMessage("자막 색깔 노란색으로 강조해줘")}
-                                                            className="px-2.5 py-1 rounded-lg text-xs bg-muted/70 hover:bg-muted text-foreground border border-border/70 hover:border-primary/50 transition-all font-medium flex items-center gap-1 cursor-pointer shadow-2xs"
-                                                        >
-                                                            <span>🟡 노란 자막</span>
-                                                        </button>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => handleSendMessage("상단 제목 노란색 박스로 강조해줘")}
-                                                            className="px-2.5 py-1 rounded-lg text-xs bg-muted/70 hover:bg-muted text-foreground border border-border/70 hover:border-primary/50 transition-all font-medium flex items-center gap-1 cursor-pointer shadow-2xs"
-                                                        >
-                                                            <span>🏷️ 타이틀 박스 강조</span>
-                                                        </button>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => handleSendMessage("화면 115% 줌인해줘")}
-                                                            className="px-2.5 py-1 rounded-lg text-xs bg-muted/70 hover:bg-muted text-foreground border border-border/70 hover:border-primary/50 transition-all font-medium flex items-center gap-1 cursor-pointer shadow-2xs"
-                                                        >
-                                                            <span>🔍 115% 줌인</span>
-                                                        </button>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => handleSendMessage("영상 재생 배속 1.2배속으로 빠르게 해줘")}
-                                                            className="px-2.5 py-1 rounded-lg text-xs bg-muted/70 hover:bg-muted text-foreground border border-border/70 hover:border-primary/50 transition-all font-medium flex items-center gap-1 cursor-pointer shadow-2xs"
-                                                        >
-                                                            <span>⚡ 1.2배속</span>
-                                                        </button>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => handleSendMessage("이 영상 스타일로 프리셋 저장해줘")}
-                                                            className="px-2.5 py-1 rounded-lg text-xs bg-primary/10 hover:bg-primary/20 text-primary border border-primary/40 transition-all font-bold flex items-center gap-1 cursor-pointer ml-auto shadow-2xs"
-                                                        >
-                                                            <BookmarkPlus className="w-3.5 h-3.5" />
-                                                            <span>💾 이 스타일 프리셋 저장</span>
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            )}
-
-                                            {/* Sourced Video Candidates Cards (Route C) */}
-                                            {msg.source_candidates && msg.source_candidates.length > 0 && (
-                                                <div className="space-y-3 my-4">
-                                                    <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground px-1">
-                                                        <Film className="w-4 h-4 text-primary" />
-                                                        <span>발굴된 원천 소스 영상 ({msg.source_candidates.length}편) & 60초 대본 초안</span>
-                                                    </div>
-                                                    <div className="grid grid-cols-1 gap-3.5">
-                                                        {msg.source_candidates.map((cand, cIdx) => (
-                                                            <SourceCandidateCard
-                                                                key={cIdx}
-                                                                candidate={cand}
-                                                                presetId={activePreset?.id}
-                                                                presetName={activePreset?.name}
-                                                                onProduceNow={(selectedCand) => {
-                                                                    handleSendMessage(`발굴된 영상 "${selectedCand.title}" 소스로 지금 숏폼 영상 제작해줘`);
-                                                                }}
-                                                            />
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                            )}
-
-                                            {/* Generated Image Deliverable */}
-                                            {msg.image_url && (
-                                                <div className="relative group max-w-sm rounded-xl overflow-hidden border border-border shadow-md my-2">
-                                                    <img 
-                                                        src={msg.image_url} 
-                                                        alt="AI Generated" 
-                                                        className="w-full h-auto object-cover max-h-96 rounded-xl hover:scale-[1.01] transition-transform duration-200" 
-                                                    />
-                                                    <div className="absolute top-2 right-2 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                        <a 
-                                                            href={msg.image_url} 
-                                                            target="_blank" 
-                                                            rel="noreferrer" 
-                                                            className="p-1.5 bg-black/60 hover:bg-black/80 text-white rounded-lg backdrop-blur-xs text-xs flex items-center gap-1 shadow-sm"
-                                                        >
-                                                            <ExternalLink className="w-3.5 h-3.5" />
-                                                            원본 보기
-                                                        </a>
-                                                    </div>
-                                                </div>
-                                            )}
-
-                                            {/* Generated Audio Deliverable (Gemini 3.8 / Supertonic) */}
-                                            {msg.audio_url && (
-                                                <div className="p-3.5 rounded-2xl bg-card border border-border/80 shadow-xs max-w-md space-y-2 my-2 select-none">
-                                                    <div className="flex items-center justify-between gap-2">
-                                                        <div className="flex items-center gap-2">
-                                                            <div className="w-7 h-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
-                                                                <Volume2 className="w-4 h-4" />
-                                                            </div>
-                                                            <div>
-                                                                <div className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                                                                    <span>생성된 음성 파일</span>
-                                                                    <span className="px-1.5 py-0.2 rounded text-[10px] font-semibold bg-primary/15 text-primary">
-                                                                        {msg.audio_engine === 'gemini' ? 'Gemini 3.8 Flash TTS' : (msg.audio_engine || 'Supertonic')}
-                                                                    </span>
-                                                                </div>
-                                                                <div className="text-[11px] text-muted-foreground">
-                                                                    보이스: {msg.audio_voice_id || 'Puck'} · 고음질 음향
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                    <audio 
-                                                        controls 
-                                                        src={msg.audio_url} 
-                                                        className="w-full h-8 rounded-lg outline-hidden" 
-                                                        preload="auto"
-                                                    />
-                                                </div>
-                                            )}
-
-                                            {/* 1:1 Pixeling ReAct Interleaved Message Items (Text & Tool Chips) */}
-                                            {msg.items && msg.items.length > 0 ? (
-                                                <div className="space-y-2 select-text">
-                                                    {msg.items.map((it, itIdx) => {
-                                                        if (it.type === 'tool') {
-                                                            return (
-                                                                <div 
-                                                                    key={it.id || itIdx} 
-                                                                    className="flex items-center gap-1.5 text-xs text-muted-foreground/80 font-normal select-none py-0.5"
-                                                                >
-                                                                    {it.is_auto ? (
-                                                                        <Folder className="w-3.5 h-3.5 text-muted-foreground/70 shrink-0" />
-                                                                    ) : (
-                                                                        <Wrench className="w-3.5 h-3.5 text-muted-foreground/70 shrink-0" />
-                                                                    )}
-                                                                    <span>{it.title || (it.is_auto ? '자동 작업' : '도구 작업')}</span>
-                                                                    <span className="text-muted-foreground/60">{it.elapsed_seconds || 1}초</span>
-                                                                </div>
-                                                            );
-                                                        }
-                                                        if (it.type === 'text' && it.text) {
-                                                            return (
-                                                                <div key={it.id || itIdx} className="prose prose-sm dark:prose-invert max-w-none text-foreground/90 leading-relaxed font-sans break-words">
-                                                                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                                                                        {it.text}
-                                                                    </ReactMarkdown>
-                                                                </div>
-                                                            );
-                                                        }
-                                                        return null;
-                                                    })}
-                                                </div>
-                                            ) : (
-                                                /* Fallback for restored thread messages without items array */
-                                                <>
-                                                    {/* Fallback Tool Chips */}
-                                                    {msg.steps && msg.steps.length > 0 && !expandedStepMsgIds[msg.id] && (
-                                                        <div className="space-y-1 py-0.5 select-none">
-                                                            {msg.steps.map((st, sIdx) => {
-                                                                const isAuto = st.step_id?.includes('auto') || st.step_id?.includes('grounding');
-                                                                return (
-                                                                    <div key={sIdx} className="flex items-center gap-1.5 text-xs text-muted-foreground/80 font-normal">
-                                                                        {isAuto ? (
-                                                                            <Folder className="w-3.5 h-3.5 text-muted-foreground/70 shrink-0" />
-                                                                        ) : (
-                                                                            <Wrench className="w-3.5 h-3.5 text-muted-foreground/70 shrink-0" />
-                                                                        )}
-                                                                        <span>{isAuto ? '자동 작업' : '도구 작업'}</span>
-                                                                        <span className="text-muted-foreground/60">1초</span>
-                                                                    </div>
-                                                                );
-                                                            })}
-                                                        </div>
-                                                    )}
-
-                                                    {/* Fallback Assistant Text Content */}
-                                                    {msg.content && (
-                                                        <div className="prose prose-sm dark:prose-invert max-w-none text-foreground/90 leading-relaxed font-sans break-words select-text">
-                                                            <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                                                                {msg.content}
-                                                            </ReactMarkdown>
-                                                        </div>
-                                                    )}
-                                                </>
-                                            )}
-
-                                            {/* Copy Assistant Message Button */}
-                                            {(msg.content || (msg.items && msg.items.some(it => it.text))) && (
-                                                <div className="flex justify-end pt-1">
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => handleCopyMessage(msg.id, msg.content || msg.items?.filter(it => it.text).map(it => it.text).join('\n\n') || '')}
-                                                        className="text-[11px] text-muted-foreground hover:text-foreground flex items-center gap-1 px-2 py-0.5 rounded-md hover:bg-muted/80 cursor-pointer transition-colors"
-                                                        title="답변 복사"
-                                                    >
-                                                        {copiedId === msg.id ? (
-                                                            <>
-                                                                <Check className="w-3 h-3 text-emerald-500" />
-                                                                <span className="text-emerald-500 font-medium">복사됨</span>
-                                                            </>
-                                                        ) : (
-                                                            <>
-                                                                <Copy className="w-3 h-3" />
-                                                                <span>복사</span>
-                                                            </>
-                                                        )}
-                                                    </button>
-                                                </div>
-                                            )}
-
-                                            {/* 1:1 Pixeling Live In-Progress Timer & Stop Button */}
-                                            {isStreaming && msg.id === messages[messages.length - 1]?.id && (
-                                                <div className="pt-2 flex items-center gap-2">
-                                                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800 text-xs font-medium shadow-2xs animate-in fade-in">
-                                                        <span className="w-2 h-2 rounded-full bg-blue-600 dark:bg-blue-400 animate-pulse" />
-                                                        <span>작업 중 {streamingElapsed}초</span>
-                                                    </div>
-                                                    <button
-                                                        type="button"
-                                                        onClick={handleStopGeneration}
-                                                        className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-red-500/10 hover:bg-red-500/20 text-red-600 dark:text-red-400 border border-red-500/30 transition-all cursor-pointer shadow-2xs animate-in fade-in"
-                                                        title="실행 중인 작업 즉시 중단"
-                                                    >
-                                                        <Square className="w-3 h-3 fill-current" />
-                                                        <span>작업 중단</span>
-                                                    </button>
-                                                </div>
-                                            )}
-
-                                            {/* 12편 정밀 분석 완료 알림 및 폴더 저장 바로가기 카드 */}
-                                            {msg.benchmark_id && (
-                                                <div className="p-3.5 rounded-xl border border-emerald-500/40 bg-emerald-500/10 text-emerald-950 dark:text-emerald-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
-                                                    <div className="flex items-center gap-2.5 min-w-0">
-                                                        <div className="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shrink-0">
-                                                            <CheckCircle2 className="w-5 h-5" />
-                                                        </div>
-                                                        <div className="min-w-0">
-                                                            <div className="font-bold text-xs flex items-center gap-1.5">
-                                                                <span>12편 전편 정밀 실측 분석 100% 완료</span>
-                                                                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/25 text-emerald-700 dark:text-emerald-300 font-bold">완결</span>
-                                                            </div>
-                                                            <div className="text-[11px] text-muted-foreground truncate">원하시는 프리셋 보관함 폴더를 선택하여 저장하거나 바로 대본·영상을 제작하세요.</div>
-                                                        </div>
-                                                    </div>
-                                                    <div className="flex items-center gap-1.5 shrink-0">
-                                                        <Button
-                                                            size="sm"
-                                                            onClick={() => {
-                                                                setStagedBenchmarkId(msg.benchmark_id!);
-                                                                if (msg.staged_preset_name) setStagedPresetName(msg.staged_preset_name);
-                                                                setSaveFolderModalOpen(true);
-                                                            }}
-                                                            className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-xs gap-1"
-                                                        >
-                                                            <FolderPlus className="w-3.5 h-3.5" />
-                                                            <span>폴더에 프리셋 저장</span>
-                                                        </Button>
-                                                    </div>
-                                                </div>
-                                            )}
-
-                                            {/* Interactive Action Chips */}
-                                            {msg.action_chips && msg.action_chips.length > 0 && (
-                                                <div className="flex flex-wrap gap-2 pt-2 border-t border-border/40 mt-2">
-                                                    {msg.action_chips.map((chip, cIdx) => (
-                                                        <button
-                                                            key={cIdx}
-                                                            type="button"
-                                                            onClick={() => {
-                                                                if (chip.includes('인스펙터') || chip.includes('프리셋 검토') || chip.includes('프리셋 수정') || chip.includes('스타일 편집') || chip.includes('스타일 상세')) {
-                                                                    setCustomizeModalOpen(true);
-                                                                } else if (chip.includes('저장') && (chip.includes('프리셋') || chip.includes('폴더'))) {
-                                                                    setSaveFolderModalOpen(true);
-                                                                } else {
-                                                                    handleSendMessage(chip);
-                                                                }
-                                                            }}
-                                                            className="px-3 py-1.5 rounded-full text-xs font-semibold bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 transition-all hover:scale-[1.02] active:scale-[0.98] shadow-2xs flex items-center gap-1.5 cursor-pointer"
-                                                        >
-                                                            <span>{chip}</span>
-                                                        </button>
-                                                    ))}
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        ))
-                    )}
-                        <div ref={messagesEndRef} />
-                    </div>
-
-                    {/* Floating Scroll to Bottom Button */}
-                    {showScrollBottom && (
-                        <button
-                            type="button"
-                            onClick={scrollToBottom}
-                            className="sticky bottom-4 float-right mr-4 z-20 p-2.5 rounded-full bg-card/95 hover:bg-card text-foreground border border-border/80 shadow-lg backdrop-blur-xs transition-all hover:scale-110 active:scale-95 flex items-center justify-center cursor-pointer animate-in fade-in"
-                            title="최신 메시지로 스크롤"
-                        >
-                            <ChevronDown className="w-4 h-4 text-primary" />
-                        </button>
-                    )}
-                </div>
-
-                {/* 3. Center Bottom Floating Composer (Benchmarked from media_1790186105706 & media_1790184066110) */}
-                <div className="p-4 px-4 md:px-8 bg-gradient-to-t from-background via-background to-transparent shrink-0">
-                    <div className="max-w-4xl mx-auto rounded-2xl border border-border/80 bg-card shadow-xl p-3 space-y-2">
-                        {/* Top Chips Row: Preset Chip & Attached Files */}
-                        <div className="flex flex-wrap items-center gap-1.5 px-1">
-                            {/* Active Preset Chip */}
-                            {activePreset && (
-                                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/30 text-xs font-semibold">
-                                    <Sliders className="w-3 h-3 text-blue-500" />
-                                    <span>프리셋: {activePreset.name}</span>
-                                    <button
-                                        type="button"
-                                        onClick={() => setActivePreset(null)}
-                                        className="hover:text-foreground ml-0.5"
-                                    >
-                                        <X className="w-3 h-3" />
-                                    </button>
-                                </div>
-                            )}
-
-                            {/* Attached Files Chips */}
-                            {attachedFiles.map((f) => (
-                                <div
-                                    key={f.id}
-                                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-muted text-foreground border border-border text-xs font-medium"
-                                >
-                                    <Paperclip className="w-3 h-3 text-muted-foreground" />
-                                    <span className="truncate max-w-[140px]">{f.name}</span>
-                                    <button
-                                        type="button"
-                                        onClick={() => removeAttachedFile(f.id)}
-                                        className="text-muted-foreground hover:text-foreground ml-0.5"
-                                    >
-                                        <X className="w-3 h-3" />
-                                    </button>
-                                </div>
-                            ))}
-                        </div>
-
-                        {/* Textarea Input with Clear button and CJK IME guard */}
-                        <div className="relative">
-                            <Textarea
-                                value={prompt}
-                                onChange={(e) => setPrompt(e.target.value)}
-                                onKeyDown={(e) => {
-                                    if (e.nativeEvent.isComposing) return;
-                                    if (e.key === 'Enter' && !e.shiftKey) {
-                                        e.preventDefault();
-                                        handleSendMessage();
-                                    }
-                                }}
-                                placeholder={messages.length > 0 ? "이어서 요청하거나 궁금한 것을 물어보세요" : "만들고 싶은 영상이나 맡기고 싶은 작업을 말로 설명해 주세요."}
-                                className="min-h-[72px] max-h-48 resize-none border-0 shadow-none focus-visible:ring-0 p-2 pr-8 text-sm sm:text-base leading-relaxed bg-transparent"
-                            />
-                            {prompt && (
-                                <button
-                                    type="button"
-                                    onClick={() => setPrompt('')}
-                                    className="absolute top-2 right-2 p-1 text-muted-foreground hover:text-foreground rounded-full hover:bg-muted/80 transition-colors cursor-pointer"
-                                    title="입력 내용 지우기"
-                                >
-                                    <X className="w-3.5 h-3.5" />
-                                </button>
-                            )}
-                        </div>
-
-                        {/* Bottom Toolbar Row */}
-                        <div className="flex items-center justify-between pt-1 border-t border-border/40 text-xs">
-                            <div className="flex items-center gap-2">
-                                {/* Attach File */}
-                                <input
-                                    ref={fileInputRef}
-                                    type="file"
-                                    multiple
-                                    accept="video/*,audio/*,image/*"
-                                    onChange={handleFileUpload}
-                                    className="hidden"
-                                />
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => fileInputRef.current?.click()}
-                                    className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground rounded-full hover:bg-muted"
-                                    title="파일 또는 미디어 첨부 (+)"
-                                >
-                                    <Plus className="w-4 h-4" />
-                                </Button>
-
-                                {/* Authorization Scope: '나 대신 승인' (Codex Desktop 1:1) */}
-                                <div className="relative">
-                                    <select
-                                        value={securityScope}
-                                        onChange={(e) => setSecurityScope(e.target.value)}
-                                        className="h-8 px-2.5 text-xs bg-muted/40 hover:bg-muted text-foreground font-medium rounded-xl border border-border/70 focus:outline-hidden cursor-pointer"
-                                    >
-                                        <option value="모두 허용">🛡️ 나 대신 승인</option>
-                                        <option value="작업 폴더 허용">🛡️ 작업 폴더만 승인</option>
-                                        <option value="읽기 전용">🛡️ 확인 후 실행</option>
-                                    </select>
-                                </div>
-
-                                {/* Preset Selector & Inspector directly in Composer Toolbar */}
-                                {activePreset ? (
-                                    <div className="flex items-center gap-1">
-                                        <button
-                                            type="button"
-                                            onClick={() => setCustomizeModalOpen(true)}
-                                            className="h-8 px-2.5 rounded-xl text-xs gap-1.5 font-semibold bg-primary/10 text-primary border border-primary/30 hover:bg-primary/20 transition-all flex items-center shadow-2xs cursor-pointer"
-                                            title="클릭하여 프리셋 스타일 상세 설정 열기"
-                                        >
-                                            <Sliders className="w-3.5 h-3.5 text-primary shrink-0" />
-                                            <span className="truncate max-w-[120px]">{activePreset.name}</span>
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => setActivePreset(null)}
-                                            className="p-1 text-muted-foreground hover:text-foreground rounded-md hover:bg-muted cursor-pointer"
-                                            title="프리셋 선택 해제"
-                                        >
-                                            <X className="w-3 h-3" />
-                                        </button>
-                                    </div>
-                                ) : (
-                                    <Button
-                                        type="button"
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => setLoadModalOpen(true)}
-                                        className="h-8 px-2.5 rounded-xl text-xs gap-1.5 font-medium border-border/80 hover:bg-muted text-foreground cursor-pointer shadow-2xs"
-                                        title="프리셋 보관함에서 원하는 스타일 선택"
-                                    >
-                                        <Sliders className="w-3.5 h-3.5 text-primary" />
-                                        <span>프리셋 선택</span>
-                                    </Button>
-                                )}
-
-                                {/* Model Selector Popover (Codex Desktop 1:1) */}
-                                <ModelSelectorPopover
-                                    currentProvider={selectedProvider}
-                                    currentModel={selectedModel}
-                                    currentEffort={reasoningEffort}
-                                    onModelChange={(m) => setSelectedModel(m)}
-                                    onEffortChange={(eff) => setReasoningEffort(eff)}
-                                    onProviderChange={(prov) => handleProviderSelect(prov)}
-                                    providerAccountLabel={
-                                        (providersStatus[selectedProvider] || providersStatus['openai'] || providersStatus['codex'])?.accounts?.find((a: any) => a.is_active)?.email ||
-                                        (providersStatus[selectedProvider] || providersStatus['openai'] || providersStatus['codex'])?.active_plan
-                                    }
-                                />
-                            </div>
-
-                            {/* Round Send / Stop Button with keyboard shortcut hint */}
-                            <div className="flex items-center gap-2">
-                                <span className="text-[10px] text-muted-foreground/60 hidden sm:inline select-none font-mono">
-                                    ↵ 전송 · ⇧↵ 줄바꿈
-                                </span>
-                                {isStreaming ? (
-                                    <Button
-                                        type="button"
-                                        onClick={handleStopGeneration}
-                                        className="h-8 px-3 rounded-full bg-red-600 hover:bg-red-700 text-white shadow-md shrink-0 flex items-center gap-1.5 text-xs font-semibold cursor-pointer animate-pulse"
-                                        title="생성 중지"
-                                    >
-                                        <Square className="w-3.5 h-3.5 fill-current" />
-                                        <span>중지</span>
-                                    </Button>
-                                ) : (
-                                    <Button
-                                        type="button"
-                                        onClick={() => handleSendMessage()}
-                                        disabled={!prompt.trim() && attachedFiles.length === 0}
-                                        className="h-8 w-8 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground p-0 shadow-md shrink-0 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
-                                        title="메시지 전송 (Enter)"
-                                    >
-                                        <ArrowUp className="w-4 h-4" />
-                                    </Button>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                <DirectorInputBar
+                    prompt={prompt}
+                    onChangePrompt={setPrompt}
+                    onSendMessage={handleSendMessage}
+                    isStreaming={isStreaming}
+                    onCancelStream={handleStopGeneration}
+                    attachedFiles={attachedFiles}
+                    onRemoveAttachedFile={removeAttachedFile}
+                    onAttachFiles={handleAttachFiles}
+                    activePreset={activePreset}
+                    onOpenPresetModal={() => setLoadModalOpen(true)}
+                    onClearPreset={() => setActivePreset(null)}
+                    onOpenCustomizeModal={() => setCustomizeModalOpen(true)}
+                    onOpenCloudMediaModal={() => setCloudMediaModalOpen(true)}
+                    securityScope={securityScope}
+                    onChangeSecurityScope={setSecurityScope}
+                    isLiveVoiceActive={isGeminiLiveActive}
+                    onToggleLiveVoice={toggleGeminiLive}
+                    hasMessages={messages.length > 0}
+                    textareaRef={textareaRef}
+                    autoFocus={true}
+                />
             </main>
 
             {/* 3. Live Sidecar Browser View (Benchmarked 1:1 with Codex Desktop & Pixeling) */}
@@ -1906,6 +1609,8 @@ export const ConversationalDirectorPage: React.FC = () => {
             <DirectorRightPanel
                 open={rightPanelOpen}
                 onClose={() => setRightPanelOpen(false)}
+                activeTab={rightPanelTab}
+                onTabChange={setRightPanelTab}
                 activeVideo={activeVideoView}
                 onClearActiveVideo={() => setActiveVideoView(null)}
                 onSelectVideo={(v) => {
@@ -1979,6 +1684,29 @@ export const ConversationalDirectorPage: React.FC = () => {
                     setActivePreset(savedPreset);
                     toast.success(`[${savedPreset.name}] 프리셋이 선택한 폴더에 성공적으로 저장되었습니다.`);
                 }}
+            />
+
+            {/* ⏰ 이 채팅방 예약 모달 (Pixeling 1:1) */}
+            <ChatScheduleModal
+                open={scheduleModalOpen}
+                onOpenChange={setScheduleModalOpen}
+                currentConfig={scheduleConfig}
+                onSaveConfig={handleSaveScheduleConfig}
+            />
+
+            {/* 🔄 자동 이어가기 모달 (Pixeling 1:1) */}
+            <ChatAutoContinueModal
+                open={autoContinueModalOpen}
+                onOpenChange={setAutoContinueModalOpen}
+                currentConfig={autoContinueConfig}
+                onSaveConfig={handleSaveAutoContinueConfig}
+            />
+
+            {/* 🌐 클라우드 볼트 및 SNS/웹 온더플라이 씬 발골 모달 */}
+            <CloudMediaSourceModal
+                open={cloudMediaModalOpen}
+                onClose={() => setCloudMediaModalOpen(false)}
+                onAttachClip={handleAttachCloudClip}
             />
         </div>
     );

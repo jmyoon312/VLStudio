@@ -87,7 +87,7 @@ export const AutonomousPatrolPage: React.FC = () => {
             refetchArbiter();
         },
         onError: (err: any) => {
-            toast.error('킬스위치 제어 실패: ' + (err.response?.data?.detail || err.message));
+            toast.error('안전 제어 실패: ' + (err.response?.data?.detail || err.message));
         }
     });
 
@@ -197,7 +197,7 @@ export const AutonomousPatrolPage: React.FC = () => {
                             className="h-7 text-xs font-bold rounded-lg gap-1"
                         >
                             <AlertOctagon className="w-3.5 h-3.5" />
-                            킬스위치 해제
+                            일괄 중지 해제
                         </Button>
                     ) : (
                         <Button
@@ -207,7 +207,7 @@ export const AutonomousPatrolPage: React.FC = () => {
                             className="h-7 text-xs font-bold border-rose-500/30 text-rose-600 hover:bg-rose-500/10 rounded-lg gap-1"
                         >
                             <AlertOctagon className="w-3.5 h-3.5" />
-                            비상 킬스위치 작동
+                            일괄 긴급 중지
                         </Button>
                     )}
                 </div>

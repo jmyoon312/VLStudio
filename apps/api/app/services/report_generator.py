@@ -393,7 +393,7 @@ def generate_daily_report(db: Session) -> bool:
             llm = LLMClient(db_settings)
             target_model = getattr(db_settings, "script_analysis_model", None) or getattr(db_settings, "default_llm_model", None)
             prompt = f"""
-            너는 ViraLoop Studio의 최고 비즈니스 분석 및 자율 총괄 사령탑 '루피 AI(Loopie)'야.
+            너는 ViraLoop Studio의 최고 비즈니스 분석 및 자율 총괄 디렉터 '루피 AI(Loopie)'야.
             오늘 하루 동안 시스템에서 수행된 [수집], [제작], [배포], [채널 성장], [수익률 & ROI], [영상 후킹 분석], [댓글 시청자 소통] 전 주기의 데이터를 종합 분석하여
             대표님이 한눈에 보고 즉각 의사결정을 내릴 수 있는 최고 수준의 비즈니스 인텔리전스 일일 리포트(Executive BI Daily Report)를 마크다운 형식으로 작성해줘.
             

@@ -71,6 +71,30 @@ async def enqueue_video(item: QueueItemCreate):
     
     return {"item_id": item_id, "status": "queued"}
 
+class EnqueueDeliverableRequest(BaseModel):
+    video_file_path: str
+    title: str
+    channel_id: Optional[str] = "default_channel"
+    priority: Optional[str] = "high"
+    tags: Optional[List[str]] = []
+    description: Optional[str] = ""
+
+@router.post("/enqueue-deliverable")
+async def enqueue_deliverable(req: EnqueueDeliverableRequest):
+    """Directly enqueue a rendered deliverable into the YouTube auto deployment queue"""
+    queue_mgr = get_queue_manager()
+    video_data = {
+        "video_file_path": req.video_file_path,
+        "title": req.title,
+        "channel_id": req.channel_id or "default_channel",
+        "metadata": {
+            "description": req.description or f"{req.title}\n\n#Shorts #Viral #ViraLoop",
+            "tags": req.tags or ["Shorts", "Viral"]
+        }
+    }
+    item_id = await queue_mgr.enqueue(video_data=video_data, source="auto", priority=req.priority or "high")
+    return {"success": True, "item_id": item_id, "title": req.title, "message": "유튜브 자동 배포 대기열에 성공적으로 등록되었습니다."}
+
 @router.put("/{item_id}/status")
 async def update_status(item_id: str, update: QueueStatusUpdate):
     """Update queue item status"""

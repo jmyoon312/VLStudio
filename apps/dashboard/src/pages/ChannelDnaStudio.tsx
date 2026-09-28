@@ -313,7 +313,7 @@ export const ChannelDnaStudio: React.FC = () => {
       });
       toast({
         title: '👑 브랜드 채널 생성 성공!',
-        description: `'${brandChannelName}' 채널이 AI 사령탑에 성공적으로 배속되었습니다.`
+        description: `'${brandChannelName}' 채널이 AI 제작팀에 성공적으로 배정되었습니다.`
       });
     } catch (e: any) {
       toast({
@@ -461,7 +461,7 @@ export const ChannelDnaStudio: React.FC = () => {
             className="data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-sm text-xs sm:text-sm py-3 rounded-xl font-bold flex items-center justify-center gap-2 cursor-pointer transition-all border border-transparent data-[state=active]:border-border/60"
           >
             <Shield className="w-4 h-4 text-emerald-500 shrink-0" />
-            <span>5. 내 채널 등록 & 사령탑 배속</span>
+            <span>5. 내 채널 등록 & AI 제작팀 배정</span>
           </TabsTrigger>
         </TabsList>
 
@@ -1117,7 +1117,7 @@ export const ChannelDnaStudio: React.FC = () => {
           </div>
         </TabsContent>
 
-        {/* ─── TAB 4: 내 브랜드 채널 등록 & AI 사령탑 배속 (6:6 Full Width Grid) ─── */}
+        {/* ─── TAB 4: 내 브랜드 채널 등록 & AI 전담 제작팀 배정 (6:6 Full Width Grid) ─── */}
         <TabsContent value="deploy" className="w-full min-h-[600px] space-y-6 pt-2">
           <div className="w-full grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
             {/* 좌측 6단: 브랜드 채널 설정 */}
@@ -1128,7 +1128,7 @@ export const ChannelDnaStudio: React.FC = () => {
                   새로운 브랜드 채널 등록
                 </CardTitle>
                 <CardDescription className="text-xs sm:text-sm text-muted-foreground pt-1">
-                  확정된 DNA 레이아웃을 바탕으로 내 전용 채널을 생성하고, AI 사령탑의 전담 중간 관리자(디렉터)를 1:1로 배속합니다.
+                  확정된 DNA 레이아웃을 바탕으로 내 전용 채널을 생성하고, 전담 채널 디렉터를 1:1로 배정합니다.
                 </CardDescription>
               </CardHeader>
 
@@ -1156,20 +1156,20 @@ export const ChannelDnaStudio: React.FC = () => {
                   onClick={handleCreateBrandChannel}
                   className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black text-sm py-4 rounded-2xl shadow-sm cursor-pointer transition-all mt-4"
                 >
-                  👑 브랜드 채널 생성 및 무인 양산 가동
+                  👑 브랜드 채널 생성 및 자동 제작 가동
                 </Button>
               </div>
             </Card>
 
-            {/* 우측 6단: AI 사령탑 배속 관제 현황 */}
+            {/* 우측 6단: AI 전담 제작팀 배정 관제 현황 */}
             <Card className="lg:col-span-6 w-full bg-card border border-border/80 text-card-foreground rounded-3xl shadow-xs p-6 space-y-5">
               <CardHeader className="p-0">
                 <CardTitle className="text-base sm:text-lg font-black text-foreground flex items-center gap-2.5">
                   <Award className="w-5 h-5 text-emerald-500" />
-                  AI 사령탑 자율 워커 배속 현황
+                  AI 전담 제작팀 배정 현황
                 </CardTitle>
                 <CardDescription className="text-xs sm:text-sm text-muted-foreground pt-1">
-                  채널 개설 즉시 3계층 주권 팩토리 거버넌스 하에서 독립 상태 머신이 가동됩니다.
+                  채널 개설 즉시 3계층 제작 시스템 하에서 독립 프로세스가 가동됩니다.
                 </CardDescription>
               </CardHeader>
 

@@ -59,7 +59,7 @@ class BackgroundWorkerManager:
 
     async def _run_community_autopilot(self):
         """
-        루피 AI 사령탑에 의한 채널별 자동 댓글 관리 워커 사이클 실행
+        루피 AI 총괄 디렉터에 의한 채널별 자동 댓글 관리 워커 사이클 실행
         """
         from app.services.community_service import CommunityService
         if not getattr(CommunityService, "_autopilot_global_enabled", True):

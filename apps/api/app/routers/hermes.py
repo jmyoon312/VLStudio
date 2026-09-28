@@ -171,8 +171,13 @@ async def stream_director_execution(request: dict):
     reasoning_effort = request.get("reasoning_effort")
     history = request.get("history", [])
 
-    from app.agent.hermes_core.conversational_director import ConversationalDirector
-    director = ConversationalDirector()
+    import importlib
+    import app.agent.hermes_core.conversational_director as cd_mod
+    try:
+        importlib.reload(cd_mod)
+    except Exception as re_err:
+        logger.debug(f"[Hermes] Hot-reload notice: {re_err}")
+    director = cd_mod.ConversationalDirector()
 
     async def event_generator():
         try:

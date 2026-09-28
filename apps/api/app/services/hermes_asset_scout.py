@@ -148,6 +148,124 @@ class HermesAssetScout:
             return None
 
     @classmethod
+    async def stream_slice_online(
+        cls, 
+        url: str, 
+        start_time: str, 
+        end_time: str, 
+        output_name: Optional[str] = None
+    ) -> Optional[str]:
+        """
+        [DIRECT ONLINE STREAM RANGE SLICING]
+        Downloads ONLY the required section (e.g. 10~15 seconds) from a remote video
+        using HTTP range requests without downloading the entire large file.
+        Saves to 02_Operations/Temp and returns local path.
+        """
+        ytdlp = cls._get_ytdlp_path()
+        if output_name:
+            safe_name = re.sub(r'[^a-zA-Z0-9_\-\.]', '_', output_name)
+            out_path = TEMP_DIR / f"{safe_name}.mp4"
+        else:
+            safe_id = re.sub(r'[^a-zA-Z0-9_\-]', '_', url.split('/')[-1])
+            out_path = TEMP_DIR / f"slice_{safe_id}_{int(asyncio.get_event_loop().time())}.mp4"
+
+        # Format section string for yt-dlp (e.g., "*00:01:10-00:01:25")
+        start_clean = str(start_time).strip().lstrip('*')
+        end_clean = str(end_time).strip().lstrip('*')
+        section_spec = f"*{start_clean}-{end_clean}"
+
+        cmd = [
+            ytdlp,
+            "--extractor-args", "youtube:player_client=android,web",
+            "--download-sections", section_spec,
+            "--force-keyframes-at-cuts",
+            "-f", "bestvideo+bestaudio/best",
+            "--merge-output-format", "mp4",
+            "-o", str(out_path),
+            url,
+            "--no-playlist"
+        ]
+
+        logger.info(f"⚡ [HermesScout] Streaming slice directly from online: {url} [{section_spec}]")
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=60)
+            
+            if out_path.exists() and out_path.stat().st_size > 1000:
+                logger.info(f"✅ [HermesScout] Online slice captured in seconds: {out_path} ({out_path.stat().st_size / 1024:.1f} KB)")
+                return str(out_path.resolve())
+            
+            # Check for possible alternative extensions (e.g. .mkv/.webm merged)
+            matches = list(TEMP_DIR.glob(f"{out_path.stem}.*"))
+            if matches and matches[0].stat().st_size > 1000:
+                return str(matches[0].resolve())
+
+            logger.warning(f"Slice download did not generate expected file: {stderr.decode('utf-8', errors='ignore')[:200]}")
+            return None
+        except Exception as e:
+            logger.error(f"Failed to stream slice from '{url}': {e}")
+            return None
+
+    @classmethod
+    async def reverse_source_shorts(cls, shorts_url: str) -> Optional[Dict[str, Any]]:
+        """
+        [SHORTS REVERSE SOURCING ENGINE]
+        Inspects a short-form video (YouTube Shorts/TikTok) and traces back to
+        the original long-form, high-resolution source video.
+        """
+        ytdlp = cls._get_ytdlp_path()
+        cmd = [ytdlp, "--dump-json", "--skip-download", shorts_url, "--no-playlist"]
+
+        logger.info(f"🔎 [HermesScout] Reverse sourcing original video for Shorts: {shorts_url}")
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=20)
+            data = json.loads(stdout.decode("utf-8", errors="ignore"))
+
+            title = data.get("title", "")
+            description = data.get("description", "")
+            uploader = data.get("uploader", "")
+
+            # 1. Search description for source URLs
+            found_urls = cls.extract_urls(description)
+            for u in found_urls:
+                if "youtube.com/watch" in u or "youtu.be/" in u:
+                    logger.info(f"🎯 [HermesScout] Found direct original URL in description: {u}")
+                    return {"url": u, "source_type": "description_credit", "original_title": title}
+
+            # 2. Extract clean search keywords from title (removing hashtags and emoji)
+            clean_title = re.sub(r'#[a-zA-Z0-9_\-]+', '', title)
+            clean_title = re.sub(r'[^\w\s]', ' ', clean_title).strip()
+            
+            search_query = f"{clean_title} full video"
+            candidates = await cls.search_youtube(search_query, max_results=3)
+            if candidates:
+                # Pick the longest video candidate (typically long-form original)
+                longest = max(candidates, key=lambda c: c.get("duration", 0))
+                logger.info(f"🎯 [HermesScout] Found long-form candidate: '{longest.get('title')}' ({longest.get('duration_string')})")
+                return {
+                    "url": longest.get("url"),
+                    "title": longest.get("title"),
+                    "duration": longest.get("duration"),
+                    "duration_string": longest.get("duration_string"),
+                    "thumbnail": longest.get("thumbnail"),
+                    "source_type": "youtube_search_scout"
+                }
+
+            return None
+        except Exception as e:
+            logger.error(f"Reverse sourcing failed for '{shorts_url}': {e}")
+            return None
+
+    @classmethod
     def extract_urls(cls, text: str) -> List[str]:
         """Extract YouTube or HTTP URLs from user prompt."""
         url_pattern = r'https?://(?:www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b(?:[-a-zA-Z0-9()@:%_\+.~#?&//=]*)'

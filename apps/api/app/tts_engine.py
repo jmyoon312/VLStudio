@@ -50,9 +50,9 @@ class TTSEngine:
             output_path = os.path.join(target_dir, filename)
         abs_path = os.path.abspath(output_path)
 
-        # Normalize engine: Default to supertone-local, eliminate edge and legacy google
-        if not engine or engine in ["edge", "edge-tts", "edge_tts"]:
-            engine = "supertone-local"
+        # Normalize engine: Default to Gemini 3.8 Flash TTS as primary voice engine
+        if not engine or engine in ["edge", "edge-tts", "edge_tts", "default"]:
+            engine = "gemini"
         elif engine in ["google", "gtts"]:
             # Upgrade legacy google calls to Gemini 3.8 Flash TTS
             engine = "gemini"
@@ -60,7 +60,18 @@ class TTSEngine:
         try:
             # 1. Generate Audio
             if engine == "gemini":
-                await self._generate_gemini(text, voice_id, abs_path)
+                style_inst = voice_settings.get("style_instruction") if voice_settings else None
+                try:
+                    await self._generate_gemini(text, voice_id, abs_path, emotion=emotion, style_instruction=style_inst)
+                except Exception as gem_err:
+                    logger.warning(f"⚠️ Gemini 3.8 Flash TTS failed ({gem_err}), graceful fallback to supertone-local...")
+                    await asyncio.to_thread(
+                        self._generate_supertone_local,
+                        text, voice_id or "F1", abs_path,
+                        language=language,
+                        speed=1.0 + (rate / 100.0),
+                        emotion=emotion
+                    )
             
             elif engine == "elevenlabs":
                 await self._generate_elevenlabs(text, voice_id, abs_path, voice_settings)
@@ -581,9 +592,10 @@ class TTSEngine:
             logger.error(f"Kokoro Error: {e}")
             raise e
 
-    async def _generate_gemini(self, text, voice_id, path):
+    async def _generate_gemini(self, text, voice_id, path, emotion: str = "normal", style_instruction: str = None):
         """
         Synthesizes speech using Google's next-generation Gemini 3.8 Flash TTS.
+        Supports fine-grained emotional acting, cadence, and directorial style instructions.
         Tier 1: Direct Native Google Gemini API (models/gemini-3.8-flash-tts, audio/wav)
         Tier 2: OmniRoute Local Gateway (/v1/audio/speech, gemini/gemini-3.8-flash-tts)
         """
@@ -600,6 +612,20 @@ class TTSEngine:
             def run_direct():
                 tts_model = getattr(self.settings, "gemini_tts_model", "gemini-3.8-flash-tts") or "gemini-3.8-flash-tts"
                 url = f"https://generativelanguage.googleapis.com/v1beta/models/{tts_model}:generateContent?key={api_key}"
+                
+                # Emotional Acting & Cadence Guidance
+                emotion_guides = {
+                    "excited": "말투: 매우 신나고 열정적인 숏폼 크리에이터 톤으로 역동적으로 연기하세요.",
+                    "dramatic": "말투: 극적이고 긴장감 넘치는 다큐멘터리 서스펜스 톤으로 연기하세요.",
+                    "serious": "말투: 진지하고 신뢰감 있는 보도/사건사고 해설 톤으로 연기하세요.",
+                    "whisper": "말투: 은밀하게 비밀을 속삭이듯 호기심을 극대화하는 톤으로 연기하세요.",
+                    "sarcastic": "말투: 위트 있고 냉소적인 밈(Meme) 유튜버 톤으로 연기하세요.",
+                    "happy": "말투: 밝고 유쾌하며 친근한 톤으로 연기하세요.",
+                    "sad": "말투: 차분하고 애절하며 감성적인 톤으로 연기하세요.",
+                    "urgent": "말투: 1초가 급한 긴급 속보 톤으로 빠른 템포로 전달하세요."
+                }
+                acting_prompt = style_instruction or emotion_guides.get(emotion.lower() if emotion else "normal")
+
                 payload = {
                     "contents": [{"parts": [{"text": text}]}],
                     "generationConfig": {
@@ -613,6 +639,9 @@ class TTSEngine:
                         }
                     }
                 }
+                if acting_prompt:
+                    payload["systemInstruction"] = {"parts": [{"text": acting_prompt}]}
+
                 res = requests.post(url, json=payload, timeout=25)
                 if res.status_code == 200:
                     data = res.json()

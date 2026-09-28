@@ -1047,7 +1047,7 @@ def bulk_start_warmup(
 
 @router.post("/warmup/bulk/pause")
 def bulk_pause_warmup(db: Session = Depends(get_db)):
-    """실행 중인 모든 웜업 즉시 일시정지 (실시간 킬스위치 연동)"""
+    """실행 중인 모든 웜업 즉시 일시정지 (실시간 일괄 긴급 중지 연동)"""
     try:
         if session_manager:
             session_manager.request_abort()

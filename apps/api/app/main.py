@@ -171,7 +171,7 @@ from app.routers import (
     pipeline_router, universal_cutter, analytics, community, shorts_production,
     media_intelligence, viral_intelligence, discovery, bgm_router, ranking_shorts,
     long_to_short, meokguri, video_creative, movie_drama_shorts, song_shorts, sns_trend,
-    ai_accounts, director_sessions, sourcing_center
+    ai_accounts, director_sessions, sourcing_center, stream_slicer, gemini_live_router
 )
 from app import job_queue, crud, models, scheduler
 from app.utils.path_utils import normalize_path
@@ -635,8 +635,7 @@ app.include_router(veo_prompt_agent.router, prefix="/api/veo", tags=["intelligen
 app.include_router(mcp.router, prefix="/api/mcp", tags=["intelligence"])
 app.include_router(mcp_registry.router, prefix="/api/mcp", tags=["intelligence"])
 app.include_router(media_intelligence.router, prefix="/api", tags=["intelligence"])
-
-
+app.include_router(gemini_live_router.router)
 app.include_router(assets.router, prefix="/api/assets", tags=["assets"])
 app.include_router(bgm_router.router, prefix="/api/bgm", tags=["assets"])
 app.include_router(notebooklm_accounts.router, prefix="/api/notebooklm-accounts", tags=["infra"])
@@ -689,6 +688,8 @@ app.include_router(sovereign_presets.router, prefix="/api", tags=["sovereign_pre
 app.include_router(ai_accounts.router, prefix="/api", tags=["ai_accounts"])
 app.include_router(director_sessions.router, prefix="/api", tags=["director_sessions"])
 app.include_router(sourcing_center.router, tags=["sourcing_center"])
+app.include_router(stream_slicer.router)
+app.include_router(stream_slicer.vault_router)
 
 # New Phase 7-10 Routers
 app.include_router(queue_management.router)

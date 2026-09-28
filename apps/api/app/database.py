@@ -132,6 +132,11 @@ else:
                 try:
                     cursor.execute("CREATE INDEX IF NOT EXISTS ix_sns_trend_cat_cntry ON sns_trend_items(platform, category, country);")
                     cursor.execute("CREATE INDEX IF NOT EXISTS ix_sns_trend_created ON sns_trend_items(created_at DESC);")
+                    # [Sourcing Center Optimization] Sourcing assets indexes
+                    cursor.execute("CREATE INDEX IF NOT EXISTS ix_sourcing_asset_type_major ON sourcing_assets(asset_type, category_major);")
+                    cursor.execute("CREATE INDEX IF NOT EXISTS ix_sourcing_status ON sourcing_assets(status);")
+                    cursor.execute("CREATE INDEX IF NOT EXISTS ix_sourcing_vision_score ON sourcing_assets(vision_score DESC);")
+                    cursor.execute("CREATE INDEX IF NOT EXISTS ix_sourcing_created_at ON sourcing_assets(created_at DESC);")
                 except Exception:
                     pass
             except Exception:
@@ -307,7 +312,9 @@ def migrate_source_external_id():
                     ("hermes_structured_schema_enforced", "BOOLEAN DEFAULT 1"),
                     ("hermes_instruction_protection_enabled", "BOOLEAN DEFAULT 1"),
                     ("hermes_har_api_mode", "VARCHAR(20) DEFAULT 'auto'"),
-                    ("hermes_fts_wal_pool_size", "INTEGER DEFAULT 5")
+                    ("hermes_fts_wal_pool_size", "INTEGER DEFAULT 5"),
+                    ("telegram_vault_bot_token", "TEXT"),
+                    ("telegram_vault_chat_id", "TEXT")
                 ]
                 for col_name, col_def in hermes_new_cols:
                     if col_name not in settings_cols:

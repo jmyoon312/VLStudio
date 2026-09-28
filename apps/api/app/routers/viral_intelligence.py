@@ -2271,7 +2271,7 @@ async def get_trend_ai_briefing(
     db: Session = Depends(database.get_db),
 ):
     """
-    루피 AI 사령탑 실시간 트렌드 지능 브리핑 반환
+    루피 AI 총괄 디렉터 실시간 트렌드 지능 브리핑 반환
     """
     try:
         return await google_trend_engine.generate_executive_trend_briefing(db=db, force_refresh=refresh)

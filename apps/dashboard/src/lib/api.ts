@@ -225,6 +225,12 @@ export interface Settings {
     sambanova_api_keys: string[];
     cerebras_api_keys: string[];
     opencode_api_keys: string[];
+    tmdb_api_key?: string | null;
+    kobis_api_key?: string | null;
+    youtube_data_api_keys?: string[];
+    openai_api_keys?: string[];
+    claude_api_keys?: string[];
+    grok_api_keys?: string[];
     jina_reader_endpoint: string;
     jina_reader_api_keys: string[];
     pexels_api_keys: string[];
@@ -265,6 +271,8 @@ export interface Settings {
     hermes_max_subagents?: number;
     telegram_bot_token?: string | null;
     telegram_chat_id?: string | null;
+    telegram_vault_bot_token?: string | null;
+    telegram_vault_chat_id?: string | null;
     telegram_notify_enabled?: boolean;
     cron_patrol_enabled?: boolean;
     cron_patrol_schedule?: string;

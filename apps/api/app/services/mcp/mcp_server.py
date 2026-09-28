@@ -3107,7 +3107,130 @@ async def analyze_single_video(
     }
 
 
+# ══════════════════════════════════════════════════════════════════════════════
+# § 12. ON-THE-FLY STREAM SLICER & CLOUD VAULT MCP TOOLS
+# ══════════════════════════════════════════════════════════════════════════════
+
+@mcp.tool()
+async def slice_stream_video(
+    source_url: str,
+    start_seconds: float = 0.0,
+    duration_seconds: float = 30.0
+) -> Dict[str, Any]:
+    """
+    [STREAM SLICER] 더우인, 틱톡, 유튜브, 웹 스트림 URL에서 영상을 통째로 다운로드하지 않고,
+    원하는 시작 시간부터 지정된 길이(초) 구간만 메모리/스트림 레벨에서 1~2초 만에 즉시 추출합니다.
+    04_Profiles에 보존된 쿠키 세션을 자동으로 사용하여 봇 차단 및 워터마크를 우회합니다.
+    """
+    from app.services.zero_download_slicer import zero_download_slicer
+    logger.info(f"✂️ [MCP:SLICER] slice_stream_video | url={source_url} start={start_seconds}s dur={duration_seconds}s")
+    try:
+        res = await zero_download_slicer.slice_stream(
+            source_url=source_url,
+            start_seconds=start_seconds,
+            duration_seconds=duration_seconds
+        )
+        return {
+            "success": True,
+            "filename": res["filename"],
+            "filepath": res["filepath"],
+            "stream_url": res["stream_url"],
+            "size_mb": res["size_mb"],
+            "duration": res["duration"],
+            "title": res.get("title")
+        }
+    except Exception as e:
+        logger.error(f"❌ [MCP:SLICER] Slicing failed: {e}")
+        return {"success": False, "error": str(e)}
 
 
+@mcp.tool()
+async def list_telegram_vault_videos(category: Optional[str] = None) -> Dict[str, Any]:
+    """
+    [CLOUD VAULT] 텔레그램 무제한 클라우드 볼트에 보관된 대용량 영화/드라마 및 비디오 목록을 조회합니다.
+    (용량 무제한, 트래픽 0원, 구글 연좌제 리스크 0%)
+    """
+    from app.services.telegram_cloud_vault import telegram_cloud_vault
+    logger.info("☁️ [MCP:VAULT] list_telegram_vault_videos")
+    try:
+        files = await telegram_cloud_vault.list_vault_files(category=category)
+        return {
+            "success": True,
+            "count": len(files),
+            "files": files
+        }
+    except Exception as e:
+        return {"success": False, "error": str(e)}
 
 
+@mcp.tool()
+async def slice_telegram_vault_video(
+    file_id: str,
+    start_seconds: float,
+    duration_seconds: float = 30.0
+) -> Dict[str, Any]:
+    """
+    [CLOUD VAULT] 텔레그램 클라우드 볼트에 보관된 대용량 영화 파일에서
+    원하는 씬 구간(시작초, 길이)을 다운로드 없이 온더플라이로 잘라내어 로컬 작업실로 가져옵니다.
+    """
+    from app.services.telegram_cloud_vault import telegram_cloud_vault
+    logger.info(f"✂️ [MCP:VAULT] slice_telegram_vault_video | file_id={file_id} start={start_seconds}s")
+    try:
+        res = await telegram_cloud_vault.slice_vault_file(
+            file_id=file_id,
+            start_seconds=start_seconds,
+            duration_seconds=duration_seconds
+        )
+        return {
+            "success": True,
+            "filename": res["filename"],
+            "filepath": res["filepath"],
+            "stream_url": res["stream_url"],
+            "size_mb": res["size_mb"],
+            "duration": res["duration"]
+        }
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+@mcp.tool()
+def get_channel_sovereign_preset(channel_name_or_id: str) -> Dict[str, Any]:
+    """
+    [SOVEREIGN CHANNEL] 특정 소셜 채널(틱톡/인스타/더우인)에 1:1로 매핑된
+    소버린 프리셋(스타일 DNA, 폰트, 외곽선, 자막 위치 등)을 조회합니다.
+    """
+    import sqlite3
+    LOCAL_APPDATA = os.environ.get("LOCALAPPDATA", str(Path.home() / "AppData" / "Local"))
+    DB_PATH = Path(LOCAL_APPDATA) / "ViraLoop Studio" / "media" / "06_Database" / "viral_loop.db"
+    
+    logger.info(f"🎨 [MCP:CHANNEL] get_channel_sovereign_preset | target={channel_name_or_id}")
+    try:
+        # Check localStorage cache or DB mappings
+        PRESETS_DIR = Path(LOCAL_APPDATA) / "ViraLoop Studio" / "media" / "03_Assets" / "presets"
+        preset_files = list(PRESETS_DIR.glob("*.json"))
+        
+        # Search preset matching name or keyword
+        matched_preset = None
+        for pf in preset_files:
+            if channel_name_or_id.lower() in pf.stem.lower():
+                with open(pf, "r", encoding="utf-8") as f:
+                    matched_preset = json.load(f)
+                    break
+
+        if matched_preset:
+            return {
+                "success": True,
+                "found": True,
+                "preset_id": matched_preset.get("id", matched_preset.get("name")),
+                "preset_name": matched_preset.get("name"),
+                "style": matched_preset.get("style", {}),
+                "recipe": matched_preset.get("recipe", "")
+            }
+
+        return {
+            "success": True,
+            "found": False,
+            "message": f"'{channel_name_or_id}' 채널의 고유 프리셋을 찾지 못하여 기본 템플릿(Classic)을 추천합니다."
+        }
+    except Exception as e:
+        return {"success": False, "error": str(e)}

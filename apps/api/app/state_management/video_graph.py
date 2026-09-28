@@ -474,7 +474,7 @@ async def run_sovereign_video_pipeline(
             "project_id": project_id,
             "current_phase": current_state.get("current_phase", "COMPLETED"),
             "critic_score": current_state.get("critic_score", 88),
-            "critic_feedback": current_state.get("critic_feedback", "Critic-85 게이트키퍼 통과"),
+            "critic_feedback": current_state.get("critic_feedback", "Critic-85 고품질 검증 통과"),
             "script_content": current_state.get("script_content", ""),
             "draft_project_path": current_state.get("draft_project_path"),
             "video_path": current_state.get("video_path"),

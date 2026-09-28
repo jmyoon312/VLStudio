@@ -93,7 +93,6 @@ class PluggableBrainRouter:
 
     def _create_langchain_model(self, provider: str, model_name: str, settings, api_key: str = None) -> Optional[BaseChatModel]:
         from langchain_openai import ChatOpenAI
-        from langchain_anthropic import ChatAnthropic
 
         provider = provider.lower()
         logger.info(f"🧠 Initializing LangChain model: {provider}/{model_name}")
@@ -216,15 +215,28 @@ class PluggableBrainRouter:
                     temperature=0.7
                 )
 
-            elif provider == "openai":
+            elif provider in ["openai", "codex", "chatgpt_web"]:
                 api_key = getattr(settings, "openai_api_key", None) if settings else None
                 if not api_key:
                     api_key = os.getenv("OPENAI_API_KEY")
                 
+                # Check for Codex Astra session token if no direct OpenAI API key
+                if not api_key and provider in ["codex", "chatgpt_web"]:
+                    try:
+                        from app.agent.hermes_core.conversational_director import ConversationalDirector
+                        sess = ConversationalDirector()._get_codex_auth_session()
+                        if sess and sess.get("access_token"):
+                            api_key = sess["access_token"]
+                    except Exception:
+                        pass
+                
                 clean_model = model_name.split("/", 1)[1] if "/" in model_name else model_name
+                if not clean_model:
+                    clean_model = getattr(settings, "script_analysis_model", None) or getattr(settings, "default_llm_model", None) or "auto"
+                
                 return ChatOpenAI(
                     model=clean_model,
-                    openai_api_key=api_key,
+                    openai_api_key=api_key or "sk-placeholder",
                     temperature=0.7
                 )
 

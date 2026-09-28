@@ -440,6 +440,16 @@ class Settings(Base):
     opencode_api_keys = Column(JSON, default=list)      # OpenCode Zen
     youtube1_api_keys = Column(JSON, default=list)      # YouTube1 (Custom OpenAI-compatible)
     
+    # [NEW] Movie/Drama Sourcing & External Media APIs
+    tmdb_api_key = Column(String, nullable=True)        # The Movie Database (TMDB)
+    kobis_api_key = Column(String, nullable=True)       # Korean Film Council (KOBIS)
+    youtube_data_api_keys = Column(JSON, default=list)  # YouTube Data API v3 Official Keys
+    
+    # [NEW] Direct AI Sovereign Keys
+    openai_api_keys = Column(JSON, default=list)        # OpenAI Direct Keys
+    claude_api_keys = Column(JSON, default=list)        # Anthropic Claude Direct Keys
+    grok_api_keys = Column(JSON, default=list)          # xAI Grok Direct Keys
+    
     # [NEW] Media & Automation Keys
     pexels_api_keys = Column(JSON, default=list)       # Pexels
     pixabay_api_keys = Column(JSON, default=list)      # Pixabay
@@ -564,6 +574,9 @@ class Settings(Base):
         "comment_activity": True,
         "system_critical_error": True
     })
+    # [NEW] Cloud Media Vault Dedicated Telegram Channel (대용량 미디어 무제한 백업 전용)
+    telegram_vault_bot_token = Column(String, nullable=True) # 전용 봇 토큰 (미입력 시 telegram_bot_token 기본 활용)
+    telegram_vault_chat_id = Column(String, nullable=True)   # 전용 비공개 채널 ID (예: -100xxxxxxxxxx)
     cron_patrol_enabled = Column(Boolean, default=False)
     cron_patrol_schedule = Column(String, default="08:30,18:30")
     
@@ -1831,6 +1844,8 @@ class DirectorThread(Base):
     provider = Column(String, default="openai")
     model = Column(String, default="GPT-6 Astra")
     reasoning_effort = Column(String, default="medium")
+    is_pinned = Column(Boolean, default=False)
+    is_archived = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.now)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
 

@@ -134,7 +134,7 @@ class CommunityService:
     @staticmethod
     def get_autopilot_status(db: Session) -> Dict[str, Any]:
         """
-        루피 AI 커뮤니티 오토파일럿 사령탑 상태 및 채널별 설정 조회
+        루피 AI 커뮤니티 전담 관리 상태 및 채널별 설정 조회
         """
         from app.services.channel_network_guard import channel_network_guard
         from app.services.background_workers import background_workers
@@ -228,7 +228,7 @@ class CommunityService:
     @staticmethod
     def run_autopilot_cycle(db: Session, target_channel_id: Optional[str] = None) -> Dict[str, Any]:
         """
-        루피 AI 사령탑이 통제하는 채널별 자율 댓글 관리 워커 사이클 실행
+        루피 AI 총괄 디렉터가 총괄하는 채널별 자율 댓글 관리 워커 사이클 실행
         1. 채널별 보안 네트워크(고정 ISP 또는 LTE 교체) 격리 컨텍스트 적용
         2. 채널별 댓글 스카우트/수집
         3. 루피 AI 맞춤 답글 생성 및 정책(SAFE_AUTO, FULL_AUTO, MANUAL_REVIEW)에 따른 자동 처리
@@ -321,7 +321,7 @@ class CommunityService:
                         cycle_summary["flagged_for_review"] += 1
                         if not c.is_alerted:
                             msg = (
-                                f"⚠️ <b>[루피 사령탑 관제] {ch.title} 채널 주의 댓글 감지!</b>\n\n"
+                                f"⚠️ <b>[루피 AI 전담 관제] {ch.title} 채널 주의 댓글 감지!</b>\n\n"
                                 f"• 영상: {c.video_title or '영상'}\n"
                                 f"• 작성자: {c.author_name} ({c.sentiment})\n"
                                 f"• 내용: \"{c.text}\"\n\n"

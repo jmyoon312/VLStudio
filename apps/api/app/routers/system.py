@@ -2,6 +2,7 @@ import os
 import sys
 import time
 import json
+import asyncio
 import logging
 import subprocess
 import platform
@@ -1001,7 +1002,7 @@ def get_patch_status():
             "last_checked": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "release_notes": (
                 "### ViraLoop Studio v6.5.2 정식 패치 릴리즈\n"
-                "- [AI루피] AI 루피 차세대 3-Way 지휘 콘솔: 사이드 도킹 드로어, 플로팅 워룸 모달, 대화 히스토리 영구 보존\n"
+                "- [AI루피] AI 루피 차세대 3-Way 워크스테이션: 사이드 패널 모드, 플로팅 창 모드, 대화 히스토리 영구 보존\n"
                 "- [매트릭스] 6대 숏폼 & 롱폼 제작 매트릭스: 원테이크형, 음악비트형, 대본해설형, 영화컷팅형, AI완전창작형, 하이브리드롱폼\n"
                 "- [파이프라인] 동적 모듈형 레고블록 파이프라인: 무제한 커스텀 파이프라인 생성, 저장, 실행\n"
                 "- [MCP] Full-Spectrum MCP Server: 10대 메뉴 24개 엔드포인트 전면 개방\n"
@@ -1205,7 +1206,7 @@ def _sync_loopie_components_from_github(target: str = "all") -> Dict[str, Any]:
     synced_files = []
     messages = []
 
-    # 1. Root MCP Server (도구 사령탑) GitHub 패치
+    # 1. Root MCP Server (도구 허브) GitHub 패치
     if target in ["all", "mcp_server"]:
         mcp_files = [
             ("mcp-server/lib/viraloopTools.js", os.path.join(project_root, "mcp-server", "lib", "viraloopTools.js")),
@@ -1557,7 +1558,7 @@ def get_loopie_components_status():
                 {
                     "id": "mcp_server",
                     "name": "Root MCP Server",
-                    "subtitle": "프로토콜 서버 런타임 & 도구 사령탑",
+                    "subtitle": "프로토콜 서버 런타임 & 도구 허브",
                     "description": "Anthropic Model Context Protocol(MCP) 공식 SDK 기반 서버 런타임. 루피가 CapCut, 영상 다운로드, 씬 생성 등 24대 도구를 호출하는 백그라운드 브릿지입니다.",
                     "version": sdk_version,
                     "protocol": "Model Context Protocol (Stdio/SSE)",
@@ -1593,7 +1594,7 @@ def get_loopie_components_status():
                 {
                     "id": "mcp_server",
                     "name": "Root MCP Server",
-                    "subtitle": "프로토콜 서버 런타임 & 도구 사령탑",
+                    "subtitle": "프로토콜 서버 런타임 & 도구 허브",
                     "description": "Anthropic Model Context Protocol(MCP) 공식 SDK 기반 서버 런타임.",
                     "version": "v1.0.0",
                     "protocol": "Model Context Protocol (Stdio/SSE)",
@@ -1660,6 +1661,7 @@ async def toggle_mcp_server(req: McpToggleRequest):
         if _mcp_process and _mcp_process.poll() is None:
             return {"success": True, "running": True, "message": "Root MCP 서버가 이미 실행 중입니다."}
         try:
+            import asyncio
             node_exe = "node"
             _mcp_process = subprocess.Popen(
                 [node_exe, mcp_index],
@@ -1774,7 +1776,7 @@ DEFAULT_ROSTER_DATA = [
         "role": "바이럴 비평가",
         "name": "Critic-85",
         "avatarEmoji": "🧐",
-        "desc": "대본의 후킹 강도, 완청률 가능성, 정보 밀도를 채점하여 85점 미달 시 통과를 불허하는 엄격한 게이트키퍼입니다.",
+        "desc": "대본의 후킹 강도, 완청률 가능성, 정보 밀도를 채점하여 85점 미달 시 보완을 요구하는 엄격한 품질 검수관입니다.",
         "model": "OmniRoute viraloop1",
         "temperature": 0.2,
         "topP": 0.85,
@@ -1978,8 +1980,8 @@ def send_telegram_test(req: TelegramTestRequest, db: Session = Depends(database.
     
     from app.services.telegram_service import telegram_service
     test_msg = req.message or (
-        "🤖 <b>[루피 AI 사령탑] 연결 성공!</b>\n\n"
-        "사령관님, ViraLoop Studio와의 텔레그램 실시간 원격 관제 채널이 성공적으로 개설되었습니다! 🚀\n\n"
+        "🤖 <b>[루피 AI 총괄 디렉터] 연결 성공!</b>\n\n"
+        "대표님, ViraLoop Studio와의 텔레그램 실시간 원격 비서 채널이 성공적으로 개설되었습니다! 🚀\n\n"
         "앞으로 <b>일일 리포트 요약, 대박 숏폼 감지, 쇼츠 배포 완료, 긴급 장애 알림</b>을 스마트폰으로 신속히 전달해 드리겠습니다."
     )
     ok, err_detail = telegram_service.send_raw(token, chat_id, test_msg, parse_mode="HTML")

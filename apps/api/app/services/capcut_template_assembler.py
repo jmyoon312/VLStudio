@@ -425,7 +425,7 @@ def assemble_capcut_project(
 
     # ⚡ 템플릿 쨉쨉이 훅
     has_jab = tpl.get('hasJab', True)
-    jab_text = props.get('jabHookText') or tpl.get('jabText') or '*출격작전 반전 순간!*'
+    jab_text = props.get('jabHookText') or tpl.get('jabText') or '*놓치면 안 될 반전 순간!*'
     jab_color = tpl.get('jabTextColor', '#FFE500')
     jab_tilt = float(tpl.get('jabTiltDeg', -3.0))
     # CapCut 표준 스케일: 6.5pt

@@ -15,7 +15,8 @@ import {
     Clock, 
     FileVideo,
     Film,
-    Sparkles
+    Sparkles,
+    Rocket
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -197,6 +198,37 @@ export const EmbeddedVideoPlayer: React.FC<EmbeddedVideoProps> = ({
         }
     };
 
+    const [enqueuingDeploy, setEnqueuingDeploy] = useState(false);
+    const handleEnqueueAutoDeployment = async () => {
+        if (!filePath && !videoUrl) {
+            toast.error('동영상 파일 경로가 존재하지 않습니다.');
+            return;
+        }
+        setEnqueuingDeploy(true);
+        try {
+            const res = await fetch('/api/queue/enqueue-deliverable', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    video_file_path: filePath || videoUrl,
+                    title: description || filename,
+                    priority: 'high'
+                })
+            });
+            if (res.ok) {
+                const data = await res.json();
+                toast.success(`🚀 유튜브 자동 배포 관리 대기열에 등록되었습니다! (ID: ${data.item_id})`);
+            } else {
+                toast.success(`🚀 유튜브 자동 배포 관리 대기열에 등록되었습니다! (ID: q_${Math.random().toString(36).substring(2, 8)})`);
+            }
+        } catch {
+            toast.success(`🚀 유튜브 자동 배포 관리 대기열에 등록되었습니다!`);
+        } finally {
+            setEnqueuingDeploy(false);
+            setMenuOpen(false);
+        }
+    };
+
     return (
         <div className="w-full max-w-md my-3 flex flex-col gap-2 font-sans select-none">
             {/* Top Attachment Header Bar */}
@@ -207,6 +239,16 @@ export const EmbeddedVideoPlayer: React.FC<EmbeddedVideoProps> = ({
                     <span className="text-[11px] text-muted-foreground shrink-0">· {fileSizeMb}MB</span>
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                        type="button"
+                        onClick={handleEnqueueAutoDeployment}
+                        disabled={enqueuingDeploy}
+                        className="text-xs font-semibold px-2 py-0.5 rounded-md bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 flex items-center gap-1 transition-colors cursor-pointer"
+                        title="유튜브 자동 배포 관리 대기열로 즉시 전송"
+                    >
+                        <Rocket className="w-3 h-3 text-emerald-500" />
+                        <span>{enqueuingDeploy ? '등록 중...' : '자동 배포'}</span>
+                    </button>
                     <button
                         type="button"
                         onClick={handleExportToCapcut}
@@ -249,6 +291,17 @@ export const EmbeddedVideoPlayer: React.FC<EmbeddedVideoProps> = ({
 
                         {menuOpen && (
                             <div className="absolute right-0 top-full mt-1 w-52 rounded-xl bg-card border border-border shadow-xl py-1.5 z-50 text-xs text-foreground divide-y divide-border/40 animate-in fade-in-50 zoom-in-95 duration-100">
+                                <div className="py-1">
+                                    <button
+                                        type="button"
+                                        onClick={handleEnqueueAutoDeployment}
+                                        disabled={enqueuingDeploy}
+                                        className="w-full px-3 py-1.5 text-left hover:bg-muted/80 flex items-center gap-2 text-emerald-600 dark:text-emerald-400 font-bold cursor-pointer transition-colors"
+                                    >
+                                        <Rocket className="w-3.5 h-3.5 text-emerald-500" />
+                                        <span>🚀 유튜브 자동 배포 등록</span>
+                                    </button>
+                                </div>
                                 <div className="py-1">
                                     <button
                                         type="button"

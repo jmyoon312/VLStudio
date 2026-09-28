@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 class CommandRequest(BaseModel):
     command: str
     context: dict = {} # Current editor state (optional)
+    history: Optional[List[Dict[str, Any]]] = None # Multi-turn conversation history
     provider: str = "cerebras"
     model: str = "cerebras/llama3.1-8b"
 
@@ -112,16 +113,20 @@ def process_command(req: CommandRequest, db: Session = Depends(database.get_db))
         logger.info(f"🤖 [Loopie] Routing command request via OmniRoute/BrainRouter: {target_provider}/{clean_model} (full: {target_model})")
         current_path = req.context.get("currentPath", "")
         system_instruction = (
-            "당신은 'ViraLoop Studio'의 최고 전략 에이전트, '루피(Loopie)'입니다. "
-            "단순한 챗봇이 아닌, OmniRoute AI 두뇌와 MCP 도구 및 CapCut 직접 조립 엔진을 지휘하여 실제 바이럴 쇼츠/영상을 제작하는 '자율 영상 프로덕션 디렉터'입니다. "
-            "지휘관(사용자)의 명령을 수행할 때 항상 다음을 고려하십시오:\n"
+            "당신은 'ViraLoop Studio'의 AI 총괄 디렉터(Executive Producer), '루피(Loopie)'입니다. "
+            "단순한 챗봇이 아닌, OmniRoute AI 두뇌와 MCP 도구 및 CapCut 직접 조립 엔진을 유기적으로 총괄하여 실제 고품질 바이럴 쇼츠/영상을 제작하는 '전문 상업 영상 프로덕션 디렉터'입니다. "
+            "대표님(사용자)의 요청을 지원할 때 항상 다음을 고려하십시오:\n"
             "1. 3초 후킹(Hook): 첫 화면에서 이탈을 막는 강렬한 시각/음성 후킹.\n"
             "2. 9-Wave 바이럴 스토리텔링: 야담, 다크 히스토리, 랭킹형, 떡상 레퍼런스 복제 등 채널 성격에 맞는 대본 구조.\n"
             "3. CapCut Direct No-ZIP 조립 및 쇼츠 자동 배포 관리(WorkQueue) 연동.\n\n"
+            "**[소통 어조 및 품격 규칙]**:\n"
+            "- 군대식/SF식 은어나 딱딱한 표현('지휘관', '사령관', '사령탑', '작전', '하수인', '보고드립니다 🫡' 등)을 일절 사용하지 마세요.\n"
+            "- 사용자를 부를 때는 항상 정중하게 '대표님'이라고 칭하세요.\n"
+            "- 전문적이고 신뢰할 수 있는 상업용 비즈니스 프로덕션 디렉터로서, 세련되고 친절하며 명확한 어조로 제안하고 소통하세요.\n\n"
             "**[절대 규칙 1]: 어떤 상황에서도 반드시 100% '한국어'로만 대답하세요.**\n"
-            "**[절대 규칙 2]: 사용자의 명령을 분석하여 실제 시스템 제어 액션을 JSON 형태로 반환해야 합니다.** "
+            "**[절대 규칙 2]: 대표님의 요청을 분석하여 실제 시스템 제어 액션을 JSON 형태로 반환해야 합니다.** "
             "순수 JSON 문자열만 출력하세요 (마크다운 코드블록 제외).\n"
-            "형식: {\"actions\": [{\"type\": \"액션명\", \"params\": {\"키\": \"값\"}}], \"message\": \"사용자에게 브리핑할 한국어 메시지\"}\n"
+            "형식: {\"actions\": [{\"type\": \"액션명\", \"params\": {\"키\": \"값\"}}], \"message\": \"대표님께 답변드릴 한국어 메시지\"}\n"
             "사용 가능한 액션:\n"
             "1. navigate: 화면 이동. params: {\"path\": \"/channels, /insights, /work-queue, /settings, /flow2capcut 중 하나\"}.\n"
             "2. start_production_pipeline: 영상 자동 제작 미션 시작. params: {\"topic\": \"주제\", \"genre\": \"yadam/dark-history/viral-ranking/bespoke\", \"target_duration_sec\": 60}.\n"
@@ -140,20 +145,58 @@ def process_command(req: CommandRequest, db: Session = Depends(database.get_db))
         video_title = req.context.get("videoTitle")
         transcript = req.context.get("transcript")
         
+        # [PRESET & CHANNEL DNA STRATEGY CONTEXT] If user asks about presets, channels, ranking, or strategy
+        preset_info_text = ""
+        cmd_lower = req.command.lower()
+        if any(kw in cmd_lower for kw in ["프리셋", "채널", "순위", "차별화", "확률", "스타일", "스탠다드", "템플릿", "10개"]):
+            try:
+                from ..models import ShortsTemplate
+                db_templates = db.query(ShortsTemplate).limit(15).all()
+                if db_templates:
+                    preset_lines = []
+                    for idx, t in enumerate(db_templates, 1):
+                        p_name = getattr(t, 'name', '') or t.id
+                        p_arch = getattr(t, 'archetype', 'classic')
+                        p_desc = getattr(t, 'description', '') or ''
+                        p_badge = getattr(t, 'badge', '') or ''
+                        preset_lines.append(f"{idx}. [{p_arch.upper()}] {p_name} ({p_badge}) - {p_desc[:60]}")
+                    preset_info_text = (
+                        "\n\n[ViraLoop Studio 공식 보관함 28대 쇼츠 프리셋 목록 (DB 단일진실)]\n" +
+                        "\n".join(preset_lines) +
+                        "\n\n[루피 분석 가이드라인]:\n" +
+                        "- 10개 채널 분석 기반 성공 확률 순위 산정 시: 시청 지속 시간(AVD), 3초 훅 이탈률 방어력, 자막 가독성, 상단 타이틀 주목도를 종합하여 1~10위까지 순위를 매기세요.\n" +
+                        "- 상위 순위 프리셋에 대한 차별화 변형 전략: 폰트 색상 대비, 0초 줌인 훅, 화자 2색 자막 교차, 배경 모션 등 구체적 파라미터 변형안을 제안하세요.\n" +
+                        "- 루피의 자율 지능 및 메모리: Nous Research Hermes Core 기반 워킹 메모리(대본, 음성, 산출물) 보존 및 MCP 도구 자가 확장이 가능함을 안내하세요."
+                    )
+            except Exception as pe:
+                logger.warning(f"[Loopie] Preset query fallback: {pe}")
+
         prompt = req.command
-        if video_title or transcript:
+        if video_title or transcript or preset_info_text:
             prompt = (
-                f"[현재 분석 중인 영상 데이터]\n"
-                f"제목: {video_title or '제목 없음'}\n"
-                f"대본 내용: {transcript or '대본 없음'}\n\n"
+                f"[현재 분석 컨텍스트]\n"
+                f"제목: {video_title or '지정 없음'}\n"
+                f"대본: {transcript or '지정 없음'}\n"
+                f"{preset_info_text}\n\n"
                 f"명령: {req.command}"
             )
 
-        from langchain_core.messages import SystemMessage, HumanMessage
-        messages = [
-            SystemMessage(content=system_instruction),
-            HumanMessage(content=prompt)
-        ]
+        from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
+        messages = [SystemMessage(content=system_instruction)]
+        
+        # Inject Multi-Turn Conversation History
+        if req.history and isinstance(req.history, list):
+            for h in req.history[-6:]:
+                h_role = h.get("role", "")
+                h_text = h.get("text") or h.get("content") or ""
+                if not h_text:
+                    continue
+                if h_role == "user":
+                    messages.append(HumanMessage(content=h_text))
+                elif h_role in ("assistant", "model"):
+                    messages.append(AIMessage(content=h_text))
+                    
+        messages.append(HumanMessage(content=prompt))
         
         from app.agent.brain_router import brain_router
         

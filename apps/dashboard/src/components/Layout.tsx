@@ -541,7 +541,7 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
 
     const modeName = React.useMemo(() => {
         switch (activeMode) {
-            case 'AI_ORCHESTRATION': return 'AI 지휘 사령탑';
+            case 'AI_ORCHESTRATION': return 'AI 총괄 스튜디오';
             case 'DISCOVERY': return '트렌드 분석';
             case 'CREATION': return '콘텐츠 제작';
             case 'OPERATION_SYSTEM': return '운영 · 설정';
@@ -745,7 +745,7 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
 
             {/* Main Content Area */}
             <main className="flex-1 h-full overflow-hidden relative bg-background flex flex-col transition-all duration-300 md:pl-[var(--sidebar-width)] pl-0">
-                <header className="sticky top-0 z-[9990] w-full px-4 md:px-8 h-14 flex items-center justify-between bg-card border-b border-border shrink-0">
+                <header className="sticky top-0 z-30 w-full px-4 md:px-8 h-14 flex items-center justify-between bg-card border-b border-border shrink-0">
                     <div className="flex items-center gap-2.5 min-w-0">
                         <button 
                             onClick={() => setMobileMenuOpen(true)} 
@@ -878,7 +878,8 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
                 {(location.pathname === '/flow2capcut' || 
                   location.pathname === '/creative-studio' || 
                   location.pathname.startsWith('/shorts-editor') || 
-                  location.pathname.startsWith('/shorts-template')) ? (
+                  location.pathname.startsWith('/shorts-template') ||
+                  location.pathname.startsWith('/director')) ? (
                     <div className="flex-1 flex flex-col min-h-0 overflow-hidden w-full h-full pb-16 md:pb-0 box-border">
                         {children}
                     </div>

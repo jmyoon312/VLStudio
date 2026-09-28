@@ -93,7 +93,7 @@ class AutopilotToggleRequest(BaseModel):
 @router.get("/autopilot/status")
 def get_autopilot_status(db: Session = Depends(get_db)):
     """
-    루피 AI 커뮤니티 사령탑 상태 및 채널별 설정 조회
+    루피 AI 커뮤니티 전담 관리 상태 및 채널별 설정 조회
     """
     try:
         return CommunityService.get_autopilot_status(db)

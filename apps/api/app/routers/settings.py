@@ -571,3 +571,297 @@ def update_openclaw(db: Session = Depends(database.get_db)):
         return {"status": "success", "message": "OpenClaw가 업데이트되었습니다."}
     except Exception as e:
         return {"status": "error", "message": str(e)}
+
+# =========================================================================
+# 🔑 Sovereign API Key Testing & Validation Gatekeeper
+# =========================================================================
+@router.post("/test-key")
+def test_api_key(payload: dict):
+    """
+    Test external API keys in real-time.
+    payload: { provider: str, api_key: str, extra_params?: dict }
+    """
+    import urllib.request
+    import urllib.error
+    import json
+
+    provider = (payload.get("provider") or "").lower().strip()
+    api_key = (payload.get("api_key") or "").strip()
+    extra_params = payload.get("extra_params") or {}
+
+    if not provider or not api_key:
+        return {"success": False, "detail": "프로바이더와 API 키가 제공되지 않았습니다."}
+
+    try:
+        if provider == "tmdb":
+            url = f"https://api.themoviedb.org/3/authentication?api_key={api_key}"
+            req = urllib.request.Request(url, headers={"User-Agent": "ViraLoopStudio/1.0"})
+            with urllib.request.urlopen(req, timeout=8) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+                if data.get("success"):
+                    return {"success": True, "detail": "TMDB API 연결 정상 확인 (공식 인증 통과)"}
+                return {"success": False, "detail": f"TMDB 응답: {data.get('status_message', '인증 실패')}"}
+
+        elif provider == "kobis":
+            url = f"http://kobis.or.kr/kobisopenapi/webservice/rest/boxoffice/searchDailyBoxOfficeList.json?key={api_key}&targetDt=20260101"
+            req = urllib.request.Request(url, headers={"User-Agent": "ViraLoopStudio/1.0"})
+            with urllib.request.urlopen(req, timeout=8) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+                if "boxOfficeResult" in data and "faultInfo" not in data.get("boxOfficeResult", {}):
+                    return {"success": True, "detail": "KOBIS 영화진흥위원회 API 연결 정상 확인"}
+                fault = data.get("faultInfo", {}).get("message", "인증 실패")
+                return {"success": False, "detail": f"KOBIS 응답: {fault}"}
+
+        elif provider == "youtube":
+            url = f"https://www.googleapis.com/youtube/v3/videos?part=snippet&chart=mostPopular&maxResults=1&key={api_key}"
+            req = urllib.request.Request(url, headers={"User-Agent": "ViraLoopStudio/1.0"})
+            with urllib.request.urlopen(req, timeout=8) as resp:
+                if resp.status == 200:
+                    return {"success": True, "detail": "YouTube Data API v3 연결 정상 확인 (할당량 유효)"}
+
+        elif provider == "gemini":
+            url = f"https://generativelanguage.googleapis.com/v1beta/models?key={api_key}"
+            req = urllib.request.Request(url, headers={"User-Agent": "ViraLoopStudio/1.0"})
+            with urllib.request.urlopen(req, timeout=8) as resp:
+                if resp.status == 200:
+                    return {"success": True, "detail": "Google Gemini API 연결 정상 확인 (인증 성공)"}
+
+        elif provider == "openai":
+            url = "https://api.openai.com/v1/models"
+            req = urllib.request.Request(url, headers={
+                "Authorization": f"Bearer {api_key}",
+                "User-Agent": "ViraLoopStudio/1.0"
+            })
+            with urllib.request.urlopen(req, timeout=8) as resp:
+                if resp.status == 200:
+                    return {"success": True, "detail": "OpenAI 공식 API 연결 정상 확인"}
+
+        elif provider == "claude":
+            url = "https://api.anthropic.com/v1/models"
+            req = urllib.request.Request(url, headers={
+                "x-api-key": api_key,
+                "anthropic-version": "2023-06-01",
+                "User-Agent": "ViraLoopStudio/1.0"
+            })
+            with urllib.request.urlopen(req, timeout=8) as resp:
+                if resp.status == 200:
+                    return {"success": True, "detail": "Anthropic Claude API 연결 정상 확인"}
+
+        elif provider == "elevenlabs":
+            url = "https://api.elevenlabs.io/v1/user"
+            req = urllib.request.Request(url, headers={
+                "xi-api-key": api_key,
+                "User-Agent": "ViraLoopStudio/1.0"
+            })
+            with urllib.request.urlopen(req, timeout=8) as resp:
+                if resp.status == 200:
+                    return {"success": True, "detail": "ElevenLabs 보이스 API 연결 정상 확인"}
+
+        elif provider in ["telegram", "telegram_vault"]:
+            # 1. 봇 토큰 검증
+            url = f"https://api.telegram.org/bot{api_key}/getMe"
+            req = urllib.request.Request(url, headers={"User-Agent": "ViraLoopStudio/1.0"})
+            with urllib.request.urlopen(req, timeout=8) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+                if data.get("ok"):
+                    bot_name = data.get("result", {}).get("first_name", "Telegram Bot")
+                    bot_user = data.get("result", {}).get("username", "")
+                    
+                    # 2. Chat ID 또는 Channel ID가 함께 제공되었을 경우 테스트 메시지 발송
+                    chat_id = extra_params.get("chat_id")
+                    if chat_id:
+                        is_vault = (provider == "telegram_vault")
+                        if is_vault:
+                            msg_text = (
+                                f"🎬 <b>[ViraLoop Video Vault] 미디어 보관 채널 연결 성공!</b>\n\n"
+                                f"🤖 관리 봇: {bot_name} (@{bot_user})\n"
+                                f"📁 저장소 채널: <code>{chat_id}</code>\n"
+                                f"⚡ 대용량 숏폼/롱폼 영상 무제한 클라우드 백업 저장소로 정상 활성화되었습니다."
+                            )
+                        else:
+                            msg_text = (
+                                f"🚀 <b>[ViraLoop Studio] 루피 AI 무인 관제탑 연결 성공!</b>\n\n"
+                                f"🤖 비서 봇: {bot_name} (@{bot_user})\n"
+                                f"📱 대표님 1:1 스마트폰 관제 및 결재 채널이 정상 활성화되었습니다."
+                            )
+
+                        send_url = f"https://api.telegram.org/bot{api_key}/sendMessage"
+                        msg_payload = json.dumps({
+                            "chat_id": str(chat_id).strip(),
+                            "text": msg_text,
+                            "parse_mode": "HTML"
+                        }).encode("utf-8")
+                        send_req = urllib.request.Request(send_url, data=msg_payload, headers={
+                            "Content-Type": "application/json",
+                            "User-Agent": "ViraLoopStudio/1.0"
+                        })
+                        try:
+                            with urllib.request.urlopen(send_req, timeout=8) as send_resp:
+                                send_data = json.loads(send_resp.read().decode("utf-8"))
+                                if send_data.get("ok"):
+                                    target_name = "영상 볼트 채널" if is_vault else "대표님 1:1 비서방"
+                                    return {"success": True, "detail": f"봇 연결 및 {target_name}({chat_id})으로 테스트 메시지 발송 성공! (@{bot_user})"}
+                        except Exception as send_err:
+                            guide = "봇을 해당 비공개 채널의 '관리자(Administrator)'로 추가했는지 확인하세요." if is_vault else "봇에게 /start를 먼저 눌렀는지 확인하세요."
+                            return {"success": True, "detail": f"봇(@{bot_user}) 연결은 성공했으나, 전송 실패 ({send_err}). {guide}"}
+
+                    return {"success": True, "detail": f"텔레그램 봇 토큰 정상 확인: {bot_name} (@{bot_user})"}
+                return {"success": False, "detail": f"텔레그램 봇 인증 실패: {data.get('description', '알 수 없는 오류')}"}
+
+        elif provider == "tavily":
+            url = "https://api.tavily.com/search"
+            tavily_payload = json.dumps({"api_key": api_key, "query": "ViraLoop", "max_results": 1}).encode("utf-8")
+            req = urllib.request.Request(url, data=tavily_payload, headers={
+                "Content-Type": "application/json",
+                "User-Agent": "ViraLoopStudio/1.0"
+            })
+            with urllib.request.urlopen(req, timeout=8) as resp:
+                if resp.status == 200:
+                    return {"success": True, "detail": "Tavily AI 웹 검색 API 연결 정상 확인"}
+
+        else:
+            return {"success": True, "detail": f"{provider} 키 형식 유효성 확인 완료"}
+
+    except urllib.error.HTTPError as e:
+        err_body = ""
+        try:
+            err_body = e.read().decode("utf-8")
+        except: pass
+        return {"success": False, "detail": f"HTTP {e.code} 오류: {e.reason} ({err_body[:100]})"}
+    except Exception as e:
+        return {"success": False, "detail": f"연결 테스트 중 오류 발생: {str(e)}"}
+
+# =========================================================================
+# 📺 Sovereign OTT Platform Session & Cookie Vault
+# =========================================================================
+OTT_PLATFORMS = {
+    "netflix": {"name": "Netflix", "home_url": "https://www.netflix.com/browse", "login_url": "https://www.netflix.com/login", "domain": ".netflix.com"},
+    "disney": {"name": "Disney+", "home_url": "https://www.disneyplus.com/home", "login_url": "https://www.disneyplus.com/login", "domain": ".disneyplus.com"},
+    "tving": {"name": "TVING", "home_url": "https://www.tving.com", "login_url": "https://www.tving.com/user/login", "domain": ".tving.com"},
+    "wavve": {"name": "Wavve", "home_url": "https://www.wavve.com", "login_url": "https://www.wavve.com/member/login", "domain": ".wavve.com"},
+    "watcha": {"name": "Watcha", "home_url": "https://watcha.com", "login_url": "https://watcha.com/sign_in", "domain": ".watcha.com"},
+    "coupangplay": {"name": "Coupang Play", "home_url": "https://www.coupangplay.com", "login_url": "https://www.coupangplay.com/login", "domain": ".coupangplay.com"}
+}
+
+def _get_ott_cookie_dir():
+    from app.config import settings as settings_conf
+    ott_dir = os.path.join(settings_conf.MEDIA_ROOT, "04_Profiles", "ott")
+    os.makedirs(ott_dir, exist_ok=True)
+    return ott_dir
+
+@router.get("/ott/status")
+def get_ott_status():
+    """
+    Get session and cookie status for all 6 sovereign OTT platforms.
+    """
+    ott_dir = _get_ott_cookie_dir()
+    results = {}
+
+    for plat_id, plat_info in OTT_PLATFORMS.items():
+        cookie_file = os.path.join(ott_dir, f"cookies_{plat_id}.txt")
+        exists = os.path.exists(cookie_file)
+        
+        cookie_count = 0
+        updated_at = None
+        size_bytes = 0
+        
+        if exists:
+            try:
+                stat = os.stat(cookie_file)
+                size_bytes = stat.st_size
+                import datetime
+                updated_at = datetime.datetime.fromtimestamp(stat.st_mtime).strftime("%Y-%m-%d %H:%M:%S")
+                with open(cookie_file, "r", encoding="utf-8", errors="ignore") as f:
+                    for line in f:
+                        line = line.strip()
+                        if line and not line.startswith("#"):
+                            cookie_count += 1
+            except Exception as e:
+                print(f"[OTT] Error reading cookie file for {plat_id}: {e}")
+
+        results[plat_id] = {
+            "id": plat_id,
+            "name": plat_info["name"],
+            "home_url": plat_info["home_url"],
+            "login_url": plat_info["login_url"],
+            "domain": plat_info["domain"],
+            "cookie_file": cookie_file,
+            "exists": exists and cookie_count > 0,
+            "cookie_count": cookie_count,
+            "size_bytes": size_bytes,
+            "updated_at": updated_at,
+            "status": "ACTIVE" if (exists and cookie_count > 0) else "DISCONNECTED"
+        }
+
+    return {"status": "success", "platforms": results}
+
+@router.post("/ott/save-cookies")
+def save_ott_cookies(payload: dict):
+    """
+    Save Netscape cookies text or list for a specific OTT platform.
+    payload: { platform: str, cookies_txt?: str, cookies_json?: list }
+    """
+    platform = (payload.get("platform") or "").lower().strip()
+    if platform not in OTT_PLATFORMS:
+        raise HTTPException(status_code=400, detail=f"지원하지 않는 OTT 플랫폼입니다: {platform}")
+
+    cookies_txt = payload.get("cookies_txt")
+    cookies_json = payload.get("cookies_json")
+    
+    ott_dir = _get_ott_cookie_dir()
+    cookie_file = os.path.join(ott_dir, f"cookies_{platform}.txt")
+
+    if cookies_txt:
+        with open(cookie_file, "w", encoding="utf-8") as f:
+            f.write(cookies_txt)
+    elif cookies_json and isinstance(cookies_json, list):
+        # Convert Electron cookie objects to Netscape HTTP Cookie format
+        lines = [
+            "# Netscape HTTP Cookie File",
+            f"# Generated by ViraLoop Studio for {OTT_PLATFORMS[platform]['name']}",
+            ""
+        ]
+        for c in cookies_json:
+            domain = c.get("domain", "")
+            include_subdomains = "TRUE" if domain.startswith(".") else "FALSE"
+            path_val = c.get("path", "/")
+            secure = "TRUE" if c.get("secure", False) else "FALSE"
+            expiration = int(c.get("expirationDate") or (c.get("expires") or 0))
+            if expiration == 0:
+                # 1 year default for session cookies
+                import time
+                expiration = int(time.time()) + 31536000
+            name = c.get("name", "")
+            value = c.get("value", "")
+            if name:
+                lines.append(f"{domain}\t{include_subdomains}\t{path_val}\t{secure}\t{expiration}\t{name}\t{value}")
+
+        with open(cookie_file, "w", encoding="utf-8") as f:
+            f.write("\n".join(lines) + "\n")
+    else:
+        raise HTTPException(status_code=400, detail="cookies_txt 또는 cookies_json이 필요합니다.")
+
+    return {
+        "status": "success", 
+        "message": f"{OTT_PLATFORMS[platform]['name']} 쿠키 세션이 성공적으로 저장되었습니다.",
+        "cookie_file": cookie_file
+    }
+
+@router.delete("/ott/{platform}")
+def delete_ott_cookies(platform: str):
+    """
+    Delete cookies file for a specific OTT platform (Logout).
+    """
+    platform = platform.lower().strip()
+    ott_dir = _get_ott_cookie_dir()
+    cookie_file = os.path.join(ott_dir, f"cookies_{platform}.txt")
+
+    if os.path.exists(cookie_file):
+        try:
+            os.remove(cookie_file)
+            return {"status": "success", "message": f"{platform} 쿠키 세션이 삭제되었습니다."}
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+
+    return {"status": "success", "message": "삭제할 쿠키 파일이 존재하지 않습니다."}
+

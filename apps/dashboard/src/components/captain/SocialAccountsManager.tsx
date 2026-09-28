@@ -71,6 +71,17 @@ const SocialAccountsManager: React.FC<SocialAccountsManagerProps> = ({ compact =
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState<'ALL' | 'TIKTOK' | 'INSTAGRAM' | 'DOUYIN'>('ALL');
 
+    // Sovereign Preset Mappings per Social Account
+    const [presets, setPresets] = useState<any[]>([]);
+    const [presetMappings, setPresetMappings] = useState<Record<string, string>>(() => {
+        try {
+            const saved = localStorage.getItem('social_account_preset_mappings');
+            return saved ? JSON.parse(saved) : {};
+        } catch {
+            return {};
+        }
+    });
+
     // Wizard State
     const [isWizardOpen, setIsWizardOpen] = useState(false);
     const [wizardPlatform, setWizardPlatform] = useState<'TIKTOK' | 'INSTAGRAM' | 'DOUYIN'>('TIKTOK');
@@ -103,6 +114,15 @@ const SocialAccountsManager: React.FC<SocialAccountsManagerProps> = ({ compact =
         }
     };
 
+    const fetchPresets = async () => {
+        try {
+            const res = await axios.get('/api/sovereign-presets/');
+            setPresets(res.data || []);
+        } catch (e) {
+            console.warn("Failed to fetch presets:", e);
+        }
+    };
+
     const fetchDevices = async () => {
         try {
             const res = await axios.get('/api/resources/network/devices');
@@ -112,8 +132,19 @@ const SocialAccountsManager: React.FC<SocialAccountsManagerProps> = ({ compact =
         }
     };
 
+    const handleSetPresetForAccount = (profileId: string, presetId: string) => {
+        setPresetMappings(prev => {
+            const next = { ...prev, [profileId]: presetId };
+            localStorage.setItem('social_account_preset_mappings', JSON.stringify(next));
+            return next;
+        });
+        const targetPreset = presets.find(p => (p.id || p.name) === presetId);
+        toast.success(`🎨 [${targetPreset?.name || presetId}] 프리셋이 해당 계정에 연동되었습니다.`);
+    };
+
     useEffect(() => {
         fetchProfiles();
+        fetchPresets();
         fetchDevices();
     }, []);
 
@@ -523,6 +554,53 @@ const SocialAccountsManager: React.FC<SocialAccountsManagerProps> = ({ compact =
                                     >
                                         <Trash2 className="w-3.5 h-3.5" />
                                     </button>
+                                </div>
+
+                                {/* 중간 행: 연동 소버린 프리셋 (제작 템플릿 & 결 매핑) */}
+                                <div className="flex items-center justify-between px-3 py-1.5 bg-muted/20 border-t border-border/40 text-[11px]">
+                                    <div className="flex items-center gap-1.5 min-w-0">
+                                        <span className="text-[10px] font-bold text-muted-foreground shrink-0">🎨 연동 템플릿:</span>
+                                        {presetMappings[p.id] ? (
+                                            <span className="font-semibold text-primary truncate max-w-[200px]" title={presetMappings[p.id]}>
+                                                {presets.find(pr => (pr.id || pr.name) === presetMappings[p.id])?.name || presetMappings[p.id]}
+                                            </span>
+                                        ) : (
+                                            <span className="text-muted-foreground/60 italic text-[10px]">미지정 (기본 템플릿 적용)</span>
+                                        )}
+                                    </div>
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                            <button
+                                                type="button"
+                                                className="text-[10px] font-bold text-primary hover:underline px-2 py-0.5 rounded-md hover:bg-primary/10 transition-colors"
+                                            >
+                                                {presetMappings[p.id] ? '변경' : '+ 템플릿 지정'}
+                                            </button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end" className="w-56 max-h-64 overflow-y-auto text-xs">
+                                            <div className="px-2 py-1 text-[10px] font-bold text-muted-foreground border-b border-border/60">
+                                                소버린 프리셋 선택
+                                            </div>
+                                            {presets.length === 0 ? (
+                                                <div className="p-2 text-center text-muted-foreground text-[11px]">
+                                                    등록된 프리셋이 없습니다.
+                                                </div>
+                                            ) : (
+                                                presets.map((preset) => (
+                                                    <DropdownMenuItem
+                                                        key={preset.id || preset.name}
+                                                        onClick={() => handleSetPresetForAccount(p.id, preset.id || preset.name)}
+                                                        className="cursor-pointer py-1.5 text-xs flex items-center justify-between"
+                                                    >
+                                                        <span className="truncate">{preset.name}</span>
+                                                        {presetMappings[p.id] === (preset.id || preset.name) && (
+                                                            <span className="text-[10px] text-primary font-bold">선택됨</span>
+                                                        )}
+                                                    </DropdownMenuItem>
+                                                ))
+                                            )}
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
                                 </div>
 
                                 {/* 하단 행: 엔진/프록시 정보 + 보안접속 버튼 */}

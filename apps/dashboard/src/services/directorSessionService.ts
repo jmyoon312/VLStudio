@@ -18,6 +18,8 @@ export interface DirectorThread {
     provider?: string;
     model?: string;
     reasoning_effort?: string;
+    is_pinned?: boolean;
+    is_archived?: boolean;
     message_count: number;
     created_at?: string;
     updated_at?: string;

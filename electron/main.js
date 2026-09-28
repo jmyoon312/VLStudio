@@ -12,6 +12,8 @@ import { fileURLToPath } from 'node:url'
 import dotenv from 'dotenv'
 import { registerFilesystemIPC } from './ipc/filesystem.js'
 import { registerAuthIPC } from './ipc/auth.js'
+import { registerOttIPC } from './ipc/ott.js'
+import { registerGeminiWebIPC } from './ipc/gemini_web.js'
 import { registerCapcutIPC } from './ipc/capcut.js'
 import { registerMcpIPC } from './ipc/mcp.js'
 import { registerFlowAPIIPC } from './ipc/flow-api.js'
@@ -1133,6 +1135,12 @@ registerFilesystemIPC(ipcMain)
 
 // Auth IPC (Google OAuth)
 registerAuthIPC(ipcMain, () => flowView)
+
+// Sovereign OTT Session & Cookie Vault IPC (Netflix, Disney+, TVING, Wavve, Watcha, Coupang Play)
+registerOttIPC(ipcMain)
+
+// Google Gemini Web Session & Cookie Vault IPC (gemini.google.com)
+registerGeminiWebIPC(ipcMain)
 
 // CapCut IPC (path detection, project writing, app launch)
 registerCapcutIPC(ipcMain)
@@ -2999,6 +3007,9 @@ ipcMain.handle('get-infra-status', async () => {
 app.whenReady().then(async () => {
   // 찌꺼기 세션 디렉토리 정리 기동
   cleanupUnusedPartitions();
+
+  // 전역 User-Agent fallback을 순정 Chrome으로 설정하여 Electron 문자열 노출 원천 차단
+  app.userAgentFallback = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36';
 
   // ═══════════════════════════════════════════════════════════════════════
   // [YouTube Embed Fix] Electron srcdoc iframe → YouTube Referer/Origin 주입

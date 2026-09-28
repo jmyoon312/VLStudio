@@ -979,7 +979,7 @@ ${scenes.map(s => `#${s.sceneNumber}: [${s.title}] 자막="${s.subtitle}", 대�
                                     <Badge variant="outline" className="text-[10px] font-bold">
                                         Target Channel: [CH #{selectedChannelId}] {activeChannel?.title || '브랜드 채널'}
                                     </Badge>
-                                    <span>Critic-85 게이트키퍼 자동 검수</span>
+                                    <span>Critic-85 고품질 자동 검수</span>
                                 </div>
 
                                 <Button

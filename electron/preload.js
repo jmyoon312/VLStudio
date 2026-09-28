@@ -62,6 +62,18 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return () => ipcRenderer.removeListener('flow:profile-usage-updated', handler)
   },
 
+  // Sovereign OTT Platform Session & Cookie Vault
+  openOttLogin: (params) => ipcRenderer.invoke('ott:open-login', params),
+  getOttStatus: () => ipcRenderer.invoke('ott:get-status'),
+  clearOttSession: (params) => ipcRenderer.invoke('ott:clear-session', params),
+  openOttFolder: () => ipcRenderer.invoke('ott:open-folder'),
+
+  // Google Gemini Web Session & Cookie Vault
+  openGeminiWebLogin: (emailHint) => ipcRenderer.invoke('gemini:open-web-login', emailHint),
+  openAntigravityOAuth: (emailHint) => ipcRenderer.invoke('gemini:open-antigravity-oauth', emailHint),
+  getGeminiWebStatus: () => ipcRenderer.invoke('gemini:get-web-status'),
+  clearGeminiWebSession: () => ipcRenderer.invoke('gemini:clear-web-session'),
+
   // File System
   getDefaultWorkFolder: () => ipcRenderer.invoke('fs:get-default-work-folder'),
   getSavedWorkFolder: () => ipcRenderer.invoke('fs:get-saved-work-folder'),
@@ -320,4 +332,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   hotpatchCheckUpdate: () => ipcRenderer.invoke('hotpatch:check-update'),
   hotpatchClearCache: () => ipcRenderer.invoke('hotpatch:clear-cache'),
   hotpatchReload: () => ipcRenderer.invoke('hotpatch:reload'),
+
+  // Google Gemini Web & Antigravity Unified Session (Tier 1 & Tier 3)
+  openGeminiWebLogin: (emailHint) => ipcRenderer.invoke('gemini:open-web-login', emailHint),
+  openAntigravityOAuth: (emailHint) => ipcRenderer.invoke('gemini:open-antigravity-oauth', emailHint),
+  getGeminiWebStatus: () => ipcRenderer.invoke('gemini:get-web-status'),
+  clearGeminiWebSession: () => ipcRenderer.invoke('gemini:clear-web-session'),
+  openAiStudioKeyWindow: (emailHint) => ipcRenderer.invoke('gemini:open-aistudio-window', emailHint),
 })
+

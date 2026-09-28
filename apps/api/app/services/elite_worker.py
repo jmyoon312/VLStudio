@@ -45,7 +45,7 @@ class EliteWorker:
             return
 
         logger.info(f"[FALLBACK] [EliteWorker] Starting Render Task: {task_id} | Engine: {engine}")
-        self.broadcast(f"지휘관님, [{engine.upper()}] 엔진을 가동하여 영상 렌더링을 시작합니다.", session_id=task_id)
+        self.broadcast(f"대표님, [{engine.upper()}] 엔진을 가동하여 영상 렌더링을 시작합니다.", session_id=task_id)
 
         try:
             output_filename = f"render_{video_id}_{task_id}.mp4"
@@ -72,7 +72,7 @@ class EliteWorker:
                 loop = asyncio.get_event_loop()
                 await loop.run_in_executor(None, self.ffmpeg.render_beats_hyperframes, beats, video_id)
 
-            self.broadcast(f"[OK] 작전 완료! 렌더링이 성공적으로 끝났습니다.", type="task_complete", session_id=task_id, action={
+            self.broadcast(f"[OK] 렌더링 완료! 영상 제작이 성공적으로 끝났습니다.", type="task_complete", session_id=task_id, action={
                 "type": "navigate",
                 "params": {"path": f"/video-preview/{video_id}?task={task_id}"}
             })

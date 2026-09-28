@@ -23,8 +23,137 @@ import {
   ListFilter,
   CheckSquare,
   Square,
+  Compass,
+  TrendingUp,
+  Wand2,
+  Zap,
+  Flame,
+  Heart,
+  Smile,
+  Skull,
+  BarChart2,
+  ExternalLink,
+  Users,
+  Tv,
 } from 'lucide-react';
 import { toast } from 'sonner';
+
+interface CinematicPosterCoverProps {
+  title: string;
+  thumbnailPath?: string | null;
+  category?: string;
+  country?: string;
+  score?: number | string;
+  year?: number | string;
+}
+
+const CinematicPosterCover: React.FC<CinematicPosterCoverProps> = ({
+  title,
+  thumbnailPath,
+  category = '시네마',
+  country,
+  score = 90,
+  year
+}) => {
+  const [imgError, setImgError] = useState(false);
+
+  // Validate if thumbnail is a valid non-synthetic URL
+  const isValidUrl = Boolean(
+    thumbnailPath && 
+    !thumbnailPath.includes('/kr-') && 
+    !thumbnailPath.includes('/us-') && 
+    !thumbnailPath.includes('/jp-') &&
+    thumbnailPath.startsWith('http')
+  );
+
+  const getTheme = () => {
+    if (category.includes('드라마') || category.includes('시리즈')) {
+      return {
+        bg: 'from-blue-950 via-slate-900 to-indigo-950',
+        icon: <Tv className="w-4 h-4 text-blue-400 opacity-80" />
+      };
+    }
+    if (category.includes('예능') || category.includes('버라이어티') || category.includes('연애')) {
+      return {
+        bg: 'from-amber-950 via-neutral-900 to-emerald-950',
+        icon: <Sparkles className="w-4 h-4 text-amber-400 opacity-80" />
+      };
+    }
+    if (category.includes('애니')) {
+      return {
+        bg: 'from-purple-950 via-slate-900 to-rose-950',
+        icon: <Sparkles className="w-4 h-4 text-purple-400 opacity-80" />
+      };
+    }
+    if (category.includes('다큐')) {
+      return {
+        bg: 'from-emerald-950 via-slate-900 to-teal-950',
+        icon: <Flame className="w-4 h-4 text-emerald-400 opacity-80" />
+      };
+    }
+    return {
+      bg: 'from-slate-950 via-indigo-950/80 to-neutral-950',
+      icon: <Film className="w-4 h-4 text-primary opacity-80" />
+    };
+  };
+
+  const theme = getTheme();
+
+  return (
+    <div className="relative w-28 sm:w-32 aspect-[2/3] rounded-xl overflow-hidden border border-border/80 shrink-0 shadow-xs select-none bg-neutral-950 flex">
+      {isValidUrl && !imgError ? (
+        <img
+          src={thumbnailPath!}
+          alt={title}
+          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+          loading="lazy"
+          onError={() => setImgError(true)}
+        />
+      ) : (
+        <div className={`w-full h-full bg-gradient-to-b ${theme.bg} p-2.5 flex flex-col justify-between items-center text-center relative overflow-hidden group-hover:scale-105 transition-transform duration-300`}>
+          {/* Subtle noise/glow background */}
+          <div className="absolute -top-6 -right-6 w-16 h-16 rounded-full bg-white/10 blur-xl pointer-events-none" />
+          <div className="absolute -bottom-6 -left-6 w-16 h-16 rounded-full bg-primary/10 blur-xl pointer-events-none" />
+          
+          {/* Top header: Country badge & Category icon */}
+          <div className="w-full flex items-center justify-between z-10">
+            <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-black/60 text-white/90 border border-white/15 uppercase tracking-widest">
+              {country || 'KR'}
+            </span>
+            <div className="p-1 rounded-md bg-black/30 backdrop-blur-xs">
+              {theme.icon}
+            </div>
+          </div>
+
+          {/* Center: Title typography (Cinema Poster aesthetic) */}
+          <div className="my-auto z-10 px-0.5 w-full">
+            <p className="text-xs font-black text-white leading-tight line-clamp-3 break-keep drop-shadow-md tracking-tight">
+              {title}
+            </p>
+            {year && (
+              <span className="text-[10px] text-white/60 font-semibold block mt-1 tracking-wider">
+                {year}
+              </span>
+            )}
+          </div>
+
+          {/* Bottom star score badge space */}
+          <div className="h-2" />
+        </div>
+      )}
+
+      {isValidUrl && !imgError && country && (
+        <span className="absolute left-1.5 top-1.5 px-1.5 py-0.5 rounded text-[9px] font-black bg-black/80 text-white uppercase tracking-wider z-10 shadow-xs">
+          {country}
+        </span>
+      )}
+
+      <div className="absolute right-1.5 bottom-1.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-primary text-primary-foreground shadow-xs z-10">
+        ★ {score}
+      </div>
+    </div>
+  );
+};
 
 interface SourcingAsset {
   id: string;
@@ -65,8 +194,8 @@ interface SourcingCampaign {
 export const SourcingCenterPage: React.FC = () => {
   const navigate = useNavigate();
 
-  // Tab State: 'vault' (원천 영상 보관소) | 'campaigns' (자동 소싱 제어기)
-  const [activeTab, setActiveTab] = useState<'vault' | 'campaigns'>('vault');
+  // Tab State: 'vault' (원천 영상 보관소) | 'curation' (명작·트렌드 발굴소) | 'campaigns' (자동 소싱 제어기)
+  const [activeTab, setActiveTab] = useState<'vault' | 'curation' | 'campaigns'>('curation');
 
   // Vault State
   const [assets, setAssets] = useState<SourcingAsset[]>([]);
@@ -77,6 +206,23 @@ export const SourcingCenterPage: React.FC = () => {
   const [selectedAssetIds, setSelectedAssetIds] = useState<string[]>([]);
   const [playingAssetId, setPlayingAssetId] = useState<string | null>(null);
   const [expandedScriptId, setExpandedScriptId] = useState<string | null>(null);
+
+  // Curation State (명작·트렌드 발굴소)
+  const [curatedWorks, setCuratedWorks] = useState<any[]>([]);
+  const [isLoadingCurated, setIsLoadingCurated] = useState(false);
+  const [curatedEmotion, setCuratedEmotion] = useState<string>('all');
+  const [curatedMajorCat, setCuratedMajorCat] = useState<string>('all');
+  const [curatedRelationship, setCuratedRelationship] = useState<string>('all');
+  const [curatedTrope, setCuratedTrope] = useState<string>('all');
+  const [curatedPersonality, setCuratedPersonality] = useState<string>('all');
+  const [curatedEra, setCuratedEra] = useState<string>('all');
+  const [curatedPerson, setCuratedPerson] = useState<string>('all');
+  const [curatedQuery, setCuratedQuery] = useState<string>('');
+  const [isSyncingPixeling, setIsSyncingPixeling] = useState(false);
+  const [isHarvestingTmdb, setIsHarvestingTmdb] = useState(false);
+  const [showTrendRadarModal, setShowTrendRadarModal] = useState(false);
+  const [trendRadarData, setTrendRadarData] = useState<any>(null);
+  const [slicingAssetId, setSlicingAssetId] = useState<string | null>(null);
 
   // Campaigns State
   const [campaigns, setCampaigns] = useState<SourcingCampaign[]>([]);
@@ -120,13 +266,142 @@ export const SourcingCenterPage: React.FC = () => {
     }
   };
 
+  // Fetch Curated Works (명작·트렌드 발굴소)
+  const fetchCuratedWorks = async () => {
+    setIsLoadingCurated(true);
+    try {
+      const params = new URLSearchParams();
+      if (curatedQuery) params.append('query', curatedQuery);
+      if (curatedEmotion !== 'all') params.append('emotion', curatedEmotion);
+      if (curatedMajorCat !== 'all') params.append('major_cat', curatedMajorCat);
+      if (curatedRelationship !== 'all') params.append('relationship', curatedRelationship);
+      if (curatedTrope !== 'all') params.append('trope', curatedTrope);
+      if (curatedPersonality !== 'all') params.append('personality', curatedPersonality);
+      if (curatedEra !== 'all') params.append('era', curatedEra);
+      if (curatedPerson !== 'all') params.append('person', curatedPerson);
+
+      const res = await fetch(`/api/sourcing-center/curated-works?${params.toString()}`);
+      const data = await res.json();
+      if (data.success) {
+        setCuratedWorks(data.items || []);
+      }
+    } catch (err: any) {
+      toast.error(`큐레이션 작품 불러오기 실패: ${err.message}`);
+    } finally {
+      setIsLoadingCurated(false);
+    }
+  };
+
+  // Sync Pixeling Catalog
+  const handleSyncPixeling = async () => {
+    setIsSyncingPixeling(true);
+    try {
+      const res = await fetch('/api/sourcing-center/pixeling/import', { method: 'POST' });
+      const data = await res.json();
+      if (data.success) {
+        toast.success(`픽셀링 검증 자산 동기화 완료: ${data.message}`);
+        fetchCuratedWorks();
+      } else {
+        toast.error(`동기화 실패: ${data.detail || '알 수 없는 오류'}`);
+      }
+    } catch (err: any) {
+      toast.error(`동기화 통신 오류: ${err.message}`);
+    } finally {
+      setIsSyncingPixeling(false);
+    }
+  };
+
+  // Harvest TMDB Titles
+  const handleHarvestTmdb = async (mediaType: 'movie' | 'tv' = 'movie') => {
+    setIsHarvestingTmdb(true);
+    try {
+      const res = await fetch('/api/sourcing-center/tmdb/harvest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ media_type: mediaType, region: 'KR', min_year: 2005 }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success(`TMDB 숏폼 적합작 ${data.harvested_count}편 발골 및 적재 완료!`);
+        fetchCuratedWorks();
+      } else {
+        toast.error(`TMDB 수집 실패: ${data.detail || '오류'}`);
+      }
+    } catch (err: any) {
+      toast.error(`TMDB 통신 오류: ${err.message}`);
+    } finally {
+      setIsHarvestingTmdb(false);
+    }
+  };
+
+  // Fetch Trend Radar
+  const handleFetchTrendRadar = async () => {
+    setShowTrendRadarModal(true);
+    if (!trendRadarData) {
+      try {
+        const res = await fetch('/api/sourcing-center/trend-radar');
+        const data = await res.json();
+        if (data.success) {
+          setTrendRadarData(data);
+        }
+      } catch (err: any) {
+        toast.error(`트렌드 레이더 조회 실패: ${err.message}`);
+      }
+    }
+  };
+
+  // Slice & Create Short from Curated Asset
+  const handleSliceAndCreate = async (asset: any) => {
+    setSlicingAssetId(asset.id);
+    try {
+      const res = await fetch('/api/sourcing-center/slice-and-create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          asset_id: asset.id,
+          preset_id: asset.linked_preset_id,
+          hook_text: asset.script_draft,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success(`'${asset.title}' 씬 발골 완료! 아스트라 총괄 디렉터로 이동합니다.`);
+        navigate('/director', {
+          state: {
+            selectedPresetId: data.preset_id,
+            initialPrompt: `소싱 센터 발골 작품 [${asset.title}] 명장면 숏폼 제작을 시작해줘.\n3초 훅: ${data.hook_text}\n레퍼런스: ${data.source_url}`,
+          },
+        });
+      } else {
+        toast.error(`발골 실패: ${data.detail || '오류'}`);
+      }
+    } catch (err: any) {
+      toast.error(`발골 통신 오류: ${err.message}`);
+    } finally {
+      setSlicingAssetId(null);
+    }
+  };
+
   useEffect(() => {
     if (activeTab === 'vault') {
       fetchAssets();
+    } else if (activeTab === 'curation') {
+      fetchCuratedWorks();
     } else {
       fetchCampaigns();
     }
-  }, [activeTab, selectedGenre, selectedSubCategory]);
+  }, [
+    activeTab,
+    selectedGenre,
+    selectedSubCategory,
+    curatedEmotion,
+    curatedMajorCat,
+    curatedRelationship,
+    curatedTrope,
+    curatedPersonality,
+    curatedEra,
+    curatedPerson,
+  ]);
 
   // Checkbox helpers
   const toggleSelectAsset = (id: string) => {
@@ -293,6 +568,23 @@ export const SourcingCenterPage: React.FC = () => {
         <div className="flex items-center p-1 bg-muted rounded-xl border border-border">
           <button
             type="button"
+            onClick={() => setActiveTab('curation')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
+              activeTab === 'curation'
+                ? 'bg-background text-foreground shadow-xs'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <Compass className="w-4 h-4 text-rose-500" />
+            명작·트렌드 발굴소
+            {curatedWorks.length > 0 && (
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-rose-500/10 text-rose-600 dark:text-rose-400 font-bold">
+                {curatedWorks.length}
+              </span>
+            )}
+          </button>
+          <button
+            type="button"
             onClick={() => setActiveTab('vault')}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
               activeTab === 'vault'
@@ -329,7 +621,351 @@ export const SourcingCenterPage: React.FC = () => {
       </div>
 
       {/* 2. 본문 컨텐츠 영역 */}
-      {activeTab === 'vault' ? (
+      {activeTab === 'curation' ? (
+        <div className="flex-1 flex flex-col overflow-hidden bg-background">
+          {/* 상단 큐레이션 검색 & 퀵 액션 툴바 */}
+          <div className="p-4 border-b border-border/80 bg-card/40 flex flex-col gap-3 flex-shrink-0">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              {/* 자연어 시맨틱 검색창 */}
+              <div className="relative flex-1 min-w-[280px] max-w-xl">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <input
+                  type="text"
+                  value={curatedQuery}
+                  onChange={(e) => {
+                    setCuratedQuery(e.target.value);
+                    if (!e.target.value.trim()) {
+                      setTimeout(() => fetchCuratedWorks(), 50);
+                    }
+                  }}
+                  onKeyDown={(e) => e.key === 'Enter' && fetchCuratedWorks()}
+                  placeholder="다차원 시맨틱 검색: '상사에게 사이다 날리는 직장인', '송강호 코믹한 장면'..."
+                  className="w-full pl-9 pr-24 py-2 rounded-xl text-xs bg-background border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+                />
+                <button
+                  type="button"
+                  onClick={fetchCuratedWorks}
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 px-3 py-1 rounded-lg text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-all"
+                >
+                  검색
+                </button>
+              </div>
+
+              {/* 3대 정예 액션 버튼 */}
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleSyncPixeling}
+                  disabled={isSyncingPixeling}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-secondary text-secondary-foreground hover:bg-secondary/80 border border-border transition-all shadow-xs disabled:opacity-50"
+                  title="구버전 픽셀링에서 엄선된 130+개 명작 DB 동기화"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isSyncingPixeling ? 'animate-spin' : ''}`} />
+                  픽셀링 검증 자산 동기화
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleHarvestTmdb('movie')}
+                  disabled={isHarvestingTmdb}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-blue-500/10 text-blue-600 dark:text-blue-400 hover:bg-blue-500/20 border border-blue-500/20 transition-all shadow-xs disabled:opacity-50"
+                  title="TMDB API 연동 및 숏폼 적합도 자체 확장 수집"
+                >
+                  <Wand2 className="w-3.5 h-3.5" />
+                  TMDB 자체 확장
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleFetchTrendRadar}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-rose-500 text-white hover:bg-rose-600 transition-all shadow-xs"
+                >
+                  <BarChart2 className="w-3.5 h-3.5" />
+                  트렌드 레이더 (VPH·아웃라이어)
+                </button>
+              </div>
+            </div>
+
+            {/* 감정 칩 필터 바 */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+              <span className="text-xs font-bold text-muted-foreground mr-1 flex items-center gap-1 shrink-0">
+                <Zap className="w-3.5 h-3.5 text-amber-500" />
+                감정 도파민:
+              </span>
+              {[
+                { id: 'all', label: '전체 감정' },
+                { id: '참교육', label: '🤬 사이다/참교육' },
+                { id: '슬픔', label: '😭 눈물/감동' },
+                { id: '코믹', label: '😂 레전드 코믹' },
+                { id: '반전', label: '😱 소름/반전' },
+                { id: '도파민', label: '🔥 도파민/액션' },
+                { id: '힐링', label: '🌿 힐링/감성' },
+              ].map((em) => (
+                <button
+                  key={em.id}
+                  type="button"
+                  onClick={() => setCuratedEmotion(em.id)}
+                  className={`px-3 py-1 rounded-full text-xs font-medium transition-all shrink-0 ${
+                    curatedEmotion === em.id
+                      ? 'bg-primary text-primary-foreground font-semibold shadow-xs'
+                      : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'
+                  }`}
+                >
+                  {em.label}
+                </button>
+              ))}
+            </div>
+
+            {/* 4차원 직교 패싯 및 대분류 드롭다운 바 */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 pt-1 border-t border-border/50 text-xs">
+              {/* 대분류 */}
+              <select
+                value={curatedMajorCat}
+                onChange={(e) => setCuratedMajorCat(e.target.value)}
+                className="px-2.5 py-1.5 rounded-lg bg-background border border-border text-foreground focus:outline-none"
+              >
+                <option value="all">전체 장르</option>
+                <option value="시네마/영화">🎬 시네마/영화</option>
+                <option value="K-드라마/시리즈">📺 K-드라마/시리즈</option>
+                <option value="예능/버라이어티">🤣 예능/버라이어티</option>
+                <option value="리얼리티/연애">💖 리얼리티/연애</option>
+                <option value="애니메이션">🎌 애니메이션</option>
+                <option value="다큐멘터리/지식">📚 다큐멘터리/지식</option>
+                <option value="유튜브/크리에이터">⭐ 유튜브/크리에이터</option>
+              </select>
+
+              {/* 👥 인간관계 */}
+              <select
+                value={curatedRelationship}
+                onChange={(e) => setCuratedRelationship(e.target.value)}
+                className="px-2.5 py-1.5 rounded-lg bg-background border border-border text-foreground focus:outline-none"
+              >
+                <option value="all">👥 전체 인간관계</option>
+                <option value="상사와 부하">상사와 부하</option>
+                <option value="부모와 자식">부모와 자식</option>
+                <option value="형사와 범인">형사와 범인</option>
+                <option value="라이벌/앙숙">라이벌/앙숙</option>
+                <option value="동료/파트너">동료/파트너</option>
+              </select>
+
+              {/* ⚡ 극적 장치 */}
+              <select
+                value={curatedTrope}
+                onChange={(e) => setCuratedTrope(e.target.value)}
+                className="px-2.5 py-1.5 rounded-lg bg-background border border-border text-foreground focus:outline-none"
+              >
+                <option value="all">⚡ 전체 극적 장치 (Trope)</option>
+                <option value="클리셰 전복">클리셰 전복</option>
+                <option value="각성과 복수">각성과 복수</option>
+                <option value="은밀한 잠입">은밀한 잠입</option>
+                <option value="시간 루프/초자연">시간 루프/초자연</option>
+                <option value="극한 생존">극한 생존</option>
+                <option value="성장과 우정">성장과 우정</option>
+              </select>
+
+              {/* 🎭 인물 성격 */}
+              <select
+                value={curatedPersonality}
+                onChange={(e) => setCuratedPersonality(e.target.value)}
+                className="px-2.5 py-1.5 rounded-lg bg-background border border-border text-foreground focus:outline-none"
+              >
+                <option value="all">🎭 전체 인물 성격</option>
+                <option value="소시민적 현실감 / 생활 연기">소시민적 현실감 / 생활 연기</option>
+                <option value="압도적 피지컬 / 파워풀 리더">압도적 피지컬 / 파워풀 리더</option>
+                <option value="번개같은 순발력 / 티키타카">번개같은 순발력 / 티키타카</option>
+                <option value="능구렁이 캐릭터">능구렁이 캐릭터</option>
+                <option value="광기 어린 빌런">광기 어린 빌런</option>
+              </select>
+
+              {/* 🕰️ 시대/분위기 */}
+              <select
+                value={curatedEra}
+                onChange={(e) => setCuratedEra(e.target.value)}
+                className="px-2.5 py-1.5 rounded-lg bg-background border border-border text-foreground focus:outline-none"
+              >
+                <option value="all">🕰️ 전체 시대/분위기</option>
+                <option value="90년대 레트로 / 클래식">90년대 레트로 / 클래식</option>
+                <option value="2000년대 명작 황금기">2000년대 명작 황금기</option>
+                <option value="2010년대 K-콘텐츠 르네상스">2010년대 K-콘텐츠 르네상스</option>
+                <option value="2020년대 최신 트렌드">2020년대 최신 트렌드</option>
+              </select>
+            </div>
+
+            {/* 파워 인물 빠른 필터 칩 */}
+            <div className="flex items-center gap-1.5 overflow-x-auto text-[11px]">
+              <span className="font-semibold text-muted-foreground shrink-0 flex items-center gap-1">
+                <Users className="w-3 h-3 text-primary" /> 파워 인물:
+              </span>
+              {[
+                '송강호',
+                '마동석',
+                '이병헌',
+                '강호동',
+                '유재석',
+                '차승원',
+                '유해진',
+                '송민호',
+                '이제훈',
+                '김상경',
+              ].map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => setCuratedPerson(curatedPerson === p ? 'all' : p)}
+                  className={`px-2 py-0.5 rounded-md border transition-all shrink-0 ${
+                    curatedPerson === p
+                      ? 'bg-primary text-primary-foreground border-primary font-semibold'
+                      : 'bg-background border-border text-foreground hover:bg-muted'
+                  }`}
+                >
+                  #{p}
+                </button>
+              ))}
+              {curatedPerson !== 'all' && (
+                <button
+                  type="button"
+                  onClick={() => setCuratedPerson('all')}
+                  className="px-1.5 py-0.5 text-muted-foreground hover:text-foreground text-[10px] underline shrink-0"
+                >
+                  인물 해제
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* 큐레이션 카드 그리드 뷰 */}
+          <div className="flex-1 p-6 overflow-y-auto">
+            {isLoadingCurated ? (
+              <div className="flex flex-col items-center justify-center h-64 text-muted-foreground gap-3">
+                <RefreshCw className="w-8 h-8 animate-spin text-primary" />
+                <p className="text-sm">고가치 명작 및 트렌드 발굴 자산을 탐색하는 중...</p>
+              </div>
+            ) : curatedWorks.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-64 text-muted-foreground gap-3">
+                <Compass className="w-10 h-10 text-muted-foreground/60" />
+                <p className="text-sm">조건에 맞는 큐레이션 작품이 없습니다.</p>
+                <button
+                  type="button"
+                  onClick={handleSyncPixeling}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold bg-primary text-primary-foreground shadow-xs"
+                >
+                  픽셀링 130+대 검증 자산 동기화하기
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
+                {curatedWorks.map((work) => {
+                  const meta = work.meta || {};
+                  const isSlicing = slicingAssetId === work.id;
+
+                  return (
+                    <div
+                      key={work.id}
+                      className="group flex p-3.5 gap-3.5 rounded-2xl border border-border/80 bg-card overflow-hidden shadow-xs hover:shadow-md hover:border-primary/40 transition-all"
+                    >
+                      {/* 좌측: 시네마틱 포스터 커버 */}
+                      <CinematicPosterCover
+                        title={work.title}
+                        thumbnailPath={work.thumbnail_path}
+                        category={work.category_major}
+                        country={meta.country}
+                        score={work.vision_score || meta.score || 90}
+                        year={meta.year}
+                      />
+
+                      {/* 우측: 핵심 메타, 3초 킬러 훅, 발골 액션 */}
+                      <div className="flex-1 flex flex-col justify-between min-w-0 py-0.5 gap-2">
+                        {/* 1. 카테고리 헤더 & 감정 태그 */}
+                        <div>
+                          <div className="flex items-center justify-between gap-1.5 mb-1">
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-primary/10 text-primary border border-primary/20 shrink-0">
+                                {work.category_major || '시네마'}
+                              </span>
+                              <span className="text-[11px] text-muted-foreground font-medium shrink-0">
+                                {meta.year || 2020}
+                              </span>
+                              {meta.facets?.trope && (
+                                <span className="hidden sm:inline px-1.5 py-0.5 rounded text-[9px] bg-muted text-muted-foreground truncate">
+                                  ⚡ {meta.facets.trope}
+                                </span>
+                              )}
+                            </div>
+
+                            {/* 감정 뱃지 */}
+                            <div className="flex items-center gap-1 shrink-0">
+                              {(meta.emotions || []).slice(0, 2).map((em: string, idx: number) => (
+                                <span
+                                  key={idx}
+                                  className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20"
+                                >
+                                  #{em}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* 작품 제목 & 출연진 */}
+                          <h3 className="text-sm font-extrabold text-foreground line-clamp-1 group-hover:text-primary transition-colors leading-snug">
+                            {work.title}
+                          </h3>
+                          {meta.people && meta.people.length > 0 && (
+                            <p className="text-[10px] text-muted-foreground line-clamp-1 mt-0.5">
+                              👥 {meta.people.slice(0, 3).join(', ')}
+                            </p>
+                          )}
+                        </div>
+
+                        {/* 2. 핵심 3초 킬러 훅 하이라이트 배너 */}
+                        {(work.script_draft || work.summary) && (
+                          <div className="p-2 rounded-xl bg-amber-500/10 dark:bg-amber-500/15 border border-amber-500/25 text-[11px] font-medium text-amber-900 dark:text-amber-300 leading-snug line-clamp-2 shadow-2xs">
+                            <span className="font-bold text-amber-700 dark:text-amber-400 mr-1 shrink-0">🎯 3초 훅:</span>
+                            <span>{work.script_draft || work.summary}</span>
+                          </div>
+                        )}
+
+                        {/* 3. 하단 발골 & 제작 버튼 바 */}
+                        <div className="pt-1.5 border-t border-border/60 flex items-center gap-2 mt-auto">
+                          <button
+                            type="button"
+                            onClick={() => handleSliceAndCreate(work)}
+                            disabled={isSlicing}
+                            className="flex-1 inline-flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-xl text-xs font-bold bg-primary text-primary-foreground hover:bg-primary/90 transition-all shadow-xs disabled:opacity-50 cursor-pointer"
+                          >
+                            {isSlicing ? (
+                              <>
+                                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                                씬 발골 중...
+                              </>
+                            ) : (
+                              <>
+                                <Zap className="w-3.5 h-3.5 fill-current" />
+                                1초 씬 발골 & 제작
+                              </>
+                            )}
+                          </button>
+
+                          {work.source_url && (
+                            <a
+                              href={work.source_url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="p-1.5 rounded-xl border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-all shrink-0"
+                              title="유튜브 명장면 검색 확인"
+                            >
+                              <ExternalLink className="w-4 h-4" />
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      ) : activeTab === 'vault' ? (
         <div className="flex-1 flex overflow-hidden">
           {/* 좌측 카테고리 트리 사이드바 */}
           <div className="w-64 border-r border-border/80 bg-card/30 p-4 flex flex-col gap-4 overflow-y-auto flex-shrink-0">
@@ -525,13 +1161,19 @@ export const SourcingCenterPage: React.FC = () => {
                                   src={asset.thumbnail_url}
                                   alt={asset.title}
                                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                  onError={(e) => {
+                                    (e.target as HTMLImageElement).style.display = 'none';
+                                    const fallback = (e.target as HTMLImageElement).nextElementSibling;
+                                    if (fallback) (fallback as HTMLElement).style.display = 'flex';
+                                  }}
                                 />
-                              ) : (
-                                <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground">
-                                  <Film className="w-10 h-10 mb-2 opacity-50" />
-                                  <span className="text-xs">미리보기 준비 중</span>
-                                </div>
-                              )}
+                              ) : null}
+                              <div 
+                                className={`w-full h-full flex flex-col items-center justify-center text-muted-foreground ${asset.thumbnail_url ? 'hidden' : 'flex'}`}
+                              >
+                                <Film className="w-10 h-10 mb-2 opacity-50" />
+                                <span className="text-xs">미리보기 준비 중</span>
+                              </div>
 
                               {/* 재생 버튼 오버레이 */}
                               <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity duration-200">
@@ -845,6 +1487,172 @@ export const SourcingCenterPage: React.FC = () => {
                 );
               })}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* 3. 트렌드 알고리즘 레이더 모달 (VPH / 아웃라이어 / 틱톡 / 인스타) */}
+      {showTrendRadarModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="relative w-full max-w-4xl max-h-[85vh] overflow-y-auto rounded-3xl border border-border bg-card p-6 shadow-2xl flex flex-col gap-6 text-foreground">
+            {/* 모달 헤더 */}
+            <div className="flex items-center justify-between border-b border-border/80 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-2xl bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
+                  <BarChart2 className="w-6 h-6" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold flex items-center gap-2">
+                    실시간 트렌드 알고리즘 레이더 (Trend Radar)
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
+                      LIVE
+                    </span>
+                  </h2>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    단순 조회수가 아닌 VPH(시간당 가속도)와 아웃라이어 폭발 배수로 검증된 황금 소재 지표
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowTrendRadarModal(false)}
+                className="p-2 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted transition-colors text-xs font-semibold"
+              >
+                닫기
+              </button>
+            </div>
+
+            {/* 모달 본문 리포트 */}
+            {trendRadarData ? (
+              <div className="flex flex-col gap-6">
+                {/* 1. 아웃라이어 폭발 쇼츠 */}
+                <div>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-1.5">
+                    <Flame className="w-4 h-4 text-rose-500" />
+                    채널 평균 대비 폭발 배수 (Outlier Ratio Top)
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    {(trendRadarData.trending_shorts || []).map((s: any) => (
+                      <div
+                        key={s.id}
+                        className="p-4 rounded-2xl border border-border/80 bg-background/60 flex flex-col justify-between gap-2 shadow-xs"
+                      >
+                        <div>
+                          <div className="flex items-center justify-between mb-1.5">
+                            <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-rose-500 text-white shadow-xs">
+                              {s.outlier_ratio} 폭발
+                            </span>
+                            <span className="text-[10px] font-mono text-muted-foreground font-semibold">
+                              VPH {s.vph.toLocaleString()}/h
+                            </span>
+                          </div>
+                          <h4 className="text-xs font-bold text-foreground line-clamp-2">
+                            {s.title}
+                          </h4>
+                          <p className="text-[11px] text-muted-foreground mt-1">
+                            채널: {s.channel_name}
+                          </p>
+                        </div>
+                        <div className="p-2 rounded-xl bg-muted/60 text-[10px] text-muted-foreground font-medium border border-border/40">
+                          {s.hook_text}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 2. 벤치마킹 급성장 채널 */}
+                <div>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-1.5">
+                    <TrendingUp className="w-4 h-4 text-emerald-500" />
+                    쇼츠 전환율 80%+ 벤치마킹 급성장 채널 (Benchmark Channels)
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    {(trendRadarData.trending_channels || []).map((ch: any) => (
+                      <div
+                        key={ch.id}
+                        className="p-4 rounded-2xl border border-border/80 bg-background/60 flex flex-col justify-between gap-3 shadow-xs"
+                      >
+                        <div>
+                          <div className="flex items-center justify-between mb-1">
+                            <h4 className="text-xs font-bold text-foreground">
+                              {ch.name}
+                            </h4>
+                            <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
+                              {ch.growth_rate_pct}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-muted-foreground">{ch.handle}</p>
+                          <div className="flex items-center gap-2 text-[10px] text-muted-foreground mt-2">
+                            <span>구독자: {ch.subscribers}</span>
+                            <span>•</span>
+                            <span>일일: {ch.daily_views}</span>
+                          </div>
+                        </div>
+                        <div className="pt-2 border-t border-border/50 text-[10px] text-primary font-semibold flex items-center gap-1">
+                          <span>권장 프리셋:</span>
+                          <span className="underline">{ch.matching_preset}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 3. 틱톡 음원 바이럴리티 & 인스타 저장/공유율 */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* 틱톡 */}
+                  <div className="p-4 rounded-2xl border border-border/80 bg-background/40 flex flex-col gap-3">
+                    <h4 className="text-xs font-bold flex items-center gap-1.5 text-blue-500">
+                      <Zap className="w-4 h-4" /> 틱톡 급상승 음원 바이럴리티 (Sound Velocity)
+                    </h4>
+                    <div className="flex flex-col gap-2">
+                      {(trendRadarData.trending_sounds || []).map((snd: any) => (
+                        <div
+                          key={snd.sound_id}
+                          className="p-2.5 rounded-xl bg-card border border-border/60 flex items-center justify-between text-xs"
+                        >
+                          <div>
+                            <div className="font-bold text-foreground">{snd.title}</div>
+                            <div className="text-[10px] text-muted-foreground">{snd.artist}</div>
+                          </div>
+                          <div className="text-right">
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400">
+                              48h {snd['48h_video_growth']}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* 인스타 */}
+                  <div className="p-4 rounded-2xl border border-border/80 bg-background/40 flex flex-col gap-3">
+                    <h4 className="text-xs font-bold flex items-center gap-1.5 text-purple-500">
+                      <Heart className="w-4 h-4" /> 인스타그램 릴스 저장 & DM 공유율 최우수 포맷
+                    </h4>
+                    <div className="flex flex-col gap-2">
+                      {(trendRadarData.instagram_trends || []).map((ig: any, idx: number) => (
+                        <div
+                          key={idx}
+                          className="p-2.5 rounded-xl bg-card border border-border/60 flex flex-col gap-1 text-xs"
+                        >
+                          <div className="font-bold text-foreground">{ig.theme}</div>
+                          <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+                            <span>북마크 저장률: <strong className="text-purple-600">{ig.save_rate_pct}</strong></span>
+                            <span>DM 공유율: <strong className="text-purple-600">{ig.share_rate_pct}</strong></span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="py-12 flex flex-col items-center justify-center text-muted-foreground gap-2">
+                <RefreshCw className="w-6 h-6 animate-spin text-primary" />
+                <p className="text-xs">실시간 알고리즘 지표를 연산하는 중입니다...</p>
+              </div>
+            )}
           </div>
         </div>
       )}

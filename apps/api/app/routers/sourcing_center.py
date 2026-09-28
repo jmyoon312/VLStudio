@@ -176,3 +176,151 @@ def render_assets_to_queue(req: RenderToQueueRequest):
         }
     finally:
         db.close()
+
+
+# =========================================================================
+# 신규 고도화 엔드포인트: 픽셀링 큐레이션 흡수, TMDB 자체 확장, 다차원 시맨틱 검색, 트렌드 레이더
+# =========================================================================
+
+class TmdbHarvestRequest(BaseModel):
+    media_type: Optional[str] = "movie"  # movie | tv
+    region: Optional[str] = "KR"
+    min_year: Optional[int] = 2005
+    page: Optional[int] = 1
+
+
+class SliceAndCreateRequest(BaseModel):
+    asset_id: str
+    preset_id: Optional[str] = None
+    start_sec: Optional[float] = 0.0
+    end_sec: Optional[float] = 45.0
+    hook_text: Optional[str] = None
+
+
+@router.post("/pixeling/import")
+def import_pixeling_curated_catalog():
+    """구버전 픽셀링의 130+개 검증 큐레이션 작품 전량을 viral_loop.db로 일괄 임포트"""
+    from app.services.pixeling_curated_catalog import PixelingCuratedCatalogService
+    db = SessionLocal()
+    try:
+        res = PixelingCuratedCatalogService.import_all_to_db(db)
+        from app.services.semantic_sourcing_search import SemanticSourcingSearchService
+        SemanticSourcingSearchService.invalidate_cache()
+        return res
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        db.close()
+
+
+@router.get("/curated-works")
+def get_curated_works(
+    query: Optional[str] = Query(None),
+    emotion: Optional[str] = Query(None),
+    major_cat: Optional[str] = Query(None),
+    relationship: Optional[str] = Query(None),
+    trope: Optional[str] = Query(None),
+    personality: Optional[str] = Query(None),
+    era: Optional[str] = Query(None),
+    person: Optional[str] = Query(None),
+    min_score: Optional[float] = Query(0.0),
+    limit: Optional[int] = Query(60)
+):
+    """5대 태그를 뛰어넘는 4차원 직교 패싯 및 자연어 시맨틱 검색 기반 큐레이션 작품 조회"""
+    from app.services.semantic_sourcing_search import SemanticSourcingSearchService
+    db = SessionLocal()
+    try:
+        results = SemanticSourcingSearchService.search_curated_assets(
+            db_session=db,
+            query=query,
+            emotion=emotion,
+            major_cat=major_cat,
+            facet_relationship=relationship,
+            facet_trope=trope,
+            facet_personality=personality,
+            facet_era=era,
+            lead_person=person,
+            min_score=min_score or 0.0,
+            limit=limit or 60
+        )
+        return {"success": True, "total": len(results), "items": results}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        db.close()
+
+
+@router.post("/tmdb/harvest")
+def harvest_tmdb_titles(req: TmdbHarvestRequest):
+    """TMDB API 기반 자체 숏폼 바이럴 적합도 큐레이션 및 DB 일괄 확장 적재"""
+    from app.services.tmdb_viral_curator import TmdbViralCuratorService
+    db = SessionLocal()
+    try:
+        curated = TmdbViralCuratorService.fetch_and_curate_titles(
+            media_type=req.media_type or "movie",
+            region=req.region or "KR",
+            min_year=req.min_year or 2005,
+            page=req.page or 1,
+            db_session=db
+        )
+        ingest_res = TmdbViralCuratorService.ingest_curated_titles_to_db(db, curated)
+        from app.services.semantic_sourcing_search import SemanticSourcingSearchService
+        SemanticSourcingSearchService.invalidate_cache()
+        return {
+            "success": True,
+            "harvested_count": len(curated),
+            "ingest_result": ingest_res,
+            "items": curated[:10]
+        }
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        db.close()
+
+
+@router.get("/trend-radar")
+def get_trend_radar():
+    """VPH, 아웃라이어 폭발 배수, 틱톡 음원 속도, 인스타 저장/공유율 기반 실시간 알고리즘 레이더"""
+    from app.services.trend_scoring_engine import TrendScoringEngine
+    try:
+        res = TrendScoringEngine.get_curated_trend_radar()
+        return res
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/slice-and-create")
+def slice_and_create_short(req: SliceAndCreateRequest):
+    """소싱 센터 작품에서 1초 만에 씬을 발골하여 아스트라 대화형 제작 큐로 직결"""
+    db = SessionLocal()
+    try:
+        asset = db.query(SourcingAsset).filter(SourcingAsset.id == req.asset_id).first()
+        if not asset:
+            raise HTTPException(status_code=404, detail="Asset not found")
+
+        preset_id = req.preset_id or asset.linked_preset_id or "channel_classic_short_v1"
+        hook = req.hook_text or asset.script_draft or f"{asset.title} 역대급 명장면!"
+
+        # Mark asset in progress
+        asset.status = "in_progress"
+        db.commit()
+
+        return {
+            "success": True,
+            "asset_id": asset.id,
+            "title": asset.title,
+            "preset_id": preset_id,
+            "hook_text": hook,
+            "start_sec": req.start_sec,
+            "end_sec": req.end_sec,
+            "source_url": asset.source_url,
+            "message": f"'{asset.title}' 영상의 씬 발골이 완료되어 아스트라 총괄 디렉터로 전달되었습니다."
+        }
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        db.close()
+

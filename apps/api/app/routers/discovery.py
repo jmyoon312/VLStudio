@@ -1378,7 +1378,7 @@ async def autonomous_clone_and_produce(
         "step": 4,
         "name": "대본 집필 & Critic-85 심사",
         "status": "COMPLETED",
-        "detail": f"Critic-{critic_score}점 게이트키퍼 통과! 4개 씬 및 2단 헤드라인 구성 완료"
+        "detail": f"Critic-{critic_score}점 고품질 검증 통과! 4개 씬 및 2단 헤드라인 구성 완료"
     })
 
     # ─── 5단계: Supertonic 고음질 로컬 음성 & Remotion 미디어 조립 ────────
@@ -1452,7 +1452,7 @@ async def autonomous_clone_and_produce(
             } for s in structured_result.get("scenes", [])
         ],
         "jabOverlay": {
-            "text": f"*{hookText[:16]}*" if hookText else "*출격작전 반전 순간!*",
+            "text": f"*{hookText[:16]}*" if hookText else "*놓치면 안 될 반전 순간!*",
             "startMs": 2500,
             "endMs": 7000,
             "placement": "top-third",

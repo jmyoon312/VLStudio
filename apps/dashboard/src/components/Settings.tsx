@@ -6,7 +6,7 @@ import { useNavigate } from 'react-router-dom';
 
 import api, { apiLong, Settings as SettingsType } from '../lib/api';
 
-import { Save, FolderOpen, Loader2, Download, Upload, AlertTriangle, FileText, Play, RefreshCcw, RotateCcw, XCircle, Settings as SettingsIcon, BrainCircuit, Mic2, MessageSquare, Wrench, Globe, Info, Trash2, Copy, Server, Plus, Minus, Search, Zap, Cpu, ExternalLink, Home, Terminal, TrendingUp, RadioReceiver, Shield, Volume2, Rocket, CheckCircle2, Film, Code2, Sparkles, Clock, Bot, Workflow, Layers, Send, Pause, Check, ArrowDownUp } from 'lucide-react';
+import { Save, FolderOpen, Loader2, Download, Upload, AlertTriangle, FileText, Play, RefreshCcw, RotateCcw, XCircle, Settings as SettingsIcon, BrainCircuit, Mic2, MessageSquare, Wrench, Globe, Info, Trash2, Copy, Server, Plus, Minus, Search, Zap, Cpu, ExternalLink, Home, Terminal, TrendingUp, RadioReceiver, Shield, Volume2, Rocket, CheckCircle2, Film, Code2, Sparkles, Clock, Bot, Workflow, Layers, Send, Pause, Check, ArrowDownUp, Key, Tv } from 'lucide-react';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -37,6 +37,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import AIModelSelector from '@/components/shared/AIModelSelector';
 import OmniRouteControlCard from '@/components/shared/OmniRouteControlCard';
 import { SystemSettingsTab } from './SystemSettingsTab';
+import { ApiIntegrationsTab } from './ApiIntegrationsTab';
 
 // Helper Component for Key Lists
 
@@ -543,7 +544,7 @@ const UnifiedEnginesHub = ({ formData, setFormData }: { formData: any; setFormDa
                                 </Badge>
                             </CardTitle>
                             <CardDescription className="text-xs">
-                                루피가 자율적으로 영상을 기획·제작하는 내장 도구 사령탑(Root MCP Server)과 깃허브 원본 기반 바이럴 지능 스킬고(Hermes Core)를 직접 관리합니다.
+                                루피가 자율적으로 영상을 기획·제작하는 내장 도구 허브(Root MCP Server)와 깃허브 원본 기반 바이럴 지능 스킬고(Hermes Core)를 직접 관리합니다.
                             </CardDescription>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
@@ -572,7 +573,7 @@ const UnifiedEnginesHub = ({ formData, setFormData }: { formData: any; setFormDa
 
                 <CardContent className="space-y-4 pt-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {/* 1. Root MCP Server (내부 내장 도구 사령탑) */}
+                        {/* 1. Root MCP Server (내부 내장 도구 허브) */}
                         {(() => {
                             const mcpComp = loopieStatus?.components?.find((c: any) => c.id === 'mcp_server');
                             const isRunning = mcpComp?.running ?? false;
@@ -738,7 +739,7 @@ const UnifiedEnginesHub = ({ formData, setFormData }: { formData: any; setFormDa
                             <div className="flex items-center gap-2">
                                 <Sparkles className="w-4 h-4 text-indigo-500" />
                                 <span className="text-xs font-bold text-foreground">
-                                    Hermes 5대 자율 역량 & 원격 사령탑 통보 설정
+                                    Hermes 5대 자율 역량 & 원격 관제 알림 설정
                                 </span>
                             </div>
                             <Badge variant="outline" className="text-[10px] bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/30 font-bold">
@@ -809,22 +810,25 @@ const UnifiedEnginesHub = ({ formData, setFormData }: { formData: any; setFormDa
                                 </div>
                             </div>
 
-                            {/* 4. 텔레그램 지능형 원격 관제 사령탑 */}
+                            {/* 4. 텔레그램 지능형 원격 관제 센터 */}
                             <div className="p-4 rounded-xl bg-card border border-border space-y-3.5 shadow-xs">
                                 <div className="flex items-center justify-between border-b border-border/60 pb-3">
                                     <div className="space-y-0.5">
-                                        <div className="text-xs sm:text-sm font-bold text-foreground flex items-center gap-2">
+                                        <div className="text-xs sm:text-sm font-bold text-foreground flex items-center gap-2 flex-wrap">
                                             <Send className="w-4 h-4 text-sky-500" />
-                                            텔레그램 지능형 원격 관제 사령탑 (Loopie Remote Tower)
+                                            <span>텔레그램 지능형 원격 관제 센터 (Loopie Remote Assistant)</span>
                                             <Badge
                                                 variant="outline"
                                                 className={`text-[10px] font-bold ${formData?.telegram_bot_token && formData?.telegram_chat_id ? 'bg-sky-500/10 text-sky-500 border-sky-500/30' : 'bg-muted text-muted-foreground'}`}
                                             >
                                                 {formData?.telegram_bot_token && formData?.telegram_chat_id ? '연동 준비 완료' : '미설정'}
                                             </Badge>
+                                            <Badge className="bg-sky-500/15 text-sky-600 dark:text-sky-400 border-sky-500/30 text-[10px] font-bold">
+                                                1:1 개인 비서 전용
+                                            </Badge>
                                         </div>
-                                        <div className="text-[11px] text-muted-foreground">
-                                            일일 결산 브리핑, 대박 숏폼 감지, 배포 완주 및 긴급 장애를 루피 AI가 스마트폰으로 실시간 브리핑합니다.
+                                        <div className="text-[11px] text-muted-foreground leading-relaxed">
+                                            일일 결산 브리핑, 대박 숏폼 감지, 배포 완주 및 긴급 장애를 루피 AI가 대표님 개인 스마트폰 1:1 대화방으로 실시간 브리핑합니다. (대용량 영상 무제한 보관은 [API & OTT 연동] 탭의 영상 볼트 전용 채널에서 별도로 안전하게 관리됩니다)
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-2">
@@ -2039,9 +2043,11 @@ const Settings = () => {
 
     });
 
-    const handleSave = (e: React.FormEvent) => {
+    const handleSave = (e?: React.FormEvent | React.MouseEvent) => {
 
-        e.preventDefault();
+        if (e && typeof e.preventDefault === 'function') {
+            e.preventDefault();
+        }
 
         setIsSaving(true);
 
@@ -2186,6 +2192,8 @@ const Settings = () => {
             hermes_max_subagents: formData.hermes_max_subagents ?? 3,
             telegram_bot_token: formData.telegram_bot_token ?? null,
             telegram_chat_id: formData.telegram_chat_id ?? null,
+            telegram_vault_bot_token: formData.telegram_vault_bot_token ?? null,
+            telegram_vault_chat_id: formData.telegram_vault_chat_id ?? null,
             telegram_notify_enabled: formData.telegram_notify_enabled ?? false,
             cron_patrol_enabled: formData.cron_patrol_enabled ?? false,
             cron_patrol_schedule: formData.cron_patrol_schedule ?? '08:30,18:30',
@@ -2333,6 +2341,16 @@ const Settings = () => {
 
                     enable_view_stats_collection: rawSettings.enable_view_stats_collection,
 
+                    telegram_bot_token: rawSettings.telegram_bot_token,
+
+                    telegram_chat_id: rawSettings.telegram_chat_id,
+
+                    telegram_vault_bot_token: rawSettings.telegram_vault_bot_token,
+
+                    telegram_vault_chat_id: rawSettings.telegram_vault_chat_id,
+
+                    telegram_notify_enabled: rawSettings.telegram_notify_enabled,
+
                 };
 
                 // undefined 키 정리
@@ -2399,7 +2417,17 @@ const Settings = () => {
 
                 </div>
 
-                <div className="grid grid-cols-2 gap-2 w-full sm:w-auto shrink-0">
+                <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto shrink-0 justify-end">
+
+                    <Button 
+                        type="button" 
+                        onClick={() => handleSave()} 
+                        disabled={isSaving} 
+                        className="h-9 px-4 text-xs sm:text-sm font-bold gap-2 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 shadow-md transition-all hover:scale-102 active:scale-98 cursor-pointer"
+                    >
+                        {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                        <span>설정 저장</span>
+                    </Button>
 
                     <Button variant="outline" size="sm" onClick={handleBackup} className="h-9 text-xs sm:text-sm font-semibold border-border bg-card hover:bg-muted text-foreground rounded-xl shadow-2xs">
 
@@ -2511,6 +2539,12 @@ const Settings = () => {
                             <TabsTrigger value="general" className="flex-1 gap-1.5 px-3.5 h-10 text-xs sm:text-sm font-bold rounded-xl whitespace-nowrap">
 
                                 <SettingsIcon className="w-4 h-4 shrink-0 text-foreground" /> <span>일반 & 저장소</span>
+
+                            </TabsTrigger>
+
+                            <TabsTrigger value="api_integrations" className="flex-1 gap-1.5 px-3.5 h-10 text-xs sm:text-sm font-bold rounded-xl whitespace-nowrap">
+
+                                <Key className="w-4 h-4 shrink-0 text-amber-500" /> <span>API & OTT 연동</span>
 
                             </TabsTrigger>
 
@@ -2948,7 +2982,22 @@ const Settings = () => {
 
                     {/* ========================================================= */}
 
-                    {/* --- TAB 2: AI INTELLIGENCE & MODELS (OmniRoute 통합 허브) --- */}
+                    {/* --- TAB 2: EXTERNAL API & OTT INTEGRATIONS (API & OTT 연동 센터) --- */}
+
+                    {/* ========================================================= */}
+
+                    <TabsContent value="api_integrations">
+                        <ApiIntegrationsTab 
+                            formData={formData} 
+                            setFormData={setFormData} 
+                            onSave={handleSave} 
+                            isSaving={isSaving} 
+                        />
+                    </TabsContent>
+
+                    {/* ========================================================= */}
+
+                    {/* --- TAB 3: AI INTELLIGENCE & MODELS (OmniRoute 통합 허브) --- */}
 
                     {/* ========================================================= */}
 

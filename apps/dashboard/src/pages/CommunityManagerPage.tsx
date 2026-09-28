@@ -180,7 +180,7 @@ export default function CommunityManagerPage() {
                         <span>댓글 소통 & 인게이지먼트 센터</span>
                     </h1>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                        루피 AI 사령탑과 백그라운드 워커가 채널별 시청자 댓글을 수집하고, 안전 네트워크망을 통해 자동/직접 제어 소통을 수행합니다.
+                        루피 AI 총괄 디렉터와 백그라운드 워커가 채널별 시청자 댓글을 수집하고, 안전 네트워크망을 통해 자동/직접 제어 소통을 수행합니다.
                     </p>
                 </div>
 
@@ -194,7 +194,7 @@ export default function CommunityManagerPage() {
                         <option value="all">전체 채널 통합 보기 ({channels.length ? `${channels.length}개 채널` : '통합'})</option>
                         {channels.map((c: any) => (
                             <option key={c.id} value={c.id}>
-                                {c.title || `채널 #${c.id}`} {c.security?.is_static ? '[고정 ISP]' : '[LTE]'}
+                                 {c.title || `채널 #${c.id}`} {c.security?.is_static ? '[고정 ISP]' : '[LTE]'}
                             </option>
                         ))}
                     </select>
@@ -232,7 +232,7 @@ export default function CommunityManagerPage() {
                 </div>
             </div>
 
-            {/* 🤖 루피 AI 커뮤니티 사령탑 & 워커 관제 패널 */}
+            {/* 🤖 루피 AI 커뮤니티 전담 관리 패널 */}
             <Card className="border-sky-500/30 bg-gradient-to-br from-sky-500/5 via-card to-card rounded-2xl shadow-2xs overflow-hidden">
                 <CardHeader className="py-3 px-4 border-b border-border/60 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
@@ -241,7 +241,7 @@ export default function CommunityManagerPage() {
                         </div>
                         <div>
                             <CardTitle className="text-sm font-bold flex items-center gap-2">
-                                <span>루피 AI 커뮤니티 사령탑 (Autopilot & Direct Control)</span>
+                                <span>루피 AI 커뮤니티 매니저 (Autopilot & Direct Control)</span>
                                 <Badge className="bg-emerald-500/15 text-emerald-500 border-emerald-500/30 text-[10px] font-mono">
                                     워커 가동 중 (5분 주기)
                                 </Badge>
@@ -482,7 +482,7 @@ export default function CommunityManagerPage() {
                                                     disabled={postReplyMutation.isPending}
                                                     className="h-7 text-xs font-bold gap-1 bg-sky-600 hover:bg-sky-500 text-white"
                                                 >
-                                                    <Send className="w-3 h-3" /> 사령탑 직접 승인 게시
+                                                    <Send className="w-3 h-3" /> 직접 승인 게시
                                                 </Button>
                                             )}
                                         </div>

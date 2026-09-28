@@ -111,13 +111,16 @@ HERMES_OPENAI_TOOLS: List[Dict[str, Any]] = [
         "type": "function",
         "function": {
             "name": "pixeling_save_preset",
-            "description": "현재 영상의 자막 디자인, 색상, 타이틀 배치를 바이럴루프 프리셋 보관함에 영구 등록합니다.",
+            "description": "현재 영상의 자막 디자인, 색상, 타이틀 배치, 인터랙티브 오버레이(댓글, 상품바, 퀴즈)를 바이럴루프 프리셋 보관함에 영구 등록합니다.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "name": {"type": "string", "description": "새 프리셋 이름"},
                     "recipe": {"type": "string", "description": "스타일 레시피 설명"},
-                    "content_rules": {"type": "array", "items": {"type": "string"}, "description": "제작 룰"}
+                    "content_rules": {"type": "array", "items": {"type": "string"}, "description": "제작 룰"},
+                    "interactive_layer": {"type": "object", "description": "댓글 카드, 3단 상품 바, 퀴즈 카드 등 특수 레이어 설정"},
+                    "speaker_colors": {"type": "object", "description": "화자별 2색 자막 설정 (speaker_a, speaker_b)"},
+                    "stepwise_expansion": {"type": "boolean", "description": "2줄 누적형 확장 자막 여부"}
                 },
                 "required": ["name"]
             }
@@ -126,8 +129,23 @@ HERMES_OPENAI_TOOLS: List[Dict[str, Any]] = [
     {
         "type": "function",
         "function": {
+            "name": "pixeling_capture_template_draft",
+            "description": "픽셀링 1.0.122 역공학 핵심 도구: 레퍼런스 영상에서 0.5초 콘택트 시트와 자막 ROI 스트립을 합성·발골하여 상단바, 타이틀, 자막 및 인터랙티브 레이어(댓글/상품/퀴즈)를 세션 드래프트에 즉시 캡처·동기화합니다.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "video_or_url": {"type": "string", "description": "분석할 유튜브 URL 또는 로컬 비디오 파일 경로"},
+                    "preset_name": {"type": "string", "description": "부여할 프리셋/템플릿 이름 (선택)"}
+                },
+                "required": ["video_or_url"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "montage_analyze_reference",
-            "description": "유튜브 링크나 로컬 영상의 비전/음성을 인터리빙 분석하여 타이틀 위치, 자막 스타일, 컷 전환 주기를 발골합니다.",
+            "description": "유튜브 링크나 로컬 영상의 비전/음성을 시각 지능 팩(Contact Sheet + Subtitle ROI Strip)으로 인터리빙 분석하여 타이틀 위치, 자막 스타일, 인터랙티브 레이어, 컷 전환 주기를 발골합니다.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -344,6 +362,56 @@ HERMES_OPENAI_TOOLS: List[Dict[str, Any]] = [
                 "required": ["channel_url"]
             }
         }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "stream_slice_online",
+            "description": "온라인 무다운로드 스트림 슬라이서: 30분~1시간 풀영상을 다운로드하지 않고, 필요한 10~15초 구간만 온라인 스트림에서 2초 만에 즉석 절삭하여 로컬 02_Operations/Temp에 저장합니다.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "url": {"type": "string", "description": "비디오 스트림 URL (YouTube, TikTok 등)"},
+                    "start_time": {"type": "string", "description": "시작 타임코드 (예: '00:01:15' 또는 '75')"},
+                    "end_time": {"type": "string", "description": "종료 타임코드 (예: '00:01:30' 또는 '90')"},
+                    "output_name": {"type": "string", "description": "저장할 파일명 (선택)"}
+                },
+                "required": ["url", "start_time", "end_time"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "reverse_source_shorts",
+            "description": "쇼츠 원본 역추적 스카우터: 쇼츠 URL(YouTube Shorts/TikTok)을 입력받아 원본 1080p 고화질 긴 영상 풀버전을 자동 발굴합니다.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "shorts_url": {"type": "string", "description": "분석 및 역추적할 쇼츠 URL"}
+                },
+                "required": ["shorts_url"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "upload_queue_enqueue",
+            "description": "완성된 숏폼 영상(MP4)을 바이럴 제목, 해시태그, 설명문과 함께 유튜브 자동 배포 관리 대기열(Work Queue)로 직결 등록합니다.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "video_path": {"type": "string", "description": "업로드할 MP4 비디오 절대경로 (생략 시 최신 deliverable 사용)"},
+                    "title": {"type": "string", "description": "유튜브 쇼츠 바이럴 제목 (이모지 및 훅 포함)"},
+                    "description": {"type": "string", "description": "영상 설명문 및 출처 표기"},
+                    "tags": {"type": "array", "items": {"type": "string"}, "description": "해시태그 및 검색 태그"},
+                    "channel_id": {"type": "string", "description": "등록할 타겟 채널 ID (기본: default_channel)", "default": "default_channel"},
+                    "priority": {"type": "string", "enum": ["normal", "high", "urgent"], "default": "high"}
+                },
+                "required": ["title"]
+            }
+        }
     }
 ]
 
@@ -495,7 +563,15 @@ class HermesToolDispatcher:
             name = arguments.get("name", "커스텀 프리셋")
             recipe = arguments.get("recipe", "에이전트 맞춤 스타일")
             content_rules = arguments.get("content_rules", ["상단 볼드 타이틀 유지", "하단 18% 마진 자막"])
-            curr_style = previous_deliverable.get("style") if previous_deliverable else sovereign_preset_engine.official_presets["science"]["style"]
+            curr_style = copy.deepcopy(previous_deliverable.get("style")) if previous_deliverable else copy.deepcopy(sovereign_preset_engine.official_presets["science"]["style"])
+
+            # Merge interactive_layer, speaker_colors, stepwise_expansion if provided
+            if arguments.get("interactive_layer"):
+                curr_style["interactive_layer"] = arguments["interactive_layer"]
+            if arguments.get("speaker_colors"):
+                curr_style["speaker_colors"] = arguments["speaker_colors"]
+            if arguments.get("stepwise_expansion") is not None:
+                curr_style["stepwise_expansion"] = arguments["stepwise_expansion"]
 
             new_preset = sovereign_preset_engine.create_custom_preset(
                 name=name,
@@ -509,6 +585,42 @@ class HermesToolDispatcher:
                 "tool_name": tool_name,
                 "preset": new_preset,
                 "message": f"프리셋 [{name}]이 공식 보관함에 안전하게 등록되었습니다."
+            }
+
+        # 5.5. Pixeling: Capture Template Draft (Reverse Engineered from Pixeling 1.0.122)
+        elif tool_name == "pixeling_capture_template_draft":
+            target = arguments.get("video_or_url", "")
+            preset_name = arguments.get("preset_name")
+            from app.services.hermes_asset_scout import hermes_asset_scout
+            from app.services.omniroute_vision_analyzer import omniroute_vision_analyzer
+
+            local_video = target
+            if target.startswith("http://") or target.startswith("https://"):
+                local_video = await hermes_asset_scout.download_youtube_video(target)
+
+            analysis = await omniroute_vision_analyzer.analyze_video_interleaved(local_video, preset_name=preset_name)
+            
+            # Commit to session draft
+            await pixagent_presets.pixeling_set_preset_draft(
+                session_id=session_id,
+                style=analysis.get("style"),
+                recipe=analysis.get("recipe"),
+                content_rules=analysis.get("content_rules"),
+                preset_id=analysis.get("preset_id"),
+                preset_name=analysis.get("preset_name")
+            )
+
+            return {
+                "success": True,
+                "tool_name": tool_name,
+                "video_path": local_video,
+                "preset_id": analysis.get("preset_id"),
+                "preset_name": analysis.get("preset_name"),
+                "style": analysis.get("style"),
+                "interactive_layer": analysis.get("interactive_layer"),
+                "speaker_colors": analysis.get("speaker_colors"),
+                "stepwise_expansion": analysis.get("stepwise_expansion"),
+                "message": f"레퍼런스 영상의 0.5초 콘택트 시트 및 자막 ROI를 발골하여 템플릿 드래프트 [{analysis.get('preset_name')}]를 세션에 완벽히 동기화했습니다."
             }
 
         # 6. OpenMontage / Vision: Analyze Reference
@@ -812,6 +924,74 @@ class HermesToolDispatcher:
                 "gemini_analysis": gemini_physical_metrics,
                 "hybrid_preset": hybrid,
                 "message": f"아스트라와 제미나이의 장점을 결합한 하이브리드 소버린 프리셋이 합성되었습니다! ({hybrid.get('name')})"
+            }
+
+        # 15. Online Stream Slicer (Direct HTTP Range Slicing)
+        elif tool_name == "stream_slice_online":
+            url = arguments.get("url", "")
+            start_time = arguments.get("start_time", "00:00:00")
+            end_time = arguments.get("end_time", "00:00:15")
+            output_name = arguments.get("output_name")
+            from app.services.hermes_asset_scout import hermes_asset_scout
+            sliced_path = await hermes_asset_scout.stream_slice_online(
+                url=url,
+                start_time=start_time,
+                end_time=end_time,
+                output_name=output_name
+            )
+            return {
+                "success": bool(sliced_path),
+                "tool_name": tool_name,
+                "sliced_path": sliced_path,
+                "url": url,
+                "section": f"{start_time} - {end_time}",
+                "message": f"온라인 스트림에서 필요한 구간({start_time}~{end_time})을 2초 만에 스냅 절삭했습니다! ({sliced_path})" if sliced_path else "온라인 스트림 구간 절삭에 실패했습니다."
+            }
+
+        # 16. Shorts Reverse Sourcing Engine
+        elif tool_name == "reverse_source_shorts":
+            shorts_url = arguments.get("shorts_url", "")
+            from app.services.hermes_asset_scout import hermes_asset_scout
+            scout_res = await hermes_asset_scout.reverse_source_shorts(shorts_url=shorts_url)
+            return {
+                "success": bool(scout_res),
+                "tool_name": tool_name,
+                "shorts_url": shorts_url,
+                "original_source": scout_res,
+                "message": f"쇼츠의 원본 1080p 고화질 긴 영상을 발굴했습니다: {scout_res.get('title') or scout_res.get('url')}" if scout_res else "원본 긴 영상 추적에 실패하여 쇼츠 원본으로 진행합니다."
+            }
+
+        # 17. Auto Deployment Queue Handoff
+        elif tool_name == "upload_queue_enqueue":
+            video_path = arguments.get("video_path")
+            if not video_path and previous_deliverable:
+                video_path = previous_deliverable.get("video_path")
+            title = arguments.get("title", "바이럴 숏폼 영상")
+            description = arguments.get("description", "#Shorts #ViraLoop")
+            tags = arguments.get("tags") or ["Shorts", "Viral"]
+            channel_id = arguments.get("channel_id", "default_channel")
+            priority = arguments.get("priority", "high")
+
+            from app.services.upload_queue_manager import get_upload_queue_manager
+            mgr = get_upload_queue_manager()
+            video_data = {
+                "video_file_path": video_path or "",
+                "title": title,
+                "channel_id": channel_id,
+                "metadata": {
+                    "description": description,
+                    "tags": tags
+                }
+            }
+            item_id = await mgr.enqueue(video_data=video_data, source="auto", priority=priority)
+            return {
+                "success": True,
+                "tool_name": tool_name,
+                "item_id": item_id,
+                "title": title,
+                "channel_id": channel_id,
+                "priority": priority,
+                "message": f"영상 [{title}]이 유튜브 자동 배포 관리 대기열(ID: {item_id})에 성공적으로 등록되었습니다!"
             }
 
         else:
