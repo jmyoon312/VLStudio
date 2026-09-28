@@ -330,6 +330,138 @@ async def interactive_overlay_composite(
         overlay_type=overlay_type,
         config=config,
         video_path=video_path
+@sovereign_mcp.tool()
+def enhance_image_prompt(
+    prompt: str,
+    style_preset: str = "cinematic_photorealism",
+    aspect_ratio: str = "9:16",
+    camera_angle: Optional[str] = None
+) -> dict:
+    """
+    [Google Nano Banana Pro / Imagen 3 최적화]
+    기본 키워드나 대본 문장을 받아 헐리우드 시네마틱 라이팅, 35mm 카메라 렌즈, 질감, 구도 디렉팅이
+    포함된 최상위 퀄리티 이미지 생성 프롬프트로 고도화 변환합니다.
+    - style_preset: 'cinematic_photorealism', 'cyberpunk_noir', 'webtoon_anime', 'documentary_historical', '3d_pixar'
+    - aspect_ratio: '9:16' (쇼츠/릴스), '16:9' (유튜브 롱폼), '1:1' (피드)
+    """
+    from app.services.direct_gemini_image_generator import direct_gemini_image_generator
+    enhanced = direct_gemini_image_generator.enhance_prompt(
+        base_prompt=prompt,
+        style_preset=style_preset,
+        aspect_ratio=aspect_ratio,
+        camera_angle=camera_angle
+    )
+    return {
+        "success": True,
+        "original_prompt": prompt,
+        "enhanced_prompt": enhanced,
+        "style_preset": style_preset,
+        "aspect_ratio": aspect_ratio
+    }
+
+
+@sovereign_mcp.tool()
+def generate_scene_image(
+    prompt: str,
+    aspect_ratio: str = "9:16",
+    style_preset: str = "cinematic_photorealism",
+    auto_enhance: bool = True,
+    account_email: Optional[str] = None
+) -> dict:
+    """
+    [Google 10개 독립 계정 직결 Nano Banana Pro / Gemini 3.1 Flash Image]
+    옴니루트를 거치지 않고 Google 공식 CloudCode 직접 백엔드를 통해
+    10개 계정 풀 자동 분산 및 실시간 쿼터 페일오버로 비용 0원 고화질 숏폼/롱폼 이미지를 즉시 생성합니다.
+    - prompt: 씬 시각 묘사 (영문 권장)
+    - aspect_ratio: '9:16' (기본), '16:9', '1:1'
+    - style_preset: 'cinematic_photorealism', 'cyberpunk_noir', 'webtoon_anime', 'documentary_historical', '3d_pixar'
+    - auto_enhance: True일 경우 시네마틱 렌즈/조명 프롬프트 자동 고도화 적용
+    """
+    from app.services.direct_gemini_image_generator import direct_gemini_image_generator
+    return direct_gemini_image_generator.generate_image(
+        prompt=prompt,
+        aspect_ratio=aspect_ratio,
+        style_preset=style_preset,
+        auto_enhance=auto_enhance,
+        account_email=account_email
+@sovereign_mcp.tool()
+def gemini_tts_optimize_guide(genre: str = "shorts_viral_hook", script_text: Optional[str] = None) -> dict:
+    """
+    [Google Gemini 3.8 Flash TTS 보이스 설정값 최적화 가이드]
+    영상 장르별 최적의 목소리(Puck, Charon, Kore, Fenrir, Aoede), 배속(Speed), 감정(Emotion),
+    그리고 대본 한글 발음 및 호흡 쉼표 교정 규칙을 제공합니다.
+    - genre: 'shorts_viral_hook', 'crime_mystery', 'news_politics', 'shopping_product_review', 'horror_scary', 'philosophy_essay'
+    - script_text: 대본을 넘기면 숫자, 외래어, 호흡 쉼표가 자동 최적화된 대본을 함께 반환
+    """
+    from app.services.gemini_tts_optimizer import gemini_tts_optimizer
+    settings = gemini_tts_optimizer.get_optimal_settings(genre=genre)
+    formatted = gemini_tts_optimizer.format_script_for_tts(script_text, genre=genre) if script_text else None
+    return {
+        "success": True,
+        "genre": genre,
+        "optimal_settings": settings,
+        "optimized_script": formatted,
+        "golden_rules": gemini_tts_optimizer.get_full_optimization_guide()["golden_script_rules"]
+    }
+
+
+@sovereign_mcp.tool()
+def render_25d_parallax_video(
+    image_paths: list,
+    audio_path: str,
+    title_text: Optional[str] = None,
+    subtitle_text: Optional[str] = None
+) -> dict:
+    """
+    [로컬 2.5D 시네마틱 4대 궤적 패럴랙스 렌더러 (비용 0원, 0.5초 렌더링)]
+    정적 2D 이미지들을 1080x1920 세로형 30/60fps 시네마틱 무빙(Push-In, Pull-Out, Pan, Diagonal Drift) 비디오로 즉시 합성합니다.
+    - image_paths: 씬 이미지 파일 경로 리스트
+    - audio_path: 음성 오디오 파일 경로
+    - title_text: 상단 볼드 타이틀 (선택)
+    - subtitle_text: 하단 서브타이틀 (선택)
+    """
+    from app.services.parallax_motion_renderer import parallax_motion_renderer
+    return parallax_motion_renderer.render_cinematic_slideshow(
+        image_paths=image_paths,
+        audio_path=audio_path,
+        title_text=title_text,
+        subtitle_text=subtitle_text
+    )
+
+
+@sovereign_mcp.tool()
+def generate_wan21_ai_video(
+    image_path: str,
+    prompt: str = "Cinematic lighting, camera zooming in, 8k resolution"
+) -> dict:
+    """
+    [Hugging Face ZeroGPU A100 기반 Wan 2.1 SOTA 비디오 생성 (비용 0원)]
+    정적 이미지 1장을 입력받아 자연스러운 물리 법칙이 반영된 5초 무빙 비디오 클립으로 렌더링합니다.
+    - image_path: 소스 이미지 절대 경로
+    - prompt: 카메라 및 피사체 움직임 묘사
+    """
+    from app.services.hf_zerogpu_video_client import hf_zerogpu_video_client
+    return hf_zerogpu_video_client.generate_wan21_video(
+        image_path=image_path,
+        prompt=prompt
+    )
+
+
+@sovereign_mcp.tool()
+def generate_talking_head_video(
+    portrait_image_path: str,
+    driving_audio_path: str
+) -> dict:
+    """
+    [Hugging Face ZeroGPU A100 기반 LivePortrait 립싱크 토킹헤드 비디오 생성]
+    가상 인물 사진 1장과 음성 오디오를 결합하여 입모양, 눈깜빡임, 고개 끄덕임이 완벽 동기화된 해설자 비디오를 생성합니다.
+    - portrait_image_path: 인물 얼굴 정면/반측면 이미지
+    - driving_audio_path: 대본 음성 오디오 파일
+    """
+    from app.services.hf_zerogpu_video_client import hf_zerogpu_video_client
+    return hf_zerogpu_video_client.generate_liveportrait_talking_head(
+        portrait_image_path=portrait_image_path,
+        driving_audio_path=driving_audio_path
     )
 
 
