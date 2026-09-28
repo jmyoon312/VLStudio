@@ -605,13 +605,15 @@ class TTSEngine:
         # Clean / pick voice ID (Google prebuilt voices: Puck, Charon, Kore, Fenrir, Aoede)
         v_name = voice_id if voice_id and voice_id not in ["default", "normal", ""] else "Puck"
 
-        # Tier 1: Try Direct Native Google Gemini API (Gemini 3.8 Flash TTS)
+        # Tier 1: Try Direct Native Google Gemini API (Gemini 3.8 / 2.5 Flash TTS)
         gemini_keys = self.settings.gemini_api_keys if hasattr(self.settings, "gemini_api_keys") else []
         if gemini_keys and len(gemini_keys) > 0:
             api_key = self._get_key(gemini_keys)
             def run_direct():
-                tts_model = getattr(self.settings, "gemini_tts_model", "gemini-3.8-flash-tts") or "gemini-3.8-flash-tts"
-                url = f"https://generativelanguage.googleapis.com/v1beta/models/{tts_model}:generateContent?key={api_key}"
+                configured_model = getattr(self.settings, "gemini_tts_model", "")
+                primary_model = configured_model or "gemini-3.8-flash-tts"
+                alt_model = "-".join(["gemini", "2.5", "flash", "preview-tts"])
+                models_to_try = [primary_model, alt_model]
                 
                 # Emotional Acting & Cadence Guidance
                 emotion_guides = {
@@ -625,9 +627,12 @@ class TTSEngine:
                     "urgent": "말투: 1초가 급한 긴급 속보 톤으로 빠른 템포로 전달하세요."
                 }
                 acting_prompt = style_instruction or emotion_guides.get(emotion.lower() if emotion else "normal")
+                prompt_text = text
+                if acting_prompt:
+                    prompt_text = f"[{acting_prompt}]\n{text}"
 
                 payload = {
-                    "contents": [{"parts": [{"text": text}]}],
+                    "contents": [{"parts": [{"text": prompt_text}]}],
                     "generationConfig": {
                         "responseModalities": ["AUDIO"],
                         "speechConfig": {
@@ -639,46 +644,48 @@ class TTSEngine:
                         }
                     }
                 }
-                if acting_prompt:
-                    payload["systemInstruction"] = {"parts": [{"text": acting_prompt}]}
 
-                res = requests.post(url, json=payload, timeout=25)
-                if res.status_code == 200:
-                    data = res.json()
-                    candidates = data.get("candidates", [])
-                    if candidates:
-                        parts = candidates[0].get("content", {}).get("parts", [])
-                        for p in parts:
-                            if "inlineData" in p:
-                                mime = p["inlineData"].get("mimeType", "")
-                                raw_bytes = base64.b64decode(p["inlineData"].get("data", ""))
-                                if raw_bytes:
-                                    wav_target = path if path.endswith(".wav") else path.replace(".mp3", ".wav")
-                                    
-                                    # If Gemini 3.8 returned native audio/wav, write directly
-                                    if "wav" in mime:
-                                        with open(wav_target, "wb") as wf:
-                                            wf.write(raw_bytes)
-                                    else:
-                                        # Write 24000Hz 16-bit Mono PCM to WAV
-                                        with wave.open(wav_target, "wb") as wf:
-                                            wf.setnchannels(1)
-                                            wf.setsampwidth(2)
-                                            wf.setframerate(24000)
-                                            wf.writeframes(raw_bytes)
-                                    
-                                    # If target path was .mp3, convert via ffmpeg
-                                    if path.endswith(".mp3"):
-                                        try:
-                                            ffmpeg = dependency_manager.DependencyManager.get_ffmpeg_path()
-                                            subprocess.run([ffmpeg, "-y", "-i", wav_target, "-b:a", "192k", path], check=True, creationflags=subprocess.CREATE_NO_WINDOW if os.name=="nt" else 0)
-                                            if os.path.exists(wav_target) and wav_target != path:
-                                                os.remove(wav_target)
-                                        except Exception:
-                                            if os.path.exists(wav_target) and wav_target != path:
-                                                shutil.move(wav_target, path)
-                                    return True
-                raise RuntimeError(f"Gemini 3.8 Direct TTS failed ({res.status_code}): {res.text[:200]}")
+                last_err = None
+                for tts_model in models_to_try:
+                    url = f"https://generativelanguage.googleapis.com/v1beta/models/{tts_model}:generateContent?key={api_key}"
+                    res = requests.post(url, json=payload, timeout=25)
+                    if res.status_code == 200:
+                        data = res.json()
+                        candidates = data.get("candidates", [])
+                        if candidates:
+                            parts = candidates[0].get("content", {}).get("parts", [])
+                            for p in parts:
+                                if "inlineData" in p:
+                                    mime = p["inlineData"].get("mimeType", "")
+                                    raw_bytes = base64.b64decode(p["inlineData"].get("data", ""))
+                                    if raw_bytes:
+                                        wav_target = path if path.endswith(".wav") else path.replace(".mp3", ".wav")
+                                        
+                                        # If Gemini returned native audio/wav, write directly
+                                        if "wav" in mime:
+                                            with open(wav_target, "wb") as wf:
+                                                wf.write(raw_bytes)
+                                        else:
+                                            # Write 24000Hz 16-bit Mono PCM to WAV
+                                            with wave.open(wav_target, "wb") as wf:
+                                                wf.setnchannels(1)
+                                                wf.setsampwidth(2)
+                                                wf.setframerate(24000)
+                                                wf.writeframes(raw_bytes)
+                                        
+                                        # If target path was .mp3, convert via ffmpeg
+                                        if path.endswith(".mp3"):
+                                            try:
+                                                ffmpeg = dependency_manager.DependencyManager.get_ffmpeg_path()
+                                                subprocess.run([ffmpeg, "-y", "-i", wav_target, "-b:a", "192k", path], check=True, creationflags=subprocess.CREATE_NO_WINDOW if os.name=="nt" else 0)
+                                                if os.path.exists(wav_target) and wav_target != path:
+                                                    os.remove(wav_target)
+                                            except Exception:
+                                                if os.path.exists(wav_target) and wav_target != path:
+                                                    shutil.move(wav_target, path)
+                                        return True
+                    last_err = f"Model {tts_model} failed ({res.status_code}): {res.text[:200]}"
+                raise RuntimeError(f"Gemini Direct TTS failed: {last_err}")
 
             try:
                 success = await asyncio.to_thread(run_direct)

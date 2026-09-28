@@ -51,44 +51,44 @@ class ParallaxMotionRenderer:
         trajectory: str = "push_in",
         width: int = 1080,
         height: int = 1920,
-        fps: int = 30
+        fps: int = 60
     ) -> str:
         """
-        Constructs FFmpeg filtergraph string for specific camera motion trajectory.
+        Constructs anti-jitter supersampled FFmpeg filtergraph string for cinema-smooth camera motion.
+        Eliminates subpixel rounding vibrations by running zoompan on a 4K canvas (2x supersampling)
+        and downsampling to output resolution with lanczos interpolation.
         """
-        frames = max(30, int(duration_s * fps))
-        step = 0.15 / frames
+        super_w = width * 2
+        super_h = height * 2
+        frames = max(60, int(duration_s * fps))
 
         if trajectory == "push_in":
-            # Smoothly zooms in towards center
-            zoom_expr = f"min(zoom+{step:.5f},1.15)"
-            x_expr = "iw/2-(iw/zoom/2)"
-            y_expr = "ih/2-(ih/zoom/2)"
+            # Smooth cosine ease-in-out zoom
+            zoom_expr = f"1.0+0.12*(1-cos(PI*on/{frames}))/2"
+            x_expr = "(iw-iw/zoom)/2"
+            y_expr = "(ih-ih/zoom)/2"
         elif trajectory == "pull_out":
-            # Smoothly zooms out from 1.15 to 1.0
-            zoom_expr = f"max(1.15-{step:.5f}*on,1.0)"
-            x_expr = "iw/2-(iw/zoom/2)"
-            y_expr = "ih/2-(ih/zoom/2)"
+            zoom_expr = f"1.12-0.12*(1-cos(PI*on/{frames}))/2"
+            x_expr = "(iw-iw/zoom)/2"
+            y_expr = "(ih-ih/zoom)/2"
         elif trajectory == "pan_left_to_right":
-            # Zooms slightly (1.10) and pans horizontally from left to right
             zoom_expr = "1.10"
-            pan_step = f"((iw-iw/zoom)/{frames})*on"
-            x_expr = f"min({pan_step},iw-iw/zoom)"
-            y_expr = "ih/2-(ih/zoom/2)"
+            x_expr = f"(iw-iw/zoom)*(1-cos(PI*on/{frames}))/2"
+            y_expr = "(ih-ih/zoom)/2"
         elif trajectory == "diagonal_drift":
-            # Zooms and drifts diagonally from top-left to bottom-right
-            zoom_expr = f"min(1.05+{step:.5f},1.18)"
-            x_expr = f"((iw-iw/zoom)/{frames})*on"
-            y_expr = f"((ih-ih/zoom)/{frames})*on"
+            zoom_expr = f"1.08+0.05*(1-cos(PI*on/{frames}))/2"
+            x_expr = f"(iw-iw/zoom)*(1-cos(PI*on/{frames}))/2"
+            y_expr = f"(ih-ih/zoom)*(1-cos(PI*on/{frames}))/2"
         else:
-            zoom_expr = f"min(zoom+{step:.5f},1.12)"
-            x_expr = "iw/2-(iw/zoom/2)"
-            y_expr = "ih/2-(ih/zoom/2)"
+            zoom_expr = f"1.0+0.10*(1-cos(PI*on/{frames}))/2"
+            x_expr = "(iw-iw/zoom)/2"
+            y_expr = "(ih-ih/zoom)/2"
 
         filter_str = (
-            f"[{input_idx}:v]scale={width}:{height}:force_original_aspect_ratio=increase,"
-            f"crop={width}:{height},"
-            f"zoompan=z='{zoom_expr}':d={frames}:x='{x_expr}':y='{y_expr}':s={width}x{height}:fps={fps}[v{input_idx}];"
+            f"[{input_idx}:v]scale={super_w}:{super_h}:force_original_aspect_ratio=increase,"
+            f"crop={super_w}:{super_h},"
+            f"zoompan=z='{zoom_expr}':d={frames}:x='{x_expr}':y='{y_expr}':s={super_w}x{super_h}:fps={fps},"
+            f"scale={width}:{height}:flags=lanczos[v{input_idx}];"
         )
         return filter_str
 
@@ -99,7 +99,7 @@ class ParallaxMotionRenderer:
         output_filename: Optional[str] = None,
         title_text: Optional[str] = None,
         subtitle_text: Optional[str] = None,
-        fps: int = 30
+        fps: int = 60
     ) -> Dict[str, Any]:
         """
         Combines a list of scene images into a seamless 2.5D moving vertical video (1080x1920)
@@ -223,31 +223,32 @@ class ParallaxMotionRenderer:
         out_video_path = self.exports_dir / output_filename
         ffmpeg_bin = self._get_ffmpeg_bin()
 
-        frames = max(30, int(duration_sec * fps))
-        step = 0.15 / frames
+        super_w = w * 2
+        super_h = h * 2
+        frames = max(60, int(duration_sec * fps))
 
         if motion_type == "pull_out":
-            zoom_expr = f"max(1.15-{step:.5f}*on,1.0)"
-            x_expr = "iw/2-(iw/zoom/2)"
-            y_expr = "ih/2-(ih/zoom/2)"
+            zoom_expr = f"1.12-0.12*(1-cos(PI*on/{frames}))/2"
+            x_expr = "(iw-iw/zoom)/2"
+            y_expr = "(ih-ih/zoom)/2"
         elif motion_type == "pan_left_to_right":
             zoom_expr = "1.10"
-            pan_step = f"((iw-iw/zoom)/{frames})*on"
-            x_expr = f"min({pan_step},iw-iw/zoom)"
-            y_expr = "ih/2-(ih/zoom/2)"
+            x_expr = f"(iw-iw/zoom)*(1-cos(PI*on/{frames}))/2"
+            y_expr = "(ih-ih/zoom)/2"
         elif motion_type == "diagonal_drift":
-            zoom_expr = f"min(1.05+{step:.5f},1.18)"
-            x_expr = f"((iw-iw/zoom)/{frames})*on"
-            y_expr = f"((ih-ih/zoom)/{frames})*on"
+            zoom_expr = f"1.08+0.05*(1-cos(PI*on/{frames}))/2"
+            x_expr = f"(iw-iw/zoom)*(1-cos(PI*on/{frames}))/2"
+            y_expr = f"(ih-ih/zoom)*(1-cos(PI*on/{frames}))/2"
         else:  # push_in
-            zoom_expr = f"min(zoom+{step:.5f},1.15)"
-            x_expr = "iw/2-(iw/zoom/2)"
-            y_expr = "ih/2-(ih/zoom/2)"
+            zoom_expr = f"1.0+0.12*(1-cos(PI*on/{frames}))/2"
+            x_expr = "(iw-iw/zoom)/2"
+            y_expr = "(ih-ih/zoom)/2"
 
         filtergraph = (
-            f"[0:v]scale={w}:{h}:force_original_aspect_ratio=increase,"
-            f"crop={w}:{h},"
-            f"zoompan=z='{zoom_expr}':d={frames}:x='{x_expr}':y='{y_expr}':s={w}x{h}:fps={fps},"
+            f"[0:v]scale={super_w}:{super_h}:force_original_aspect_ratio=increase,"
+            f"crop={super_w}:{super_h},"
+            f"zoompan=z='{zoom_expr}':d={frames}:x='{x_expr}':y='{y_expr}':s={super_w}x{super_h}:fps={fps},"
+            f"scale={w}:{h}:flags=lanczos,"
             f"format=yuv420p[vout]"
         )
 
