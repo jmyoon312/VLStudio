@@ -141,8 +141,8 @@ export const directorMarkdownComponents = {
     },
     table({ children }: any) {
         return (
-            <div className="my-2.5 overflow-x-auto rounded-xl border border-border/80 shadow-2xs">
-                <table className="w-full text-xs border-collapse">
+            <div className="my-3 overflow-x-auto rounded-xl border border-border/80 bg-card/60 shadow-2xs">
+                <table className="w-full text-[13px] border-collapse">
                     {children}
                 </table>
             </div>
@@ -150,14 +150,14 @@ export const directorMarkdownComponents = {
     },
     thead({ children }: any) {
         return (
-            <thead className="bg-muted/70 text-foreground font-bold border-b border-border/80">
+            <thead className="bg-muted/50 text-foreground font-semibold border-b border-border/70 text-xs">
                 {children}
             </thead>
         );
     },
     tbody({ children }: any) {
         return (
-            <tbody className="divide-y divide-border/60 bg-card/40">
+            <tbody className="divide-y divide-border/50 bg-transparent">
                 {children}
             </tbody>
         );
@@ -171,37 +171,64 @@ export const directorMarkdownComponents = {
     },
     th({ children }: any) {
         return (
-            <th className="px-3 py-2 text-left font-bold text-foreground/90 border-r border-border/40 last:border-r-0 whitespace-nowrap">
+            <th className="px-4 py-2.5 text-left font-semibold text-foreground/90 border-r border-border/30 last:border-r-0 whitespace-nowrap">
                 {children}
             </th>
         );
     },
     td({ children }: any) {
         return (
-            <td className="px-3 py-2 text-foreground/80 border-r border-border/40 last:border-r-0 leading-relaxed">
+            <td className="px-4 py-2.5 text-foreground/85 border-r border-border/30 last:border-r-0 leading-relaxed text-[12.5px]">
                 {children}
             </td>
         );
     },
+    strong({ children }: any) {
+        const text = String(children).trim();
+        // Category tags in brackets: e.g. [심리·호기심], [비교·검증], [공감·도파민], [충격·반전]
+        if (/^\[[^\]]+\]$/.test(text)) {
+            return (
+                <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-bold bg-primary/10 text-primary border border-primary/25 mr-1 select-text shadow-2xs">
+                    {children}
+                </span>
+            );
+        }
+        // Timecodes: e.g. 00.00~03.30, 0.6~1.5초, 01.22초
+        if (/(\d{1,2}[\.:]\d{2}|\d+\.?\d*초)/.test(text)) {
+            return (
+                <strong className="font-bold text-foreground bg-muted/60 dark:bg-muted/40 px-1 py-0.5 rounded text-[12.5px] font-mono border border-border/40">
+                    {children}
+                </strong>
+            );
+        }
+        return <strong className="font-bold text-foreground">{children}</strong>;
+    },
     p({ children }: any) {
         return (
-            <div className="my-1 leading-relaxed text-foreground/90">
+            <div className="my-1.5 leading-[1.75] text-foreground/90">
                 {children}
             </div>
         );
     },
     ul({ children }: any) {
         return (
-            <ul className="list-disc list-inside space-y-1 my-1.5 pl-1 text-foreground/90">
+            <ul className="list-disc list-inside space-y-1.5 my-2 pl-1 text-foreground/90">
                 {children}
             </ul>
         );
     },
     ol({ children }: any) {
         return (
-            <ol className="list-decimal list-inside space-y-1 my-1.5 pl-1 text-foreground/90">
+            <ol className="list-decimal list-inside space-y-1.5 my-2 pl-1 text-foreground/90">
                 {children}
             </ol>
+        );
+    },
+    li({ children }: any) {
+        return (
+            <li className="leading-[1.75] text-foreground/90">
+                {children}
+            </li>
         );
     }
 };
@@ -234,9 +261,20 @@ export const DirectorMessageFeed: React.FC<DirectorMessageFeedProps> = ({
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const prevMsgCountRef = useRef(messages.length);
     const [expandedStepMsgIds, setExpandedStepMsgIds] = React.useState<Record<string, boolean>>({});
+    const [showScrollBottom, setShowScrollBottom] = React.useState(false);
 
     const toggleStepExpand = (msgId: string) => {
         setExpandedStepMsgIds(prev => ({ ...prev, [msgId]: !prev[msgId] }));
+    };
+
+    const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+        const el = e.currentTarget;
+        const isUp = el.scrollHeight - el.scrollTop - el.clientHeight > 200;
+        setShowScrollBottom(isUp);
+    };
+
+    const scrollToBottom = () => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     };
 
     const handleEnqueueDeliverable = async (videoPath?: string, title?: string) => {
@@ -281,7 +319,7 @@ export const DirectorMessageFeed: React.FC<DirectorMessageFeedProps> = ({
     const osBasename = (p: string) => p.split(/[\\/]/).pop() || p;
 
     return (
-        <div className="flex-1 overflow-y-auto px-4 md:px-8 py-6 space-y-6">
+        <div onScroll={handleScroll} className="relative flex-1 overflow-y-auto px-4 md:px-8 py-6 space-y-6">
             {/* Empty State: Quick Prompt Cards */}
             {messages.length === 0 && (
                 <div className="max-w-3xl mx-auto py-8 space-y-6 animate-in fade-in duration-300">
@@ -564,6 +602,22 @@ export const DirectorMessageFeed: React.FC<DirectorMessageFeedProps> = ({
                                             </div>
                                         </div>
                                     )}
+
+                                    {/* Dynamic Contextual Action Chips (1:1 Pixeling Fast Interaction Standard) */}
+                                    {msg.action_chips && msg.action_chips.length > 0 && !isStreaming && (
+                                        <div className="flex flex-wrap items-center gap-1.5 pt-2 pb-1">
+                                            {msg.action_chips.map((chip, cIdx) => (
+                                                <button
+                                                    key={cIdx}
+                                                    type="button"
+                                                    onClick={() => onSendMessage(chip)}
+                                                    className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-primary/10 hover:bg-primary/20 text-primary border border-primary/25 hover:border-primary/50 transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs hover:scale-[1.02] active:scale-[0.98]"
+                                                >
+                                                    <span>{chip}</span>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
                     </div>
                 );
@@ -584,6 +638,18 @@ export const DirectorMessageFeed: React.FC<DirectorMessageFeedProps> = ({
                     </div>
                 );
             })()}
+
+            {/* 1:1 Pixeling Floating Jump-to-Latest Button */}
+            {showScrollBottom && (
+                <button
+                    type="button"
+                    onClick={scrollToBottom}
+                    className="fixed bottom-24 right-1/2 translate-x-1/2 z-30 p-2.5 rounded-full bg-card/95 hover:bg-card text-foreground border border-border/80 shadow-md hover:shadow-lg transition-all cursor-pointer animate-in fade-in zoom-in-90 flex items-center justify-center group"
+                    title="최신 메시지로 이동"
+                >
+                    <ChevronDown className="w-4 h-4 text-primary group-hover:translate-y-0.5 transition-transform" />
+                </button>
+            )}
 
             <div ref={messagesEndRef} />
         </div>

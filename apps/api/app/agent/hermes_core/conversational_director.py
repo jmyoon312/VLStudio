@@ -2004,11 +2004,7 @@ class ConversationalDirector:
                     yield {
                         "type": "chat_response",
                         "content": full_content,
-                        "action_chips": [
-                            f"✨ {display_model_name}으로 대본 계속 발전시키기",
-                            "🎙️ AI 음성 합성하기",
-                            "🎬 쇼츠 씬별 콘티 제작"
-                        ]
+                        "action_chips": self._generate_contextual_action_chips(prompt, display_model_name)
                     }
                     return
 
@@ -2143,11 +2139,7 @@ class ConversationalDirector:
                     yield {
                         "type": "chat_response",
                         "content": full_content,
-                        "action_chips": [
-                            f"⚡ {display_model_name}으로 대본 계속 발전시키기",
-                            "🎙️ AI 음성 합성하기",
-                            "🎬 쇼츠 씬별 콘티 제작"
-                        ]
+                        "action_chips": self._generate_contextual_action_chips(prompt, display_model_name)
                     }
                     return
 
@@ -2223,11 +2215,7 @@ class ConversationalDirector:
                     yield {
                         "type": "chat_response",
                         "content": full_content,
-                        "action_chips": [
-                            f"⚡ {display_model_name}으로 대본 계속 발전시키기",
-                            "🎙️ AI 음성 합성하기",
-                            "🎬 쇼츠 씬별 콘티 제작"
-                        ]
+                        "action_chips": self._generate_contextual_action_chips(prompt, display_model_name)
                     }
                     return
 
@@ -2259,7 +2247,7 @@ class ConversationalDirector:
                 except Exception:
                     pass
                 from app.services.grok_web_agent import stream_grok_web_chat
-                effective_prompt = f"{context_prefix}{prompt}" if context_prefix else prompt
+                effective_prompt = f"{system_guidance}\n\n{context_prefix}[현재 대표님 요청]\n{prompt}"
 
                 # Sovereign Multi-Account Auto-Rotation Loop: try each healthy account until one succeeds
                 for session_info in grok_web_sessions:
@@ -2293,11 +2281,7 @@ class ConversationalDirector:
                         yield {
                             "type": "chat_response",
                             "content": full_content,
-                            "action_chips": [
-                                f"⚡ {display_model_name}으로 대본 계속 발전시키기",
-                                "🎙️ AI 음성 합성하기",
-                                "🎬 쇼츠 씬별 콘티 제작"
-                            ]
+                            "action_chips": self._generate_contextual_action_chips(prompt, display_model_name)
                         }
                         return
                     else:
@@ -2362,7 +2346,7 @@ class ConversationalDirector:
                 except Exception:
                     pass
                 from app.services.deepseek_web_agent import stream_deepseek_web_chat
-                effective_prompt = f"{context_prefix}{prompt}" if context_prefix else prompt
+                effective_prompt = f"{system_guidance}\n\n{context_prefix}[현재 대표님 요청]\n{prompt}"
 
                 for session_info in deepseek_web_sessions:
                     cand_email = session_info.get("email", "").strip().lower()
@@ -2413,11 +2397,7 @@ class ConversationalDirector:
                         yield {
                             "type": "chat_response",
                             "content": full_content,
-                            "action_chips": [
-                                f"⚡ {display_model_name}으로 대본 계속 발전시키기",
-                                "🎙️ AI 음성 합성하기",
-                                "🎬 쇼츠 씬별 콘티 제작"
-                            ]
+                            "action_chips": self._generate_contextual_action_chips(prompt, display_model_name)
                         }
                         return
                     else:
@@ -2857,41 +2837,68 @@ class ConversationalDirector:
                 "detail": "지능형 영상 기획 및 작업 생성이 완료되었습니다."
             }
 
-        # 질문 맥락에 맞춘 동적 맞춤형 액션 칩 생성
-        prompt_lower = prompt.lower()
+    def _generate_contextual_action_chips(self, prompt: str, display_model_name: str = "") -> list[str]:
+        prompt_lower = (prompt or "").lower()
+        # 1. 쇼츠 주제 / 소재 추천 요청
+        if any(w in prompt_lower for w in ["주제", "소재", "아이디어", "추천", "숏폼 몇 개", "쇼츠 몇 개"]):
+            return [
+                "🎬 1번 주제로 대본 제작",
+                "🎬 2번 주제로 대본 제작",
+                "🎬 3번 주제로 대본 제작",
+                "🔄 다른 주제 더 추천해줘"
+            ]
+        # 2. 대본 / 씬보드 작성 요청
+        if any(w in prompt_lower for w in ["대본", "스크립트", "콘티", "씬보드"]):
+            return [
+                "🎙️ AI 보이스 음성 생성",
+                "🎨 장면별 키프레임 이미지 생성",
+                "🚀 CapCut 프로젝트로 즉시 조립",
+                "✍️ 대본 톤앤매너 다듬기"
+            ]
+        # 3. 채널 포렌식 / 영상 분석 / 구간 분석 요청
+        if any(w in prompt_lower for w in ["분석", "포렌식", "말투", "서사", "구간"]):
+            return [
+                "🎬 분석된 구조로 대본 작성",
+                "📋 채널 지침서로 저장",
+                "⚡ 타겟 채널 DNA 동기화",
+                "🔍 다른 영상 추가 분석"
+            ]
+        # 4. 정체성 / 철학적 대화
         if any(w in prompt_lower for w in ["누구", "정체", "인생", "철학", "사유", "삶", "존재", "의미", "생각"]):
-            action_chips = [
+            return [
                 "🧠 Hermes Core 3계층 아키텍처 알아보기",
                 "🛠️ 로컬 컴퓨터 제어 가용 도구(MCP) 확인",
                 "🎬 이 철학적 주제로 숏폼 영상 기획하기",
                 "💡 심층적인 철학적 토론 이어가기"
             ]
-        elif any(w in prompt_lower for w in ["비즈니스", "전략", "마케팅", "수익", "사업", "매출", "기획", "분석", "시장"]):
-            action_chips = [
+        # 5. 비즈니스 / 전략
+        if any(w in prompt_lower for w in ["비즈니스", "전략", "마케팅", "수익", "사업", "매출", "기획", "분석", "시장"]):
+            return [
                 "📊 세부 실행 로드맵 및 단계별 계획 수립",
                 "🎬 이 비즈니스 전략으로 홍보 숏폼 제작",
                 "📁 프로젝트 결과물 폴더 열기",
                 "🔍 연관 시장 트렌드 추가 심층 분석"
             ]
-        elif any(w in prompt_lower for w in ["제작", "영상", "쇼츠", "릴스", "대본", "스크립트", "만들", "캡컷", "편집"]):
-            action_chips = [
+        # 6. 영상 제작 / 편집 / 렌더링 요청
+        if any(w in prompt_lower for w in ["제작", "영상", "만들", "캡컷", "편집", "렌더링"]):
+            return [
                 "🎬 이 내용으로 숏폼 영상 제작하기",
                 "📁 결과물 폴더(05_Exports) 열기",
                 "🚀 CapCut 데스크톱으로 내보내기",
                 "🎨 자막 스타일 및 프리셋 변경"
             ]
-        else:
-            action_chips = [
-                "💡 추가적인 질문 및 심층 분석 요청",
-                "🎬 이 아이디어로 숏폼 영상 기획하기",
-                "🛠️ 로컬 컴퓨터 환경 및 상태 진단",
-                "📁 결과물 폴더 열기"
-            ]
+        # 7. 기본 폴백
+        m_label = f"{display_model_name}으로 " if display_model_name else ""
+        return [
+            f"⚡ {m_label}대본 계속 발전시키기",
+            "🎙️ AI 음성 합성하기",
+            "🎬 쇼츠 씬별 콘티 제작"
+        ]
 
         yield {
             "type": "chat_response",
             "content": full_content,
-            "action_chips": action_chips
+            "action_chips": self._generate_contextual_action_chips(prompt, display_model)
         }
 
     async def _handle_image_generation(self, prompt: str) -> AsyncGenerator[Dict[str, Any], None]:
