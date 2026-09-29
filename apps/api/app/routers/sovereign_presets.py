@@ -62,6 +62,18 @@ class PresetCloneRequest(BaseModel):
     style: Optional[Dict[str, Any]] = None
 
 
+class BasicEditorPresetSaveRequest(BaseModel):
+    id: Optional[str] = None
+    name: str
+    archetype: str = "classic"
+    category: str = "custom"
+    description: Optional[str] = ""
+    aspect_ratio: str = "9:16"
+    style: Dict[str, Any]
+    blueprint: Optional[Dict[str, Any]] = None
+    source_video_path: Optional[str] = None
+
+
 class PresetFolderRequest(BaseModel):
     name: str
     icon: Optional[str] = "📁"
@@ -1085,6 +1097,99 @@ def save_preset_from_video(req: PresetSaveRequest) -> Dict[str, Any]:
     return {
         "success": True,
         "preset_id": preset_id,
+        "saved_path": str(dest)
+    }
+
+
+@router.post("/basic-editor/save")
+def save_from_basic_editor(req: BasicEditorPresetSaveRequest) -> Dict[str, Any]:
+    """Save or update a preset created from the Basic Editor (Sovereign Preset + ShortsTemplate DB)."""
+    import time
+    clean_name = req.name.strip()
+    if not clean_name:
+        raise HTTPException(status_code=400, detail="프리셋 이름을 입력해 주세요.")
+
+    if req.id and req.id.strip():
+        preset_id = req.id.strip()
+    else:
+        safe_name = "".join(c for c in clean_name.replace(" ", "_").lower() if c.isalnum() or c in ("-", "_"))
+        preset_id = f"preset_custom_{safe_name}_{int(time.time())}"
+
+    dest = PRESETS_DIR / f"{preset_id}.json"
+
+    # Merge blueprint v2
+    blueprint = req.blueprint or req.style
+
+    data = {
+        "id": preset_id,
+        "name": clean_name,
+        "category": req.category,
+        "archetype": req.archetype,
+        "description": req.description or "",
+        "aspect_ratio": req.aspect_ratio,
+        "source": "viraloop_user",
+        "style": req.style,
+        "blueprint": blueprint,
+        "visual_geometry": req.style.get("visual_geometry", blueprint.get("visual_geometry", {})),
+        "recipe": req.description or f"{req.archetype} 기본 에디터 커스텀 프리셋",
+        "content_rules": [
+            f"폼팩터 아키타입: {req.archetype}",
+            f"종횡비 규격: {req.aspect_ratio}"
+        ],
+        "source_video_path": req.source_video_path,
+        "updated_at": datetime.now().isoformat()
+    }
+
+    # 1. File write to PRESETS_DIR
+    try:
+        with open(dest, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
+    except Exception as e:
+        logger.error(f"Failed to write preset JSON file: {e}")
+        raise HTTPException(status_code=500, detail=f"프리셋 파일 저장 실패: {e}")
+
+    # 2. Upsert into viral_loop.db ShortsTemplate table
+    try:
+        from ..database import SessionLocal
+        from ..models import ShortsTemplate
+        db = SessionLocal()
+        try:
+            existing = db.query(ShortsTemplate).filter(ShortsTemplate.id == preset_id).first()
+            if existing:
+                existing.name = clean_name
+                existing.badge = req.category
+                existing.description = req.description or ""
+                existing.archetype = req.archetype
+                existing.aspect_ratio = req.aspect_ratio
+                existing.layout = req.style
+                existing.manifest = data
+                existing.updated_at = datetime.now()
+            else:
+                new_tmpl = ShortsTemplate(
+                    id=preset_id,
+                    name=clean_name,
+                    badge=req.category,
+                    description=req.description or "",
+                    archetype=req.archetype,
+                    aspect_ratio=req.aspect_ratio,
+                    is_system=False,
+                    layout=req.style,
+                    manifest=data,
+                    created_at=datetime.now(),
+                    updated_at=datetime.now()
+                )
+                db.add(new_tmpl)
+            db.commit()
+        finally:
+            db.close()
+    except Exception as db_err:
+        logger.warning(f"Error syncing to ShortsTemplate table: {db_err}")
+
+    logger.info(f"✅ Successfully saved Basic Editor preset '{preset_id}' ({clean_name})")
+    return {
+        "success": True,
+        "preset_id": preset_id,
+        "preset": data,
         "saved_path": str(dest)
     }
 

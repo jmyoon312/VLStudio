@@ -44,7 +44,8 @@ import {
     MessageSquare,
     Dna,
     LayoutTemplate,
-    Film
+    Film,
+    Palette
 } from 'lucide-react';
 
 import { LoopieNavIcon } from '../components/director/LoopieAvatar';
@@ -125,8 +126,9 @@ export const getMenuGroups = (captainId: string | null): MenuGroup[] => [
     {
         title: "🎨 템플릿 디자인",
         mode: "CREATION",
-        defaultExpanded: false,
+        defaultExpanded: true,
         items: [
+            { name: '기본 에디터 (프리셋 공방)', path: '/basic-editor', icon: Palette, highlight: true },
             { name: '클래식 템플릿', path: '/shorts-template/classic', icon: LayoutTemplate },
             { name: '인스타 템플릿', path: '/shorts-template/instagram', icon: Smartphone },
             { name: '군림보 템플릿', path: '/shorts-template/gunlimbo', icon: Swords },
