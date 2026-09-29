@@ -648,13 +648,27 @@ export const SsulCanvasLayout: React.FC<SsulCanvasLayoutProps> = ({
 
       {/* 🐸 3. 상징 밈 / 일러스트 캐릭터 */}
       {ssulConfig?.memeType && ssulConfig.memeType !== 'none' && (
-        <div className="absolute bottom-6 right-5 z-35 pointer-events-none select-none">
+        <div
+          onClick={(e) => {
+            e.stopPropagation();
+            setSelectedLayerId('ssul_pepe');
+            setActiveInspectorTab('ssul');
+            setActiveFloating('pepeMeme');
+          }}
+          className={cn(
+            "absolute bottom-6 right-5 z-35 cursor-pointer transition-all duration-150 select-none p-1.5 rounded-lg",
+            selectedLayerId === 'ssul_pepe'
+              ? "ring-2 ring-amber-400 ring-offset-2 ring-offset-black bg-amber-400/10 scale-105"
+              : "hover:scale-102 hover:bg-black/30"
+          )}
+          title="페페 밈 클릭: 감정 상태 및 크기 설정"
+        >
           <MemeAvatar
             type={ssulConfig.memeType as MemeType}
             emotion={(ssulConfig.memeEmotion as MemeEmotion) || 'panic'}
             customUrl={ssulConfig.customMemeUrl}
             aliveMotion={ssulConfig.memeAliveMotion !== false}
-            size={110}
+            size={ssulConfig.memeSize || 110}
             className="drop-shadow-2xl"
           />
         </div>

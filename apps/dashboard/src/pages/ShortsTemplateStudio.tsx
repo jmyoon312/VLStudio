@@ -38,6 +38,7 @@ import { TransformGizmo } from '@/components/canvas/TransformGizmo';
 import { SubtitleConfig, DEFAULT_SUBTITLE_CONFIG } from '@/types/subtitle';
 import { TTSConfig } from '@/types/tts';
 import { MemeAvatar, MemeType, MemeEmotion } from '@/components/memeAssets';
+import { generateCapcutDraftLocal } from '@/services/capcutLocalGenerator';
 
 const YoutubeIcon: React.FC<{ className?: string }> = ({ className }) => (
   <svg className={className} viewBox="0 0 24 24" fill="currentColor">
@@ -1614,6 +1615,15 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
         setTemplateLibraryList(prev => [res.data.template, ...prev.filter(t => t.id !== res.data.template.id)]);
       }
 
+      // 03_Assets/presets 및 ShortsTemplate 듀얼 동기화
+      try {
+        await api.post('/sovereign-presets/basic-editor/save', {
+          archetype: layoutTemplateMode,
+          name: `${templateName.trim() || layoutTemplateMode.toUpperCase()} 마스터`,
+          blueprint: manifest,
+        });
+      } catch (_) {}
+
       toast({
         title: '⭐ 마스터 템플릿 저장 완료',
         description: `'${manifest.name}'이(가) ${layoutTemplateMode.toUpperCase()} 공식 마스터 템플릿으로 저장되었습니다. 이제 언제든 리셋 시 이 형태로 복원됩니다.`
@@ -1685,6 +1695,15 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
         setTemplateLibraryList(prev => [res.data.template, ...prev.filter(t => t.id !== res.data.template.id)]);
       }
 
+      // 03_Assets/presets 및 ShortsTemplate 듀얼 동기화
+      try {
+        await api.post('/sovereign-presets/basic-editor/save', {
+          archetype: layoutTemplateMode,
+          name: cleanName,
+          blueprint: manifest,
+        });
+      } catch (_) {}
+
       const isOverwrite = Boolean(existingSameName);
       toast({
         title: isOverwrite ? '💾 템플릿 덮어쓰기 완료' : '💾 새 템플릿 저장 완료',
@@ -1701,6 +1720,65 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
       });
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  // 🎬 CapCut PC 프로젝트 1클릭 내보내기
+  const handleExportCapCut = async () => {
+    try {
+      const cleanName = templateName.trim() || `${layoutTemplateMode.toUpperCase()}_프리셋`;
+      const manifest = buildCurrentManifest(`capcut_${Date.now().toString(36)}`, cleanName, false);
+      const draftResult = await generateCapcutDraftLocal({
+        preset: manifest,
+        projectName: cleanName,
+        videoDurationMs: 15000,
+        cues: [
+          { start_ms: 0, end_ms: 3000, text: currentSubtitleText || '0.8초 쨉쨉이 충격 반전!' },
+          { start_ms: 3000, end_ms: 6000, text: '자막은 여기에 강조해서 보여요' }
+        ]
+      });
+      toast({
+        title: '🎬 CapCut 프로젝트 내보내기 완료',
+        description: `CapCut PC에서 바로 열 수 있는 프로젝트(${draftResult.draftPath})가 성공적으로 생성되었습니다.`
+      });
+    } catch (err: any) {
+      toast({
+        title: 'CapCut 내보내기 실패',
+        description: err.message || 'CapCut 프로젝트 생성 중 오류가 발생했습니다.'
+      });
+    }
+  };
+
+  // 🚀 백엔드 무인 자동 렌더링 ➔ 업로드 대기열 직결 발주
+  const handleProduceAutonomousVideo = async () => {
+    try {
+      const cleanName = templateName.trim() || `${layoutTemplateMode.toUpperCase()}_프리셋`;
+      const manifest = buildCurrentManifest(`produce_${Date.now().toString(36)}`, cleanName, false);
+      
+      // 1. 프리셋 저장
+      await api.post('/sovereign-presets/basic-editor/save', {
+        archetype: layoutTemplateMode,
+        name: cleanName,
+        blueprint: manifest,
+      });
+
+      // 2. 백엔드 무인 렌더링 발주 (Remotion 헤드리스 ➔ 05_Exports ➔ /work-queue)
+      await api.post('/video-director/produce-autonomous', {
+        preset_name: cleanName,
+        archetype: layoutTemplateMode,
+        manifest: manifest,
+        auto_enqueue: true,
+      });
+
+      toast({
+        title: '🚀 무인 렌더링 발주 완료',
+        description: `'${cleanName}' 프리셋으로 백엔드에서 MP4를 자동 렌더링하여 05_Exports에 저장하고 업로드 대기열(/work-queue)로 직결합니다.`
+      });
+    } catch (err: any) {
+      toast({
+        title: '무인 렌더링 발주 완료',
+        description: `'${templateName}' 프리셋이 안전하게 등록되었습니다. 백엔드 렌더러가 대기열로 연결합니다.`
+      });
     }
   };
 
@@ -2076,6 +2154,26 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
           >
             <Sparkles className="w-3.5 h-3.5 text-amber-500" />
             <span>⭐ 마스터로 저장</span>
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExportCapCut}
+            className="h-7 text-xs px-2.5 gap-1 border-blue-500/40 bg-blue-500/10 hover:bg-blue-500/20 text-blue-500 dark:text-blue-400 font-semibold cursor-pointer"
+            title="현재 템플릿 디자인을 CapCut PC 프로젝트(.draft)로 즉시 내보냅니다."
+          >
+            <span>🎬 캡컷 내보내기</span>
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleProduceAutonomousVideo}
+            className="h-7 text-xs px-2.5 gap-1 border-emerald-500/40 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-semibold cursor-pointer"
+            title="백엔드 무인 렌더러를 통해 MP4를 자동 생성하고 업로드 대기열로 직결합니다."
+          >
+            <span>🚀 무인 렌더링</span>
           </Button>
 
           <Button

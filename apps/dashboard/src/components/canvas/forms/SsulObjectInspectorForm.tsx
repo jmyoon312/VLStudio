@@ -10,7 +10,7 @@ import { BarGeometryControlGroup } from './shared';
 import { getRandomSatiricalMetadata } from '../constants/canvasConstants';
 
 export interface SsulObjectInspectorFormProps {
-  mode: 'ssulHeader' | 'metadata' | 'divider';
+  mode: 'ssulHeader' | 'metadata' | 'divider' | 'pepeMeme';
   ssulConfig: any;
   setSsulConfig: React.Dispatch<React.SetStateAction<any>>;
 }
@@ -537,6 +537,127 @@ export const SsulObjectInspectorForm: React.FC<SsulObjectInspectorFormProps> = (
                 unit="%"
                 onChange={(val) => updateDivider({ widthPercent: val })}
               />
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // 4. 🐸 페페 밈 & 일러스트 캐릭터 설정
+  if (mode === 'pepeMeme') {
+    const memeType = ssulConfig?.memeType || 'pepe';
+    const memeEmotion = ssulConfig?.memeEmotion || 'panic';
+    const memeSize = ssulConfig?.memeSize ?? 110;
+    const memeAliveMotion = ssulConfig?.memeAliveMotion !== false;
+
+    const EMOTIONS = [
+      { id: 'panic', label: '😱 패닉' },
+      { id: 'rage', label: '🤬 분노' },
+      { id: 'laugh', label: '🤣 폭소' },
+      { id: 'crying', label: '😭 오열' },
+      { id: 'shocked', label: '😳 충격' },
+      { id: 'smug', label: '😏 의기양양' },
+      { id: 'thinking', label: '🤔 고뇌' },
+      { id: 'cheers', label: '🍻 환호' },
+      { id: 'love', label: '🥰 감동' },
+      { id: 'neutral', label: '😐 멍때림' },
+    ];
+
+    const updateMeme = (patch: Record<string, any>) => {
+      setSsulConfig((prev: any) => ({
+        ...prev,
+        ...patch,
+      }));
+    };
+
+    return (
+      <div className="space-y-3">
+        <div className="p-2.5 rounded-[4px] bg-muted/40 border border-border/80 space-y-2.5">
+          <div className="flex items-center justify-between border-b border-border/60 pb-1.5">
+            <span className="text-[11px] font-bold text-foreground flex items-center gap-1.5">
+              <span className="text-sm">🐸</span>
+              페페 밈 & 캐릭터 설정
+            </span>
+            <Switch
+              checked={memeType !== 'none'}
+              onCheckedChange={(checked) => updateMeme({ memeType: checked ? 'pepe' : 'none' })}
+            />
+          </div>
+
+          {memeType !== 'none' && (
+            <div className="space-y-3 pt-1">
+              {/* 캐릭터 종류 */}
+              <div>
+                <span className="text-[9.5px] font-semibold text-muted-foreground block mb-1">캐릭터 종류</span>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {[
+                    { id: 'pepe', label: '🐸 페페 (공식 10선)' },
+                    { id: 'custom', label: '🖼️ 커스텀 이미지' },
+                  ].map((t) => (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => updateMeme({ memeType: t.id })}
+                      className={`py-1.5 px-2 text-[10px] rounded border transition-colors ${
+                        memeType === t.id
+                          ? 'bg-amber-500/20 text-amber-500 dark:text-amber-400 border-amber-500/60 font-bold'
+                          : 'bg-background border-border text-foreground hover:bg-muted'
+                      }`}
+                    >
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* 10대 감정 선택 */}
+              {memeType === 'pepe' && (
+                <div>
+                  <span className="text-[9.5px] font-semibold text-muted-foreground block mb-1">
+                    페페 감정 상태 (10선)
+                  </span>
+                  <div className="grid grid-cols-2 gap-1">
+                    {EMOTIONS.map((emo) => (
+                      <button
+                        key={emo.id}
+                        type="button"
+                        onClick={() => updateMeme({ memeEmotion: emo.id })}
+                        className={`py-1 px-2 text-[10px] rounded border text-left transition-colors flex items-center justify-between ${
+                          memeEmotion === emo.id
+                            ? 'bg-primary text-primary-foreground border-primary font-bold'
+                            : 'bg-background border-border text-foreground hover:bg-muted'
+                        }`}
+                      >
+                        <span>{emo.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* 크기 조절 */}
+              <UnitSliderControl
+                label="캐릭터 크기"
+                value={memeSize}
+                min={60}
+                max={200}
+                step={5}
+                unit="px"
+                onChange={(val) => updateMeme({ memeSize: val })}
+              />
+
+              {/* 살아있는 모션 토글 */}
+              <div className="flex items-center justify-between pt-1 border-t border-border/60">
+                <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                  <Sparkles className="w-3 h-3 text-amber-400" />
+                  살아있는 모션 (숨쉬기 바운스)
+                </span>
+                <Switch
+                  checked={memeAliveMotion}
+                  onCheckedChange={(checked) => updateMeme({ memeAliveMotion: checked })}
+                />
+              </div>
             </div>
           )}
         </div>

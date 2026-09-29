@@ -155,3 +155,6 @@ export async function generateCapCutDraftFromSovereignPreset(opts: GenerateCapCu
   const capcutOptions = buildCapCutOptionsFromPreset(opts);
   return await exportCapCutFullProject(capcutOptions);
 }
+
+export const generateCapcutDraftLocal = generateCapCutDraftFromSovereignPreset;
+

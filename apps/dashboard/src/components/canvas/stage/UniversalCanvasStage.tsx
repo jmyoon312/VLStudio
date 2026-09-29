@@ -28,6 +28,7 @@ import {
 } from '../floating';
 import { resolveFontFamily } from '../constants/canvasConstants';
 import { SsulCanvasLayout } from './layouts/SsulCanvasLayout';
+import { SsulObjectInspectorForm } from '../forms/SsulObjectInspectorForm';
 
 export interface UniversalCanvasStageProps {
   aspectRatio: '9:16' | '16:9' | '1:1';
@@ -2703,6 +2704,28 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                     }));
                   }}
                 />
+              )}
+
+              {activeFloating === 'pepeMeme' && (
+                <div className="fixed bottom-20 right-8 z-[99999] pointer-events-auto w-84 bg-popover/95 backdrop-blur-md border border-border shadow-2xl rounded-xl p-3 animate-in fade-in-50 zoom-in-95">
+                  <div className="flex items-center justify-between pb-2 mb-2 border-b border-border">
+                    <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                      <span>🐸</span> 페페 밈 & 일러스트 캐릭터 설정
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setActiveFloating('none')}
+                      className="text-xs text-muted-foreground hover:text-foreground p-1 rounded hover:bg-muted"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  <SsulObjectInspectorForm
+                    mode="pepeMeme"
+                    ssulConfig={props.ssulConfig}
+                    setSsulConfig={props.setSsulConfig!}
+                  />
+                </div>
               )}
 
               {activeFloating === 'subtitle' && (
