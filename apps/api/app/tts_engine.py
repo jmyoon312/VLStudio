@@ -61,8 +61,17 @@ class TTSEngine:
             # 1. Generate Audio
             if engine == "gemini":
                 style_inst = voice_settings.get("style_instruction") if voice_settings else None
+                pitch_val = pitch
+                rate_val = rate
+                if voice_settings:
+                    if "pitch_shift" in voice_settings:
+                        pitch_val = voice_settings["pitch_shift"]
+                    if "speed" in voice_settings:
+                        s_val = voice_settings["speed"]
+                        if isinstance(s_val, (int, float)) and 0.2 < s_val < 3.0:
+                            rate_val = int(round((s_val - 1.0) * 100))
                 try:
-                    await self._generate_gemini(text, voice_id, abs_path, emotion=emotion, style_instruction=style_inst)
+                    await self._generate_gemini(text, voice_id, abs_path, emotion=emotion, style_instruction=style_inst, rate=rate_val, pitch=pitch_val)
                 except Exception as gem_err:
                     logger.warning(f"⚠️ Gemini 3.8 Flash TTS failed ({gem_err}), graceful fallback to supertone-local...")
                     await asyncio.to_thread(
@@ -592,7 +601,7 @@ class TTSEngine:
             logger.error(f"Kokoro Error: {e}")
             raise e
 
-    async def _generate_gemini(self, text, voice_id, path, emotion: str = "normal", style_instruction: str = None):
+    async def _generate_gemini(self, text, voice_id, path, emotion: str = "normal", style_instruction: str = None, rate: int = 0, pitch: int = 0):
         """
         Synthesizes speech using Google's next-generation Gemini 3.8 Flash TTS.
         Supports fine-grained emotional acting, cadence, and directorial style instructions.
@@ -607,6 +616,18 @@ class TTSEngine:
 
         # Tier 1: Try Direct Native Google Gemini API (Gemini 3.8 / 2.5 Flash TTS)
         gemini_keys = self.settings.gemini_api_keys if hasattr(self.settings, "gemini_api_keys") else []
+        if not gemini_keys:
+            try:
+                from app.database import SessionLocal
+                from app import crud
+                db = SessionLocal()
+                db_settings = crud.get_settings(db)
+                if db_settings and db_settings.gemini_api_keys:
+                    gemini_keys = db_settings.gemini_api_keys
+                db.close()
+            except Exception:
+                pass
+
         if gemini_keys and len(gemini_keys) > 0:
             api_key = self._get_key(gemini_keys)
             def run_direct():
@@ -673,14 +694,44 @@ class TTSEngine:
                                                 wf.setframerate(24000)
                                                 wf.writeframes(raw_bytes)
                                         
-                                        # If target path was .mp3, convert via ffmpeg
+                                        # If target path was .mp3, convert via ffmpeg with pitch/speed filter
                                         if path.endswith(".mp3"):
                                             try:
                                                 ffmpeg = dependency_manager.DependencyManager.get_ffmpeg_path()
-                                                subprocess.run([ffmpeg, "-y", "-i", wav_target, "-b:a", "192k", path], check=True, creationflags=subprocess.CREATE_NO_WINDOW if os.name=="nt" else 0)
+                                                filters = []
+                                                semitones = int(pitch) if pitch else 0
+                                                speed_factor = 1.0 + (rate / 100.0) if rate else 1.0
+
+                                                if semitones != 0:
+                                                    factor = 2 ** (semitones / 12.0)
+                                                    filters.append(f"asetrate=24000*{factor:.4f}")
+                                                    atempo = speed_factor / factor
+                                                    while atempo > 2.0:
+                                                        filters.append("atempo=2.0")
+                                                        atempo /= 2.0
+                                                    while atempo < 0.5:
+                                                        filters.append("atempo=0.5")
+                                                        atempo /= 0.5
+                                                    filters.append(f"atempo={atempo:.4f}")
+                                                elif abs(speed_factor - 1.0) > 0.01:
+                                                    atempo = speed_factor
+                                                    while atempo > 2.0:
+                                                        filters.append("atempo=2.0")
+                                                        atempo /= 2.0
+                                                    while atempo < 0.5:
+                                                        filters.append("atempo=0.5")
+                                                        atempo /= 0.5
+                                                    filters.append(f"atempo={atempo:.4f}")
+
+                                                cmd = [ffmpeg, "-y", "-i", wav_target]
+                                                if filters:
+                                                    cmd.extend(["-filter:a", ",".join(filters)])
+                                                cmd.extend(["-b:a", "192k", path])
+                                                subprocess.run(cmd, check=True, creationflags=subprocess.CREATE_NO_WINDOW if os.name=="nt" else 0)
                                                 if os.path.exists(wav_target) and wav_target != path:
                                                     os.remove(wav_target)
-                                            except Exception:
+                                            except Exception as fe:
+                                                logger.warning(f"FFmpeg audio filter failed ({fe}), copying raw wav...")
                                                 if os.path.exists(wav_target) and wav_target != path:
                                                     shutil.move(wav_target, path)
                                         return True
@@ -692,30 +743,12 @@ class TTSEngine:
                 if success:
                     return
             except Exception as direct_err:
-                logger.warning(f"⚠️ Direct Google Gemini 3.8 TTS failed ({direct_err}), falling back to OmniRoute...")
+                logger.warning(f"⚠️ Direct Google Gemini 3.8 TTS failed ({direct_err}), falling back to supertone-local...")
+                await asyncio.to_thread(self._generate_supertone_local, text, voice_id or "F1", path, language="ko")
+                return
 
-        # Tier 2: Fallback to OmniRoute Local Gateway
-        def run_omniroute():
-            url = "http://localhost:20128/v1/audio/speech"
-            headers = {
-                "Content-Type": "application/json",
-                "Authorization": "Bearer sk-e07acd31ef38b7d4-0p15at-b27d2bab"
-            }
-            data = {
-                "model": f"gemini/gemini-3.8-flash-tts/{v_name}",
-                "input": text
-            }
-            try:
-                res = requests.post(url, json=data, headers=headers, timeout=30)
-                if res.status_code != 200:
-                    raise RuntimeError(f"OmniRoute Gemini 3.8 TTS Error {res.status_code}: {res.text}")
-                with open(path, "wb") as f:
-                    f.write(res.content)
-            except Exception as e:
-                logger.error(f"[FAIL] [OmniRoute Gemini 3.8 TTS] Request Error: {e}")
-                raise e
-
-        await asyncio.to_thread(run_omniroute)
+        # If no keys or direct failed, fallback to supertone-local directly
+        await asyncio.to_thread(self._generate_supertone_local, text, voice_id or "F1", path, language="ko")
 
 
     def _generate_supertone_local(self, text, voice_id, path, language="ko", speed=1.0, emotion="normal", noise_scale=1.0, mix_voice_id=None, mix_ratio=0.0):

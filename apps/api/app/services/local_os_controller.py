@@ -397,33 +397,34 @@ class LocalOSController:
             }
 
     @staticmethod
-    def open_browser_login_window(url: str = "https://accounts.google.com") -> Dict[str, Any]:
+    def open_browser_login_window(url: str = "https://accounts.google.com", profile_name: Optional[str] = None) -> Dict[str, Any]:
         """
         Launches an interactive Chromium browser window with the persistent user profile
-        at MEDIA_ROOT / '04_Profiles' / 'browser_user_data' so the user can log into Google / YouTube.
+        at MEDIA_ROOT / '04_Profiles' / profile_name (default: browser_user_data) so the user can log into Google / YouTube.
         The login cookies, session tokens, and preferences are permanently preserved.
         """
         import subprocess
 
-        user_data_dir = MEDIA_ROOT / "04_Profiles" / "browser_user_data"
+        p_name = profile_name.strip().replace('/', '_').replace('\\', '_') if profile_name else "browser_user_data"
+        user_data_dir = MEDIA_ROOT / "04_Profiles" / p_name
         user_data_dir.mkdir(parents=True, exist_ok=True)
 
-        # Locate Playwright chromium executable or system Chrome / Edge
+        # Locate system Chrome or Edge first (genuine signed browsers for Google login and WebAuthn)
         chrome_candidates = [
-            Path(os.environ.get("LOCALAPPDATA", "")) / "ms-playwright" / "chromium-1234" / "chrome-win64" / "chrome.exe",
             Path("C:/Program Files/Google/Chrome/Application/chrome.exe"),
             Path("C:/Program Files (x86)/Google/Chrome/Application/chrome.exe"),
+            Path(os.environ.get("LOCALAPPDATA", "")) / "Google/Chrome/Application/chrome.exe",
             Path("C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe"),
             Path("C:/Program Files/Microsoft/Edge/Application/msedge.exe"),
         ]
 
-        # Scan for Playwright chromium dynamically
+        # Scan for Playwright chromium only as a last resort
         ms_playwright_dir = Path(os.environ.get("LOCALAPPDATA", "")) / "ms-playwright"
         if ms_playwright_dir.exists():
             for p in sorted(ms_playwright_dir.glob("chromium-*/chrome-win64/chrome.exe"), reverse=True):
-                chrome_candidates.insert(0, p)
+                chrome_candidates.append(p)
             for p in sorted(ms_playwright_dir.glob("chromium-*/chrome-win/chrome.exe"), reverse=True):
-                chrome_candidates.insert(0, p)
+                chrome_candidates.append(p)
 
         selected_exe = None
         for cand in chrome_candidates:

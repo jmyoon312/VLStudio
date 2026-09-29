@@ -32,7 +32,17 @@ export const PresetCustomizeModal: React.FC<PresetCustomizeModalProps> = ({
     onSelectPreset,
 }) => {
     const navigate = useNavigate();
-    const [inspectorTab, setInspectorTab] = useState<'visual' | 'pacing' | 'audio' | 'bible'>('visual');
+    const [inspectorTab, setInspectorTab] = useState<'visual' | 'pacing' | 'audio' | 'narrative' | 'sourcing' | 'bible'>('visual');
+
+    // ✍️ 5-Tier Narrative DNA & Custom Evolution State
+    const [openingHookFormula, setOpeningHookFormula] = useState<string>('직타 훅 (0~2초 내 즉시 시작)');
+    const [toneManner, setToneManner] = useState<string>('위트 있고 몰입감 높은 해설체');
+    const [chosenNarrativeIntent, setChosenNarrativeIntent] = useState<string>('catharsis_justice');
+    const [chosenContextHook, setChosenContextHook] = useState<string>('provocative_question');
+    const [dominantEndings, setDominantEndings] = useState<string[]>(['~입니다', '~하는데요', '~라고 하네요!']);
+    const [textForensicProfile, setTextForensicProfile] = useState<any>(null);
+    const [customPresetNameInput, setCustomPresetNameInput] = useState<string>('');
+    const [evolvingPreset, setEvolvingPreset] = useState<boolean>(false);
 
     // 🌟 A/B Onion Skin Comparison View Mode: 'preset' (복제 레이어) | 'original' (원본 캡처) | 'overlay' (1:1 반투명 겹침)
     const [previewViewMode, setPreviewViewMode] = useState<'preset' | 'original' | 'overlay'>('preset');
@@ -227,6 +237,16 @@ export const PresetCustomizeModal: React.FC<PresetCustomizeModalProps> = ({
             || rawPreset.blueprint?.production_bible_17 
             || {};
         setFullBible(bible);
+
+        // ✍️ 1.4 Narrative DNA Hydration
+        const narr = style.narrative_dna || rawPreset.narrative_dna || {};
+        if (narr.opening_hook_type) setOpeningHookFormula(narr.opening_hook_type);
+        if (narr.tone_manner) setToneManner(narr.tone_manner);
+        if (narr.chosen_narrative_intent) setChosenNarrativeIntent(narr.chosen_narrative_intent);
+        if (narr.chosen_context_hook) setChosenContextHook(narr.chosen_context_hook);
+        if (narr.dominant_endings && Array.isArray(narr.dominant_endings)) setDominantEndings(narr.dominant_endings);
+        if (narr.text_forensic_profile) setTextForensicProfile(narr.text_forensic_profile);
+        setCustomPresetNameInput(`커스텀_${preset.name || '프리셋'}`);
 
         const isTheater = vg.container_type === 'sandwich_theater' 
             || rawPreset.container_type === 'sandwich_theater' 
@@ -1029,7 +1049,7 @@ export const PresetCustomizeModal: React.FC<PresetCustomizeModalProps> = ({
                     {/* Left: 4-Axis Inspector Tabs (7 cols) */}
                     <div className="lg:col-span-7 space-y-4">
                         <Tabs value={inspectorTab} onValueChange={(v: any) => setInspectorTab(v)} className="w-full">
-                            <TabsList className="grid grid-cols-5 h-9 bg-muted/80 p-1 rounded-xl">
+                            <TabsList className="grid grid-cols-6 h-9 bg-muted/80 p-1 rounded-xl">
                                 <TabsTrigger value="visual" className="text-xs gap-1 data-[state=active]:bg-background data-[state=active]:text-primary font-bold">
                                     <Layers className="w-3.5 h-3.5" />
                                     시각 레이어
@@ -1042,9 +1062,13 @@ export const PresetCustomizeModal: React.FC<PresetCustomizeModalProps> = ({
                                     <Volume2 className="w-3.5 h-3.5" />
                                     사운드 DSP
                                 </TabsTrigger>
+                                <TabsTrigger value="narrative" className="text-xs gap-1 data-[state=active]:bg-background data-[state=active]:text-rose-500 font-bold">
+                                    <Flame className="w-3.5 h-3.5" />
+                                    서사 DNA
+                                </TabsTrigger>
                                 <TabsTrigger value="sourcing" className="text-xs gap-1 data-[state=active]:bg-background data-[state=active]:text-blue-500 font-bold">
                                     <Film className="w-3.5 h-3.5" />
-                                    원천 소스 DNA
+                                    원천 소스
                                 </TabsTrigger>
                                 <TabsTrigger value="bible" className="text-xs gap-1 data-[state=active]:bg-background data-[state=active]:text-indigo-500 font-bold">
                                     <BookOpen className="w-3.5 h-3.5" />
@@ -2041,7 +2065,185 @@ export const PresetCustomizeModal: React.FC<PresetCustomizeModalProps> = ({
                                 )}
                             </TabsContent>
 
-                            {/* TAB 4: Source Targeting DNA (원천 소스 소싱 타겟팅 프로필) */}
+                            {/* TAB 4: Narrative DNA & 대본 기획 (8대 포렌식 ⊕ 채널 헌법 v32.0 기획) */}
+                            <TabsContent value="narrative" className="space-y-4 pt-3">
+                                {/* Section 1: 100% 복제된 8대 텍스트 포렌식 지표 */}
+                                <div className="p-3.5 rounded-2xl border border-rose-500/20 bg-rose-500/5 dark:bg-rose-950/10 space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                                            <Flame className="w-3.5 h-3.5 text-rose-500" />
+                                            100% 복제된 원본 텍스트 포렌식 지표 (화자 영혼/말버릇)
+                                        </span>
+                                        <Badge variant="outline" className="text-[10px] bg-rose-500/10 text-rose-500 border-rose-500/30">
+                                            Text Forensic Cloner
+                                        </Badge>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                                        <div className="p-2.5 rounded-xl border border-border/60 bg-background/60 space-y-1">
+                                            <span className="text-[10.5px] font-semibold text-muted-foreground">오프닝 훅 공식 (0~2초)</span>
+                                            <p className="text-xs font-bold text-foreground">{openingHookFormula}</p>
+                                        </div>
+                                        <div className="p-2.5 rounded-xl border border-border/60 bg-background/60 space-y-1">
+                                            <span className="text-[10.5px] font-semibold text-muted-foreground">화자 톤앤매너</span>
+                                            <p className="text-xs font-bold text-foreground">{toneManner}</p>
+                                        </div>
+                                    </div>
+
+                                    {/* 8대 나노 포렌식 세부 항목 (인지 모델, 어휘 사전, 금기 사항) */}
+                                    {textForensicProfile && (
+                                        <div className="p-2.5 rounded-xl border border-border/40 bg-muted/40 space-y-1.5">
+                                            <span className="text-[10.5px] font-bold text-primary">🧬 나노 분석 세부 프로필</span>
+                                            <div className="text-[11px] text-muted-foreground grid grid-cols-2 gap-1.5">
+                                                <div>• 세계관 필터: {textForensicProfile.cognitive_model?.worldview_filter || '객관적 팩트 기반'}</div>
+                                                <div>• 문장 호흡: {textForensicProfile.syntactic_fingerprint?.avg_sentence_length || '단문 위주 (4~7단어)'}</div>
+                                                <div>• 시그니처 엔딩: {textForensicProfile.narrative_arc?.signature_payoff || '~라고 하네요!'}</div>
+                                                <div>• 캐릭터 금기: {textForensicProfile.negative_constraints?.forbidden_rules?.[0] || '지루한 인사말 금지'}</div>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Section 2: [커스텀 진화] 채널 헌법 v32.0 기반 서사 의도 선택 */}
+                                <div className="p-3.5 rounded-2xl border border-border/80 bg-muted/30 space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                                            <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                                            채널 서사 의도 (채널 헌법 10대 포뮬러 & 4대 감정 변주)
+                                        </span>
+                                        <Badge variant="outline" className="text-[10px] bg-amber-500/10 text-amber-500 border-amber-500/30">
+                                            Intent Choice
+                                        </Badge>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                        {[
+                                            { id: 'catharsis_justice', label: '⚡ 사이다 참교육', desc: '빌런의 만행 고발 및 통쾌한 인과응보' },
+                                            { id: 'shock_secret', label: '🕵️ 충격/비밀 폭로', desc: '겉보기와 다른 소름 돋는 진실 탐사' },
+                                            { id: 'fact_reversal', label: '💡 상식 파괴 팩트', desc: '잘못된 상식 교정 및 법률·의학 팩트' },
+                                            { id: 'comic_satire', label: '🎭 황당 반전 풍자', desc: '일상의 어이없는 사건을 위트 있게 비꼼' },
+                                            { id: 'human_touch', label: '🥺 감동 실화', desc: '위기 속에서 빛난 따뜻한 인간미 조명' }
+                                        ].map(item => (
+                                            <button
+                                                key={item.id}
+                                                type="button"
+                                                onClick={() => setChosenNarrativeIntent(item.id)}
+                                                className={`p-2.5 rounded-xl border text-left transition-all ${
+                                                    chosenNarrativeIntent === item.id 
+                                                        ? 'border-primary bg-primary/10 shadow-xs' 
+                                                        : 'border-border/60 bg-background/50 hover:bg-muted/50'
+                                                }`}
+                                            >
+                                                <div className="text-xs font-bold text-foreground">{item.label}</div>
+                                                <div className="text-[10.5px] text-muted-foreground mt-0.5">{item.desc}</div>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Section 3: 1만 벽 돌파 '해석형 반전 훅' 전략 */}
+                                <div className="p-3.5 rounded-2xl border border-border/80 bg-muted/30 space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                                            <Shield className="w-3.5 h-3.5 text-blue-500" />
+                                            1만 벽 돌파 훅 전략 (Context Hook)
+                                        </span>
+                                        <Badge variant="outline" className="text-[10px] bg-blue-500/10 text-blue-500 border-blue-500/30">
+                                            First 3-Sec Hook
+                                        </Badge>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                        {[
+                                            { id: 'provocative_question', label: '❓ 도발적 질문형', desc: '과실 0%라고 생각하시나요?' },
+                                            { id: 'ending_reversal', label: '🔄 결말 역전형', desc: '체포된 건 피해자였습니다' },
+                                            { id: 'hidden_truth', label: '🔍 비하인드 고발형', desc: '지하실에서 벌어진 소름 돋는 일' },
+                                            { id: 'legal_impact', label: '⚖️ 법률 조항 직타형', desc: '합법 착각? 징역 3년형 처벌' }
+                                        ].map(item => (
+                                            <button
+                                                key={item.id}
+                                                type="button"
+                                                onClick={() => setChosenContextHook(item.id)}
+                                                className={`p-2.5 rounded-xl border text-left transition-all ${
+                                                    chosenContextHook === item.id 
+                                                        ? 'border-blue-500 bg-blue-500/10 shadow-xs' 
+                                                        : 'border-border/60 bg-background/50 hover:bg-muted/50'
+                                                }`}
+                                            >
+                                                <div className="text-xs font-bold text-foreground">{item.label}</div>
+                                                <div className="text-[10.5px] text-muted-foreground mt-0.5">{item.desc}</div>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Section 4: 채널 헌법 v32.0 가이드라인 & 커스텀 프리셋 승격 버튼 */}
+                                <div className="p-3.5 rounded-2xl border border-border/80 bg-muted/20 space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-xs font-bold text-foreground">📜 채널 헌법 내레이션 가이드 v21.4</span>
+                                        <Badge variant="secondary" className="text-[10px] bg-emerald-500/10 text-emerald-600">
+                                            금기어미 자동 스캔 가동
+                                        </Badge>
+                                    </div>
+                                    <p className="text-[11px] text-muted-foreground leading-relaxed">
+                                        • 선언(~입니다)과 연결(~인데요) 어미를 교차하여 지루함 제로의 말맛을 구현합니다.<br/>
+                                        • 절대 금기 어미(<span className="text-rose-500 font-semibold">~고요, ~겁니다, ~까요, ~네요, ~는요</span>)는 자동 교정됩니다.<br/>
+                                        • 5대 핵심 리듬 어미(~죠, ~요, ~다, ~데요, ~니다) 뒤에서만 줄바꿈을 강제합니다.
+                                    </p>
+
+                                    <div className="pt-2 flex items-center gap-2">
+                                        <Input
+                                            value={customPresetNameInput}
+                                            onChange={(e) => setCustomPresetNameInput(e.target.value)}
+                                            placeholder="나만의 커스텀 프리셋 이름 (예: 사이다_블박_커스텀)"
+                                            className="h-8 text-xs bg-background"
+                                        />
+                                        <Button
+                                            type="button"
+                                            size="sm"
+                                            disabled={evolvingPreset}
+                                            onClick={async () => {
+                                                setEvolvingPreset(true);
+                                                try {
+                                                    const res = await fetch('/api/video-director/refine-custom-preset', {
+                                                        method: 'POST',
+                                                        headers: { 'Content-Type': 'application/json' },
+                                                        body: JSON.stringify({
+                                                            base_preset_id: preset?.id || (preset as any)?.preset_id || 'base_clone',
+                                                            narrative_intent: chosenNarrativeIntent,
+                                                            context_hook_strategy: chosenContextHook,
+                                                            custom_name: customPresetNameInput || `커스텀_${preset?.name}`
+                                                        })
+                                                    });
+                                                    const data = await res.json();
+                                                    if (data.success) {
+                                                        toast.success(data.message || '나만의 커스텀 프리셋으로 승격 저장되었습니다!');
+                                                        if (onPresetUpdated && preset) {
+                                                            onPresetUpdated({
+                                                                ...preset,
+                                                                name: data.custom_name,
+                                                                id: data.custom_preset_id
+                                                            });
+                                                        }
+                                                    } else {
+                                                        toast.error(data.detail || '커스텀 프리셋 저장 실패');
+                                                    }
+                                                } catch (err: any) {
+                                                    toast.error(`서버 통신 실패: ${err.message}`);
+                                                } finally {
+                                                    setEvolvingPreset(false);
+                                                }
+                                            }}
+                                            className="h-8 text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white shrink-0"
+                                        >
+                                            <Save className="w-3.5 h-3.5 mr-1" />
+                                            {evolvingPreset ? '진화 저장 중...' : '🏆 커스텀 프리셋으로 확정 저장'}
+                                        </Button>
+                                    </div>
+                                </div>
+                            </TabsContent>
+
+                            {/* TAB 5: Source Targeting DNA (원천 소스 소싱 타겟팅 프로필) */}
                             <TabsContent value="sourcing" className="space-y-4 pt-3">
                                 <div className="p-3.5 rounded-2xl border border-border/80 bg-muted/30 space-y-3">
                                     <div className="flex items-center justify-between">

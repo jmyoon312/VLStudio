@@ -73,7 +73,8 @@ export default defineConfig(({ mode }) => {
         preload: {
           input: [
             'electron/preload.js',
-            'electron/login_preload.js'
+            'electron/login_preload.js',
+            'electron/stealth_preload.js'
           ],
           vite: {
             build: {

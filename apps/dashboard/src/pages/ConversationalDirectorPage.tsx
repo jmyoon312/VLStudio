@@ -345,7 +345,7 @@ export const ConversationalDirectorPage: React.FC = () => {
     }, [location.state]);
 
     // Model & Security selections
-    const [selectedProvider, setSelectedProvider] = useState<'codex' | 'chatgpt_web' | 'gemini' | 'claude' | 'grok' | 'omniroute'>('codex');
+    const [selectedProvider, setSelectedProvider] = useState<'codex' | 'chatgpt_web' | 'gemini' | 'claude' | 'deepseek' | 'omniroute'>('codex');
     const [selectedModel, setSelectedModel] = useState('Codex Astra 6.0');
     const [reasoningEffort, setReasoningEffort] = useState<ReasoningEffort>('medium');
     const [securityScope, setSecurityScope] = useState('모두 허용');
@@ -374,7 +374,7 @@ export const ConversationalDirectorPage: React.FC = () => {
             chatgpt_web: 'Codex Astra 6.0 (Web)',
             gemini: 'Gemini 3.8 Flash',
             claude: 'Claude 3.7 Sonnet',
-            grok: 'Grok 3 Reasoning',
+            deepseek: 'DeepSeek-V3',
             omniroute: 'viraloop1'
         };
         if (defaultModels[provKey]) {
@@ -407,7 +407,34 @@ export const ConversationalDirectorPage: React.FC = () => {
     const [allPresets, setAllPresets] = useState<any[]>([]);
 
     useEffect(() => {
-        axios.get('/api/social-profiles/').then(r => setTargetChannels(r.data || [])).catch(() => {});
+        Promise.allSettled([
+            axios.get('/api/brand-channels/'),
+            axios.get('/api/social-profiles/')
+        ]).then(([brandRes, socialRes]) => {
+            const brands = brandRes.status === 'fulfilled' && Array.isArray(brandRes.value.data)
+                ? brandRes.value.data.map((b: any) => ({
+                    id: `brand_${b.id}`,
+                    channel_id: b.id,
+                    name: b.name || b.title || 'YouTube 채널',
+                    platform: 'YOUTUBE',
+                    expert_identity: b.expert_identity || b.description || '',
+                    target_audience: b.target_audience || '',
+                    style_signature: b.style_signature || '',
+                    preset_id: b.preset_id || b.default_preset_id
+                }))
+                : [];
+            const socials = socialRes.status === 'fulfilled' && Array.isArray(socialRes.value.data)
+                ? socialRes.value.data.map((s: any) => ({
+                    id: `social_${s.id}`,
+                    channel_id: s.id,
+                    name: s.account_name || s.name || s.handle || 'SNS 채널',
+                    platform: s.platform || 'TIKTOK',
+                    expert_identity: s.niche || s.bio || '',
+                    preset_id: s.preset_id
+                }))
+                : [];
+            setTargetChannels([...brands, ...socials]);
+        }).catch(() => {});
         axios.get('/api/sovereign-presets/').then(r => setAllPresets(r.data || [])).catch(() => {});
     }, []);
 
@@ -543,7 +570,7 @@ export const ConversationalDirectorPage: React.FC = () => {
         openai: { connected: true },
         gemini: { connected: true },
         claude: { connected: false },
-        grok: { connected: false }
+        deepseek: { connected: false }
     });
 
     // Fetch live AI account credentials and status
@@ -1141,7 +1168,15 @@ export const ConversationalDirectorPage: React.FC = () => {
                     model: selectedModel,
                     provider: selectedProvider,
                     reasoning_effort: reasoningEffort,
-                    history: historyPayload
+                    history: historyPayload,
+                    thread_id: currentThreadId,
+                    target_channel: selectedTargetChannel ? {
+                        id: selectedTargetChannel.channel_id || selectedTargetChannel.id,
+                        name: selectedTargetChannel.name,
+                        platform: selectedTargetChannel.platform,
+                        expert_identity: selectedTargetChannel.expert_identity,
+                        style_signature: selectedTargetChannel.style_signature
+                    } : undefined
                 })
             });
 
@@ -1517,38 +1552,34 @@ export const ConversationalDirectorPage: React.FC = () => {
             <main className="flex-1 flex flex-col h-full min-w-0 bg-background overflow-hidden relative">
                 <DirectorHeader
                     title="루피 AI 디렉터"
-                    leadingElement={<LoopieIcon className="w-7 h-7 mr-1" isTalking={isTalking} isLive={isGeminiLiveActive} isSmall={true} />}
-                    channelSelectorElement={
-                        targetChannels.length > 0 ? (
-                            <div className="relative">
-                                <select
-                                    value={selectedTargetChannel?.id || ''}
-                                    onChange={(e) => {
-                                        const found = targetChannels.find(tc => tc.id === e.target.value);
-                                        if (found) handleSelectTargetChannel(found);
-                                        else setSelectedTargetChannel(null);
-                                    }}
-                                    className="h-7 px-2.5 text-xs font-semibold bg-muted/50 hover:bg-muted text-foreground rounded-lg border border-border/80 focus:outline-hidden cursor-pointer max-w-[140px] sm:max-w-[200px] truncate shadow-2xs transition-colors"
-                                    title="타겟 채널 선택 (선택 시 해당 채널에 매핑된 프리셋이 자동 로드됩니다)"
-                                >
-                                    <option value="">📢 타겟 채널 선택</option>
-                                    {targetChannels.map((tc) => (
-                                        <option key={tc.id} value={tc.id}>
-                                            {tc.platform === 'TIKTOK' ? '🎵' : tc.platform === 'INSTAGRAM' ? '📸' : '🎬'} {tc.name}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
+                    leadingElement={
+                        messages.length > 0 ? (
+                            <LoopieIcon className="w-7 h-7 mr-1" isTalking={isTalking} isLive={isGeminiLiveActive} isSmall={true} />
                         ) : undefined
+                    }
+                    channelSelectorElement={
+                        <div className="relative">
+                            <select
+                                value={selectedTargetChannel?.id || ''}
+                                onChange={(e) => {
+                                    const found = targetChannels.find(tc => tc.id === e.target.value);
+                                    if (found) handleSelectTargetChannel(found);
+                                    else setSelectedTargetChannel(null);
+                                }}
+                                className="h-7 px-2.5 text-xs font-semibold bg-muted/50 hover:bg-muted text-foreground rounded-lg border border-border/80 focus:outline-hidden cursor-pointer max-w-[140px] sm:max-w-[200px] truncate shadow-2xs transition-colors"
+                                title="타겟 채널 선택 (선택 시 해당 채널에 매핑된 프리셋과 제작 DNA가 자동 연동됩니다)"
+                            >
+                                <option value="">📢 타겟 채널 선택</option>
+                                {targetChannels.map((tc) => (
+                                    <option key={tc.id} value={tc.id}>
+                                        {tc.platform === 'TIKTOK' ? '🎵' : tc.platform === 'INSTAGRAM' ? '📸' : '🎬'} {tc.name}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
                     }
                     activePreset={activePreset}
                     onOpenPresetModal={() => setLoadModalOpen(true)}
-                    selectedProvider={selectedProvider}
-                    onSelectProvider={handleProviderSelect}
-                    selectedModel={selectedModel}
-                    onSelectModel={setSelectedModel}
-                    reasoningEffort={reasoningEffort}
-                    onSelectReasoningEffort={setReasoningEffort}
                     isVoiceMuted={!isVoiceEnabled}
                     onToggleVoiceMute={() => setIsVoiceEnabled(!isVoiceEnabled)}
                     sidebarCollapsed={sidebarCollapsed}
@@ -1565,6 +1596,10 @@ export const ConversationalDirectorPage: React.FC = () => {
                     onOpenInRightPanel={(v) => {
                         setActiveVideoView(v);
                         setRightPanelOpen(true);
+                    }}
+                    onEditMessage={(text) => {
+                        setPrompt(text);
+                        textareaRef.current?.focus();
                     }}
                     avatarElement={() => <LoopieIcon className="w-16 h-16" isTalking={isTalking} isLive={isGeminiLiveActive} isSmall={false} />}
                     emptyStateTitle="루피 AI 디렉터"
@@ -1589,6 +1624,12 @@ export const ConversationalDirectorPage: React.FC = () => {
                     onChangeSecurityScope={setSecurityScope}
                     isLiveVoiceActive={isGeminiLiveActive}
                     onToggleLiveVoice={toggleGeminiLive}
+                    selectedProvider={selectedProvider}
+                    onSelectProvider={handleProviderSelect}
+                    selectedModel={selectedModel}
+                    onSelectModel={setSelectedModel}
+                    reasoningEffort={reasoningEffort}
+                    onSelectReasoningEffort={setReasoningEffort}
                     hasMessages={messages.length > 0}
                     textareaRef={textareaRef}
                     autoFocus={true}
@@ -1611,6 +1652,7 @@ export const ConversationalDirectorPage: React.FC = () => {
                 onClose={() => setRightPanelOpen(false)}
                 activeTab={rightPanelTab}
                 onTabChange={setRightPanelTab}
+                threadId={activeThreadId}
                 activeVideo={activeVideoView}
                 onClearActiveVideo={() => setActiveVideoView(null)}
                 onSelectVideo={(v) => {

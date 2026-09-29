@@ -391,6 +391,11 @@ if (fs.existsSync(directorPy)) {
             hasErrors = true;
         }
     }
+    // 14. [Zero CLI Subprocess Law for Conversational Gemini]
+    if (directorContent.includes('agy.exe') || directorContent.includes('_find_antigravity_executable')) {
+        console.error('❌ [Contract-Checker] VIOLATION (Zero CLI Subprocess Law): agy.exe or CLI subprocess detected in conversational_director.py! Gemini chat must connect directly via native streaming.');
+        hasErrors = true;
+    }
 }
 
 if (fs.existsSync(llmManagerPy)) {
@@ -401,11 +406,42 @@ if (fs.existsSync(llmManagerPy)) {
     }
 }
 
+// 15. [Google Antigravity & Gemini Web Dual Sovereign Engine Law]
+console.log('🌌 [Contract-Checker] Validating Google Antigravity & Gemini Web Dual Sovereign Engine Law (Rule 7)...');
+const poolPy = path.join(rootDir, 'apps', 'api', 'app', 'services', 'google_account_pool.py');
+if (fs.existsSync(poolPy)) {
+    const poolContent = fs.readFileSync(poolPy, 'utf-8');
+    if (!poolContent.includes('get_healthy_antigravity_sessions') || !poolContent.includes('get_healthy_gemini_web_sessions')) {
+        console.error('❌ [Contract-Checker] VIOLATION (Dual Sovereign Engine Law): google_account_pool.py missing get_healthy_antigravity_sessions or get_healthy_gemini_web_sessions dual methods!');
+        hasErrors = true;
+    }
+    if (!poolContent.includes('onboardUser') || !poolContent.includes('free-tier')) {
+        console.error('❌ [Contract-Checker] VIOLATION (Dual Sovereign Engine Law): google_account_pool.py missing automatic onboardUser free-tier activation for personal accounts!');
+        hasErrors = true;
+    }
+    if (!poolContent.includes('_sync_and_discover_accounts')) {
+        console.error('❌ [Contract-Checker] VIOLATION (Dynamic N-Account Scaling Law): google_account_pool.py missing _sync_and_discover_accounts for infinite dynamic account expansion!');
+        hasErrors = true;
+    }
+}
+
+if (fs.existsSync(directorPy)) {
+    const directorContent = fs.readFileSync(directorPy, 'utf-8');
+    if (!directorContent.includes('aicode-consumers')) {
+        console.error('❌ [Contract-Checker] VIOLATION (Dual Sovereign Engine Law): conversational_director.py missing "project": "aicode-consumers" required for Antigravity IDE personal account quota!');
+        hasErrors = true;
+    }
+    if (!directorContent.includes('daily-cloudcode-pa.googleapis.com')) {
+        console.error('❌ [Contract-Checker] VIOLATION (Dual Sovereign Engine Law): conversational_director.py must directly connect to Antigravity CCPA endpoint!');
+        hasErrors = true;
+    }
+}
+
 if (hasErrors) {
     console.error('❌ [Contract-Checker] Integrity check FAILED.');
     process.exit(1);
 } else {
-    console.log('✅ [Contract-Checker] All 3-Tier Layer Contracts, Zero-Hardcoding, Direct Native Sovereignty, UI/UX Theme, Zero Normal Browser Leakage, Sovereign Network, Stealth Session & Storage Hierarchy Rules PASSED (100% Integrity)');
+    console.log('✅ [Contract-Checker] All 3-Tier Layer Contracts, Zero-Hardcoding, Direct Native Sovereignty, Dual Sovereign Engine, UI/UX Theme, Zero Normal Browser Leakage, Sovereign Network, Stealth Session & Storage Hierarchy Rules PASSED (100% Integrity)');
     process.exit(0);
 }
 

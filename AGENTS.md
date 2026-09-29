@@ -35,6 +35,27 @@ Google Flow AI 영상 생성, 4대 폼팩터 NLE 엔진, 모바일 USB LTE 다�
   3. **임의 모델 강제 변환/단일 모델 덮어쓰기 영구 전면 금지**: 사용자가 선택한 프로바이더와 모델을 개발자 임의로 가로채거나, 타 프로바이더/타 모델(예: viraloop1, auto 등)로 덮어쓰거나 우회시키는 행위를 영구 금지한다.
   4. **처리 상태 표기 정직성 (Zero Fake Title Law)**: 내부 처리 로그나 타이틀에 무조건 'Hermes Core 지능 분석' 등의 획일적인 문구를 붙이지 않고, 실제 호출된 프로바이더 및 모델명(예: `OpenAI Codex Astra 분석`, `Gemini 2.5 Flash 분석`, `OpenAI GPT-4o 분석`)을 정직하게 표기한다.
   5. **정적 검증 게이트키퍼 강제**: `contract-checker.js` Step 13에서 AI 모델명 하드코딩 및 Gemini/Codex/OpenAI의 OmniRoute(20128) 강제 우회를 정적으로 자동 검사하여 위반 시 빌드를 즉시 차단한다.
+  6. **대화 파이프라인 CLI 서브프로세스 호출 영구 전면 금지 (Zero CLI Subprocess Law for Conversational AI)**:
+     - Google Gemini 및 Antigravity 토큰 기반 실시간 대화(`conversational_director.py`)에서 `agy.exe` 등 CLI 실행 파일을 서브프로세스(`subprocess.Popen`)로 기동하는 행위를 영구 금지한다.
+     - CLI 실행 시 발생하는 15초 이상의 환경 초기화 지연, Windows CP949 인코딩 충돌, 입출력 데드락을 원천 차단하며, 반드시 공식 네이티브 스트리밍 HTTP/SSE 엔드포인트를 직접 호출하여 0.3초 이내 초고속 응답을 보장해야 한다.
+     - `contract-checker.js` Step 14에서 `conversational_director.py` 내 `agy.exe` 또는 CLI 서브프로세스 존재 여부를 정적 검사하여 위반 시 빌드를 즉시 차단한다.
+  7. **Google Antigravity & Gemini Web 듀얼 주권 엔진 및 N대 계정 무제한 동적 확장·자동 온보딩·로테이션 절대 규칙 (Dynamic N-Account Dual Sovereign Engine Law)**:
+     - **(1) N대 계정 무제한 동적 확장 및 계정수 고정 영구 금지 (Infinite N-Account Dynamic Discovery)**:
+       - 계정 개수를 10개 등으로 정적 하드코딩하는 행위를 영구 금지한다. 계정은 사용자의 필요에 따라 20개, 50개, 100개 이상 지속적으로 추가될 수 있다.
+       - 계정이 추가(Flow 프로필, Antigravity 세션, 키링, 신규 쿠키 등)되는 즉시 시스템(`google_account_pool`)이 무재기동·무수정으로 실시간 자동 감지(`_sync_and_discover_accounts`)하여 풀에 자동 편입시켜야 한다.
+     - **(2) 신규 계정 100% 무인 자동 온보딩 보장 (Zero-Touch Auto-Onboarding Law)**:
+       - 새로 추가되는 모든 개인/개발자 구글 계정은 최초 토큰 획득 또는 갱신 시 백그라운드에서 `/v1internal:onboardUser`(`tierId: "free-tier"`)를 자동 호출하여 개인 라이선스를 무인 활성화한다.
+       - 모든 Antigravity IDE 2.0 요청에는 항상 `"project": "aicode-consumers"`를 강제 바인딩하여 403 `#3501` 라이선스 오류를 원천 방지한다.
+     - **(3) 텍스트 LLM & 대화형 디렉터 (Text & MCP Tool Orchestration)**:
+       - 반드시 **Antigravity IDE 2.0 공식 네이티브 엔드포인트(`daily-cloudcode-pa.googleapis.com`/`cloudcode-pa.googleapis.com`)**를 직결 사용한다.
+       - 0.1~0.3초대 초저지연 비동기 SSE 스트리밍과 Function Calling(10대 도구)을 완벽 보장한다.
+       - N개 계정 풀에서 429/403 감지 시 즉시 다음 계정으로 무중단 자동 절체(Failover) 및 계정별 독립 쿨다운을 적용한다.
+     - **(4) 멀티모달 미디어 에셋 무제한 생성 (Imagen 3 Visuals, Voice TTS, Live Grounding)**:
+       - 각 계정의 **Gemini Web 세션 쿠키(`cookies_gemini.json` / `__Secure-1PSID`)**를 전담 배치하여 API 비용 0원의 주권 미디어 팩토리로 운영한다.
+       - 4대 특화 영역: ① Imagen 3 기반 초고화질 키프레임/썸네일 대량 생성, ② 실시간 감정 Gemini TTS 보이스 스트림 바이너리 추출, ③ 실시간 구글 검색 및 유튜브 최신 트렌드 심층 그라운딩, ④ 3.8 Flash Live 양방향 멀티모달 인터랙션.
+     - **(5) 계정 풀 그룹핑 및 무임의 수정 영구 금지 (Zero Arbitrary Mutation Gatekeeper)**:
+       - Antigravity 텍스트 그룹과 Gemini Web 미디어 그룹은 상호 침범 없이 독립적 우선순위 체계로 운영되며, 개발자 임의로 CLI 서브프로세스로 회귀시키거나 단일 웹 스크래퍼로 융합하거나 로테이션 정책을 축소하는 행위를 영구 금지한다.
+       - `contract-checker.js` Step 15에서 동적 계정 감지 및 듀얼 엔진 정책 준수 여부를 정적으로 검사하여 위반 시 빌드를 즉시 차단한다.
 
 ## 🔤 Windows 콘솔 및 Python UTF-8 인코딩 절대 강제 규칙 (Zero CP949 UnicodeEncodeError Law)
 - **1. 파이썬 표준 입출력 UTF-8 강제 (Strict UTF-8 IO Reconfiguration)**:
@@ -247,8 +268,25 @@ Google Flow AI 영상 생성, 4대 폼팩터 NLE 엔진, 모바일 USB LTE 다�
   - Chromium 엔진의 물리적 특성상 동일 프로필 디렉토리는 2개 이상의 프로세스가 동시에 열 수 없으므로, 프로필 ID 단위로 상호 배타적 세션 락을 강제한다.
 - **4. 동일 모바일 LTE 기기 공유 채널의 직렬 큐잉 (Device Mutex)**:
   - 동일한 물리 안드로이드 기기(`bound_device_serial`)를 공유하는 채널들은 IP 교체 및 통신 단절 사고를 방지하기 위해 절대 동시 실행을 금지하며, 반드시 선행 작업 완료 후 IP가 회전된 다음 순차적으로 실행한다.
-- **5. 최대 동시 활성 브라우저 수 제한 (Max Concurrency 3)**:
-  - PC 하드웨어 과부하(GPU/RAM 멈춤)를 방지하기 위해, 시스템 전체에서 동시에 실행될 수 있는 최대 Chromium 브라우저 프로세스 수는 3개로 엄격히 제한한다.
+## 🛡️ AI 웹 세션 안티봇 방어 및 캡차 무한 루프 영구 박멸 절대 규칙 (Anti-Bot & Captcha Sovereignty Law)
+모든 AI 프로바이더 웹 세션(DeepSeek, ChatGPT, Gemini, Claude 등)의 연동, 로그인, 브라우저 세션 획득 시 아래 5대 보안 안티봇 헌법을 강제 적용한다:
+
+1. **Arkose Labs / Cloudflare Turnstile / AWS WAF 봇 감지 무력화 단일 진실 공급원**:
+   - 일렉트론(`BrowserWindow`) 임베디드 창은 Chromium 엔진 특성상 `navigator.webdriver`, WebGL 핑거프린트, CDP 프로토콜, Electron 고유 객체 노출로 인해 안티봇 시스템(Arkose Labs 등)에 의해 **'자동화 봇(100% Bot)'**으로 분류된다.
+   - 이로 인해 사용자가 캡차 정답(퍼즐 맞추기, 동물 크기 비교 등)을 정상적으로 풀어도 캡차 서버가 응답을 불인정하고 **"다시 시도하십시오 ⚠️"를 띄우며 무한 캡차 굴레(Infinite Captcha Loop)**에 빠지게 된다.
+2. **Patchright 기반 네이티브 스텔스 브라우저(`CloakBrowser`) 최우선 듀얼 직결 의무**:
+   - 모든 AI 웹 세션 연동 모달(DeepSeek, ChatGPT, Gemini 등)은 Electron 창뿐만 아니라, **Patchright 기반 실제 순수 Chrome 프로세스인 CloakBrowser(`local_browser.py`)를 통한 원클릭 스텔스 연동 버튼(`[🛡️ 스텔스 보안 브라우저로 연동]`)을 필수 탑재**해야 한다.
+   - CloakBrowser는 `navigator.webdriver`가 물리적으로 존재하지 않고 실제 OS GPU/오디오 핑거프린트를 사용하므로, 캡차 시스템이 100% 실제 인간으로 인식하여 캡차가 아예 뜨지 않거나 1회 만에 통과된다.
+3. **Electron 임베디드 로그인 창 5대 필수 스텔스 프리로드 규격**:
+   - 부득이 Electron 창을 띄울 경우 반드시 `login_preload.js`를 바인딩해야 하며 누락을 영구 금지한다:
+     - ① `navigator.webdriver = false` 및 `Navigator.prototype.webdriver = false` 네이티브 마스킹.
+     - ② `navigator.plugins`, `navigator.languages`, `hardwareConcurrency`, `deviceMemory`, `window.chrome.runtime` 실제 구글 크롬 136과 100% 동일 위장.
+     - ③ `setWindowOpenHandler`로 열리는 모든 구글 로그인 및 캡차 팝업 창에도 `login_preload.js`를 100% 상속 강제.
+4. **온보딩(나이 확인, 약관 동의) 완료 전 세션 종료 및 가짜 연동 영구 금지**:
+   - 사용자가 구글 로그인을 마쳤더라도 DeepSeek/ChatGPT의 나이 확인, 생년월일 선택, 약관 동의 모달(`[role="dialog"]`, `hasActiveModal`)이 화면에 떠 있는 동안에는 절대로 연동 완료로 판단하여 창을 닫아서는 안 된다.
+   - 모든 온보딩이 끝나고 실제 채팅 화면(`textarea#chat-input`)이 활성화되어 실제 유효 JWT 토큰(50자 이상)이 발급되었을 때만 세션을 저장하고 창을 닫아야 한다.
+5. **정적 검증 게이트키퍼 강제 (`contract-checker.js`)**:
+   - `contract-checker.js`에서 AI 웹 세션 IPC 모듈에 스텔스 프리로드 누락 여부 및 CloakBrowser 엔드포인트 존재 여부를 정적으로 자동 검사하여 위반 시 빌드를 즉시 차단한다.
 
 ## 🚫 가짜 모의(Mock) UI 생성 영구 전면 금지 및 원천 소스 재사용 100% 실체화 절대 규칙 (Zero Mock UI & 100% Functional Realization Law)
 모든 컴포넌트 개발, 서브 스튜디오 구현, 역공학 포팅 작업 시 아래 5대 절대 헌법을 영구 강제한다:

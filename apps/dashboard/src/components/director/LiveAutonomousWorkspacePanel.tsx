@@ -331,7 +331,7 @@ export const LiveAutonomousWorkspacePanel: React.FC<LiveAutonomousWorkspacePanel
                                     browserVisionSubTab === 'browser'
                                         ? 'bg-accent text-accent-foreground font-semibold'
                                         : 'text-muted-foreground hover:text-foreground'
-                                Could you please check'}`}
+                                }`}
                             >
                                 🌐 웹 브라우저 화면
                             </button>

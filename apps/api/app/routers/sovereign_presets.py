@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 from pydantic import BaseModel
-from fastapi import APIRouter, HTTPException, BackgroundTasks
+from fastapi import APIRouter, HTTPException, BackgroundTasks, Query
 
 from ..services.pixeling_harvester import PixelingHarvester
 from ..services.sovereign_preset_engine import sovereign_preset_engine
@@ -398,8 +398,8 @@ def create_preset_from_channel(req: CreateFromChannelRequest):
 
 
 @router.get("/workspace-files")
-def get_workspace_files() -> Dict[str, Any]:
-    """Return file tree across 01_Inbox, 02_Operations, 05_Exports, 07_Downloads."""
+def get_workspace_files(thread_id: Optional[str] = Query(None)) -> Dict[str, Any]:
+    """Return file tree across 01_Inbox, 02_Operations, 05_Exports, 07_Downloads, scoped by thread_id if provided."""
     import urllib.parse
     from datetime import datetime
     categories = [
@@ -410,6 +410,37 @@ def get_workspace_files() -> Dict[str, Any]:
     ]
     media_root = Path(LOCAL_APPDATA) / "ViraLoop Studio" / "media"
     result = []
+
+    # 1. Thread-scoped folder for the active conversation
+    thread_files = []
+    if thread_id and thread_id.strip():
+        safe_thread_id = "".join(c for c in thread_id if c.isalnum() or c in ("-", "_")).strip()
+        if safe_thread_id:
+            thread_ops_dir = media_root / "02_Operations" / "threads" / safe_thread_id
+            thread_ops_dir.mkdir(parents=True, exist_ok=True)
+            for item in sorted(thread_ops_dir.glob("**/*"), key=lambda p: p.stat().st_mtime if p.is_file() else 0, reverse=True):
+                if item.is_file():
+                    if item.name.startswith("frame_") or item.name.endswith((".part", ".ytdl")):
+                        continue
+                    stat = item.stat()
+                    thread_files.append({
+                        "name": item.name,
+                        "relative_path": str(item.relative_to(thread_ops_dir)),
+                        "absolute_path": str(item),
+                        "size_mb": round(stat.st_size / (1024 * 1024), 2),
+                        "modified_at": datetime.fromtimestamp(stat.st_mtime).strftime("%Y-%m-%d %H:%M"),
+                        "is_video": item.suffix.lower() in [".mp4", ".mov", ".mkv", ".webm"],
+                        "stream_url": f"/api/files/stream?path={urllib.parse.quote(str(item))}"
+                    })
+            result.append({
+                "id": "current_thread",
+                "name": f"📁 현재 대화 전용 에셋 ({safe_thread_id})",
+                "icon": "folder",
+                "is_thread_scope": True,
+                "file_count": len(thread_files),
+                "files": thread_files
+            })
+
     for cat in categories:
         cat_path = media_root / cat["id"]
         files = []
@@ -436,15 +467,16 @@ def get_workspace_files() -> Dict[str, Any]:
             "id": cat["id"],
             "name": cat["name"],
             "icon": cat["icon"],
+            "is_thread_scope": False,
             "file_count": len(files),
             "files": files
         })
-    return {"status": "success", "categories": result}
+    return {"status": "success", "categories": result, "thread_file_count": len(thread_files)}
 
 
 @router.get("/exports-list")
-def get_exports_list() -> Dict[str, Any]:
-    """Return all completed videos in 05_Exports."""
+def get_exports_list(thread_id: Optional[str] = Query(None)) -> Dict[str, Any]:
+    """Return all completed videos in 05_Exports, highlighting thread items if thread_id provided."""
     import urllib.parse
     from datetime import datetime
     media_root = Path(LOCAL_APPDATA) / "ViraLoop Studio" / "media"
@@ -452,22 +484,30 @@ def get_exports_list() -> Dict[str, Any]:
     exports_dir.mkdir(parents=True, exist_ok=True)
     items = []
     video_exts = {".mp4", ".mov", ".webm", ".mkv"}
+
+    safe_thread_id = ""
+    if thread_id and thread_id.strip():
+        safe_thread_id = "".join(c for c in thread_id if c.isalnum() or c in ("-", "_")).strip()
+
     for f in exports_dir.glob("**/*"):
         if f.is_file() and f.suffix.lower() in video_exts:
             try:
                 stat = f.stat()
+                is_this_thread = bool(safe_thread_id and (safe_thread_id in str(f) or safe_thread_id in f.name))
                 items.append({
                     "filename": f.name,
                     "filepath": str(f),
                     "size_mb": round(stat.st_size / (1024 * 1024), 2),
                     "modified_at": datetime.fromtimestamp(stat.st_mtime).strftime("%Y-%m-%d %H:%M"),
                     "stream_url": f"/api/files/stream?path={urllib.parse.quote(str(f))}",
-                    "parent_folder": f.parent.name if f.parent != exports_dir else None
+                    "parent_folder": f.parent.name if f.parent != exports_dir else None,
+                    "is_current_thread": is_this_thread
                 })
             except Exception:
                 continue
-    items.sort(key=lambda x: x["modified_at"], reverse=True)
-    return {"status": "success", "exports": items[:40]}
+    # Sort thread items first, then by modified_at
+    items.sort(key=lambda x: (x.get("is_current_thread", False), x["modified_at"]), reverse=True)
+    return {"status": "success", "exports": items[:50]}
 
 
 @router.get("/live-logs")

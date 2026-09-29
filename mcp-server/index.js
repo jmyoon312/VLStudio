@@ -373,6 +373,331 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
       },
     },
 
+    // ── 🎬 ViraLoop Sovereign Video Director & Surgical Fast Modification Tools ──
+    {
+      name: 'produce_complete_video',
+      description: '대본, 씬 미디어, Gemini 3.8 Flash TTS 음성, HyperFrames Voiceover Carve BGM 덕킹, 쨉쨉이, 바이럴 자막을 결합하여 완제품 MP4 영상을 원스톱 자동 제작합니다.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          project_id: { type: 'string', description: '프로젝트 ID (생략 시 자동 생성)' },
+          title: { type: 'string', description: '영상 제목' },
+          script: { type: 'string', description: '전체 대본 텍스트' },
+          scenes: {
+            type: 'array',
+            description: '씬 미디어 목록 [{ src: string, type: "video"|"image", startMs: number, endMs: number, zoomDirection?: "in"|"out" }]',
+            items: { type: 'object' }
+          },
+          voice_config: {
+            type: 'object',
+            description: '음성 설정 (provider: "gemini"|"supertonic", role, age_demographic, gender, mood, speed_ratio, pitch_shift_semitones)'
+          },
+          subtitles: {
+            type: 'array',
+            description: '자막 목록 [{ text: string, startMs: number, endMs: number }]',
+            items: { type: 'object' }
+          },
+          jab_overlay: {
+            type: 'object',
+            description: '쨉쨉이 훅 배지 { text: string, startMs: number, endMs: number, placement?: string, tiltDeg?: number }'
+          },
+          branding: {
+            type: 'object',
+            description: '채널 브랜딩 { has_top_header: boolean, title_line1: string, title_line2: string, title_badge_text: string, bottom_credit_text: string }'
+          },
+          audio_config: {
+            type: 'object',
+            description: '오디오 믹스 설정 { bgm_path: string, bgm_volume: number, enable_ducking: boolean, enable_formant_carve: boolean }'
+          },
+          style_preset: {
+            type: 'string',
+            enum: ['shorts', 'humor', 'mystery', 'knowledge', 'drama', 'custom'],
+            description: '자막 스타일 프리셋 (기본: shorts)',
+            default: 'shorts'
+          },
+          auto_render: { type: 'boolean', description: '즉시 MP4 렌더링 여부 (기본: true)', default: true }
+        },
+        required: ['title', 'script'],
+      },
+    },
+    {
+      name: 'modify_video_subtitles',
+      description: '⚡ [즉시 수정 렌더] 기존 오디오와 씬 미디어를 100% 재사용하여 자막 문구/타이밍/스타일만 초고속(3~5초)으로 변경하여 다시 렌더링합니다.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          project_id: { type: 'string', description: '수정할 프로젝트 ID' },
+          subtitles: {
+            type: 'array',
+            description: '변경할 새 자막 목록 [{ text: string, startMs: number, endMs: number }]',
+            items: { type: 'object' }
+          },
+          style_preset: { type: 'string', enum: ['shorts', 'humor', 'mystery', 'knowledge', 'drama', 'custom'], description: '변경할 스타일 프리셋' }
+        },
+        required: ['project_id', 'subtitles'],
+      },
+    },
+    {
+      name: 'modify_video_voice',
+      description: '🎙️ [즉시 수정 렌더] 기존 영상/이미지 씬을 100% 재사용하고, 목소리(성우, 연령대, 성별, 역할, 피치, 속도) 또는 대본만 재합성하여 새 오디오로 다시 렌더링합니다.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          project_id: { type: 'string', description: '수정할 프로젝트 ID' },
+          voice_config: {
+            type: 'object',
+            description: '새 음성 설정 { role, age_demographic, gender, mood, speed_ratio, pitch_shift_semitones, provider }'
+          },
+          new_script: { type: 'string', description: '수정된 새 대본 (생략 시 기존 대본 유지)' }
+        },
+        required: ['project_id', 'voice_config'],
+      },
+    },
+    {
+      name: 'modify_video_jab',
+      description: '🥊 [즉시 수정 렌더] 기존 영상과 오디오를 유지하고 쨉쨉이(후킹 뱃지 문구, 등장 시간, 위치)만 초고속(3초)으로 수정하여 다시 렌더링합니다.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          project_id: { type: 'string', description: '수정할 프로젝트 ID' },
+          jab_overlay: {
+            type: 'object',
+            description: '새 쨉쨉이 설정 { text: string, startMs: number, endMs: number, placement?: string, tiltDeg?: number }'
+          }
+        },
+        required: ['project_id', 'jab_overlay'],
+      },
+    },
+    {
+      name: 'modify_video_media',
+      description: '🖼️ [즉시 수정 렌더] 특정 씬의 이미지나 비디오 클립만 새 파일로 교체하고 오디오/자막을 유지한 채 다시 렌더링합니다.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          project_id: { type: 'string', description: '수정할 프로젝트 ID' },
+          scene_id: { type: 'string', description: '교체할 씬 ID 또는 인덱스' },
+          new_media_path: { type: 'string', description: '새 이미지 또는 영상 파일 경로' },
+          media_type: { type: 'string', enum: ['image', 'video'], default: 'image' }
+        },
+        required: ['project_id', 'scene_id', 'new_media_path'],
+      },
+    },
+    {
+      name: 'get_video_storyboard',
+      description: '📋 특정 영상 프로젝트의 현재 Storyboard EDL 명세(씬, 음성, 자막, 쨉쨉이, 렌더링 결과 파일 경로)를 조회합니다.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          project_id: { type: 'string', description: '조회할 프로젝트 ID' }
+        },
+        required: ['project_id'],
+      },
+    },
+    {
+      name: 'auto_sync_video_peaks',
+      description: '🎯 [픽셀링 역공학 피크 싱크] 나레이션 오디오의 볼륨 파형(RMS 피크)을 감지하여 쨉쨉이 훅 배지와 줌 비트를 목소리 클라이맥스 0.5초 전에 자동 정렬하고 다시 렌더링합니다.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          project_id: { type: 'string', description: '프로젝트 ID' },
+          auto_render: { type: 'boolean', description: '즉시 렌더링 여부 (기본: true)', default: true }
+        },
+        required: ['project_id'],
+      },
+    },
+    {
+      name: 'regenerate_weak_scenes',
+      description: '🎨 [픽셀링 약한 앵커/실패 씬 타겟 재생성] 전체를 다시 만들 필요 없이 퀄리티가 낮거나 누락/실패한 특정 씬들만 선택적으로 고품질 재생성하여 4초 만에 교체 렌더링합니다.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          project_id: { type: 'string', description: '프로젝트 ID' },
+          scene_indices: {
+            type: 'array',
+            items: { type: 'number' },
+            description: '재생성할 씬 인덱스 목록 [0, 2] (생략 시 문제 씬 자동 감지)'
+          },
+          prompt_overrides: {
+            type: 'object',
+            description: '특정 씬 인덱스별 새 프롬프트 매핑 { "0": "새로운 프롬프트" }'
+          },
+          auto_render: { type: 'boolean', description: '즉시 렌더링 여부 (기본: true)', default: true }
+        },
+        required: ['project_id'],
+      },
+    },
+    {
+      name: 'apply_video_format_preset',
+      description: '🎭 [12대 포맷 전문 프리셋 적용] 픽셀링의 12대 폼팩터 스타일(원테이크 훅, 노래 3단 싱크, 먹구리 줌팝, 랭킹 카운트다운, 영화/드라마, 텍스트 캐릭터극, 스톡모션, 군림보 훅, 썰형 릴레이)을 일괄 적용하고 재렌더링합니다.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          project_id: { type: 'string', description: '프로젝트 ID' },
+          preset_name: {
+            type: 'string',
+            enum: ['one_take_batch', 'song_karaoke', 'meokguri', 'ranking_countdown', 'movie_drama', 'text_creative', 'stock_motion', 'gunlimbo_hook', 'ssul_board'],
+            description: '적용할 폼팩터 프리셋 키'
+          },
+          auto_render: { type: 'boolean', description: '즉시 렌더링 여부 (기본: true)', default: true }
+        },
+        required: ['project_id', 'preset_name'],
+      },
+    },
+    {
+      name: 'ripple_delete_video_scene',
+      description: '✂️ [마그네틱 메인 트랙 리플 삭제] 특정 씬을 삭제하고 뒤따르는 모든 씬을 앞당겨 빈 공간(무음 구간) 없이 자동으로 타임라인을 닫아 다시 렌더링합니다.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          project_id: { type: 'string', description: '프로젝트 ID' },
+          scene_index: { type: 'number', description: '삭제할 씬 인덱스 (0-based)' },
+          auto_render: { type: 'boolean', description: '즉시 렌더링 여부 (기본: true)', default: true }
+        },
+        required: ['project_id', 'scene_index'],
+      },
+    },
+    {
+      name: 'plan_video_cutdown',
+      description: '📐 [문장 경계 자동 맞춤 컷다운 플래너] 긴 대본이나 자막에서 쇼츠 권장 길이(60초 이하, 90초 이하)로 하이라이트를 추출할 때 말이 중간에 끊기지 않도록 문장 경계에 맞춰 시작/끝점을 정밀 보정합니다.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          subtitles: {
+            type: 'array',
+            description: '자막 목록 [{ text: string, startMs: number, endMs: number }]',
+            items: { type: 'object' }
+          },
+          target_duration_sec: { type: 'number', description: '목표 길이 초 (기본: 55)', default: 55 },
+          style: { type: 'string', enum: ['hook', 'middle-impact', 'summary'], description: '추출 스타일 (기본: hook)', default: 'hook' }
+        },
+        required: ['subtitles'],
+      },
+    },
+    {
+      name: 'apply_analyzed_video_preset',
+      description: '🧬 [영상/채널 분석 프리셋 지능형 적용] 레퍼런스 영상이나 채널 DNA를 분석해 만든 프리셋 JSON을 전달하면, 시스템이 프리셋의 세부 속성(상하단 헤더, 자막 스타일, 쨉쨉이, DSP 음향)만으로 유형(12대 폼팩터)을 스스로 판별하여 완제품 영상에 100% 반영해 렌더링합니다.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          project_id: { type: 'string', description: '프로젝트 ID' },
+          preset_data: { type: 'object', description: '채널 DNA 또는 영상 분석으로 생성된 프리셋 JSON 객체' },
+          auto_render: { type: 'boolean', description: '즉시 렌더링 여부 (기본: true)', default: true }
+        },
+        required: ['project_id', 'preset_data'],
+      },
+    },
+    {
+      name: 'detect_video_preset_archetype',
+      description: '🔍 [프리셋 유형 자동 판별] 분석된 프리셋 JSON 데이터를 입력받아 12대 폼팩터 중 어떤 유형에 해당하는지(먹구리, 랭킹, 노래, 군림보, 썰형 등)를 즉각 분류하고 상세 특징을 반환합니다.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          preset_data: { type: 'object', description: '판별할 프리셋 JSON 객체' }
+        },
+        required: ['preset_data'],
+      },
+    },
+    {
+      name: 'slice_stream_clip',
+      description: '✂️ [원격 스트림 무다운로드 즉시 슬라이싱] 수 기가바이트의 전체 영상을 다운로드하지 않고, YouTube/TikTok/Douyin 원격 링크에서 필요한 30~60초 구간만을 yt-dlp 메타데이터와 FFmpeg fast-seek로 즉시 추출합니다.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          source_url: { type: 'string', description: '추출할 원격 영상 URL (YouTube, TikTok, Douyin 등)' },
+          start_seconds: { type: 'number', description: '추출 시작 지점 (초 단위)' },
+          duration_seconds: { type: 'number', description: '추출할 길이 (초 단위, 권장: 30~60초)' },
+          output_filename: { type: 'string', description: '저장할 파일명 (선택)' }
+        },
+        required: ['source_url', 'start_seconds', 'duration_seconds'],
+      },
+    },
+    {
+      name: 'create_project_from_url_slice',
+      description: '🚀 [원격 링크 원클릭 프로젝트 생성 및 렌더링] 영상 링크와 구간 정보만 주면 전체 다운로드 없이 필요한 구간만 초고속 추출하고, 지정한 12대 폼팩터 프리셋(원테이크, 군림보, 썰형 등)과 제미나이 3.8 Flash TTS 음성을 결합하여 완성본 영상을 원클릭으로 렌더링합니다.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          project_id: { type: 'string', description: '생성할 프로젝트 ID' },
+          source_url: { type: 'string', description: '원본 영상 URL' },
+          start_seconds: { type: 'number', description: '추출 시작 지점 초' },
+          duration_seconds: { type: 'number', description: '추출 길이 초' },
+          script: { type: 'string', description: '나레이션 대본 (생략 시 핵심 안내 자동 생성)' },
+          title: { type: 'string', description: '영상 제목 (생략 시 원본 제목 기반)' },
+          format_preset: { type: 'string', description: '적용할 폼팩터 프리셋 (one_take_batch, gunlimbo_hook, ssul_board, meokguri, classic_shorts 등)', default: 'classic_shorts' },
+          auto_render: { type: 'boolean', description: '즉시 렌더링 여부 (기본: true)', default: true }
+        },
+        required: ['project_id', 'source_url', 'start_seconds', 'duration_seconds'],
+      },
+    },
+    {
+      name: 'generate_ai_scene_image',
+      description: '🎨 [제미나이 실사 이미지 생성 및 씬 바인딩] Google Gemini 3.1 Flash Image (Nano Banana Pro 10계정 풀) 또는 100% 무료 FLUX.1 엔진을 활용하여 9:16 고화질 실사 이미지를 생성하고 선택 시 특정 씬에 바로 교체 바인딩합니다.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          prompt: { type: 'string', description: '이미지 생성 프롬프트' },
+          aspect_ratio: { type: 'string', description: '화면 비율 (기본: 9:16)', default: '9:16' },
+          style_preset: { type: 'string', description: '스타일 프리셋 (cinematic_photorealism, cyberpunk_noir, webtoon_anime 등)', default: 'cinematic_photorealism' },
+          project_id: { type: 'string', description: '바인딩할 프로젝트 ID (선택)' },
+          scene_index: { type: 'number', description: '바인딩할 씬 인덱스 (선택)' }
+        },
+        required: ['prompt'],
+      },
+    },
+    {
+      name: 'auto_sound_design_project',
+      description: '🎛️ [지능형 사운드 디자인 자동화] 36종 SFX 카탈로그 키워드 매칭을 통해 훅 인트로(시네마틱 붐), 쨉쨉이 자막(스우시/딩), 씬 전환 효과음을 자동 배치하고 영상 스타일(먹방, 드라마, 썰형 등)에 가장 어울리는 BGM을 선별하여 자동 믹싱합니다.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          project_id: { type: 'string', description: '프로젝트 ID' },
+          auto_render: { type: 'boolean', description: '즉시 재렌더링 여부 (기본: true)', default: true }
+        },
+        required: ['project_id'],
+      },
+    },
+    {
+      name: 'start_custom_preset_dialogue',
+      description: '💬 [대화형 커스텀 프리셋 발전 시작] 원본 영상을 1:1 정밀 복제하여 복제 프리셋(Base Clone)으로 저장하고, 나만의 차별화된 커스텀 프리셋을 구축하기 위한 3대 전략 질문(서사의도, 1만벽 훅, 감각 브랜딩)을 제시합니다.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          reference_url: { type: 'string', description: '분석할 원본 채널 또는 영상 URL' },
+          preset_name: { type: 'string', description: '지정할 복제 프리셋 이름 (생략 시 자동 생성)' }
+        },
+        required: ['reference_url'],
+      },
+    },
+    {
+      name: 'refine_custom_preset',
+      description: '🏆 [커스텀 프리셋 최종 확정] 창작자의 답변 및 피드백(사이다 참교육, 결말 역전형, 자막 색상 등)을 반영하여 영구 자산인 커스텀 프리셋(Custom Preset)을 생성 및 저장합니다.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          base_preset_id: { type: 'string', description: '진화의 베이스가 될 복제 프리셋 ID' },
+          narrative_intent: { type: 'string', description: '채널 서사 의도 (catharsis_justice, shock_secret, fact_reversal, comic_satire, human_touch)' },
+          context_hook_strategy: { type: 'string', description: '1만 벽 돌파 훅 전략 (provocative_question, ending_reversal, hidden_truth, legal_impact)' },
+          sensory_custom: { type: 'object', description: '시각/청각 커스텀 { subtitle_color, voice_role, bgm_volume_db }' },
+          custom_name: { type: 'string', description: '커스텀 프리셋 이름' },
+          additional_feedback: { type: 'string', description: '창작자의 추가 자유 문장 피드백' }
+        },
+        required: ['base_preset_id', 'narrative_intent', 'context_hook_strategy'],
+      },
+    },
+    {
+      name: 'segment_narration_fps_free',
+      description: '⏱️ [FPS-Free V6.0 나노 멀티-컷 분절] 2.5초 이상 문장을 (a), (b)로 나노 분절하고, 컷 경계 안전 마진과 [S-01] 고유 소스 ID, MM:SS.ms 절대 타임코드를 삼위일체 바인딩한 편집 테이블을 생성합니다.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          script_text: { type: 'string', description: '분절할 나레이션 대본 전문' },
+          total_duration_sec: { type: 'number', description: '예상 총 영상 길이 초 (기본: 30.0)', default: 30.0 }
+        },
+        required: ['script_text'],
+      },
+    },
+
+
     {
       name: 'get_schema',
       description: 'CSV/SRT/Audio 스키마 문서를 반환합니다. ViraLoop Studio에서 사용하는 데이터 구조를 확인할 때 사용합니다.',
@@ -1287,6 +1612,147 @@ ${JSON.stringify(result, null, 2)}` }],
         const result = await viraloopTools.harvestChannelVideos(args || {});
         return {
           content: [{ type: 'text', text: `🌾 [채널 영상 수집 완료]\n${JSON.stringify(result, null, 2)}` }],
+        };
+      }
+
+      // ── 🎬 ViraLoop Sovereign Video Director & Fast Modification Handlers ──
+      case 'produce_complete_video': {
+        const result = await viraloopTools.produceCompleteVideo(args || {});
+        return {
+          content: [{ type: 'text', text: `🎬 [완제품 MP4 영상 제작 완료]\n${JSON.stringify(result, null, 2)}` }],
+        };
+      }
+
+      case 'modify_video_subtitles': {
+        const result = await viraloopTools.modifyVideoSubtitles(args || {});
+        return {
+          content: [{ type: 'text', text: `⚡ [자막 즉시 수정 렌더 완료]\n${JSON.stringify(result, null, 2)}` }],
+        };
+      }
+
+      case 'modify_video_voice': {
+        const result = await viraloopTools.modifyVideoVoice(args || {});
+        return {
+          content: [{ type: 'text', text: `🎙️ [목소리 즉시 재합성 렌더 완료]\n${JSON.stringify(result, null, 2)}` }],
+        };
+      }
+
+      case 'modify_video_jab': {
+        const result = await viraloopTools.modifyVideoJab(args || {});
+        return {
+          content: [{ type: 'text', text: `🥊 [쨉쨉이 즉시 수정 렌더 완료]\n${JSON.stringify(result, null, 2)}` }],
+        };
+      }
+
+      case 'modify_video_media': {
+        const result = await viraloopTools.modifyVideoMedia(args || {});
+        return {
+          content: [{ type: 'text', text: `🖼️ [씬 미디어 교체 렌더 완료]\n${JSON.stringify(result, null, 2)}` }],
+        };
+      }
+
+      case 'get_video_storyboard': {
+        const result = await viraloopTools.getVideoStoryboard(args || {});
+        return {
+          content: [{ type: 'text', text: `📋 [영상 Storyboard EDL 명세]\n${JSON.stringify(result, null, 2)}` }],
+        };
+      }
+
+      case 'auto_sync_video_peaks': {
+        const result = await viraloopTools.autoSyncVideoPeaks(args || {});
+        return {
+          content: [{ type: 'text', text: `🎯 [오디오 RMS 피크 자동 싱크 완료]\n${JSON.stringify(result, null, 2)}` }],
+        };
+      }
+
+      case 'regenerate_weak_scenes': {
+        const result = await viraloopTools.regenerateVideoScenes(args || {});
+        return {
+          content: [{ type: 'text', text: `🎨 [약한 앵커/실패 씬 타겟 재생성 완료]\n${JSON.stringify(result, null, 2)}` }],
+        };
+      }
+
+      case 'apply_video_format_preset': {
+        const result = await viraloopTools.applyVideoFormatPreset(args || {});
+        return {
+          content: [{ type: 'text', text: `🎭 [12대 포맷 전문 프리셋 적용 완료]\n${JSON.stringify(result, null, 2)}` }],
+        };
+      }
+
+      case 'ripple_delete_video_scene': {
+        const result = await viraloopTools.rippleDeleteVideoScene(args || {});
+        return {
+          content: [{ type: 'text', text: `✂️ [마그네틱 리플 삭제 완료]\n${JSON.stringify(result, null, 2)}` }],
+        };
+      }
+
+      case 'plan_video_cutdown': {
+        const result = await viraloopTools.planVideoCutdown(args || {});
+        return {
+          content: [{ type: 'text', text: `📐 [문장 경계 컷다운 플래닝 완료]\n${JSON.stringify(result, null, 2)}` }],
+        };
+      }
+
+      case 'apply_analyzed_video_preset': {
+        const result = await viraloopTools.applyAnalyzedVideoPreset(args || {});
+        return {
+          content: [{ type: 'text', text: `🧬 [분석 프리셋 자동 판별 및 적용 완료]\n${JSON.stringify(result, null, 2)}` }],
+        };
+      }
+
+      case 'detect_video_preset_archetype': {
+        const result = await viraloopTools.detectVideoPresetArchetype(args || {});
+        return {
+          content: [{ type: 'text', text: `🔍 [프리셋 유형 자동 판별 결과]\n${JSON.stringify(result, null, 2)}` }],
+        };
+      }
+
+      case 'slice_stream_clip': {
+        const result = await viraloopTools.sliceStreamClip(args || {});
+        return {
+          content: [{ type: 'text', text: `✂️ [원격 스트림 무다운로드 즉시 슬라이싱 완료]\n${JSON.stringify(result, null, 2)}` }],
+        };
+      }
+
+      case 'create_project_from_url_slice': {
+        const result = await viraloopTools.createProjectFromUrlSlice(args || {});
+        return {
+          content: [{ type: 'text', text: `🚀 [원격 링크 기반 원클릭 프로젝트 생성 및 렌더링 완료]\n${JSON.stringify(result, null, 2)}` }],
+        };
+      }
+
+      case 'generate_ai_scene_image': {
+        const result = await viraloopTools.generateAiSceneImage(args || {});
+        return {
+          content: [{ type: 'text', text: `🎨 [제미나이 3.1 실사 이미지 생성 완료]\n${JSON.stringify(result, null, 2)}` }],
+        };
+      }
+
+      case 'auto_sound_design_project': {
+        const result = await viraloopTools.autoSoundDesignProject(args || {});
+        return {
+          content: [{ type: 'text', text: `🎛️ [지능형 사운드 디자인 자동 배치 완료]\n${JSON.stringify(result, null, 2)}` }],
+        };
+      }
+
+      case 'start_custom_preset_dialogue': {
+        const result = await viraloopTools.startCustomPresetDialogue(args || {});
+        return {
+          content: [{ type: 'text', text: `💬 [대화형 커스텀 프리셋 발전 시작 완료 - 100% 복제 프리셋 확보 및 3대 전략 질문]\n${JSON.stringify(result, null, 2)}` }],
+        };
+      }
+
+      case 'refine_custom_preset': {
+        const result = await viraloopTools.refineCustomPreset(args || {});
+        return {
+          content: [{ type: 'text', text: `🏆 [나만의 고유 커스텀 프리셋 확정 및 저장 완료]\n${JSON.stringify(result, null, 2)}` }],
+        };
+      }
+
+      case 'segment_narration_fps_free': {
+        const result = await viraloopTools.segmentNarrationFpsFree(args || {});
+        return {
+          content: [{ type: 'text', text: `⏱️ [FPS-Free V6.0 나노 멀티-컷 분절 및 절대 타임코드 테이블 생성 완료]\n${JSON.stringify(result, null, 2)}` }],
         };
       }
 

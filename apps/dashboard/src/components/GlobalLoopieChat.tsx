@@ -6,7 +6,7 @@ import {
     Trash2, Copy, Check, CheckCircle2, Circle, Clock, Terminal, ExternalLink, RefreshCw, 
     Sliders, Paperclip, Monitor, Users, Shield, Cpu, PlayCircle, Film, Play,
     ArrowRight, ChevronRight, FileText, Smartphone, LayoutGrid, CheckCheck,
-    Layers, Settings, Eye, Zap, Flame, BarChart3, Database, Radio
+    Layers, Settings, Eye, Zap, Flame, BarChart3, Database, Radio, Bot
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn, fetchWithRetry } from '../lib/utils';
@@ -34,6 +34,9 @@ export type LoopieDisplayMode = 'dock' | 'floating' | 'fullscreen';
 const STORAGE_KEY = 'viraloop_loopie_messages_v5';
 
 export const GlobalLoopieChat: React.FC = () => {
+    const location = useLocation();
+    const navigate = useNavigate();
+
     const [isOpen, setIsOpen] = useState(false);
     const [displayMode, setDisplayMode] = useState<LoopieDisplayMode>('floating');
     
@@ -100,7 +103,7 @@ export const GlobalLoopieChat: React.FC = () => {
     const [attachedFiles, setAttachedFiles] = useState<AttachedMedia[]>([]);
 
     // Model & Security selections - Default is Codex Astra 6.0
-    const [selectedProvider, setSelectedProvider] = useState<'codex' | 'chatgpt_web' | 'gemini' | 'claude' | 'grok' | 'omniroute'>('codex');
+    const [selectedProvider, setSelectedProvider] = useState<'codex' | 'chatgpt_web' | 'gemini' | 'claude' | 'deepseek' | 'omniroute'>('codex');
     const [selectedModel, setSelectedModel] = useState('Codex Astra 6.0');
     const [reasoningEffort, setReasoningEffort] = useState<ReasoningEffort>('medium');
     const [securityScope, setSecurityScope] = useState('모두 허용');
@@ -117,13 +120,10 @@ export const GlobalLoopieChat: React.FC = () => {
             setSelectedModel('viraloop1');
         } else if (provider === 'claude') {
             setSelectedModel('Claude 3.7 Sonnet');
-        } else if (provider === 'grok') {
-            setSelectedModel('Grok 3 Reasoning');
+        } else if (provider === 'deepseek') {
+            setSelectedModel('DeepSeek-V3');
         }
     };
-
-    const navigate = useNavigate();
-    const location = useLocation();
 
     // Persist messages
     useEffect(() => {
@@ -488,26 +488,26 @@ export const GlobalLoopieChat: React.FC = () => {
 
     return (
         <>
-            {/* Header Trigger Button (Persistent in Navigation Bar) */}
+            {/* Header Trigger Button (Compact Floating Cockpit Button - Zero Face Avatar Duplication) */}
             <button
-                onClick={() => setIsOpen(!isOpen)}
+                onClick={() => {
+                    setDisplayMode('floating');
+                    setIsOpen(!isOpen);
+                }}
                 className={cn(
-                    "relative flex items-center gap-2 px-3.5 py-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer shadow-2xs select-none",
+                    "relative flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer shadow-2xs select-none shrink-0",
                     isOpen
                         ? "bg-primary text-primary-foreground border-primary shadow-xs ring-2 ring-primary/30"
                         : "bg-card hover:bg-accent border-border text-foreground hover:scale-102"
                 )}
-                title={isOpen ? "루피 대화창 닫기" : "만능 루피 AI 총괄 디렉터 열기"}
+                title={isOpen ? "루피 플로팅 창 닫기" : "루피 플로팅 창 열기"}
             >
-                <LoopieIcon 
-                    className="w-5 h-5" 
-                    isSmall 
-                    isLive={isGeminiLiveActive} 
-                    isTalking={isTalking} 
-                />
-                <span className="hidden sm:inline font-bold">루피 AI 디렉터</span>
+                <Bot className={cn("w-3.5 h-3.5 shrink-0", isOpen ? "text-primary-foreground" : "text-primary")} />
+                <span className="hidden sm:inline font-bold">
+                    {location.pathname === '/director' ? '플로팅 창' : '루피 AI 디렉터'}
+                </span>
                 <span className={cn(
-                    "w-2 h-2 rounded-full",
+                    "w-1.5 h-1.5 rounded-full shrink-0",
                     isGeminiLiveActive ? "bg-emerald-400 animate-pulse" : "bg-emerald-500"
                 )} />
             </button>

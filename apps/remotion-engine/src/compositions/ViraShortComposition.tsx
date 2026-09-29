@@ -25,6 +25,15 @@ export interface JabOverlay {
   tiltDeg?: number;
 }
 
+export interface SceneClipItem {
+  id?: string;
+  type: "video" | "image";
+  src: string;
+  startMs: number;
+  endMs: number;
+  zoomDirection?: "in" | "out" | "pan-left" | "pan-right" | "none";
+}
+
 export type SubtitleStylePreset =
   | "shorts"
   | "humor"
@@ -37,6 +46,7 @@ export interface ViraShortProps {
   // Media Sources
   videoSource?: string;
   imageSource?: string;
+  scenes?: SceneClipItem[];
   audioSource?: string;
   ambientAudioSource?: string;
   finalMixedAudio?: string;
@@ -171,6 +181,7 @@ const PRESET_STYLES: Record<
 export const ViraShortComposition: React.FC<ViraShortProps> = ({
   videoSource,
   imageSource,
+  scenes = [],
   audioSource,
   ambientAudioSource,
   finalMixedAudio,
@@ -223,10 +234,27 @@ export const ViraShortComposition: React.FC<ViraShortProps> = ({
   const bottomOffset = isFullBleed || !hasBottomCredit ? 0 : bottomCreditHeightPct;
   const mediaHeight = 100 - topOffset - bottomOffset;
 
-  // 1. Ken-Burns subtle zoom
-  const zoomScale = interpolate(frame, [0, durationInFrames], [1.0, 1.05], {
-    extrapolateRight: "clamp",
-  });
+  // Multi-Scene Detection
+  const hasMultiScenes = scenes && scenes.length > 0;
+  const activeScene = hasMultiScenes
+    ? scenes.find((s) => currentTimeMs >= s.startMs && currentTimeMs < s.endMs) || scenes[scenes.length - 1]
+    : null;
+
+  // 1. Ken-Burns subtle zoom calculation (global or per-scene)
+  let zoomScale = 1.0;
+  if (activeScene && activeScene.type === "image") {
+    const sceneDuration = Math.max(100, activeScene.endMs - activeScene.startMs);
+    const sceneProgress = Math.min(1.0, Math.max(0.0, (currentTimeMs - activeScene.startMs) / sceneDuration));
+    if (activeScene.zoomDirection === "out") {
+      zoomScale = 1.07 - sceneProgress * 0.07;
+    } else {
+      zoomScale = 1.0 + sceneProgress * 0.07;
+    }
+  } else {
+    zoomScale = interpolate(frame, [0, durationInFrames], [1.0, 1.05], {
+      extrapolateRight: "clamp",
+    });
+  }
 
   // 2. Jab Overlay Active Check & Pulse
   const isJabActive =
@@ -281,7 +309,31 @@ export const ViraShortComposition: React.FC<ViraShortProps> = ({
           filter: filmFilter === "warm" ? "sepia(0.15) contrast(1.08)" : filmFilter === "cool" ? "hue-rotate(180deg) contrast(1.1)" : "none",
         }}
       >
-        {videoSource ? (
+        {activeScene ? (
+          activeScene.type === "video" ? (
+            <Video
+              key={activeScene.id || activeScene.src}
+              src={activeScene.src}
+              loop={true}
+              volume={muteOriginalVideo ? 0 : 1}
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+              }}
+            />
+          ) : (
+            <Img
+              key={activeScene.id || activeScene.src}
+              src={activeScene.src}
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+              }}
+            />
+          )
+        ) : videoSource ? (
           <Video
             src={videoSource}
             loop={true}

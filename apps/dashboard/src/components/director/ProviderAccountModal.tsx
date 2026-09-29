@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,7 +21,9 @@ import {
     FileText,
     CheckCircle2,
     ShieldCheck,
-    Globe
+    Globe,
+    Sparkles,
+    Loader2
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -69,7 +71,7 @@ export interface ProviderData {
 interface ProviderAccountModalProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    providerKey: string; // 'omniroute' | 'openai' | 'gemini' | 'claude' | 'grok'
+    providerKey: string; // 'omniroute' | 'openai' | 'gemini' | 'claude' | 'deepseek' | 'codex' | 'chatgpt_web'
     onAccountsChanged?: () => void;
 }
 
@@ -111,6 +113,18 @@ export const ProviderAccountModal: React.FC<ProviderAccountModalProps> = ({
     const [showManualCookieForm, setShowManualCookieForm] = useState(false);
     const [savingManualCookie, setSavingManualCookie] = useState(false);
 
+    // OpenAI Codex & ChatGPT Web Independent Authentication States
+    const [capturingCodexAuth, setCapturingCodexAuth] = useState(false);
+    const [capturingChatGptWebSession, setCapturingChatGptWebSession] = useState(false);
+    const [showManualCodexAuthForm, setShowManualCodexAuthForm] = useState(false);
+    const [manualCodexAuthText, setManualCodexAuthText] = useState('');
+    const [savingManualCodexAuth, setSavingManualCodexAuth] = useState(false);
+    const [showManualChatGptCookieForm, setShowManualChatGptCookieForm] = useState(false);
+    const [manualChatGptSessionToken, setManualChatGptSessionToken] = useState('');
+    const [savingManualChatGptCookie, setSavingManualChatGptCookie] = useState(false);
+
+    const [linkingDeepSeekEmail, setLinkingDeepSeekEmail] = useState<string | null>(null);
+
     // Flow (Media Batch Generation) Electron Profiles
     const [flowProfiles, setFlowProfiles] = useState<any[]>([]);
 
@@ -132,6 +146,16 @@ export const ProviderAccountModal: React.FC<ProviderAccountModalProps> = ({
 
     useEffect(() => {
         setActiveProviderKey(providerKey);
+        if (providerKey === 'deepseek') {
+            setProviderData({
+                name: 'DeepSeek',
+                type: 'cloud_provider',
+                connected: false,
+                active_plan: 'DeepSeek Web',
+                description: 'DeepSeek Web 계정 (V3 및 R1 추론)',
+                accounts: []
+            });
+        }
     }, [providerKey]);
 
     const fetchProviderInfo = async (targetKey = activeProviderKey) => {
@@ -142,6 +166,15 @@ export const ProviderAccountModal: React.FC<ProviderAccountModalProps> = ({
                 const allProviders = await res.json();
                 if (allProviders[targetKey]) {
                     setProviderData(allProviders[targetKey]);
+                } else if (targetKey === 'deepseek') {
+                    setProviderData(prev => prev || {
+                        name: 'DeepSeek',
+                        type: 'cloud_provider',
+                        connected: false,
+                        active_plan: 'DeepSeek Web',
+                        description: 'DeepSeek Web 계정 (V3 및 R1 추론)',
+                        accounts: []
+                    });
                 }
             }
         } catch (e) {
@@ -195,10 +228,10 @@ export const ProviderAccountModal: React.FC<ProviderAccountModalProps> = ({
     useEffect(() => {
         if (open && activeProviderKey) {
             fetchProviderInfo(activeProviderKey);
+            fetchFlowProfiles();
             if (activeProviderKey === 'gemini') {
                 fetchApiKeysList();
                 fetchGeminiWebSession();
-                fetchFlowProfiles();
             }
             setShowAddAccount(false);
             setShowBulkAddAccounts(false);
@@ -430,6 +463,172 @@ export const ProviderAccountModal: React.FC<ProviderAccountModalProps> = ({
             toast.error('세션 초기화 실패');
         }
     };
+
+    const handleStartCodexLogin = async (emailHint?: string) => {
+        setCapturingCodexAuth(true);
+        try {
+            const electronAPI = (window as any).electronAPI;
+            if (electronAPI?.openCodexLogin) {
+                toast.info('OpenAI Codex CLI OAuth 브라우저 로그인 창을 실행합니다...');
+                const result = await electronAPI.openCodexLogin(emailHint || newEmail.trim() || undefined);
+                if (result?.success) {
+                    toast.success(result.message || 'OpenAI Codex OAuth 세션이 성공적으로 연동되었습니다!');
+                    setShowAddAccount(false);
+                    await fetchProviderInfo(activeProviderKey);
+                    onAccountsChanged?.();
+                    return;
+                } else if (result?.message && !result.message.includes('창이 완료되기 전에 닫혔습니다') && !result.message.includes('초과')) {
+                    toast.error(result.message);
+                } else if (result?.message) {
+                    toast.warning(result.message);
+                }
+            } else {
+                const res = await fetch('/api/ai-accounts/codex/web-login', {
+                    method: 'POST'
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    toast.success(data.message || 'OpenAI Codex 브라우저 로그인 창이 열렸습니다. (작업표시줄 확인)');
+                    setShowAddAccount(false);
+                    let attempts = 0;
+                    const pollInterval = setInterval(async () => {
+                        attempts++;
+                        await fetchProviderInfo(activeProviderKey);
+                        if (attempts > 30) clearInterval(pollInterval);
+                    }, 3000);
+                } else {
+                    toast.error(data.detail || 'Codex 로그인 실행 실패');
+                }
+            }
+        } catch (e: any) {
+            toast.error('Codex 로그인 실행 오류: ' + (e.message || ''));
+        } finally {
+            setCapturingCodexAuth(false);
+        }
+    };
+
+    const handleStartChatGptWebLogin = async (emailHint?: string) => {
+        setCapturingChatGptWebSession(true);
+        try {
+            const electronAPI = (window as any).electronAPI;
+            if (electronAPI?.openChatGPTWebLogin) {
+                toast.info('ChatGPT Web 전용 세션 브라우저 창을 실행합니다...');
+                const result = await electronAPI.openChatGPTWebLogin(emailHint || newEmail.trim() || undefined);
+                if (result?.success) {
+                    toast.success(result.message || 'ChatGPT Web 세션 쿠키가 성공적으로 연동되었습니다!');
+                    setShowAddAccount(false);
+                    await fetchProviderInfo(activeProviderKey);
+                    onAccountsChanged?.();
+                    return;
+                } else if (result?.message && !result.message.includes('창이 완료 전에 닫혔습니다')) {
+                    toast.error(result.message);
+                } else if (result?.message) {
+                    toast.warning(result.message);
+                }
+            } else {
+                const res = await fetch('/api/ai-accounts/chatgpt-web/launch-stealth-browser', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        url: 'https://chatgpt.com',
+                        email: emailHint || newEmail.trim() || undefined
+                    })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    toast.success('🛡️ 스텔스 보안 브라우저가 실행되었습니다. ChatGPT 계정으로 로그인해 주세요. (작업표시줄 확인)');
+                    setShowAddAccount(false);
+                    let attempts = 0;
+                    const pollInterval = setInterval(async () => {
+                        attempts++;
+                        await fetchProviderInfo(activeProviderKey);
+                        if (attempts > 30) clearInterval(pollInterval);
+                    }, 3000);
+                } else {
+                    toast.error(data.detail || 'ChatGPT 브라우저 실행 실패');
+                }
+            }
+        } catch (e: any) {
+            toast.error('ChatGPT Web 로그인 실행 오류: ' + (e.message || ''));
+        } finally {
+            setCapturingChatGptWebSession(false);
+        }
+    };
+
+    const handleImportCodexAuth = async () => {
+        if (!newEmail.trim()) {
+            toast.error('계정 이메일을 입력해 주세요.');
+            return;
+        }
+        if (!manualCodexAuthText.trim()) {
+            toast.error('auth.json 내용을 입력해 주세요.');
+            return;
+        }
+        setSavingManualCodexAuth(true);
+        try {
+            const res = await fetch('/api/ai-accounts/codex/import-auth', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    email: newEmail.trim(),
+                    auth_json: manualCodexAuthText.trim(),
+                    plan: newPlan
+                })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                toast.success(data.message || 'Codex OAuth 인증 정보가 등록되었습니다.');
+                setManualCodexAuthText('');
+                setShowManualCodexAuthForm(false);
+                await fetchProviderInfo(activeProviderKey);
+                onAccountsChanged?.();
+            } else {
+                toast.error(data.detail || 'Codex auth.json 등록 실패');
+            }
+        } catch (e) {
+            toast.error('인증 정보 등록 중 오류가 발생했습니다.');
+        } finally {
+            setSavingManualCodexAuth(false);
+        }
+    };
+
+    const handleSaveManualChatGptCookie = async () => {
+        if (!newEmail.trim()) {
+            toast.error('계정 이메일을 입력해 주세요.');
+            return;
+        }
+        if (!manualChatGptSessionToken.trim()) {
+            toast.error('세션 토큰(__Secure-next-auth.session-token)을 입력해 주세요.');
+            return;
+        }
+        setSavingManualChatGptCookie(true);
+        try {
+            const res = await fetch('/api/ai-accounts/chatgpt-web/web-session', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    email: newEmail.trim(),
+                    session_token: manualChatGptSessionToken.trim(),
+                    plan: newPlan
+                })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                toast.success(data.message || 'ChatGPT Web 세션 쿠키가 등록되었습니다.');
+                setManualChatGptSessionToken('');
+                setShowManualChatGptCookieForm(false);
+                await fetchProviderInfo(activeProviderKey);
+                onAccountsChanged?.();
+            } else {
+                toast.error(data.detail || '세션 쿠키 등록 실패');
+            }
+        } catch (e) {
+            toast.error('세션 쿠키 등록 중 오류가 발생했습니다.');
+        } finally {
+            setSavingManualChatGptCookie(false);
+        }
+    };
+
 
     const [validatingKeys, setValidatingKeys] = useState(false);
     const [savingSnapshot, setSavingSnapshot] = useState(false);
@@ -716,6 +915,112 @@ export const ProviderAccountModal: React.FC<ProviderAccountModalProps> = ({
             }
         } catch (e) {
             toast.error('웹 로그인 호출 중 오류가 발생했습니다.');
+        }
+    };
+
+    const handleClaudeLogin = async (emailHint?: string, options?: { resetCookies?: boolean }) => {
+        const electronAPI = (window as any).electronAPI;
+        const targetEmail = (emailHint || newEmail).trim();
+        if (electronAPI?.openClaudeWebLogin) {
+            toast.info(options?.resetCookies ? '🔄 이전 세션 쿠키를 초기화하고 Claude 로그인 창을 엽니다...' : '🌐 Anthropic Claude Web (claude.ai) 브라우저 로그인 창을 실행합니다...');
+            const res = await electronAPI.openClaudeWebLogin(targetEmail || undefined, options);
+            if (res?.success) {
+                toast.success(res.message || 'Claude Web 계정이 성공적으로 연동되었습니다!');
+                setNewEmail('');
+                await fetchProviderInfo('claude');
+                onAccountsChanged?.();
+            } else if (res?.message && !res.message.includes('창이 닫혔습니다')) {
+                toast.error(res.message);
+            }
+        } else {
+            window.open('https://claude.ai/login', '_blank');
+            toast.info('브라우저에서 claude.ai에 로그인해 주세요.');
+        }
+    };
+
+    const deepSeekPollTimerRef = useRef<any>(null);
+
+    const handleManualSyncDeepSeek = async (emailHint?: string) => {
+        const targetEmail = (emailHint || newEmail).trim();
+        if (!targetEmail) {
+            toast.error('연동할 계정 이메일을 입력하거나 프로필을 선택해 주세요.');
+            return;
+        }
+        try {
+            toast.info(`DeepSeek (${targetEmail}) 브라우저 세션 동기화 중...`);
+            const res = await fetch('/api/ai-accounts/deepseek/sync-browser-session', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: targetEmail })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                toast.success(data.message || `DeepSeek Web (${targetEmail}) 계정이 성공적으로 연동되었습니다!`);
+                await fetchProviderInfo('deepseek');
+                onAccountsChanged?.();
+            } else {
+                toast.error(data.detail || '아직 브라우저에서 로그인이 완료되지 않았습니다.');
+            }
+        } catch (e: any) {
+            toast.error('세션 동기화 오류: ' + (e.message || ''));
+        }
+    };
+
+    const handleDeepSeekLogin = async (emailHint?: string) => {
+        const targetEmail = (emailHint || newEmail).trim();
+        setLinkingDeepSeekEmail(targetEmail || 'direct');
+        if (deepSeekPollTimerRef.current) {
+            clearInterval(deepSeekPollTimerRef.current);
+            deepSeekPollTimerRef.current = null;
+        }
+
+        try {
+            // Launch genuine system Google Chrome directly (Zero Geetest treadmill loops)
+            const res = await fetch('/api/ai-accounts/deepseek/launch-browser-login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: targetEmail || undefined })
+            });
+            const data = await res.json();
+
+            if (res.ok && data.success !== false) {
+                toast.info('🌐 순정 구글 크롬 브라우저가 실행되었습니다. 딥시크 화면에서 로그인해 주세요 (로그인 시 자동 연동됩니다)');
+
+                // Auto-poll for login completion in Chrome
+                let attempts = 0;
+                deepSeekPollTimerRef.current = setInterval(async () => {
+                    attempts++;
+                    if (attempts > 72) { // 3 minutes timeout
+                        clearInterval(deepSeekPollTimerRef.current);
+                        deepSeekPollTimerRef.current = null;
+                        setLinkingDeepSeekEmail(null);
+                        return;
+                    }
+                    try {
+                        const syncRes = await fetch('/api/ai-accounts/deepseek/sync-browser-session', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ email: targetEmail || 'deepseek_user@gmail.com' })
+                        });
+                        if (syncRes.ok) {
+                            clearInterval(deepSeekPollTimerRef.current);
+                            deepSeekPollTimerRef.current = null;
+                            const syncData = await syncRes.json();
+                            toast.success(syncData.message || `🎉 DeepSeek Web (${targetEmail}) 계정이 성공적으로 연동되었습니다!`);
+                            setLinkingDeepSeekEmail(null);
+                            setNewEmail('');
+                            await fetchProviderInfo('deepseek');
+                            onAccountsChanged?.();
+                        }
+                    } catch (_) {}
+                }, 2500);
+            } else {
+                toast.error(data.error || data.detail || '브라우저 창 실행 실패');
+                setLinkingDeepSeekEmail(null);
+            }
+        } catch (e: any) {
+            toast.error('DeepSeek 로그인 창 실행 오류: ' + (e.message || ''));
+            setLinkingDeepSeekEmail(null);
         }
     };
 
@@ -1881,34 +2186,585 @@ export const ProviderAccountModal: React.FC<ProviderAccountModalProps> = ({
 
 
                 {/* ========================================================================= */}
-                {/* 🎬 Other Providers (OpenAI, Claude, Grok, OmniRoute) Standard View       */}
+                {/* ⚡ OPENAI ECOSYSTEM: Codex CLI (Astra) & ChatGPT Web Dedicated View     */}
                 {/* ========================================================================= */}
-                {activeProviderKey !== 'gemini' && (
-                    <>
-                        <div className="mt-3 flex items-center gap-2">
+                {isChatGptEcosystem && (
+                    <div className="flex flex-col flex-1 min-h-0 mt-2 space-y-2.5">
+                        {/* Auto-Rotation & Multi-Quota Sovereign Banner */}
+                        <div className={`p-2.5 rounded-xl border flex items-center justify-between text-xs font-medium ${
+                            activeProviderKey === 'codex'
+                                ? 'bg-amber-500/10 border-amber-500/20 text-amber-700 dark:text-amber-400'
+                                : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-700 dark:text-emerald-400'
+                        }`}>
+                            <div className="flex items-center gap-2 min-w-0">
+                                <ShieldCheck className="w-4 h-4 shrink-0 text-primary" />
+                                <div className="min-w-0">
+                                    <span className="truncate block">
+                                        <strong>{activeProviderKey === 'codex' ? 'OpenAI Codex CLI (Astra 6.0 OAuth 직결):' : 'ChatGPT Web (chatgpt.com 웹 대화 쿼터):'}</strong>{' '}
+                                        {activeProviderKey === 'codex'
+                                            ? '5시간/주간 슬라이딩 윈도우 쿼터 적용, 429 한도 도달 시 등록 계정 간 자동 로테이션'
+                                            : '독립적인 Plus/Free 웹 세션 롤링 쿼터 적용, 종량제 API 요금 0원'}
+                                    </span>
+                                    <p className="text-[10px] text-muted-foreground mt-0.5 truncate">
+                                        💡 등록된 모든 계정은 독립 프로필(04_Profiles/openai_sessions)에 보관되며, 쿼터 소진 시 무중단 자동 절체(Failover)됩니다.
+                                    </p>
+                                </div>
+                            </div>
+                            <Badge variant="outline" className="text-[10px] font-bold shrink-0">
+                                총 {providerData.accounts.length}개 등록
+                            </Badge>
+                        </div>
+
+                        {/* 1. Primary Action Card: Interactive Web Session Login (Replacing old email text input) */}
+                        {activeProviderKey === 'codex' ? (
+                            <div className="p-3.5 rounded-xl border border-primary/30 bg-primary/5 space-y-2.5">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2.5">
+                                        <div className="w-8 h-8 rounded-lg bg-primary/20 text-primary flex items-center justify-center font-bold text-sm">
+                                            ⚡
+                                        </div>
+                                        <div>
+                                            <div className="flex items-center gap-2">
+                                                <h4 className="text-xs font-bold text-foreground">
+                                                    OpenAI Codex 브라우저 로그인 (Astra OAuth)
+                                                </h4>
+                                                <Badge className="bg-primary text-primary-foreground text-[10px] px-1.5 py-0.2 font-bold">
+                                                    공식 OAuth 직결
+                                                </Badge>
+                                            </div>
+                                            <p className="text-[11px] text-muted-foreground mt-0.5">
+                                                브라우저에서 OpenAI 계정으로 로그인하면 auth.json이 계정별 독립 프로필에 자동 연동됩니다.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="pt-1 space-y-2">
+                                    <div className="flex items-center gap-2">
+                                        <Input
+                                            placeholder="추가할 OpenAI 계정 이메일 (선택 사항, 비워두면 브라우저 로그인 계정 자동 감지)"
+                                            value={newEmail}
+                                            onChange={(e) => setNewEmail(e.target.value)}
+                                            className="h-8.5 text-xs bg-background flex-1"
+                                        />
+                                        <Button
+                                            size="sm"
+                                            onClick={() => handleStartCodexLogin(newEmail.trim() || undefined)}
+                                            disabled={capturingCodexAuth}
+                                            className="h-8.5 px-4 text-xs font-semibold gap-2 cursor-pointer bg-primary hover:bg-primary/90 text-primary-foreground shadow-xs shrink-0"
+                                        >
+                                            <ExternalLink className={`w-3.5 h-3.5 ${capturingCodexAuth ? 'animate-spin' : ''}`} />
+                                            {capturingCodexAuth ? '브라우저 OAuth 로그인 대기 중...' : '⚡ 브라우저 로그인으로 Codex 계정 추가'}
+                                        </Button>
+                                    </div>
+
+                                    <div className="flex items-center justify-center pt-0.5">
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowManualCodexAuthForm(!showManualCodexAuthForm)}
+                                            className="text-[11px] text-muted-foreground hover:text-foreground underline underline-offset-4 cursor-pointer"
+                                        >
+                                            {showManualCodexAuthForm ? '▲ auth.json 직접 입력 닫기' : '▼ PC의 auth.json 파일 내용 직접 붙여넣기'}
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {showManualCodexAuthForm && (
+                                    <div className="p-3 rounded-xl border border-primary/40 bg-background space-y-2 mt-2">
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                                                <FileText className="w-3.5 h-3.5 text-primary" />
+                                                auth.json 수동 등록
+                                            </span>
+                                            <span className="text-[10px] text-muted-foreground">~/.codex/auth.json 또는 Pixeling auth.json</span>
+                                        </div>
+                                        <textarea
+                                            rows={3}
+                                            placeholder={'{"tokens": {"access_token": "eyJ...", "refresh_token": "...", "account_id": "..."}}'}
+                                            value={manualCodexAuthText}
+                                            onChange={(e) => setManualCodexAuthText(e.target.value)}
+                                            className="w-full text-xs font-mono p-2 rounded-lg bg-background text-foreground border border-border focus:outline-hidden resize-none"
+                                        />
+                                        <div className="flex items-center justify-between">
+                                            <select
+                                                value={newPlan}
+                                                onChange={(e) => setNewPlan(e.target.value)}
+                                                className="h-7 px-2 text-xs bg-background text-foreground border border-border rounded-md"
+                                            >
+                                                <option value="Plus">Plus 플랜</option>
+                                                <option value="Pro">Pro 플랜</option>
+                                                <option value="Free">Free 플랜</option>
+                                            </select>
+                                            <Button
+                                                size="sm"
+                                                onClick={handleImportCodexAuth}
+                                                disabled={savingManualCodexAuth}
+                                                className="h-7 text-xs px-3 font-semibold cursor-pointer"
+                                            >
+                                                {savingManualCodexAuth ? '저장 중...' : 'auth.json 저장'}
+                                            </Button>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        ) : (
+                            <div className="p-3.5 rounded-xl border border-emerald-500/30 bg-emerald-500/5 space-y-2.5">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2.5">
+                                        <div className="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold text-sm">
+                                            🌐
+                                        </div>
+                                        <div>
+                                            <div className="flex items-center gap-2">
+                                                <h4 className="text-xs font-bold text-foreground">
+                                                    ChatGPT Web 세션 브라우저 로그인 (웹 쿼터 연동)
+                                                </h4>
+                                                <Badge className="bg-emerald-500 text-white text-[10px] px-1.5 py-0.2 font-bold">
+                                                    웹 세션 독립 롤링
+                                                </Badge>
+                                            </div>
+                                            <p className="text-[11px] text-muted-foreground mt-0.5">
+                                                전용 스텔스 창에서 chatgpt.com에 로그인하면 세션 쿠키가 독립 프로필에 안전하게 저장됩니다.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="pt-1 space-y-2">
+                                    <div className="flex items-center gap-2">
+                                        <Input
+                                            placeholder="추가할 ChatGPT 계정 이메일 (선택 사항, 비워두면 로그인 시 자동 감지)"
+                                            value={newEmail}
+                                            onChange={(e) => setNewEmail(e.target.value)}
+                                            className="h-8.5 text-xs bg-background flex-1"
+                                        />
+                                        <Button
+                                            size="sm"
+                                            onClick={() => handleStartChatGptWebLogin(newEmail.trim() || undefined)}
+                                            disabled={capturingChatGptWebSession}
+                                            className="h-8.5 px-4 text-xs font-semibold gap-2 cursor-pointer bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs shrink-0"
+                                        >
+                                            <Globe className={`w-3.5 h-3.5 ${capturingChatGptWebSession ? 'animate-spin' : ''}`} />
+                                            {capturingChatGptWebSession ? 'ChatGPT Web 로그인 및 쿠키 캡처 중...' : '🌐 브라우저 로그인으로 Web 세션 추가'}
+                                        </Button>
+                                    </div>
+
+                                    <div className="flex items-center justify-center pt-0.5">
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowManualChatGptCookieForm(!showManualChatGptCookieForm)}
+                                            className="text-[11px] text-muted-foreground hover:text-foreground underline underline-offset-4 cursor-pointer"
+                                        >
+                                            {showManualChatGptCookieForm ? '▲ 쿠키 직접 입력 닫기' : '▼ __Secure-next-auth.session-token 쿠키 직접 입력하기'}
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {showManualChatGptCookieForm && (
+                                    <div className="p-3 rounded-xl border border-emerald-500/40 bg-background space-y-2 mt-2">
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                                                <Key className="w-3.5 h-3.5 text-emerald-500" />
+                                                __Secure-next-auth.session-token 쿠키 수동 등록
+                                            </span>
+                                            <span className="text-[10px] text-muted-foreground">F12 개발자 도구 → Application → Cookies</span>
+                                        </div>
+                                        <Input
+                                            placeholder="__Secure-next-auth.session-token 또는 JWT 쿠키 값을 붙여넣으세요"
+                                            value={manualChatGptSessionToken}
+                                            onChange={(e) => setManualChatGptSessionToken(e.target.value)}
+                                            className="h-8 text-xs font-mono bg-background"
+                                        />
+                                        <div className="flex items-center justify-between">
+                                            <select
+                                                value={newPlan}
+                                                onChange={(e) => setNewPlan(e.target.value)}
+                                                className="h-7 px-2 text-xs bg-background text-foreground border border-border rounded-md"
+                                            >
+                                                <option value="Plus">Plus 플랜</option>
+                                                <option value="Pro">Pro 플랜</option>
+                                                <option value="Free">Free 플랜</option>
+                                            </select>
+                                            <Button
+                                                size="sm"
+                                                onClick={handleSaveManualChatGptCookie}
+                                                disabled={savingManualChatGptCookie}
+                                                className="h-7 text-xs px-3 font-semibold cursor-pointer"
+                                            >
+                                                {savingManualChatGptCookie ? '저장 중...' : '세션 쿠키 저장'}
+                                            </Button>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* Search Bar */}
+                        <div className="flex items-center gap-1.5 pt-1">
+                            <div className="relative flex-1">
+                                <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                                <Input
+                                    placeholder="계정 이메일 검색..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="h-8 pl-8 text-xs bg-background"
+                                />
+                            </div>
                             <Button
                                 size="sm"
-                                onClick={handleWebLogin}
-                                className="flex-1 h-8.5 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-semibold text-xs flex items-center justify-center gap-1.5 shadow-xs cursor-pointer"
+                                variant="outline"
+                                onClick={() => fetchProviderInfo(activeProviderKey)}
+                                className="h-8 text-xs gap-1 cursor-pointer shrink-0"
                             >
-                                <ExternalLink className="w-3.5 h-3.5" />
-                                {activeProviderKey === 'chatgpt_web'
-                                    ? '공식 ChatGPT Web 열기 (chatgpt.com)'
-                                    : activeProviderKey === 'codex'
-                                    ? 'ChatGPT Codex 브라우저 로그인 연결'
-                                    : activeProviderKey === 'claude'
-                                    ? 'Claude 웹/CLI 인증 시작'
-                                    : activeProviderKey === 'grok'
-                                    ? 'xAI Grok 웹/CLI 인증 시작'
-                                    : 'OmniRoute 대시보드 열기'}
+                                <RefreshCw className="w-3.5 h-3.5" />
+                                세션 새로고침
                             </Button>
                         </div>
+
+                        {/* Account List */}
+                        <div className="space-y-3 mt-2 flex-1 overflow-y-auto max-h-[46vh] pr-1.5 scrollbar-thin">
+                            {filteredAccounts.length === 0 ? (
+                                <div className="py-8 text-center border border-dashed border-border rounded-xl">
+                                    <p className="text-xs text-muted-foreground">연결된 계정이 없습니다.</p>
+                                    <p className="text-[11px] text-muted-foreground/70 mt-0.5">상단 [브라우저 로그인] 버튼을 눌러 계정을 추가해 주세요.</p>
+                                </div>
+                            ) : (
+                                filteredAccounts.map((acc) => {
+                                    const isPaid = acc.plan.toLowerCase().includes('plus') || 
+                                                   acc.plan.toLowerCase().includes('pro') || 
+                                                   acc.plan.toLowerCase().includes('team');
+
+                                    const w5hUsed = acc.quotas?.window_5h.used_pct ?? 0;
+                                    const w5hRemain = (acc.quotas?.window_5h as any)?.remain_pct ?? Math.max(0, 100 - w5hUsed);
+                                    const wWkUsed = acc.quotas?.window_weekly.used_pct ?? 0;
+                                    const wWkRemain = (acc.quotas?.window_weekly as any)?.remain_pct ?? Math.max(0, 100 - wWkUsed);
+
+                                    return (
+                                        <div
+                                            key={acc.id}
+                                            className={`p-3.5 rounded-xl border transition-all ${
+                                                acc.is_active
+                                                    ? 'bg-primary/5 border-primary ring-2 ring-primary/30 shadow-xs'
+                                                    : 'bg-card border-border/70 hover:border-border/90'
+                                            }`}
+                                        >
+                                            <div className="flex items-center justify-between gap-2">
+                                                <div className="flex items-center gap-2 min-w-0">
+                                                    <span className="text-xs font-bold text-foreground truncate" title={acc.email}>
+                                                        {acc.email}
+                                                    </span>
+                                                    {acc.is_active && (
+                                                        <Badge className="bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] px-2 py-0.5 font-bold flex items-center gap-1 shadow-2xs shrink-0">
+                                                            <Check className="w-3 h-3 stroke-[3]" /> 현재 활성 계정
+                                                        </Badge>
+                                                    )}
+                                                </div>
+
+                                                <div className="flex items-center gap-1.5 shrink-0">
+                                                    {!acc.is_active && (
+                                                        <Button
+                                                            size="sm"
+                                                            variant="outline"
+                                                            onClick={() => handleSwitchAccount(acc.id)}
+                                                            className="h-7 px-2.5 text-xs font-semibold text-foreground hover:border-primary hover:text-primary hover:bg-primary/5 cursor-pointer"
+                                                        >
+                                                            이 계정으로 전환
+                                                        </Button>
+                                                    )}
+                                                    <Button
+                                                        size="sm"
+                                                        variant="ghost"
+                                                        onClick={() => handleDeleteAccount(acc.id)}
+                                                        className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive cursor-pointer"
+                                                        title="계정 삭제"
+                                                    >
+                                                        <Trash2 className="w-3.5 h-3.5" />
+                                                    </Button>
+                                                </div>
+                                            </div>
+
+                                            <div className="mt-1.5 flex items-center justify-between gap-2">
+                                                <div className="flex items-center gap-1.5">
+                                                    <Badge 
+                                                        variant="secondary" 
+                                                        className={`text-[10px] px-2 py-0.5 font-bold flex items-center gap-1 ${
+                                                            isPaid 
+                                                                ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30' 
+                                                                : 'bg-muted text-muted-foreground border border-border'
+                                                        }`}
+                                                    >
+                                                        {isPaid ? `💎 유료 플랜 (${acc.plan})` : `🆓 무료 플랜 (${acc.plan || 'Free'})`}
+                                                    </Badge>
+                                                    {activeProviderKey === 'codex' ? (
+                                                        <Badge className="bg-primary/10 text-primary border border-primary/20 text-[9px] px-1.5 py-0 font-bold">
+                                                            ⚡ Codex OAuth 연동됨
+                                                        </Badge>
+                                                    ) : (
+                                                        <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-[9px] px-1.5 py-0 font-bold">
+                                                            🌐 Web 세션 연동됨
+                                                        </Badge>
+                                                    )}
+                                                </div>
+                                                <span className="text-[10px] text-muted-foreground">
+                                                    {activeProviderKey === 'chatgpt_web' 
+                                                        ? 'ChatGPT Plus 대화 롤링 한도 (별도 정책)' 
+                                                        : 'Codex 에이전트 전용 한도 (5시간/주간)'}
+                                                </span>
+                                            </div>
+
+                                            {acc.quotas && (
+                                                <div className="mt-2.5 grid grid-cols-2 gap-2 text-[10.5px]">
+                                                    <div className="p-2 rounded-lg bg-muted/40 border border-border/50">
+                                                        <div className="flex justify-between items-center">
+                                                            <span className="text-muted-foreground">5시간 한도</span>
+                                                            <span className="font-bold text-foreground">{w5hRemain}% 남음</span>
+                                                        </div>
+                                                        <div className="w-full bg-muted-foreground/20 rounded-full h-1.5 overflow-hidden mt-1">
+                                                            <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${Math.min(w5hRemain, 100)}%` }} />
+                                                        </div>
+                                                        <span className="text-[9.5px] text-muted-foreground/80 mt-0.5 block truncate">
+                                                            {acc.quotas.window_5h.reset_in}
+                                                        </span>
+                                                    </div>
+
+                                                    <div className="p-2 rounded-lg bg-muted/40 border border-border/50">
+                                                        <div className="flex justify-between items-center">
+                                                            <span className="text-muted-foreground">주간 한도</span>
+                                                            <span className="font-bold text-foreground">{wWkRemain}% 남음</span>
+                                                        </div>
+                                                        <div className="w-full bg-muted-foreground/20 rounded-full h-1.5 overflow-hidden mt-1">
+                                                            <div className={`h-full transition-all rounded-full ${wWkRemain < 20 ? 'bg-amber-500' : 'bg-primary'}`} style={{ width: `${Math.min(wWkRemain, 100)}%` }} />
+                                                        </div>
+                                                        <span className="text-[9.5px] text-muted-foreground/80 mt-0.5 block truncate">
+                                                            {acc.quotas.window_weekly.reset_in}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })
+                            )}
+                        </div>
+                    </div>
+                )}
+
+
+                {/* ========================================================================= */}
+                {/* 🎬 Other Providers (Claude, DeepSeek, OmniRoute) Standard View           */}
+                {/* ========================================================================= */}
+                {activeProviderKey !== 'gemini' && !isChatGptEcosystem && (
+                    <>
+                        {activeProviderKey === 'claude' ? (
+                            <div className="mt-3 p-3.5 rounded-xl bg-card border border-border/80 shadow-xs space-y-2.5">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-xs font-bold text-foreground">🌐 Claude Web (claude.ai) 브라우저 로그인</span>
+                                        <Badge variant="outline" className="text-[10px] text-primary border-primary/30 font-mono">
+                                            웹 세션 독립 롤링
+                                        </Badge>
+                                    </div>
+                                </div>
+                                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                                    Anthropic 공식 Claude Web (claude.ai) 전용 로그인 창이 열립니다. 터미널 조작 없이 브라우저에서 로그인하면 세션 쿠키가 안전하게 저장되며, 5시간 한도 도달 시 무중단 자동 절체(Failover)됩니다.
+                                </p>
+                                <div className="flex gap-2">
+                                    <Input
+                                        placeholder="연동할 Claude 계정 이메일 입력 (선택)"
+                                        value={newEmail}
+                                        onChange={(e) => setNewEmail(e.target.value)}
+                                        className="h-8.5 text-xs bg-background flex-1"
+                                    />
+                                    <Button
+                                        size="sm"
+                                        onClick={() => handleClaudeLogin(newEmail)}
+                                        className="h-8.5 px-3.5 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-semibold text-xs flex items-center gap-1.5 shadow-xs shrink-0 cursor-pointer"
+                                    >
+                                        <Globe className="w-3.5 h-3.5" />
+                                        브라우저 로그인으로 Web 세션 추가
+                                    </Button>
+                                </div>
+
+                                {/* ⚡ 등록된 구글 계정(Flow 프로필) 세션으로 즉시 연동 */}
+                                {flowProfiles && flowProfiles.length > 0 && (
+                                    <div className="pt-2 border-t border-border/60">
+                                        <div className="flex items-center justify-between mb-2">
+                                            <span className="text-[11px] font-bold text-foreground flex items-center gap-1.5">
+                                                <span>⚡ 등록된 구글 프로필 세션으로 연동</span>
+                                                <Badge variant="outline" className="text-[9px] text-emerald-600 dark:text-emerald-400 border-emerald-500/30">
+                                                    구글 세션 공유
+                                                </Badge>
+                                            </span>
+                                            <span className="text-[10px] text-muted-foreground">{flowProfiles.length}개 프로필 감지됨</span>
+                                        </div>
+                                        <div className="max-h-36 overflow-y-auto space-y-1.5 pr-1 scrollbar-thin">
+                                            {flowProfiles.map((p) => {
+                                                const pEmail = p.email || p.name || '';
+                                                const isAlreadyAdded = providerData.accounts.some(acc => acc.email.toLowerCase() === pEmail.toLowerCase());
+                                                return (
+                                                    <div key={p.id} className="flex items-center justify-between p-2 rounded-lg bg-muted/40 border border-border/50 text-xs">
+                                                        <div className="flex flex-col min-w-0 flex-1 mr-2">
+                                                            <span className="font-semibold text-foreground truncate text-[11px]">{p.name || pEmail}</span>
+                                                            <span className="text-[10px] text-muted-foreground truncate">{pEmail}</span>
+                                                        </div>
+                                                        <div className="flex items-center gap-1.5 shrink-0">
+                                                            <Button
+                                                                size="sm"
+                                                                variant={isAlreadyAdded ? "secondary" : "default"}
+                                                                onClick={() => handleClaudeLogin(pEmail || p.id)}
+                                                                className={`h-7 px-2.5 text-[11px] font-medium shrink-0 cursor-pointer ${
+                                                                    isAlreadyAdded ? 'opacity-80' : 'bg-primary text-primary-foreground'
+                                                                }`}
+                                                            >
+                                                                {isAlreadyAdded ? '세션 재연동' : '⚡ 연동'}
+                                                            </Button>
+                                                            <Button
+                                                                size="sm"
+                                                                variant="outline"
+                                                                title="쿠키 오류 시 초기화 후 깨끗하게 재수집합니다"
+                                                                onClick={() => handleClaudeLogin(pEmail || p.id, { resetCookies: true })}
+                                                                className="h-7 px-2 text-[10.5px] border-border text-muted-foreground hover:text-foreground shrink-0 cursor-pointer"
+                                                            >
+                                                                <RefreshCw className="w-3 h-3 mr-1" />
+                                                                쿠키 재수집
+                                                            </Button>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
+
+                                <div className="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-700 dark:text-amber-300 leading-relaxed flex items-start gap-2">
+                                    <span className="text-base shrink-0">💡</span>
+                                    <div>
+                                        <span className="font-semibold">구글 보안 차단("안전하지 않은 브라우저") 우회 안내:</span>
+                                        <p className="mt-0.5 text-muted-foreground text-[10.5px]">
+                                            구글 간편 로그인에서 '안전하지 않은 브라우저' 경고가 발생하는 경우, 로그인 화면에서 <strong>[이메일로 계속하기 (Continue with email)]</strong>에 구글 이메일을 입력하시면 구글 차단 없이 6자리 확인 코드로 100% 확실하게 로그인됩니다.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        ) : activeProviderKey === 'deepseek' ? (
+                            <div className="mt-3 p-3.5 rounded-xl bg-card border border-border/80 shadow-xs space-y-2.5">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-xs font-bold text-foreground">🌐 DeepSeek Web (chat.deepseek.com) 브라우저 로그인</span>
+                                        <Badge variant="outline" className="text-[10px] text-primary border-primary/30 font-mono">
+                                            웹 세션 독립 풀링
+                                        </Badge>
+                                    </div>
+                                </div>
+                                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                                    DeepSeek 공식 Web (chat.deepseek.com) 전용 독립 로그인 창이 열립니다. 터미널 조작 없이 브라우저에서 로그인하면 세션 토큰이 안전하게 저장되며, DeepSeek-V3(대본) 및 DeepSeek-R1(추론)을 $0원에 무제한 이용하실 수 있습니다.
+                                </p>
+                                <div className="flex gap-2">
+                                    <Input
+                                        placeholder="연동할 DeepSeek 계정 이메일 입력 (선택)"
+                                        value={newEmail}
+                                        onChange={(e) => setNewEmail(e.target.value)}
+                                        className="h-8.5 text-xs bg-background flex-1"
+                                    />
+                                    <Button
+                                        size="sm"
+                                        onClick={() => handleDeepSeekLogin(newEmail)}
+                                        disabled={linkingDeepSeekEmail !== null}
+                                        className="h-8.5 px-3.5 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-semibold text-xs flex items-center gap-1.5 shadow-xs shrink-0 cursor-pointer"
+                                    >
+                                        <Globe className="w-3.5 h-3.5" />
+                                        {linkingDeepSeekEmail ? '로그인 대기 중...' : '브라우저 로그인으로 Web 세션 추가'}
+                                    </Button>
+                                </div>
+
+                                {/* ⚡ 등록된 구글 프로필 세션으로 연동 */}
+                                {flowProfiles && flowProfiles.length > 0 && (
+                                    <div className="pt-2 border-t border-border/60">
+                                        <div className="flex items-center justify-between mb-2">
+                                            <span className="text-[11px] font-bold text-foreground flex items-center gap-1.5">
+                                                <span>⚡ 등록된 구글 프로필 세션으로 연동</span>
+                                                <Badge variant="outline" className="text-[9px] text-emerald-600 dark:text-emerald-400 border-emerald-500/30">
+                                                    구글 세션 공유
+                                                </Badge>
+                                            </span>
+                                            <span className="text-[10px] text-muted-foreground">{flowProfiles.length}개 프로필 감지됨</span>
+                                        </div>
+                                        <div className="max-h-36 overflow-y-auto space-y-1.5 pr-1 scrollbar-thin">
+                                            {flowProfiles.map((p) => {
+                                                const pEmail = p.email || p.name || '';
+                                                const isAlreadyAdded = providerData?.accounts?.some(acc => acc.email.toLowerCase() === pEmail.toLowerCase());
+                                                const isCurrentLinking = linkingDeepSeekEmail === (pEmail || p.id);
+                                                return (
+                                                    <div key={p.id} className="flex items-center justify-between p-2 rounded-lg bg-muted/40 border border-border/50 text-xs">
+                                                        <div className="flex flex-col min-w-0 flex-1 mr-2">
+                                                            <span className="font-semibold text-foreground truncate text-[11px]">{p.name || pEmail}</span>
+                                                            <span className="text-[10px] text-muted-foreground truncate">{pEmail}</span>
+                                                        </div>
+                                                        <div className="flex items-center gap-1.5 shrink-0">
+                                                            <Button
+                                                                size="sm"
+                                                                variant={isAlreadyAdded ? "secondary" : "default"}
+                                                                onClick={() => handleDeepSeekLogin(pEmail || p.id)}
+                                                                disabled={isCurrentLinking}
+                                                                className={`h-7 px-2.5 text-[11px] font-medium shrink-0 cursor-pointer ${
+                                                                    isAlreadyAdded ? 'opacity-80' : 'bg-primary text-primary-foreground'
+                                                                }`}
+                                                            >
+                                                                {isCurrentLinking ? '연동 중...' : isAlreadyAdded ? '세션 재연동' : '⚡ 연동'}
+                                                            </Button>
+                                                            <Button
+                                                                size="sm"
+                                                                variant="outline"
+                                                                title="크롬 브라우저에서 로그인 완료 후 클릭하면 세션을 즉시 가져옵니다"
+                                                                onClick={() => handleManualSyncDeepSeek(pEmail || p.id)}
+                                                                disabled={isCurrentLinking}
+                                                                className="h-7 px-2 text-[10.5px] border-border text-muted-foreground hover:text-foreground shrink-0 cursor-pointer"
+                                                            >
+                                                                <RefreshCw className="w-3 h-3 mr-1" />
+                                                                세션 수집
+                                                            </Button>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
+
+                                <div className="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-700 dark:text-amber-300 leading-relaxed flex items-start gap-2">
+                                    <span className="text-base shrink-0">💡</span>
+                                    <div>
+                                        <span className="font-semibold">보안 차단("안전하지 않은 브라우저" / 캡차 반복) 우회 안내:</span>
+                                        <p className="mt-0.5 text-muted-foreground text-[10.5px]">
+                                            구글 간편 로그인에서 보안 차단 또는 질문이 반복되는 경우, 로그인 화면에서 <strong>[이메일 / 비밀번호]</strong> 또는 <strong>[이메일로 계속하기]</strong>에 이메일을 입력하시면 차단 없이 100% 확실하게 로그인됩니다.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="mt-3 flex items-center gap-2">
+                                <Button
+                                    size="sm"
+                                    onClick={handleWebLogin}
+                                    className="flex-1 h-8.5 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-semibold text-xs flex items-center justify-center gap-1.5 shadow-xs cursor-pointer"
+                                >
+                                    <ExternalLink className="w-3.5 h-3.5" />
+                                    OmniRoute 대시보드 열기
+                                </Button>
+                            </div>
+                        )}
 
                         <div className="space-y-3 mt-3 flex-1 overflow-y-auto max-h-[50vh] pr-1.5 scrollbar-thin">
                             {providerData.accounts.length === 0 ? (
                                 <div className="py-8 text-center border border-dashed border-border rounded-xl">
-                                    <p className="text-xs text-muted-foreground">연결된 계정이 없습니다.</p>
-                                    <p className="text-[11px] text-muted-foreground/70 mt-0.5">상단 [웹 로그인 연결] 버튼을 누르거나 직접 등록해 주세요.</p>
+                                    <p className="text-xs text-muted-foreground font-semibold">연결된 계정이 없습니다.</p>
+                                    <p className="text-[11px] text-muted-foreground/70 mt-1">
+                                        {activeProviderKey === 'claude'
+                                            ? '위의 [브라우저 로그인으로 추가] 버튼을 눌러 계정을 연동하거나, 하단 [API 키 변경]으로 Anthropic API 키를 등록해 주세요.'
+                                            : activeProviderKey === 'deepseek'
+                                            ? '위의 [브라우저 로그인으로 Web 세션 추가] 버튼을 눌러 chat.deepseek.com 계정을 연동해 주세요.'
+                                            : '상단 [웹 로그인 연결] 버튼을 누르거나 직접 등록해 주세요.'}
+                                    </p>
                                 </div>
                             ) : (
                                 providerData.accounts.map((acc) => {
@@ -1956,6 +2812,15 @@ export const ProviderAccountModal: React.FC<ProviderAccountModalProps> = ({
                                                             이 계정으로 전환
                                                         </Button>
                                                     )}
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        onClick={() => handleDeleteAccount(acc.id)}
+                                                        className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10 cursor-pointer"
+                                                        title="계정 삭제"
+                                                    >
+                                                        <Trash2 className="w-3.5 h-3.5" />
+                                                    </Button>
                                                 </div>
                                             </div>
 
@@ -1970,11 +2835,6 @@ export const ProviderAccountModal: React.FC<ProviderAccountModalProps> = ({
                                                 >
                                                     {isPaid ? `💎 유료 플랜 (${acc.plan})` : `🆓 무료 플랜 (${acc.plan || 'Free'})`}
                                                 </Badge>
-                                                <span className="text-[10px] text-muted-foreground">
-                                                    {activeProviderKey === 'chatgpt_web' 
-                                                        ? 'ChatGPT Plus 대화 롤링 한도 (별도 정책)' 
-                                                        : 'Codex 에이전트 전용 한도 (5시간/주간)'}
-                                                </span>
                                             </div>
 
                                             {acc.quotas && (
@@ -2062,7 +2922,7 @@ export const ProviderAccountModal: React.FC<ProviderAccountModalProps> = ({
 
                 {/* Bottom Actions */}
                 <div className="mt-3 pt-3 border-t border-border/60 flex items-center justify-between gap-2 shrink-0">
-                    {activeProviderKey !== 'omniroute' && activeProviderKey !== 'chatgpt_web' && activeProviderKey !== 'gemini' && (
+                    {!isChatGptEcosystem && activeProviderKey !== 'omniroute' && activeProviderKey !== 'gemini' && (
                         <div className="flex items-center gap-2">
                             <Button
                                 variant="outline"
@@ -2087,6 +2947,19 @@ export const ProviderAccountModal: React.FC<ProviderAccountModalProps> = ({
                             >
                                 <Key className="w-3.5 h-3.5" />
                                 {providerData.has_api_key ? 'API 키 변경' : `${providerData.name} API 키 사용`}
+                            </Button>
+                        </div>
+                    )}
+                    {isChatGptEcosystem && (
+                        <div className="flex items-center gap-2">
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setShowApiKeyInput(!showApiKeyInput)}
+                                className="text-xs h-8 gap-1.5 text-muted-foreground hover:text-foreground cursor-pointer"
+                            >
+                                <Key className="w-3.5 h-3.5" />
+                                {providerData.has_api_key ? 'OpenAI 종량제 API 키 변경' : 'OpenAI 종량제 API 키 추가'}
                             </Button>
                         </div>
                     )}

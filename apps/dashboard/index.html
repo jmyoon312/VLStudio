@@ -61,13 +61,4 @@
 <body class="bg-[#F8F9FC] select-none touch-manipulation">
   <div id="root"></div>
   <script type="module" src="/src/main.tsx"></script>
-  <script>
-    if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js').catch(err => {
-          console.warn('[PWA] SW register skipped:', err);
-        });
-      });
-    }
-  </script>
 </body>

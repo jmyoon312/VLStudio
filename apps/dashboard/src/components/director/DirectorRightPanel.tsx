@@ -73,6 +73,7 @@ interface DirectorRightPanelProps {
     defaultTab?: DockTab;
     activeTab?: DockTab;
     onTabChange?: (tab: DockTab) => void;
+    threadId?: string;
 }
 
 export type DockTab = 'menu' | 'preview' | 'files' | 'browser' | 'vision' | 'local_pc' | 'terminal' | 'backlot' | 'cross_diff';
@@ -113,7 +114,9 @@ export const DirectorRightPanel: React.FC<DirectorRightPanelProps> = ({
     defaultTab = 'menu',
     activeTab,
     onTabChange,
+    threadId,
 }) => {
+    const [fileScope, setFileScope] = useState<'thread' | 'all'>('thread');
     const [internalDockTab, setInternalDockTab] = useState<DockTab>(defaultTab);
     const activeDockTab = activeTab !== undefined ? activeTab : internalDockTab;
     const setActiveDockTab = (tab: DockTab) => {
@@ -343,7 +346,10 @@ export const DirectorRightPanel: React.FC<DirectorRightPanelProps> = ({
     const fetchExports = async () => {
         setLoading(true);
         try {
-            const res = await fetch('/api/sovereign-presets/exports-list');
+            const url = threadId 
+                ? `/api/sovereign-presets/exports-list?thread_id=${encodeURIComponent(threadId)}`
+                : '/api/sovereign-presets/exports-list';
+            const res = await fetch(url);
             if (res.ok) {
                 const data = await res.json();
                 setExportsList(data.exports || []);
@@ -359,7 +365,10 @@ export const DirectorRightPanel: React.FC<DirectorRightPanelProps> = ({
     const fetchWorkspaceFiles = async () => {
         setLoading(true);
         try {
-            const res = await fetch('/api/sovereign-presets/workspace-files');
+            const url = threadId 
+                ? `/api/sovereign-presets/workspace-files?thread_id=${encodeURIComponent(threadId)}`
+                : '/api/sovereign-presets/workspace-files';
+            const res = await fetch(url);
             if (res.ok) {
                 const data = await res.json();
                 setWorkspaceCategories(data.categories || []);
@@ -388,7 +397,7 @@ export const DirectorRightPanel: React.FC<DirectorRightPanelProps> = ({
         if (!open) return;
         if (activeDockTab === 'backlot') fetchExports();
         if (activeDockTab === 'files') fetchWorkspaceFiles();
-    }, [open, activeDockTab]);
+    }, [open, activeDockTab, threadId]);
 
     if (!open) return null;
 
@@ -729,6 +738,32 @@ export const DirectorRightPanel: React.FC<DirectorRightPanelProps> = ({
                             </div>
                         </div>
 
+                        {/* Scope Toggle: 현재 대화 vs 전체 보관함 */}
+                        <div className="flex items-center p-0.5 rounded-xl bg-muted/60 border border-border/70 text-xs shrink-0">
+                            <button
+                                type="button"
+                                onClick={() => setFileScope('thread')}
+                                className={`flex-1 py-1 px-2 rounded-lg font-bold text-[11px] transition-all cursor-pointer ${
+                                    fileScope === 'thread'
+                                        ? 'bg-card text-foreground shadow-xs'
+                                        : 'text-muted-foreground hover:text-foreground'
+                                }`}
+                            >
+                                📁 현재 대화 에셋
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setFileScope('all')}
+                                className={`flex-1 py-1 px-2 rounded-lg font-bold text-[11px] transition-all cursor-pointer ${
+                                    fileScope === 'all'
+                                        ? 'bg-card text-foreground shadow-xs'
+                                        : 'text-muted-foreground hover:text-foreground'
+                                }`}
+                            >
+                                🌐 전체 보관함
+                            </button>
+                        </div>
+
                         {/* Search & Type Filter Chips */}
                         <div className="space-y-1.5 shrink-0">
                             <div className="relative">
@@ -769,7 +804,26 @@ export const DirectorRightPanel: React.FC<DirectorRightPanelProps> = ({
 
                         {/* Folders & Categorized Visual Cards */}
                         <div className="space-y-2.5 flex-1 overflow-y-auto pr-0.5">
-                            {workspaceCategories.map((cat) => {
+                            {(() => {
+                                const targetCats = fileScope === 'thread' && threadId
+                                    ? workspaceCategories.filter((c: any) => c.id === 'current_thread' || c.id.startsWith('thread_'))
+                                    : workspaceCategories;
+
+                                const totalFilesInScope = targetCats.reduce((acc: number, c: any) => acc + (c.files?.length || 0), 0);
+
+                                if (fileScope === 'thread' && totalFilesInScope === 0) {
+                                    return (
+                                        <div className="p-6 text-center space-y-2 rounded-2xl bg-card border border-border/80 my-4 shadow-2xs">
+                                            <FolderPlus className="w-8 h-8 text-primary/70 mx-auto" />
+                                            <h4 className="text-xs font-bold text-foreground">새 대화 전용 작업 공간</h4>
+                                            <p className="text-[11px] text-muted-foreground leading-relaxed">
+                                                이 대화에서 생성되는 이미지, 대본, 오디오 에셋이 깨끗하게 분리되어 여기에 실시간으로 보관됩니다.
+                                            </p>
+                                        </div>
+                                    );
+                                }
+
+                                return targetCats.map((cat) => {
                                 const isExpanded = expandedFolders[cat.id] ?? true;
                                 
                                 // Filter files by search and type
@@ -912,7 +966,8 @@ export const DirectorRightPanel: React.FC<DirectorRightPanelProps> = ({
                                         )}
                                     </div>
                                 );
-                            })}
+                            });
+                        })()}
                         </div>
                     </div>
                 )}
@@ -1205,7 +1260,8 @@ export const DirectorRightPanel: React.FC<DirectorRightPanelProps> = ({
                                     src={browserUrl.startsWith('http') ? browserUrl : `https://www.google.com/search?igu=1&q=${encodeURIComponent(browserUrl)}`}
                                     className="w-full h-full border-none min-h-[360px]"
                                     title="Embedded Browser Frame"
-                                    allow="clipboard-read; clipboard-write"
+                                    allow="clipboard-read; clipboard-write; publickey-credentials-get 'none'; publickey-credentials-create 'none'"
+                                    sandbox="allow-same-origin allow-scripts allow-forms allow-popups"
                                     referrerPolicy="no-referrer"
                                 />
                             </div>
@@ -1458,16 +1514,42 @@ export const DirectorRightPanel: React.FC<DirectorRightPanelProps> = ({
                 {/* 5. Backlot (결과물 보관함) Tab: 05_Exports visual gallery */}
                 {activeDockTab === 'backlot' && (
                     <div className="flex-1 flex flex-col min-h-0 space-y-2.5">
+                        {/* Scope Toggle: 현재 대화 vs 전체 보관함 */}
+                        <div className="flex items-center p-0.5 rounded-xl bg-muted/60 border border-border/70 text-xs shrink-0">
+                            <button
+                                type="button"
+                                onClick={() => setFileScope('thread')}
+                                className={`flex-1 py-1 px-2 rounded-lg font-bold text-[11px] transition-all cursor-pointer ${
+                                    fileScope === 'thread'
+                                        ? 'bg-card text-foreground shadow-xs'
+                                        : 'text-muted-foreground hover:text-foreground'
+                                }`}
+                            >
+                                📁 현재 대화 에셋
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setFileScope('all')}
+                                className={`flex-1 py-1 px-2 rounded-lg font-bold text-[11px] transition-all cursor-pointer ${
+                                    fileScope === 'all'
+                                        ? 'bg-card text-foreground shadow-xs'
+                                        : 'text-muted-foreground hover:text-foreground'
+                                }`}
+                            >
+                                🌐 전체 보관함
+                            </button>
+                        </div>
+
                         {/* Backlot Controls Toolbar */}
                         <div className="shrink-0 space-y-2">
                             <div className="flex items-center justify-between gap-2">
                                 <div className="flex items-center gap-1.5 min-w-0">
                                     <Film className="w-4 h-4 text-purple-500 shrink-0" />
                                     <span className="text-xs font-bold text-foreground truncate">
-                                        완성 영상 보관함
+                                        {fileScope === 'thread' ? '현재 대화 완성본' : '완성 영상 보관함'}
                                     </span>
                                     <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-purple-500/10 text-purple-600 dark:text-purple-400 font-semibold shrink-0">
-                                        {exportsList.length}개
+                                        {(fileScope === 'thread' && threadId ? exportsList.filter((e: any) => e.is_thread_item || (e.filename && e.filename.includes(threadId))) : exportsList).length}개
                                     </span>
                                 </div>
                                 <div className="flex items-center gap-1 shrink-0">
@@ -1545,7 +1627,11 @@ export const DirectorRightPanel: React.FC<DirectorRightPanelProps> = ({
 
                         {/* Backlot Main Content Area */}
                         {(() => {
-                            const filteredList = exportsList
+                            const baseList = fileScope === 'thread' && threadId
+                                ? exportsList.filter((e: any) => e.is_thread_item || (e.filename && e.filename.includes(threadId)))
+                                : exportsList;
+
+                            const filteredList = baseList
                                 .filter(item => {
                                     if (!backlotSearch.trim()) return true;
                                     return (item.filename || '').toLowerCase().includes(backlotSearch.toLowerCase());
@@ -1565,12 +1651,18 @@ export const DirectorRightPanel: React.FC<DirectorRightPanelProps> = ({
                                     <div className="flex-1 flex flex-col items-center justify-center p-8 text-center border border-dashed border-border rounded-xl">
                                         <Film className="w-9 h-9 text-muted-foreground/30 mb-2.5" />
                                         <p className="text-xs font-semibold text-foreground">
-                                            {backlotSearch ? '검색된 영상이 없습니다.' : '완성된 영상이 아직 없습니다.'}
+                                            {backlotSearch
+                                                ? '검색된 영상이 없습니다.'
+                                                : fileScope === 'thread'
+                                                    ? '현재 대화에서 완성된 영상이 아직 없습니다.'
+                                                    : '완성된 영상이 아직 없습니다.'}
                                         </p>
                                         <p className="text-[11px] text-muted-foreground mt-1 max-w-[240px]">
                                             {backlotSearch
                                                 ? '다른 검색어로 검색해 보세요.'
-                                                : '대화창에서 영상을 생성하면 05_Exports 보관함에 영구 보관됩니다.'}
+                                                : fileScope === 'thread'
+                                                    ? '대화창에서 영상을 생성하면 완성본이 여기에 표시됩니다. 상단에서 [전체 보관함]을 누르면 모든 과거 영상을 확인할 수 있습니다.'
+                                                    : '대화창에서 영상을 생성하면 05_Exports 보관함에 영구 보관됩니다.'}
                                         </p>
                                     </div>
                                 );

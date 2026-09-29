@@ -70,38 +70,85 @@ class RemotionRenderer:
         project_id: str,
         video_source: Optional[str] = None,
         image_source: Optional[str] = None,
+        scenes: Optional[List[Dict[str, Any]]] = None,
         audio_source: Optional[str] = None,
+        final_mixed_audio: Optional[str] = None,
         bgm_source: Optional[str] = None,
         title_hook: str = "0.8초 쨉쨉이 충격 반전!",
         subtitles: Optional[List[Dict[str, Any]]] = None,
+        jab_overlay: Optional[Dict[str, Any]] = None,
+        has_top_header: bool = True,
+        title_line1: Optional[str] = None,
+        title_line2: Optional[str] = None,
+        title_badge_text: Optional[str] = None,
+        has_bottom_credit: bool = True,
+        bottom_credit_text: Optional[str] = None,
+        style_preset: str = "shorts",
+        canvas_type: str = "LETTERBOX_SOLID",
         accent_color: str = "#FFE600",
         duration_seconds: float = 15.0,
         fps: int = 30,
     ) -> Dict[str, Any]:
         """
         Renders a 9:16 short video directly to MP4 using headless Remotion.
+        Supports multi-scene sequential clips, HeyGen HyperFrames mixed audio, jab hooks, and 6 viral subtitle presets.
         """
         output_mp4 = self.export_dir / f"{project_id}.mp4"
         props_file = self.export_dir / f"{project_id}_props.json"
 
-        # Format input props
+        # Format input props matching ViraShortProps interface
         props_data = {
             "titleHook": title_hook,
             "accentColor": accent_color,
             "subtitles": subtitles or [],
+            "stylePreset": style_preset,
+            "canvasType": canvas_type,
+            "hasTopHeader": has_top_header,
+            "hasBottomCredit": has_bottom_credit,
         }
 
-        if video_source and os.path.exists(video_source):
-            # Normalize to forward slashes or file URL for Chromium
-            props_data["videoSource"] = Path(video_source).as_posix()
-        elif image_source and os.path.exists(image_source):
-            props_data["imageSource"] = Path(image_source).as_posix()
+        if title_line1:
+            props_data["titleLine1"] = title_line1
+        if title_line2:
+            props_data["titleLine2"] = title_line2
+        if title_badge_text:
+            props_data["titleBadgeText"] = title_badge_text
+        if bottom_credit_text:
+            props_data["bottomCreditText"] = bottom_credit_text
 
-        if audio_source and os.path.exists(audio_source):
-            props_data["audioSource"] = Path(audio_source).as_posix()
+        if jab_overlay:
+            props_data["jabOverlay"] = jab_overlay
+        elif title_hook:
+            props_data["jabOverlay"] = {
+                "text": title_hook,
+                "startMs": 1500,
+                "endMs": 6000,
+                "placement": "top-third",
+                "tiltDeg": -3,
+            }
 
-        if bgm_source and os.path.exists(bgm_source):
-            props_data["bgmSource"] = Path(bgm_source).as_posix()
+        # Handle scenes vs single source
+        if scenes and len(scenes) > 0:
+            formatted_scenes = []
+            for sc in scenes:
+                sc_copy = dict(sc)
+                if sc_copy.get("src") and os.path.exists(sc_copy["src"]):
+                    sc_copy["src"] = Path(sc_copy["src"]).as_posix()
+                formatted_scenes.append(sc_copy)
+            props_data["scenes"] = formatted_scenes
+        else:
+            if video_source and os.path.exists(video_source):
+                props_data["videoSource"] = Path(video_source).as_posix()
+            elif image_source and os.path.exists(image_source):
+                props_data["imageSource"] = Path(image_source).as_posix()
+
+        if final_mixed_audio and os.path.exists(final_mixed_audio):
+            props_data["finalMixedAudio"] = Path(final_mixed_audio).as_posix()
+        else:
+            if audio_source and os.path.exists(audio_source):
+                props_data["audioSource"] = Path(audio_source).as_posix()
+            if bgm_source and os.path.exists(bgm_source):
+                props_data["bgmSource"] = Path(bgm_source).as_posix()
 
         # Write props JSON
         with open(props_file, "w", encoding="utf-8") as f:

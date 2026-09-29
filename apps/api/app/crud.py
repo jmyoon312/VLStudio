@@ -4,8 +4,25 @@ import os
 from datetime import datetime
 import re
 
+import time
+
+# --- In-Memory Settings Cache (Zero SQLite Lock on Chat Stream) ---
+_SETTINGS_CACHE = None
+_SETTINGS_CACHE_TIME = 0.0
+_SETTINGS_CACHE_TTL = 5.0  # 5 seconds TTL
+
+def invalidate_settings_cache():
+    global _SETTINGS_CACHE, _SETTINGS_CACHE_TIME
+    _SETTINGS_CACHE = None
+    _SETTINGS_CACHE_TIME = 0.0
+
 # --- Settings ---
-def get_settings(db: Session):
+def get_settings(db: Session, force_refresh: bool = False):
+    global _SETTINGS_CACHE, _SETTINGS_CACHE_TIME
+    now = time.time()
+    if not force_refresh and _SETTINGS_CACHE is not None and (now - _SETTINGS_CACHE_TIME < _SETTINGS_CACHE_TTL):
+        return _SETTINGS_CACHE
+
     settings = db.query(models.Settings).first()
     if not settings:
         from app.config import settings as settings_conf
@@ -74,18 +91,29 @@ def get_settings(db: Session):
         db.add(settings)
         db.commit()
         db.refresh(settings)
+
+    try:
+        db.expunge(settings)
+    except Exception:
+        pass
+
+    _SETTINGS_CACHE = settings
+    _SETTINGS_CACHE_TIME = now
     return settings
 
 def create_settings(db: Session, settings: schemas.SettingsCreate):
+    invalidate_settings_cache()
     # Convert Pydantic model to DB model
     # Ensure lists are passed correctly
     db_settings = models.Settings(**settings.dict())
     db.add(db_settings)
     db.commit()
     db.refresh(db_settings)
+    invalidate_settings_cache()
     return db_settings
 
 def update_settings(db: Session, settings: schemas.SettingsCreate):
+    invalidate_settings_cache()
     db_settings = db.query(models.Settings).first()
     if db_settings:
         update_data = settings.dict(exclude_unset=True)
@@ -96,6 +124,7 @@ def update_settings(db: Session, settings: schemas.SettingsCreate):
             setattr(db_settings, key, value)
         db.commit()
         db.refresh(db_settings)
+        invalidate_settings_cache()
     return db_settings
 
 # --- Channels ---

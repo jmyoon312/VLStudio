@@ -6,6 +6,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { SovereignPreset } from '@/components/presets/PresetLibraryModal';
+import { ModelSelectorPopover, ReasoningEffort } from './ModelSelectorPopover';
 import { cn } from '@/lib/utils';
 
 export interface AttachedMedia {
@@ -82,6 +83,12 @@ export interface DirectorInputBarProps {
     onChangeSecurityScope?: (scope: string) => void;
     isLiveVoiceActive?: boolean;
     onToggleLiveVoice?: () => void;
+    selectedProvider?: 'codex' | 'chatgpt_web' | 'gemini' | 'claude' | 'deepseek' | 'grok' | 'omniroute';
+    onSelectProvider?: (p: any) => void;
+    selectedModel?: string;
+    onSelectModel?: (m: string) => void;
+    reasoningEffort?: ReasoningEffort;
+    onSelectReasoningEffort?: (r: ReasoningEffort) => void;
     quickPrompts?: QuickPromptItem[];
     hasMessages: boolean;
     placeholder?: string;
@@ -109,6 +116,12 @@ export const DirectorInputBar: React.FC<DirectorInputBarProps> = ({
     onChangeSecurityScope,
     isLiveVoiceActive,
     onToggleLiveVoice,
+    selectedProvider,
+    onSelectProvider,
+    selectedModel,
+    onSelectModel,
+    reasoningEffort = 'medium',
+    onSelectReasoningEffort,
     quickPrompts = DEFAULT_QUICK_PROMPTS,
     hasMessages,
     placeholder
@@ -189,7 +202,7 @@ export const DirectorInputBar: React.FC<DirectorInputBarProps> = ({
 
                 {/* Bottom Toolbar Row */}
                 <div className="flex items-center justify-between pt-1 border-t border-border/40 text-xs gap-2">
-                    <div className="flex items-center gap-1.5 py-0.5 min-w-0 pr-1 overflow-x-auto no-scrollbar relative">
+                    <div className="flex items-center gap-1.5 py-0.5 min-w-0 pr-1 overflow-visible relative flex-wrap sm:flex-nowrap">
                         {/* Attach File from PC */}
                         {onAttachFiles && (
                             <>
@@ -227,6 +240,19 @@ export const DirectorInputBar: React.FC<DirectorInputBarProps> = ({
                                 <LinkIcon className="w-3.5 h-3.5 text-primary shrink-0" />
                                 <span className="hidden sm:inline">소스 추가</span>
                             </Button>
+                        )}
+
+                        {/* AI Engine & Model Selector Popover */}
+                        {selectedProvider && onSelectProvider && selectedModel && onSelectModel && (
+                            <ModelSelectorPopover
+                                selectedProvider={selectedProvider}
+                                onSelectProvider={onSelectProvider}
+                                selectedModel={selectedModel}
+                                onSelectModel={onSelectModel}
+                                reasoningEffort={reasoningEffort}
+                                onSelectReasoningEffort={onSelectReasoningEffort}
+                                placement="top"
+                            />
                         )}
 
                         {/* Security Scope Selector */}

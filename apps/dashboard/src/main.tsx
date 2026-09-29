@@ -6,13 +6,27 @@ if (typeof window !== 'undefined') {
   (window as any).React = React;
   (window as any).ReactDOM = ReactDOM;
 
-  // Unregister stale service workers to prevent Response errors & caching issues
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.getRegistrations().then((registrations) => {
-      for (const registration of registrations) {
-        registration.unregister();
+  // Safely clean up any leftover service workers without throwing InvalidStateError
+  if ('serviceWorker' in navigator && typeof window !== 'undefined' && window.location.protocol.startsWith('http')) {
+    const cleanSW = () => {
+      try {
+        navigator.serviceWorker?.getRegistrations?.()
+          ?.then((registrations) => {
+            for (const registration of registrations) {
+              registration?.unregister?.().catch?.(() => {});
+            }
+          })
+          ?.catch?.(() => {});
+      } catch {
+        // Silently ignore InvalidStateError in sandboxed, redirecting, or unattached documents
       }
-    }).catch(() => {});
+    };
+
+    if (document.readyState === 'complete') {
+      cleanSW();
+    } else {
+      window.addEventListener('load', cleanSW, { once: true });
+    }
   }
 }
 

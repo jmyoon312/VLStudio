@@ -24,6 +24,10 @@ from app.database import get_db
 from app import crud, models
 from app.config import settings as app_settings
 from app.services.google_account_pool import google_account_pool
+from app.services.openai_account_pool import openai_account_pool
+from app.services.claude_account_pool import claude_account_pool
+from app.services.grok_account_pool import grok_account_pool
+from app.services.deepseek_account_pool import deepseek_account_pool
 
 logger = logging.getLogger("ai_accounts_router")
 
@@ -113,113 +117,94 @@ def _fetch_chatgpt_real_usage(access_token: str) -> Optional[Dict[str, Any]]:
 
 
 def _sync_codex_auth(vault: Dict[str, Any]):
-    """Sync live ChatGPT Plus/Pro session from Pixeling codex-home/auth.json for Codex CLI."""
-    pix_codex_auth = Path(os.environ.get("LOCALAPPDATA", "C:/Users/jmyoo/AppData/Local")) / "Programs" / "Pixeling" / "state" / "codex-home" / "auth.json"
-    if pix_codex_auth.exists():
-        try:
-            with open(pix_codex_auth, "r", encoding="utf-8") as f:
-                codex_data = json.load(f)
-            tokens = codex_data.get("tokens", {})
-            acc_token = tokens.get("access_token")
-            if tokens and acc_token:
-                email = None
-                plan = "Plus"
-                name = None
-                id_token = tokens.get("id_token")
-                if id_token:
-                    import base64
-                    parts = id_token.split(".")
-                    if len(parts) > 1:
-                        padded = parts[1] + "=" * ((4 - len(parts[1]) % 4) % 4)
-                        claims = json.loads(base64.urlsafe_b64decode(padded.encode()))
-                        email = claims.get("email")
-                        name = claims.get("name")
-                        auth_claim = claims.get("https://api.openai.com/auth", {})
-                        plan = auth_claim.get("chatgpt_plan_type", "Plus").capitalize()
-                
-                email = email or "lfrr.50@coconut.beer"
-                account_id = tokens.get("account_id", "codex_live_01")
-                
-                # Fetch real usage from official OpenAI API
-                real_quotas = _fetch_chatgpt_real_usage(acc_token) or {
-                    "window_5h": {"used_pct": 19, "remain_pct": 81, "reset_in": "3시간 40분 후 초기화"},
-                    "window_weekly": {"used_pct": 89, "remain_pct": 11, "reset_in": "1일 6시간 후 초기화"}
+    """Sync live ChatGPT Plus/Pro and Free accounts from openai_account_pool for Codex Astra."""
+    try:
+        pool_accs = openai_account_pool.get_accounts()
+        c_vault = vault.setdefault("codex", {})
+        c_vault["name"] = "OpenAI Codex"
+        c_vault["type"] = "cli_oauth"
+        c_vault["connected"] = len(pool_accs) > 0
+        c_vault["description"] = "OpenAI Codex CLI 및 ChatGPT Plus/Pro/Free OAuth 세션 연동"
+        
+        c_accs = c_vault.setdefault("accounts", [])
+        c_accs.clear()
+
+        has_any_active = False
+        active_plan = "Plus"
+
+        for pa in pool_accs:
+            email = pa["email"]
+            acc_id = pa["account_id"]
+            is_active = pa.get("is_active", False)
+            plan = pa.get("plan", "Plus")
+            if is_active:
+                has_any_active = True
+                active_plan = plan
+
+            rem_5h = int(pa.get("five_hour_remaining_pct", 100))
+            rem_wk = int(pa.get("weekly_remaining_pct", 100))
+            rst_5h = pa.get("reset_5h") or "5시간 후 초기화"
+            rst_wk = pa.get("reset_weekly") or "월요일 초기화"
+
+            c_accs.append({
+                "id": acc_id,
+                "email": email,
+                "name": pa.get("name") or email.split("@")[0],
+                "plan": plan,
+                "is_active": is_active,
+                "status": pa.get("status", "healthy"),
+                "quotas": {
+                    "window_5h": {"used_pct": 100 - rem_5h, "remain_pct": rem_5h, "reset_in": rst_5h},
+                    "window_weekly": {"used_pct": 100 - rem_wk, "remain_pct": rem_wk, "reset_in": rst_wk}
                 }
-                
-                for k in ["codex"]:
-                    c_vault = vault.setdefault(k, {})
-                    c_vault["name"] = "OpenAI Codex"
-                    c_vault["type"] = "cli_oauth"
-                    c_vault["connected"] = True
-                    c_vault["active_plan"] = f"{plan} (Codex CLI)"
-                    c_vault["description"] = "OpenAI Codex CLI OAuth 세션 연동 (codex.exe 직접 실행)"
-                    c_accs = c_vault.setdefault("accounts", [])
-                    existing = next((a for a in c_accs if a.get("id") == account_id or a.get("email") == email), None)
-                    acc_payload = {
-                        "id": account_id,
-                        "email": email,
-                        "name": name,
-                        "plan": plan,
-                        "is_active": True,
-                        "session_token": acc_token[:32] + "...",
-                        "quotas": real_quotas
-                    }
-                    if existing:
-                        existing.update(acc_payload)
-                    else:
-                        for a in c_accs:
-                            a["is_active"] = False
-                        c_accs.append(acc_payload)
-        except Exception as e:
-            logger.warning(f"Error syncing codex auth: {e}")
+            })
+
+        if not has_any_active and c_accs:
+            c_accs[0]["is_active"] = True
+            active_plan = c_accs[0]["plan"]
+
+        c_vault["active_plan"] = f"{active_plan} (Astra/Codex)"
+    except Exception as e:
+        logger.warning(f"Error syncing codex auth: {e}")
 
 
 def _sync_chatgpt_web_auth(vault: Dict[str, Any]):
-    """Sync live ChatGPT Web session and quota from official OpenAI web and OAuth state."""
-    pix_codex_auth = Path(os.environ.get("LOCALAPPDATA", "C:/Users/jmyoo/AppData/Local")) / "Programs" / "Pixeling" / "state" / "codex-home" / "auth.json"
-    acc_token = None
-    email = "lfrr.50@coconut.beer"
-    if pix_codex_auth.exists():
-        try:
-            with open(pix_codex_auth, "r", encoding="utf-8") as f:
-                codex_data = json.load(f)
-            tokens = codex_data.get("tokens", {})
-            acc_token = tokens.get("access_token")
-        except Exception:
-            pass
+    """Sync live ChatGPT Web sessions and quota from openai_account_pool."""
+    try:
+        pool_accs = openai_account_pool.get_accounts()
+        web_vault = vault.setdefault("chatgpt_web", {})
+        web_vault["name"] = "ChatGPT Web"
+        web_vault["type"] = "web_session"
+        web_vault["connected"] = len(pool_accs) > 0
+        web_vault["description"] = "OpenAI 공식 ChatGPT Web 세션 (웹 대화 독립 정책 적용, 종량제 과금 0원)"
+        web_vault["web_dashboard_url"] = "https://chatgpt.com"
 
-    real_quotas = (_fetch_chatgpt_real_usage(acc_token) if acc_token else None) or {
-        "window_5h": {"used_pct": 19, "remain_pct": 81, "reset_in": "3시간 40분 후 초기화"},
-        "window_weekly": {"used_pct": 89, "remain_pct": 11, "reset_in": "1일 6시간 후 초기화"}
-    }
+        web_accs = web_vault.setdefault("accounts", [])
+        web_accs.clear()
 
-    web_vault = vault.setdefault("chatgpt_web", {
-        "name": "ChatGPT Web",
-        "type": "web_session",
-        "connected": True,
-        "active_plan": "Plus (Web 쿼터)",
-        "description": "OpenAI 공식 ChatGPT Web 세션 (Plus 웹 대화 독립 정책 적용, 종량제 과금 0원)",
-        "web_dashboard_url": "https://chatgpt.com",
-        "accounts": []
-    })
-    web_vault["description"] = "OpenAI 공식 ChatGPT Web 세션 (Plus 웹 대화 독립 정책 적용, 종량제 과금 0원)"
-    web_vault["web_dashboard_url"] = "https://chatgpt.com"
-    
-    web_accs = web_vault.setdefault("accounts", [])
-    acc_obj = {
-        "id": "cweb_01",
-        "email": email,
-        "name": "ChatGPT Web Session",
-        "plan": "Plus (Web 쿼터)",
-        "is_active": True,
-        "quotas": real_quotas
-    }
-    if not web_accs:
-        web_accs.append(acc_obj)
-    else:
-        web_accs[0].update(acc_obj)
-    web_vault["connected"] = True
-    web_vault["active_plan"] = "Plus (Web 쿼터)"
+        for pa in pool_accs:
+            email = pa["email"]
+            acc_id = pa["account_id"]
+            is_active = pa.get("is_active", False)
+            rem_5h = int(pa.get("five_hour_remaining_pct", 100))
+            rem_wk = int(pa.get("weekly_remaining_pct", 100))
+            rst_5h = pa.get("reset_5h") or "5시간 후 초기화"
+            rst_wk = pa.get("reset_weekly") or "월요일 초기화"
+
+            web_accs.append({
+                "id": f"web_{acc_id}",
+                "email": email,
+                "name": pa.get("name") or email.split("@")[0],
+                "plan": f"{pa.get('plan', 'Plus')} (Web 쿼터)",
+                "is_active": is_active,
+                "status": pa.get("status", "healthy"),
+                "quotas": {
+                    "window_5h": {"used_pct": 100 - rem_5h, "remain_pct": rem_5h, "reset_in": rst_5h},
+                    "window_weekly": {"used_pct": 100 - rem_wk, "remain_pct": rem_wk, "reset_in": rst_wk}
+                }
+            })
+    except Exception as e:
+        logger.warning(f"Error syncing chatgpt web auth: {e}")
 
 
 def _sync_gemini_auth(vault: Dict[str, Any]):
@@ -317,6 +302,167 @@ def _sync_gemini_auth(vault: Dict[str, Any]):
         logger.warning(f"Error syncing gemini auth from pool: {e}")
 
 
+def _sync_claude_auth(vault: Dict[str, Any]):
+    """Sync live Claude accounts from claude_account_pool with real quotas."""
+    try:
+        pool_accs = claude_account_pool.get_accounts()
+        c_vault = vault.setdefault("claude", {})
+        c_vault["name"] = "Claude"
+        c_vault["type"] = "cloud_provider"
+        c_vault["description"] = "Anthropic Claude Code 계정 및 Claude 3.7 API 키"
+
+        c_accs = c_vault.setdefault("accounts", [])
+        c_accs.clear()
+
+        has_any_active = False
+        active_plan = "Claude Code"
+
+        for pa in pool_accs:
+            email = pa["email"]
+            acc_id = pa["account_id"]
+            is_active = pa.get("is_active", False)
+            plan = pa.get("plan", "Claude Code")
+            if is_active:
+                has_any_active = True
+                active_plan = plan
+
+            rem_5h = int(pa.get("five_hour_remaining_pct", 100))
+            rem_wk = int(pa.get("weekly_remaining_pct", 100))
+            rst_5h = pa.get("reset_5h") or "5시간 후 초기화"
+            rst_wk = pa.get("reset_weekly") or "월요일 09:00 초기화"
+
+            c_accs.append({
+                "id": acc_id,
+                "email": email,
+                "name": pa.get("name") or email.split("@")[0],
+                "plan": plan,
+                "is_active": is_active,
+                "status": pa.get("status", "healthy"),
+                "has_session": pa.get("has_session", False),
+                "quotas": {
+                    "window_5h": {"used_pct": 100 - rem_5h, "remain_pct": rem_5h, "reset_in": rst_5h},
+                    "window_weekly": {"used_pct": 100 - rem_wk, "remain_pct": rem_wk, "reset_in": rst_wk}
+                }
+            })
+
+        if not has_any_active and c_accs:
+            c_accs[0]["is_active"] = True
+            active_plan = c_accs[0]["plan"]
+
+        has_keys = bool(c_vault.get("has_api_key", False))
+        c_vault["connected"] = len(c_accs) > 0 or has_keys
+        c_vault["active_plan"] = active_plan if len(c_accs) > 0 else ("API Key" if has_keys else "미연결")
+    except Exception as e:
+        logger.warning(f"Error syncing claude auth: {e}")
+
+
+def _sync_grok_auth(vault: Dict[str, Any]):
+    """Sync live Grok accounts from grok_account_pool with real quotas."""
+    try:
+        pool_accs = grok_account_pool.get_accounts()
+        g_vault = vault.setdefault("grok", {})
+        g_vault["name"] = "Grok"
+        g_vault["type"] = "cloud_provider"
+        g_vault["description"] = "xAI Grok 계정 및 Grok 3 공식 API 키"
+
+        g_accs = g_vault.setdefault("accounts", [])
+        g_accs.clear()
+
+        has_any_active = False
+        active_plan = "Grok 3"
+
+        for pa in pool_accs:
+            email = pa["email"]
+            acc_id = pa["account_id"]
+            is_active = pa.get("is_active", False)
+            plan = pa.get("plan", "Grok 3")
+            if is_active:
+                has_any_active = True
+                active_plan = plan
+
+            rem_5h = int(pa.get("five_hour_remaining_pct", 100))
+            rem_wk = int(pa.get("weekly_remaining_pct", 100))
+            rst_5h = pa.get("reset_5h") or "2시간 후 초기화"
+            rst_wk = pa.get("reset_weekly") or "매일 자정 초기화"
+
+            g_accs.append({
+                "id": acc_id,
+                "email": email,
+                "name": pa.get("name") or email.split("@")[0],
+                "plan": plan,
+                "is_active": is_active,
+                "status": pa.get("status", "healthy"),
+                "has_session": pa.get("has_session", False),
+                "quotas": {
+                    "window_5h": {"used_pct": 100 - rem_5h, "remain_pct": rem_5h, "reset_in": rst_5h},
+                    "window_weekly": {"used_pct": 100 - rem_wk, "remain_pct": rem_wk, "reset_in": rst_wk}
+                }
+            })
+
+        if not has_any_active and g_accs:
+            g_accs[0]["is_active"] = True
+            active_plan = g_accs[0]["plan"]
+
+        has_keys = bool(g_vault.get("has_api_key", False))
+        g_vault["connected"] = len(g_accs) > 0 or has_keys
+        g_vault["active_plan"] = active_plan if len(g_accs) > 0 else ("API Key" if has_keys else "미연결")
+    except Exception as e:
+        logger.warning(f"Error syncing grok auth: {e}")
+
+
+def _sync_deepseek_auth(vault: Dict[str, Any]):
+    """Sync live DeepSeek accounts from deepseek_account_pool with real quotas."""
+    try:
+        pool_accs = deepseek_account_pool.get_accounts()
+        d_vault = vault.setdefault("deepseek", {})
+        d_vault["name"] = "DeepSeek"
+        d_vault["type"] = "cloud_provider"
+        d_vault["description"] = "DeepSeek Web 계정 (V3 및 R1 추론)"
+
+        d_accs = d_vault.setdefault("accounts", [])
+        d_accs.clear()
+
+        has_any_active = False
+        active_plan = "DeepSeek Web"
+
+        for pa in pool_accs:
+            email = pa["email"]
+            acc_id = pa["account_id"]
+            is_active = pa.get("is_active", False)
+            plan = pa.get("plan", "DeepSeek Web")
+            if is_active:
+                has_any_active = True
+                active_plan = plan
+
+            rem_day = int(pa.get("daily_remaining_pct", 100))
+            rem_wk = int(pa.get("weekly_remaining_pct", 100))
+            rst_day = pa.get("reset_daily") or "매일 자정 초기화"
+            rst_wk = pa.get("reset_weekly") or "월요일 09:00 초기화"
+
+            d_accs.append({
+                "id": acc_id,
+                "email": email,
+                "name": pa.get("name") or email.split("@")[0],
+                "plan": plan,
+                "is_active": is_active,
+                "status": pa.get("status", "healthy"),
+                "has_session": pa.get("has_session", False),
+                "quotas": {
+                    "window_5h": {"used_pct": 100 - rem_day, "remain_pct": rem_day, "reset_in": rst_day},
+                    "window_weekly": {"used_pct": 100 - rem_wk, "remain_pct": rem_wk, "reset_in": rst_wk}
+                }
+            })
+
+        if not has_any_active and d_accs:
+            d_accs[0]["is_active"] = True
+            active_plan = d_accs[0]["plan"]
+
+        d_vault["connected"] = len(d_accs) > 0
+        d_vault["active_plan"] = active_plan if len(d_accs) > 0 else "미연결"
+    except Exception as e:
+        logger.warning(f"Error syncing deepseek auth: {e}")
+
+
 def _load_vault() -> Dict[str, Any]:
     vault = None
     if ACCOUNTS_STORE_FILE.exists():
@@ -372,36 +518,28 @@ def _load_vault() -> Dict[str, Any]:
             "claude": {
                 "name": "Claude",
                 "type": "cloud_provider",
-                "connected": True,
-                "has_api_key": True,
-                "active_plan": "Claude Code",
+                "connected": False,
+                "has_api_key": False,
+                "active_plan": "미연결",
                 "description": "Anthropic Claude Code 계정 및 Claude 3.7 API 키",
-                "accounts": [
-                    {
-                        "id": "claude_acc_01",
-                        "email": "eho2887@gmail.com",
-                        "plan": "Claude Code",
-                        "is_active": True,
-                        "quotas": {
-                            "window_5h": {"used_pct": 12, "reset_in": "2시간 50분 후 리셋"},
-                            "window_weekly": {"used_pct": 31, "reset_in": "화요일 12:00 리셋"}
-                        }
-                    }
-                ]
+                "accounts": []
             },
-            "grok": {
-                "name": "Grok",
+            "deepseek": {
+                "name": "DeepSeek",
                 "type": "cloud_provider",
-                "connected": True,
-                "has_api_key": True,
-                "active_plan": "Grok 3 Beta",
-                "description": "xAI Grok 3 계정 및 Grok API 키",
+                "connected": False,
+                "has_api_key": False,
+                "active_plan": "미연결",
+                "description": "DeepSeek 무료 Web 세션 (DeepSeek-V3 & DeepSeek-R1)",
                 "accounts": []
             }
         }
+    vault.pop("grok", None)
     _sync_codex_auth(vault)
     _sync_chatgpt_web_auth(vault)
     _sync_gemini_auth(vault)
+    _sync_claude_auth(vault)
+    _sync_deepseek_auth(vault)
     _save_vault(vault)
     return vault
 
@@ -477,18 +615,21 @@ DEFAULT_MODELS_REGISTRY = {
     },
     "claude": {
         "label": "Anthropic Claude",
-        "default_model": "Claude 3.7 Sonnet",
+        "default_model": "Sonnet 5.5 Medium",
         "models": [
+            {"id": "Sonnet 5.5 Medium", "name": "Sonnet 5.5 Medium (기본 · 무료/표준)", "desc": "Anthropic Claude 기본 무료/표준 지능 모델"},
             {"id": "Claude 3.7 Sonnet", "name": "Claude 3.7 Sonnet (최신 · 하이브리드)", "desc": "사고(Thinking) 및 코딩·연출 특화"},
-            {"id": "Claude 3.5 Haiku", "name": "Claude 3.5 Haiku (초경량)", "desc": "즉각적인 프롬프트 응답"}
+            {"id": "Claude 3.5 Haiku", "name": "Claude 3.5 Haiku (초경량)", "desc": "즉각적인 프롬프트 응답 및 고속 요약"},
+            {"id": "Claude 3.5 Sonnet", "name": "Claude 3.5 Sonnet (고성능)", "desc": "균형잡힌 지능 및 고속 추론"}
         ]
     },
-    "grok": {
-        "label": "xAI Grok",
-        "default_model": "Grok 3 Reasoning",
+    "deepseek": {
+        "label": "DeepSeek",
+        "default_model": "DeepSeek-V3",
         "models": [
-            {"id": "Grok 3 Reasoning", "name": "Grok 3 Reasoning (심층 사고)", "desc": "실시간 X 트렌드 및 심층 팩트 체크"},
-            {"id": "Grok 3 Beta", "name": "Grok 3 Beta", "desc": "고속 추론 및 대본 분석"}
+            {"id": "DeepSeek-V3", "name": "⚡ DeepSeek-V3 (초고속 대본 · 기본 무료)", "desc": "chat.deepseek.com 실시간 한국어 서사 및 유튜브 쇼츠 대본 최적화 (비용 0원)"},
+            {"id": "DeepSeek-R1", "name": "🧠 DeepSeek-R1 (심층 추론 · 사고 전문가)", "desc": "복잡한 기획 및 고난도 분석을 위한 DeepSeek R1 심층 추론 (비용 0원)"},
+            {"id": "DeepSeek-Chat", "name": "💬 DeepSeek-Chat (자율 대화)", "desc": "일반 대화 및 아이디어 브레인스토밍 (비용 0원)"}
         ]
     },
     "omniroute": {
@@ -537,6 +678,36 @@ def _load_models_registry(db_settings=None) -> Dict[str, Any]:
                         "name": f"{m_id} (사용자 설정 모델)",
                         "desc": "DB 환경설정에서 동적으로 연결된 커스텀 모델"
                     })
+
+    # Ensure Sonnet 5.5 Medium is always present for Claude
+    if "claude" in registry:
+        c_models = registry["claude"].get("models", [])
+        if not any(m.get("id") == "Sonnet 5.5 Medium" for m in c_models):
+            registry["claude"]["default_model"] = "Sonnet 5.5 Medium"
+            registry["claude"]["models"] = DEFAULT_MODELS_REGISTRY["claude"]["models"]
+            try:
+                with open(MODELS_REGISTRY_FILE, "w", encoding="utf-8") as f:
+                    json.dump(registry, f, ensure_ascii=False, indent=2)
+            except Exception:
+                pass
+
+    # Ensure DeepSeek models (DeepSeek-V3, DeepSeek-R1, DeepSeek-Chat) are present
+    if "deepseek" not in registry or not any(m.get("id") == "DeepSeek-V3" for m in registry.get("deepseek", {}).get("models", [])):
+        registry["deepseek"] = DEFAULT_MODELS_REGISTRY["deepseek"]
+        try:
+            with open(MODELS_REGISTRY_FILE, "w", encoding="utf-8") as f:
+                json.dump(registry, f, ensure_ascii=False, indent=2)
+        except Exception:
+            pass
+
+    # Completely remove grok from registry if present
+    if "grok" in registry:
+        del registry["grok"]
+        try:
+            with open(MODELS_REGISTRY_FILE, "w", encoding="utf-8") as f:
+                json.dump(registry, f, ensure_ascii=False, indent=2)
+        except Exception:
+            pass
 
     return registry
 
@@ -610,6 +781,12 @@ def connect_account(provider: str, req: AccountConnectRequest):
 
     if provider == "gemini":
         google_account_pool.add_account(req.email, tier=req.plan)
+    elif provider in ["codex", "openai", "chatgpt_web"]:
+        openai_account_pool.add_account(req.email, plan=req.plan)
+    elif provider == "claude":
+        claude_account_pool.add_account(req.email, plan=req.plan)
+    elif provider == "deepseek":
+        deepseek_account_pool.add_account(req.email, plan=req.plan)
 
     return {"status": "success", "account": new_acc}
 
@@ -629,15 +806,16 @@ def set_provider_api_key(provider: str, req: ApiKeyRequest, db: Session = Depend
     try:
         db_settings = crud.get_settings(db)
         if db_settings:
-            field_map = {
-                "openai": "openai_api_key",
-                "gemini": "gemini_api_key",
-                "claude": "anthropic_api_key",
-                "grok": "grok_api_key"
-            }
-            if provider in field_map:
-                setattr(db_settings, field_map[provider], req.api_key.strip())
-                db.commit()
+            key_val = req.api_key.strip()
+            if provider == "claude":
+                db_settings.claude_api_keys = [key_val] if key_val else []
+            elif provider == "grok":
+                db_settings.grok_api_keys = [key_val] if key_val else []
+            elif provider in ["openai", "codex"]:
+                db_settings.openai_api_keys = [key_val] if key_val else []
+            elif provider == "gemini":
+                db_settings.gemini_api_key = key_val
+            db.commit()
     except Exception as e:
         logger.warning(f"Failed to persist API key to db settings: {e}")
 
@@ -663,8 +841,14 @@ def switch_active_account(provider: str, req: SwitchAccountRequest):
     swapped_info = None
     if provider == "gemini":
         swapped_info = google_account_pool.switch_active_account(req.account_id)
+    elif provider in ["codex", "openai", "chatgpt_web"]:
+        openai_account_pool.switch_active_account(req.account_id)
+    elif provider == "claude":
+        swapped_info = claude_account_pool.switch_active_account(req.account_id)
+    elif provider == "deepseek":
+        swapped_info = deepseek_account_pool.switch_active_account(req.account_id)
 
-    if not found and provider != "gemini":
+    if not found and provider not in ["gemini", "codex", "openai", "chatgpt_web", "claude", "deepseek"]:
         raise HTTPException(status_code=404, detail="Account not found")
 
     _save_vault(vault)
@@ -674,30 +858,6 @@ def switch_active_account(provider: str, req: SwitchAccountRequest):
         "swapped_info": swapped_info
     }
 
-
-
-@router.delete("/{provider}/{account_id}")
-def delete_account(provider: str, account_id: str):
-    """Disconnect and remove an account."""
-    vault = _load_vault()
-    if provider not in vault:
-        raise HTTPException(status_code=400, detail=f"Unsupported provider: {provider}")
-
-    if provider == "gemini":
-        google_account_pool.remove_account(account_id)
-
-    accounts = vault[provider].get("accounts", [])
-    vault[provider]["accounts"] = [a for a in accounts if a["id"] != account_id and a.get("email") != account_id]
-    if not vault[provider]["accounts"]:
-        vault[provider]["connected"] = vault[provider].get("has_api_key", False)
-        vault[provider]["active_plan"] = "API Key" if vault[provider]["connected"] else "미연결"
-    else:
-        if not any(a.get("is_active") for a in vault[provider]["accounts"]):
-            vault[provider]["accounts"][0]["is_active"] = True
-            vault[provider]["active_plan"] = vault[provider]["accounts"][0].get("plan", "Standard")
-
-    _save_vault(vault)
-    return {"status": "success", "deleted_id": account_id}
 
 
 @router.post("/gemini/bulk-accounts")
@@ -1072,32 +1232,34 @@ def trigger_web_login(provider: str):
     import subprocess
     msg = ""
 
-    if provider == "openai":
-        # Search for bundled codex
-        pix_base = Path(LOCAL_APPDATA) / "Programs" / "Pixeling"
-        codex_js = None
-        for cand in [
-            pix_base / "releases" / "1.0.112" / "app" / "tools" / "codex" / "node_modules" / "@openai" / "codex" / "bin" / "codex.js",
-            pix_base / "releases" / "1.0.110" / "app" / "tools" / "codex" / "node_modules" / "@openai" / "codex" / "bin" / "codex.js",
-        ]:
-            if cand.exists():
-                codex_js = cand
-                break
-
-        codex_home = pix_base / "state" / "codex-home"
+    if provider in ["openai", "codex"]:
+        codex_js = _find_latest_pixeling_codex_js()
+        codex_home = Path(LOCAL_APPDATA) / "Programs" / "Pixeling" / "state" / "codex-home"
         codex_home.mkdir(parents=True, exist_ok=True)
 
         if codex_js and codex_js.exists():
             env = os.environ.copy()
             env["CODEX_HOME"] = str(codex_home)
-            cmd = f'start "ChatGPT Codex Web Login" cmd /k "echo ==================================================== && echo [OpenAI ChatGPT Web Login] && echo 브라우저가 열리면 ChatGPT 계정으로 로그인해 주세요. && echo ==================================================== && node "{codex_js}" login"'
-            subprocess.Popen(cmd, shell=True, env=env)
-            msg = "ChatGPT 브라우저 로그인 창이 열렸습니다. 로그인 완료 후 [세션 새로고침]을 눌러주세요."
+            bat_path = codex_home / "launch_login.bat"
+            bat_content = f"@echo off\nchcp 65001 >nul\necho ====================================================\necho [OpenAI ChatGPT Codex OAuth Login]\necho 브라우저가 열리면 ChatGPT 계정으로 로그인해 주세요.\necho ====================================================\nnode \"{codex_js}\" login\n"
+            bat_path.write_text(bat_content, encoding="utf-8")
+            subprocess.Popen(["cmd.exe", "/c", "start", "ChatGPT Codex Web Login", str(bat_path)], shell=True, env=env)
+            msg = "ChatGPT Codex 브라우저 로그인 창이 열렸습니다. 로그인 완료 후 [새로고침]을 눌러주세요."
         else:
-            # Fallback: open auth.openai.com
             import webbrowser
             webbrowser.open("https://auth.openai.com")
             msg = "브라우저에서 OpenAI 인증 페이지를 열었습니다."
+
+    elif provider == "chatgpt_web":
+        from app.utils.python_env import get_venv_python
+        venv_python = get_venv_python()
+        script_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "services", "local_browser.py"))
+        profile_dir = os.path.join(app_settings.MEDIA_ROOT, "04_Profiles", "chatgpt_web")
+        os.makedirs(profile_dir, exist_ok=True)
+        cmd = [venv_python, script_path, profile_dir, "https://chatgpt.com", "None"]
+        creation_flags = 0x08000000 if sys.platform == "win32" else 0
+        subprocess.Popen(cmd, creationflags=creation_flags)
+        msg = "스텔스 보안 브라우저로 ChatGPT Web이 실행되었습니다. (작업표시줄 확인)"
 
     elif provider == "gemini":
         from app.utils.python_env import get_venv_python
@@ -1116,8 +1278,20 @@ def trigger_web_login(provider: str):
         msg = "OmniRoute 스마트 게이트웨이(포트 20128) 인증 페이지가 열렸습니다."
 
     elif provider == "claude":
-        subprocess.Popen('start "Claude Login" cmd /k "echo Claude Code CLI 로그인 중... && claude login"', shell=True)
-        msg = "Claude CLI 로그인 창이 열렸습니다."
+        claude_sessions_dir = Path(LOCAL_APPDATA) / "ViraLoop Studio" / "media" / "04_Profiles" / "claude_sessions"
+        claude_sessions_dir.mkdir(parents=True, exist_ok=True)
+        target_dir = claude_sessions_dir / "primary_auth"
+        target_dir.mkdir(parents=True, exist_ok=True)
+        conf = target_dir / ".claude.json"
+        if not conf.exists():
+            conf.write_text(json.dumps({"hasCompletedOnboarding": True, "theme": "dark"}), encoding="utf-8")
+        env = os.environ.copy()
+        env["CLAUDE_CONFIG_DIR"] = str(target_dir)
+        bat_path = target_dir / "launch_claude_login.bat"
+        bat_content = "@echo off\r\nchcp 65001 >nul\r\nclaude auth login\r\npause\r\n"
+        bat_path.write_text(bat_content, encoding="utf-8")
+        subprocess.Popen(["cmd.exe", "/c", "start", "Claude Code Login", str(bat_path)], shell=True, env=env)
+        msg = "Claude Code 브라우저 로그인 창이 열렸습니다."
 
     elif provider == "grok":
         subprocess.Popen('start "Grok Login" cmd /k "echo xAI Grok CLI 로그인 중... && grok login"', shell=True)
@@ -1129,6 +1303,267 @@ def trigger_web_login(provider: str):
         "message": msg,
         "action": "web_login_triggered"
     }
+
+
+def _find_latest_pixeling_codex_js() -> Optional[Path]:
+    pix_base = Path(LOCAL_APPDATA) / "Programs" / "Pixeling" / "releases"
+    if not pix_base.exists():
+        return None
+    try:
+        candidates = list(pix_base.glob("*/app/tools/codex/node_modules/@openai/codex/bin/codex.js"))
+        if candidates:
+            # Sort by release version descending (e.g. 1.0.133 > 1.0.125)
+            def _ver_key(p):
+                parts = p.parent.parent.parent.parent.parent.parent.name.split(".")
+                return [int(x) if x.isdigit() else 0 for x in parts]
+            candidates.sort(key=_ver_key, reverse=True)
+            return candidates[0]
+    except Exception as e:
+        logger.warning(f"Error scanning for codex.js: {e}")
+    return None
+
+
+class CodexAccountAuthRequest(BaseModel):
+    email: str
+    name: Optional[str] = None
+    plan: Optional[str] = "Plus"
+    auth_data: Optional[Dict[str, Any]] = None
+
+
+@router.post("/codex/account-auth")
+def save_codex_account_auth(req: CodexAccountAuthRequest):
+    """Saves newly authenticated Codex OAuth credentials to pool."""
+    acc = openai_account_pool.add_account(req.email, plan=req.plan or "Plus", auth_data=req.auth_data)
+    vault = _load_vault()
+    _sync_codex_auth(vault)
+    _save_vault(vault)
+    return {"status": "success", "account": acc}
+
+
+class ClaudeAccountAuthRequest(BaseModel):
+    email: str
+    name: Optional[str] = None
+    plan: Optional[str] = "Claude Code"
+    session_data: Optional[Dict[str, Any]] = None
+
+
+@router.post("/claude/account-auth")
+def save_claude_account_auth(req: ClaudeAccountAuthRequest):
+    """Saves newly authenticated Claude Code credentials to pool."""
+    acc = claude_account_pool.add_account(req.email, plan=req.plan or "Claude Code", name=req.name)
+    vault = _load_vault()
+    _sync_claude_auth(vault)
+    _save_vault(vault)
+    return {"status": "success", "account": acc}
+
+
+class ClaudeWebSessionRequest(BaseModel):
+    email: str
+    session_key: Optional[str] = None
+    cookies: Optional[List[Dict[str, Any]]] = None
+    plan: Optional[str] = "Claude Web"
+
+
+@router.post("/claude/web-session")
+def save_claude_web_session(req: ClaudeWebSessionRequest):
+    """Saves captured or manually entered Claude Web cookies/sessionKey."""
+    email = req.email.strip().lower()
+    dest_dir = claude_account_pool.sessions_dir / email
+    dest_dir.mkdir(parents=True, exist_ok=True)
+
+    session_data = {
+        "email": email,
+        "session_key": req.session_key,
+        "updated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "cookie_count": len(req.cookies) if req.cookies else (1 if req.session_key else 0),
+        "cookies": req.cookies or []
+    }
+    (dest_dir / "cookies_claude.json").write_text(json.dumps(session_data, indent=2, ensure_ascii=False), encoding="utf-8")
+
+    acc = claude_account_pool.add_account(email, plan=req.plan or "Claude Web")
+    vault = _load_vault()
+    _sync_claude_auth(vault)
+    _save_vault(vault)
+    return {"status": "success", "account": acc}
+
+
+class GrokWebSessionRequest(BaseModel):
+    email: str
+    cookies: Optional[List[Dict[str, Any]]] = None
+    plan: Optional[str] = "Grok Web"
+
+
+@router.post("/grok/web-session")
+def save_grok_web_session(req: GrokWebSessionRequest):
+    """Saves captured or manually entered Grok Web cookies."""
+    email = req.email.strip().lower()
+    dest_dir = grok_account_pool.sessions_dir / email
+    dest_dir.mkdir(parents=True, exist_ok=True)
+
+    session_data = {
+        "email": email,
+        "updated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "cookie_count": len(req.cookies) if req.cookies else 0,
+        "cookies": req.cookies or []
+    }
+    (dest_dir / "cookies_grok.json").write_text(json.dumps(session_data, indent=2, ensure_ascii=False), encoding="utf-8")
+
+    acc = grok_account_pool.add_account(email, plan=req.plan or "Grok Web")
+    vault = _load_vault()
+    _sync_grok_auth(vault)
+    _save_vault(vault)
+    return {"status": "success", "account": acc}
+
+
+class GrokDeviceCodeResponse(BaseModel):
+    device_code: str
+    user_code: str
+    verification_uri: str
+    verification_uri_complete: str
+    expires_in: int
+    interval: int
+
+
+@router.post("/grok/device-code")
+def start_grok_device_auth():
+    """Starts the official xAI OAuth Device Code flow for 100% free account connection."""
+    from app.services.grok_oauth import request_device_code
+    try:
+        res = request_device_code()
+        return {"status": "success", **res}
+    except Exception as e:
+        logger.error(f"❌ [ai_accounts] Grok device code request failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class GrokDevicePollRequest(BaseModel):
+    device_code: str
+    email: Optional[str] = "daesungtd4@gmail.com"
+
+
+@router.post("/grok/device-poll")
+def poll_grok_device_auth(req: GrokDevicePollRequest):
+    """Polls xAI OAuth token endpoint for user approval of device code."""
+    from app.services.grok_oauth import poll_device_token
+    try:
+        res = poll_device_token(req.device_code)
+        if res.get("status") == "success":
+            email = (req.email or "daesungtd4@gmail.com").strip().lower()
+            # If id_token contains email, extract it
+            id_tok = res.get("id_token")
+            if id_tok and "." in id_tok:
+                try:
+                    import base64
+                    payload_part = id_tok.split(".")[1]
+                    # pad base64
+                    payload_part += "=" * (-len(payload_part) % 4)
+                    payload_json = json.loads(base64.b64decode(payload_part).decode("utf-8"))
+                    extracted_email = payload_json.get("email")
+                    if extracted_email and "@" in extracted_email:
+                        email = extracted_email.strip().lower()
+                except Exception:
+                    pass
+
+            acc = grok_account_pool.save_oauth_session(email, res, plan="Grok Free OAuth")
+            vault = _load_vault()
+            _sync_grok_auth(vault)
+            _save_vault(vault)
+            return {"status": "success", "email": email, "account": acc}
+
+        return res
+    except Exception as e:
+        logger.error(f"❌ [ai_accounts] Grok device poll failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class GrokImportAuthRequest(BaseModel):
+    email: str
+    auth_json: str
+    plan: Optional[str] = "Grok Free OAuth"
+
+
+@router.post("/grok/import-auth")
+def import_grok_auth_json(req: GrokImportAuthRequest):
+    """Allows manual import of auth.json or tokens for xAI Grok."""
+    try:
+        parsed = json.loads(req.auth_json.strip())
+        access_token = (
+            parsed.get("https://accounts.x.ai/sign-in", {}).get("key")
+            or parsed.get("access_token")
+            or parsed.get("key")
+        )
+        refresh_token = (
+            parsed.get("https://accounts.x.ai/sign-in", {}).get("refresh_token")
+            or parsed.get("refresh_token")
+        )
+        if not access_token:
+            raise ValueError("JSON에 access_token 또는 'https://accounts.x.ai/sign-in'.key가 존재하지 않습니다.")
+
+        tokens = {
+            "access_token": access_token,
+            "refresh_token": refresh_token,
+            "expires_in": 604800
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"유효하지 않은 Grok 인증 정보 형식입니다: {e}")
+
+    acc = grok_account_pool.save_oauth_session(req.email, tokens, plan=req.plan or "Grok Free OAuth")
+    vault = _load_vault()
+    _sync_grok_auth(vault)
+    _save_vault(vault)
+    return {"status": "success", "message": f"'{req.email}' Grok OAuth 인증 정보가 성공적으로 등록되었습니다.", "account": acc}
+
+
+
+class CodexImportAuthRequest(BaseModel):
+    email: str
+    auth_json: str
+    plan: Optional[str] = "Plus"
+
+
+@router.post("/codex/import-auth")
+def import_codex_auth_json(req: CodexImportAuthRequest):
+    """Allows manual import of auth.json for Codex Astra."""
+    try:
+        parsed = json.loads(req.auth_json.strip())
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"유효하지 않은 JSON 형식입니다: {e}")
+
+    acc = openai_account_pool.add_account(req.email, plan=req.plan or "Plus", auth_data=parsed)
+    vault = _load_vault()
+    _sync_codex_auth(vault)
+    _save_vault(vault)
+    return {"status": "success", "message": f"'{req.email}' Codex OAuth 인증 정보가 성공적으로 등록되었습니다.", "account": acc}
+
+
+class ChatGptWebSessionRequest(BaseModel):
+    email: str
+    session_token: Optional[str] = None
+    cookies: Optional[List[Dict[str, Any]]] = None
+    plan: Optional[str] = "Plus"
+
+
+@router.post("/chatgpt-web/web-session")
+def save_chatgpt_web_session(req: ChatGptWebSessionRequest):
+    """Saves captured or manually entered ChatGPT Web cookies/token."""
+    email = req.email.strip()
+    dest_dir = openai_account_pool.sessions_dir / email
+    dest_dir.mkdir(parents=True, exist_ok=True)
+
+    session_data = {
+        "email": email,
+        "session_token": req.session_token,
+        "updated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "cookie_count": len(req.cookies) if req.cookies else (1 if req.session_token else 0),
+        "cookies": req.cookies or []
+    }
+    (dest_dir / "cookies_chatgpt.json").write_text(json.dumps(session_data, indent=2, ensure_ascii=False), encoding="utf-8")
+
+    acc = openai_account_pool.add_account(email, plan=req.plan or "Plus")
+    vault = _load_vault()
+    _sync_chatgpt_web_auth(vault)
+    _save_vault(vault)
+    return {"status": "success", "message": f"'{email}' ChatGPT Web 세션 쿠키가 등록되었습니다.", "account": acc}
 
 
 class LaunchStealthBrowserRequest(BaseModel):
@@ -1181,4 +1616,190 @@ def launch_gemini_stealth_browser(req: LaunchStealthBrowserRequest):
         "profile_dir": profile_dir,
         "url": url
     }
+
+
+@router.post("/chatgpt-web/launch-stealth-browser")
+def launch_chatgpt_stealth_browser(req: LaunchStealthBrowserRequest):
+    """
+    Launch CloakBrowser for OpenAI ChatGPT Web session capture.
+    """
+    import subprocess
+    import sys
+    from app.utils.python_env import get_venv_python
+
+    venv_python = get_venv_python()
+    script_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "services", "local_browser.py"))
+
+    media_base = app_settings.MEDIA_ROOT
+    profiles_base = os.path.join(media_base, "04_Profiles")
+
+    target_folder = "chatgpt_web"
+    if req.email and "@" in req.email:
+        target_folder = f"chatgpt_{req.email.replace('@', '_').replace('.', '_')}"
+    elif req.profile_id:
+        target_folder = req.profile_id
+
+    profile_dir = os.path.join(profiles_base, target_folder)
+    os.makedirs(profile_dir, exist_ok=True)
+
+    url = req.url or "https://chatgpt.com"
+    cmd = [venv_python, script_path, profile_dir, url, "None"]
+    if req.email:
+        cmd.append(req.email)
+
+    logger.info(f"🛡️ [AI Accounts] Launching CloakBrowser for ChatGPT Web: {cmd}")
+    creation_flags = 0x08000000 if sys.platform == "win32" else 0
+    subprocess.Popen(cmd, creationflags=creation_flags)
+
+    return {
+        "status": "launched",
+        "message": "🛡️ 스텔스 보안 브라우저가 실행되었습니다. ChatGPT 계정으로 로그인해 주세요. (작업표시줄 확인)",
+        "profile_dir": profile_dir,
+        "url": url
+    }
+
+@router.delete("/{provider}/{account_id}")
+def delete_account(provider: str, account_id: str):
+    """Disconnect and remove an account."""
+    vault = _load_vault()
+    if provider not in vault:
+        raise HTTPException(status_code=400, detail=f"Unsupported provider: {provider}")
+
+    if provider == "gemini":
+        google_account_pool.remove_account(account_id)
+    elif provider in ["codex", "openai", "chatgpt_web"]:
+        openai_account_pool.remove_account(account_id)
+    elif provider == "claude":
+        claude_account_pool.remove_account(account_id)
+    elif provider == "grok":
+        grok_account_pool.remove_account(account_id)
+    elif provider == "deepseek":
+        deepseek_account_pool.remove_account(account_id)
+
+    accounts = vault[provider].get("accounts", [])
+    vault[provider]["accounts"] = [a for a in accounts if a["id"] != account_id and a.get("email") != account_id]
+    if not vault[provider]["accounts"]:
+        vault[provider]["connected"] = vault[provider].get("has_api_key", False)
+        vault[provider]["active_plan"] = "API Key" if vault[provider]["connected"] else "미연결"
+    else:
+        if not any(a.get("is_active") for a in vault[provider]["accounts"]):
+            vault[provider]["accounts"][0]["is_active"] = True
+            vault[provider]["active_plan"] = vault[provider]["accounts"][0].get("plan", "Standard")
+
+    _save_vault(vault)
+    return {"status": "success", "deleted_id": account_id}
+
+
+class DeepSeekWebSessionRequest(BaseModel):
+    email: str
+    cookies: Optional[List[Dict[str, Any]]] = None
+    token: Optional[str] = None
+    userToken: Optional[str] = None
+    plan: Optional[str] = "DeepSeek Web"
+
+
+@router.post("/deepseek/web-session")
+def save_deepseek_web_session(req: DeepSeekWebSessionRequest):
+    """Saves captured or manually entered DeepSeek Web session."""
+    email = req.email.strip().lower()
+    final_token = req.token or req.userToken
+    session_data = {
+        "cookies": req.cookies or [],
+        "userToken": final_token
+    }
+    acc = deepseek_account_pool.save_web_session(email, session_data)
+    vault = _load_vault()
+    _sync_deepseek_auth(vault)
+    _save_vault(vault)
+    return {"status": "success", "account": acc}
+
+
+@router.post("/deepseek/active")
+def switch_deepseek_active_account(req: SwitchAccountRequest):
+    """Switch active DeepSeek account."""
+    switched = deepseek_account_pool.switch_active_account(req.account_id)
+    if not switched:
+        raise HTTPException(status_code=404, detail="계정을 찾을 수 없습니다.")
+    vault = _load_vault()
+    _sync_deepseek_auth(vault)
+    _save_vault(vault)
+    return {"status": "success", "account": switched}
+
+
+class DeepSeekLaunchBrowserRequest(BaseModel):
+    email: Optional[str] = None
+
+
+@router.post("/deepseek/launch-browser-login")
+def launch_deepseek_browser_login(req: DeepSeekLaunchBrowserRequest):
+    """
+    Launches genuine system Chrome (100% clean human score, zero Geetest treadmill loops)
+    for chat.deepseek.com so the user can log in freely.
+    """
+    from app.services.local_os_controller import local_os_controller
+    email = req.email.strip().lower() if req.email else None
+    profile_name = f"browser_user_data_{email.replace('@', '_').replace('.', '_')}" if email else "browser_user_data"
+    result = local_os_controller.open_browser_login_window(url="https://chat.deepseek.com", profile_name=profile_name)
+    return result
+
+
+class DeepSeekSyncSessionRequest(BaseModel):
+    email: str
+
+
+@router.post("/deepseek/sync-browser-session")
+def sync_deepseek_browser_session(req: DeepSeekSyncSessionRequest):
+    """
+    Scans the genuine Chrome profile LevelDB for userToken and links it to DeepSeek account pool.
+    """
+    import re
+    email = req.email.strip().lower()
+    profile_name = f"browser_user_data_{email.replace('@', '_').replace('.', '_')}"
+
+    candidates = [
+        Path(LOCAL_APPDATA) / "ViraLoop Studio" / "media" / "04_Profiles" / profile_name,
+        Path(LOCAL_APPDATA) / "ViraLoop Studio" / "media" / "04_Profiles" / "browser_user_data"
+    ]
+
+    found_token = None
+    for p_dir in candidates:
+        leveldb_dir = p_dir / "Default" / "Local Storage" / "leveldb"
+        if leveldb_dir.exists():
+            for f in sorted(leveldb_dir.glob("*.*"), reverse=True):
+                try:
+                    content = f.read_bytes()
+                    if b'userToken' in content:
+                        m = re.search(rb'userToken[^\{]*(\{"value":"[^"]+"[^\}]*\})', content)
+                        if m:
+                            token_json = json.loads(m.group(1).decode("utf-8", errors="ignore"))
+                            val = token_json.get("value")
+                            if val and len(val) > 20:
+                                found_token = val
+                                break
+                except Exception:
+                    pass
+        if found_token:
+            break
+
+    if not found_token:
+        raise HTTPException(
+            status_code=404,
+            detail="아직 크롬 브라우저에서 로그인이 완료되지 않았습니다. 로그인을 완료하신 후 다시 시도해 주세요."
+        )
+
+    session_data = {
+        "cookies": [],
+        "userToken": found_token
+    }
+    acc = deepseek_account_pool.save_web_session(email, session_data)
+    vault = _load_vault()
+    _sync_deepseek_auth(vault)
+    _save_vault(vault)
+    return {
+        "status": "success",
+        "account": acc,
+        "message": f"DeepSeek 계정({email})이 성공적으로 연동되었습니다!"
+    }
+
+
 

@@ -170,6 +170,8 @@ async def stream_director_execution(request: dict):
     provider = request.get("provider")
     reasoning_effort = request.get("reasoning_effort")
     history = request.get("history", [])
+    target_channel = request.get("target_channel")
+    thread_id = request.get("thread_id")
 
     import importlib
     import app.agent.hermes_core.conversational_director as cd_mod
@@ -205,7 +207,9 @@ async def stream_director_execution(request: dict):
                     model=model,
                     provider=provider,
                     reasoning_effort=reasoning_effort,
-                    history=history
+                    history=history,
+                    target_channel=target_channel,
+                    thread_id=thread_id
                 )
             async for event in stream:
                 yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"

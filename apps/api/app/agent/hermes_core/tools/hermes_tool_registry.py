@@ -525,11 +525,69 @@ HERMES_OPENAI_TOOLS: List[Dict[str, Any]] = [
 ]
 
 
-# === 2. Google Gemini Function Declarations ===
-def get_gemini_tools() -> List[Dict[str, Any]]:
-    """Converts OpenAI tool schemas to Google Gemini function declaration format."""
+# === 2. 5 Sovereign Domains for Automated Video Production ===
+TOOL_DOMAINS: Dict[str, List[str]] = {
+    "PLAN_SCRIPT": [
+        "montage_create_production_plan",
+        "gemini_tts_optimize_guide",
+        "synthesize_voice_speech",
+        "web_search_and_trends",
+        "search_youtube_reference_videos",
+    ],
+    "VISUAL_SYNTHESIS": [
+        "generate_scene_image",
+        "enhance_image_prompt",
+        "generate_wan21_ai_video",
+        "generate_talking_head_video",
+        "render_25d_parallax_video",
+        "stream_slice_online",
+        "reverse_source_shorts",
+    ],
+    "NLE_ASSEMBLY": [
+        "montage_render_video",
+        "montage_export_capcut_draft",
+        "pixeling_revise_preset_draft",
+        "pixeling_save_preset",
+        "pixeling_capture_template_draft",
+    ],
+    "INTELLIGENCE_INSPECTION": [
+        "vision_inspect_media",
+        "browser_search_and_browse",
+        "cross_verify_channel_dna",
+        "montage_analyze_reference",
+        "montage_analyze_channel",
+    ],
+    "SYSTEM_DEPLOYMENT": [
+        "upload_queue_enqueue",
+        "system_open_folder",
+        "system_launch_capcut",
+        "system_inspect_environment",
+        "system_file_manager",
+        "exec_command",
+    ],
+}
+
+
+def get_staged_openai_tools(domains: Optional[List[str]] = None) -> List[Dict[str, Any]]:
+    """Returns OpenAI tools filtered by specified domains. If domains is empty list [], returns []."""
+    if domains is not None and len(domains) == 0:
+        return []
+    if not domains:
+        return HERMES_OPENAI_TOOLS
+    allowed_names = set()
+    for d in domains:
+        for name in TOOL_DOMAINS.get(d, []):
+            allowed_names.add(name)
+    return [t for t in HERMES_OPENAI_TOOLS if t.get("function", {}).get("name") in allowed_names]
+
+
+def get_staged_gemini_tools(domains: Optional[List[str]] = None) -> List[Dict[str, Any]]:
+    """Returns Gemini function declarations filtered by specified domains. If empty list [], returns []."""
+    staged = get_staged_openai_tools(domains)
+    if not staged:
+        return []
     declarations = []
-    for tool in HERMES_OPENAI_TOOLS:
+    for tool in staged:
         fn = tool["function"]
         declarations.append({
             "name": fn["name"],
@@ -537,6 +595,12 @@ def get_gemini_tools() -> List[Dict[str, Any]]:
             "parameters": fn["parameters"]
         })
     return [{"function_declarations": declarations}]
+
+
+# === 3. Google Gemini Function Declarations (Backward Compatibility) ===
+def get_gemini_tools(domains: Optional[List[str]] = None) -> List[Dict[str, Any]]:
+    """Converts OpenAI tool schemas to Google Gemini function declaration format with domain filtering support."""
+    return get_staged_gemini_tools(domains)
 
 
 # === 3. Autonomous Tool Execution Dispatcher ===

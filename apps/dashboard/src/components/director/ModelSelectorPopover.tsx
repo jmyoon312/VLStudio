@@ -1,4 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { 
     Zap, 
     ChevronDown, 
@@ -81,20 +82,21 @@ const PROVIDER_MODELS: Record<string, { label: string; hasAccount: boolean; mode
     },
     claude: {
         label: 'Anthropic Claude',
-        hasAccount: false,
+        hasAccount: true,
         models: [
-            { id: 'Claude 3.7 Sonnet', name: 'Claude 3.7 Sonnet (Hybrid)', desc: '미등록 (계정/API 키 등록 필요)' },
-            { id: 'Claude 3.5 Sonnet', name: 'Claude 3.5 Sonnet', desc: '미등록 (계정/API 키 등록 필요)' },
-            { id: 'Claude 3.5 Haiku', name: 'Claude 3.5 Haiku', desc: '미등록 (계정/API 키 등록 필요)' },
+            { id: 'Sonnet 5.5 Medium', name: 'Sonnet 5.5 Medium (기본 · 무료/표준)', desc: 'Anthropic Claude 기본 무료/표준 지능 모델' },
+            { id: 'Claude 3.7 Sonnet', name: 'Claude 3.7 Sonnet (최신 · 하이브리드)', desc: '사고(Thinking) 및 코딩·대본 연출 특화' },
+            { id: 'Claude 3.5 Haiku', name: 'Claude 3.5 Haiku (초경량)', desc: '즉각적인 프롬프트 응답 및 고속 요약' },
+            { id: 'Claude 3.5 Sonnet', name: 'Claude 3.5 Sonnet (고성능)', desc: '균형잡힌 지능 및 고속 추론' },
         ]
     },
-    grok: {
-        label: 'xAI Grok',
-        hasAccount: false,
+    deepseek: {
+        label: 'DeepSeek',
+        hasAccount: true,
         models: [
-            { id: 'Grok 3 Reasoning', name: 'Grok 3 Reasoning Beta', desc: '미등록 (계정/API 키 등록 필요)' },
-            { id: 'Grok 3 Mini', name: 'Grok 3 Mini', desc: '미등록 (계정/API 키 등록 필요)' },
-            { id: 'Grok 2', name: 'Grok 2 Vision', desc: '미등록 (계정/API 키 등록 필요)' },
+            { id: 'DeepSeek-V3', name: '⚡ DeepSeek-V3 (초고속 대본·기본 무료)', desc: 'chat.deepseek.com 실시간 한국어 서사 및 유튜브 쇼츠 대본 최적화 (비용 0원)' },
+            { id: 'DeepSeek-R1', name: '🧠 DeepSeek-R1 (심층 추론·사고 전문가)', desc: '복잡한 기획 및 고난도 분석을 위한 DeepSeek R1 심층 추론 (비용 0원)' },
+            { id: 'DeepSeek-Chat', name: '💬 DeepSeek-Chat (자율 대화)', desc: '일반 대화 및 아이디어 브레인스토밍 (비용 0원)' },
         ]
     }
 };
@@ -119,6 +121,34 @@ export const ModelSelectorPopover: React.FC<ModelSelectorPopoverProps> = (props)
     const [activeTab, setActiveTab] = useState<string>(parentProvider);
     const [dynamicRegistry, setDynamicRegistry] = useState<typeof PROVIDER_MODELS>(PROVIDER_MODELS);
     const popoverRef = useRef<HTMLDivElement>(null);
+    const triggerRef = useRef<HTMLButtonElement>(null);
+    const [popoverCoords, setPopoverCoords] = useState<{ top?: number; bottom?: number; left: number; width: number } | null>(null);
+
+    const updatePosition = useCallback(() => {
+        if (!triggerRef.current) return;
+        const rect = triggerRef.current.getBoundingClientRect();
+        const cardWidth = Math.min(380, window.innerWidth - 24);
+        
+        let left = rect.left;
+        if (left + cardWidth > window.innerWidth - 12) {
+            left = window.innerWidth - cardWidth - 12;
+        }
+        if (left < 12) left = 12;
+
+        if (placement === 'top') {
+            setPopoverCoords({
+                bottom: window.innerHeight - rect.top + 8,
+                left,
+                width: cardWidth
+            });
+        } else {
+            setPopoverCoords({
+                top: rect.bottom + 8,
+                left,
+                width: cardWidth
+            });
+        }
+    }, [placement]);
 
     // Keep activeTab synced with parentProvider changes
     useEffect(() => {
@@ -142,18 +172,44 @@ export const ModelSelectorPopover: React.FC<ModelSelectorPopoverProps> = (props)
         return () => { isMounted = false; };
     }, []);
 
-    // Close when clicking outside
+    const toggleOpen = () => {
+        if (!isOpen) {
+            updatePosition();
+            setIsOpen(true);
+        } else {
+            setIsOpen(false);
+        }
+    };
+
+    // Close when clicking outside & handle reposition on scroll/resize
     useEffect(() => {
+        if (!isOpen) return;
+        updatePosition();
+
         const handleClickOutside = (e: MouseEvent) => {
-            if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) {
+            const target = e.target as Node;
+            if (
+                popoverRef.current && !popoverRef.current.contains(target) &&
+                triggerRef.current && !triggerRef.current.contains(target)
+            ) {
                 setIsOpen(false);
             }
         };
-        if (isOpen) {
-            document.addEventListener('mousedown', handleClickOutside);
-        }
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, [isOpen]);
+
+        const handleScrollOrResize = () => {
+            updatePosition();
+        };
+
+        document.addEventListener('mousedown', handleClickOutside);
+        window.addEventListener('resize', handleScrollOrResize);
+        window.addEventListener('scroll', handleScrollOrResize, true);
+
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+            window.removeEventListener('resize', handleScrollOrResize);
+            window.removeEventListener('scroll', handleScrollOrResize, true);
+        };
+    }, [isOpen, updatePosition]);
 
     const activeEffortIndex = EFFORT_STEPS.findIndex(s => s.key === currentEffort);
     const effortLabel = EFFORT_STEPS[activeEffortIndex >= 0 ? activeEffortIndex : 1].label;
@@ -165,11 +221,12 @@ export const ModelSelectorPopover: React.FC<ModelSelectorPopoverProps> = (props)
     const displayModelName = rawModelName.replace(/\s*\(.*?\)/g, '').trim() || rawModelName;
 
     return (
-        <div className="relative inline-block" ref={popoverRef}>
+        <div className="relative inline-block">
             {/* Popover Trigger Button: matches Image 3 */}
             <button
+                ref={triggerRef}
                 type="button"
-                onClick={() => setIsOpen(!isOpen)}
+                onClick={toggleOpen}
                 className={`h-8 px-2.5 sm:px-3 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-all shadow-2xs shrink-0 cursor-pointer ${
                     isOpen 
                         ? 'bg-muted border-primary/60 text-foreground ring-2 ring-primary/20' 
@@ -183,11 +240,21 @@ export const ModelSelectorPopover: React.FC<ModelSelectorPopoverProps> = (props)
                 <ChevronDown className={`w-3.5 h-3.5 text-muted-foreground transition-transform duration-200 shrink-0 ${isOpen ? 'rotate-180' : ''}`} />
             </button>
 
-            {/* Popover Card (downward for header, upward if placed at bottom) */}
-            {isOpen && (
-                <div className={`absolute left-0 w-[340px] sm:w-[380px] rounded-2xl bg-card border border-border/90 shadow-2xl p-3.5 z-[100] text-foreground animate-in fade-in zoom-in-95 duration-150 space-y-3 ${
-                    placement === 'top' ? 'bottom-full mb-2' : 'top-full mt-2'
-                }`}>
+            {/* Popover Card Portal (Rendered directly in body to avoid any overflow clipping) */}
+            {isOpen && popoverCoords && createPortal(
+                <div 
+                    ref={popoverRef}
+                    style={{
+                        position: 'fixed',
+                        ...(popoverCoords.top !== undefined ? { top: `${popoverCoords.top}px` } : {}),
+                        ...(popoverCoords.bottom !== undefined ? { bottom: `${popoverCoords.bottom}px` } : {}),
+                        left: `${popoverCoords.left}px`,
+                        width: `${popoverCoords.width}px`,
+                        zIndex: 99999
+                    }}
+                    className="rounded-2xl bg-card border border-border/90 shadow-2xl p-3.5 text-foreground animate-in fade-in zoom-in-95 duration-150 space-y-3"
+                    onClick={(e) => e.stopPropagation()}
+                >
                     
                     {/* 1. Provider Tabs Row */}
                     <div className="flex items-center gap-1 overflow-x-auto no-scrollbar pb-1 border-b border-border/60">
@@ -197,7 +264,7 @@ export const ModelSelectorPopover: React.FC<ModelSelectorPopoverProps> = (props)
                             { key: 'gemini', label: 'Gemini' },
                             { key: 'omniroute', label: 'OmniRoute' },
                             { key: 'claude', label: 'Claude' },
-                            { key: 'grok', label: 'Grok' },
+                            { key: 'deepseek', label: 'DeepSeek' },
                         ].map((p) => {
                             const pCfg = dynamicRegistry[p.key] || PROVIDER_MODELS[p.key];
                             const isCurrent = effectiveProvider === p.key;
@@ -347,7 +414,8 @@ export const ModelSelectorPopover: React.FC<ModelSelectorPopoverProps> = (props)
                         </span>
                         <span className="text-[10px] font-mono text-muted-foreground/70">100% 직접 호출</span>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
         </div>
     );

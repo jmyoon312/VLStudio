@@ -20,7 +20,7 @@ class RealtimeWebGroundingService:
     def __init__(self):
         self._cache: Dict[str, Dict[str, Any]] = {}
 
-    def fetch_live_search_context(self, prompt: str, timeout: float = 12.0) -> Dict[str, Any]:
+    def fetch_live_search_context(self, prompt: str, timeout: float = 3.0) -> Dict[str, Any]:
         """
         Executes real-time Google Search grounding using Gemini API keys from viral_loop.db settings.
         Returns live internet facts, 2026 trend data, and search queries.

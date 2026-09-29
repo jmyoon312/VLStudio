@@ -104,18 +104,6 @@ export const DirectorHeader: React.FC<DirectorHeaderProps> = ({
                         </span>
                     </div>
                 </div>
-
-                {/* Model & Reasoning Selector Popover */}
-                <div className="shrink-0 ml-1">
-                    <ModelSelectorPopover
-                        selectedProvider={selectedProvider}
-                        selectedModel={selectedModel}
-                        reasoningEffort={reasoningEffort}
-                        onSelectProvider={onSelectProvider}
-                        onSelectModel={onSelectModel}
-                        onSelectReasoningEffort={onSelectReasoningEffort || (() => {})}
-                    />
-                </div>
             </div>
 
             {/* Right Section: Preset, Voice, Schedule, Window Controls */}

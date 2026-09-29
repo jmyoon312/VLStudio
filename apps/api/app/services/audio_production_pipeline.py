@@ -483,6 +483,81 @@ class AudioProductionPipeline:
         
         return None
 
+    def detect_audio_peaks(
+        self,
+        audio_path: str,
+        chunk_ms: int = 50,
+        min_peak_distance_ms: int = 1500,
+        top_k: int = 4
+    ) -> List[Dict[str, Any]]:
+        """
+        Detects audio volume peaks (RMS) for precise synchronization of:
+        - Jab hooks (쨉쨉이 자막)
+        - Zoom pop beats (화면 줌 인)
+        - SFX cues (효과음 싱크)
+        Based on reverse-engineered Pixeling VE audio peak algorithm:
+        Peaks >= 1200ms and < duration - 700ms, startMs = peakMs - 500ms
+        """
+        if not audio_path or not os.path.exists(audio_path):
+            return []
+        
+        try:
+            from pydub import AudioSegment
+            import numpy as np
+
+            sound = AudioSegment.from_file(audio_path)
+            duration_ms = len(sound)
+            if duration_ms < 1500:
+                return []
+
+            # Sample audio in chunk_ms slices
+            chunks_rms = []
+            for t in range(0, duration_ms, chunk_ms):
+                slice_audio = sound[t:t + chunk_ms]
+                chunks_rms.append(slice_audio.rms)
+
+            if not chunks_rms or max(chunks_rms) == 0:
+                return []
+
+            rms_arr = np.array(chunks_rms, dtype=float)
+            max_rms = float(np.max(rms_arr))
+            if max_rms == 0:
+                return []
+            
+            norm_rms = rms_arr / max_rms
+            threshold = float(np.percentile(norm_rms, 75)) # Above 75th percentile
+
+            # Find local peaks
+            peaks = []
+            for i in range(1, len(norm_rms) - 1):
+                time_ms = i * chunk_ms
+                if time_ms < 1200 or time_ms >= (duration_ms - 700):
+                    continue
+
+                if norm_rms[i] > threshold and norm_rms[i] >= norm_rms[i-1] and norm_rms[i] >= norm_rms[i+1]:
+                    if not any(abs(p["timeMs"] - time_ms) < min_peak_distance_ms for p in peaks):
+                        score = float(norm_rms[i])
+                        jab_start = max(0, time_ms - 500)
+                        jab_end = min(duration_ms, time_ms + 2500)
+                        peaks.append({
+                            "timeMs": time_ms,
+                            "score": round(score, 3),
+                            "suggested_jab_start_ms": jab_start,
+                            "suggested_jab_end_ms": jab_end,
+                            "source": "audio-peak",
+                            "reason": "오디오 피크 구간: 쨉쨉이 자막 및 줌 비트를 얹기 좋은 최적의 순간입니다."
+                        })
+
+            peaks.sort(key=lambda x: x["score"], reverse=True)
+            selected_peaks = peaks[:top_k]
+            selected_peaks.sort(key=lambda x: x["timeMs"])
+            return selected_peaks
+
+        except Exception as e:
+            logger.error(f"Error detecting audio peaks: {e}")
+            return []
+
+
 
 # Global singleton
 _audio_production_pipeline = None

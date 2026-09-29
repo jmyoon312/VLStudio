@@ -171,7 +171,7 @@ from app.routers import (
     pipeline_router, universal_cutter, analytics, community, shorts_production,
     media_intelligence, viral_intelligence, discovery, bgm_router, ranking_shorts,
     long_to_short, meokguri, video_creative, movie_drama_shorts, song_shorts, sns_trend,
-    ai_accounts, director_sessions, sourcing_center, stream_slicer, gemini_live_router
+    ai_accounts, director_sessions, sourcing_center, stream_slicer, gemini_live_router, video_director
 )
 from app import job_queue, crud, models, scheduler
 from app.utils.path_utils import normalize_path
@@ -604,6 +604,7 @@ app.include_router(work_queue.router, prefix="/api/work-queue", tags=["tasks"])
 app.include_router(upload_rules.router, prefix="/api/upload-rules", tags=["infra"])
 app.include_router(image_gen.router, prefix="/api/image-gen", tags=["creative"])
 app.include_router(render.router, prefix="/api/render", tags=["creative"])
+app.include_router(video_director.router, prefix="/api", tags=["video_director"])
 app.include_router(creative.router, prefix="/api/creative", tags=["creative"])
 app.include_router(maintenance.router, prefix="/api/maintenance", tags=["ops"])
 app.include_router(system.router, prefix="/api/system", tags=["ops"])
@@ -727,6 +728,9 @@ try:
     logger.info("[OK] Ddalkkak Native Engine unified at /api/ddalkkak")
 except Exception as e:
     logger.warning(f"[WARN] Failed to mount Ddalkkak: {e}")
+
+# Grok OAuth Reload Trigger: 2026-09-29T09:14:00
+
 
 # --- Web Frontend Serve ---
 root_dist = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "..", "dist")

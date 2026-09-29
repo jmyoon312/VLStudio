@@ -339,5 +339,20 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getGeminiWebStatus: () => ipcRenderer.invoke('gemini:get-web-status'),
   clearGeminiWebSession: () => ipcRenderer.invoke('gemini:clear-web-session'),
   openAiStudioKeyWindow: (emailHint) => ipcRenderer.invoke('gemini:open-aistudio-window', emailHint),
+
+  // OpenAI Codex (Astra) & ChatGPT Web Sovereign Session Vault
+  openCodexLogin: (emailHint) => ipcRenderer.invoke('openai:open-codex-login', emailHint),
+  openChatGPTWebLogin: (emailHint) => ipcRenderer.invoke('openai:open-chatgpt-web-login', emailHint),
+
+  // Anthropic Claude Sovereign Multi-Account Session Vault
+  openClaudeLogin: (emailHint) => ipcRenderer.invoke('claude:open-claude-login', emailHint),
+  openClaudeWebLogin: (emailHint, options) => ipcRenderer.invoke('claude:open-claude-web-login', emailHint, options),
+
+  // xAI Grok Sovereign Multi-Account Session Vault
+  openGrokWebLogin: (emailHint, options) => ipcRenderer.invoke('grok:open-grok-web-login', emailHint, options),
+
+  // DeepSeek Sovereign Multi-Account Session Vault
+  openDeepSeekWebLogin: (emailHint, options) => ipcRenderer.invoke('deepseek:open-deepseek-web-login', emailHint, options),
 })
+
 

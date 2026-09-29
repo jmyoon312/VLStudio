@@ -276,6 +276,242 @@ export const viraloopTools = {
                 limit
             }
         });
+    },
+
+    /**
+     * 23. 🎬 Produce Complete MP4 Short Video (One-Take End-to-End Assembly)
+     * Combines scenes, Gemini 3.8 Flash TTS, HeyGen Voiceover Carve BGM ducking,
+     * jab overlay, and 6-preset subtitles into a finalized MP4.
+     */
+    async produceCompleteVideo({
+        project_id,
+        title,
+        script,
+        scenes,
+        voice_config,
+        subtitles,
+        jab_overlay,
+        branding,
+        audio_config,
+        style_preset = 'shorts',
+        auto_render = true
+    } = {}) {
+        return await requestApi('/video-director/create', {
+            method: 'POST',
+            body: {
+                project_id,
+                title,
+                script,
+                scenes,
+                voice_config,
+                subtitles,
+                jab_overlay,
+                branding,
+                audio_config,
+                style_preset,
+                auto_render
+            }
+        });
+    },
+
+    /**
+     * 24. ⚡ Modify Video Subtitles (Surgical Instant Re-render in ~3s)
+     * Replaces subtitles while 100% reusing audio, BGM, and scene video/image clips.
+     */
+    async modifyVideoSubtitles({ project_id, subtitles, style_preset } = {}) {
+        return await requestApi('/video-director/modify-subtitles', {
+            method: 'POST',
+            body: { project_id, subtitles, style_preset }
+        });
+    },
+
+    /**
+     * 25. 🎙️ Modify Video Voice (Surgical Voice Actor / Pitch / Speed Replacement)
+     * Re-synthesizes ONLY the TTS voice, re-mixes audio, and re-renders while reusing all video/image assets.
+     */
+    async modifyVideoVoice({ project_id, voice_config, new_script } = {}) {
+        return await requestApi('/video-director/modify-voice', {
+            method: 'POST',
+            body: { project_id, voice_config, new_script }
+        });
+    },
+
+    /**
+     * 26. 🥊 Modify Video Jab Hook (Surgical Hook Badge Update in ~3s)
+     */
+    async modifyVideoJab({ project_id, jab_overlay } = {}) {
+        return await requestApi('/video-director/modify-jab', {
+            method: 'POST',
+            body: { project_id, jab_overlay }
+        });
+    },
+
+    /**
+     * 27. 🖼️ Modify Video Scene Media (Surgical Asset Replacement)
+     */
+    async modifyVideoMedia({ project_id, scene_id, new_media_path, media_type = 'image' } = {}) {
+        return await requestApi('/video-director/modify-media', {
+            method: 'POST',
+            body: { project_id, scene_id, new_media_path, media_type }
+        });
+    },
+
+    /**
+     * 28. 📋 Get Video Project Storyboard (Inspect Current EDL and Rendered Deliverables)
+     */
+    async getVideoStoryboard({ project_id } = {}) {
+        return await requestApi(`/video-director/project/${encodeURIComponent(project_id)}`);
+    },
+
+    /**
+     * 29. 🎯 Auto-Sync Audio Peaks (Pixeling Peak Sync: snap jab & zoom beats to voice climax)
+     */
+    async autoSyncVideoPeaks({ project_id, auto_render = true } = {}) {
+        return await requestApi('/video-director/auto-sync-peaks', {
+            method: 'POST',
+            body: { project_id, auto_render }
+        });
+    },
+
+    /**
+     * 30. 🎨 Regenerate Weak Scenes (Pixeling Weak Anchor: targeted surgical re-generation)
+     */
+    async regenerateVideoScenes({ project_id, scene_indices, prompt_overrides, auto_render = true } = {}) {
+        return await requestApi('/video-director/regenerate-scenes', {
+            method: 'POST',
+            body: { project_id, scene_indices, prompt_overrides, auto_render }
+        });
+    },
+
+    /**
+     * 31. 🎭 Apply Video Format Preset (12 Pixeling-inspired sovereign presets)
+     */
+    async applyVideoFormatPreset({ project_id, preset_name, auto_render = true } = {}) {
+        return await requestApi('/video-director/apply-format-preset', {
+            method: 'POST',
+            body: { project_id, preset_name, auto_render }
+        });
+    },
+
+    /**
+     * 32. ✂️ Magnetic Ripple Delete Scene (Closes timeline gap with 0 dead air)
+     */
+    async rippleDeleteVideoScene({ project_id, scene_index, auto_render = true } = {}) {
+        return await requestApi('/video-director/ripple-delete-scene', {
+            method: 'POST',
+            body: { project_id, scene_index, auto_render }
+        });
+    },
+
+    /**
+     * 33. 📐 Plan Video Cutdown (Sentence-boundary aligned smart short cutdown)
+     */
+    async planVideoCutdown({ subtitles, target_duration_sec = 55.0, style = 'hook' } = {}) {
+        return await requestApi('/video-director/plan-cutdown', {
+            method: 'POST',
+            body: { subtitles, target_duration_sec, style }
+        });
+    },
+
+    /**
+     * 34. 📚 Get Format Presets Catalog
+     */
+    async getVideoFormatPresets() {
+        return await requestApi('/video-director/format-presets');
+    },
+
+    /**
+     * 35. 🧬 Apply Analyzed Preset (Auto-detect archetype from preset JSON and apply full typography/DSP/pacing)
+     */
+    async applyAnalyzedVideoPreset({ project_id, preset_data, auto_render = true } = {}) {
+        return await requestApi('/video-director/apply-analyzed-preset', {
+            method: 'POST',
+            body: { project_id, preset_data, auto_render }
+        });
+    },
+
+    /**
+     * 36. 🔍 Detect Video Preset Archetype (Classify video type from preset structure)
+     */
+    async detectVideoPresetArchetype({ preset_data } = {}) {
+        return await requestApi('/video-director/detect-preset-archetype', {
+            method: 'POST',
+            body: { preset_data }
+        });
+    },
+
+    /**
+     * 37. ✂️ Zero-Download Slice Stream Clip (Extract 30-60s clip on-the-fly without full download)
+     */
+    async sliceStreamClip({ source_url, start_seconds, duration_seconds, output_filename } = {}) {
+        return await requestApi('/video-director/slice-stream', {
+            method: 'POST',
+            body: { source_url, start_seconds, duration_seconds, output_filename }
+        });
+    },
+
+    /**
+     * 38. 🚀 Create Project From URL Slice (One-Click: Stream Slice -> Storyboard -> Preset -> Voice -> Render)
+     */
+    async createProjectFromUrlSlice({ project_id, source_url, start_seconds, duration_seconds, script, title, format_preset = 'classic_shorts', auto_render = true } = {}) {
+        return await requestApi('/video-director/create-from-url-slice', {
+            method: 'POST',
+            body: { project_id, source_url, start_seconds, duration_seconds, script, title, format_preset, auto_render }
+        });
+    },
+
+    /**
+     * 39. 🎨 Generate AI Scene Image (Direct Gemini 3.1 Flash Image Nano Banana Pro / FLUX.1 Free)
+     */
+    async generateAiSceneImage({ prompt, aspect_ratio = '9:16', style_preset = 'cinematic_photorealism', project_id, scene_index } = {}) {
+        return await requestApi('/video-director/generate-scene-image', {
+            method: 'POST',
+            body: { prompt, aspect_ratio, style_preset, project_id, scene_index }
+        });
+    },
+
+    /**
+     * 40. 🎛️ Auto Sound Design (36-SFX Keyword Matrix on Jabs & Dynamic BGM Selection)
+     */
+    async autoSoundDesignProject({ project_id, auto_render = true } = {}) {
+        return await requestApi('/video-director/auto-sound-design', {
+            method: 'POST',
+            body: { project_id, auto_render }
+        });
+    },
+
+    /**
+     * 41. 💬 Start Custom Preset Dialogue (Analyze reference ➔ Base Clone Save ➔ Elicit 3 Strategic Questions)
+     */
+    async startCustomPresetDialogue({ reference_url, preset_name } = {}) {
+        return await requestApi('/video-director/start-custom-preset-dialogue', {
+            method: 'POST',
+            body: { reference_url, preset_name }
+        });
+    },
+
+    /**
+     * 42. 🏆 Refine Custom Preset (Apply creator choices & feedback ➔ Save Custom Preset Asset)
+     */
+    async refineCustomPreset({ base_preset_id, narrative_intent, context_hook_strategy, sensory_custom, custom_name, additional_feedback } = {}) {
+        return await requestApi('/video-director/refine-custom-preset', {
+            method: 'POST',
+            body: { base_preset_id, narrative_intent, context_hook_strategy, sensory_custom, custom_name, additional_feedback }
+        });
+    },
+
+    /**
+     * 43. ⏱️ Segment Narration FPS-Free (V6.0 Dynamic Multi-Cut Nano Splitting & MM:SS.ms Absolute Timecodes)
+     */
+    async segmentNarrationFpsFree({ script_text, total_duration_sec = 30.0 } = {}) {
+        return await requestApi('/video-director/segment-narration-fps-free', {
+            method: 'POST',
+            body: { script_text, total_duration_sec }
+        });
     }
 };
+
+
+
+
 

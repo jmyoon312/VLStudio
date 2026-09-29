@@ -216,6 +216,7 @@ export interface DirectorMessageFeedProps {
     quickPrompts?: QuickPromptItem[];
     emptyStateTitle?: string;
     emptyStateSubtitle?: string;
+    onEditMessage?: (text: string) => void;
 }
 
 export const DirectorMessageFeed: React.FC<DirectorMessageFeedProps> = ({
@@ -227,9 +228,11 @@ export const DirectorMessageFeed: React.FC<DirectorMessageFeedProps> = ({
     avatarElement,
     quickPrompts = DEFAULT_QUICK_PROMPTS,
     emptyStateTitle = "ViraLoop AI 총괄 디렉터",
-    emptyStateSubtitle = "영상 제작, 숏폼 알고리즘 트렌드, CapCut 조립, 비즈니스 전략까지 무엇이든 함께합니다."
+    emptyStateSubtitle = "영상 제작, 숏폼 알고리즘 트렌드, CapCut 조립, 비즈니스 전략까지 무엇이든 함께합니다.",
+    onEditMessage
 }) => {
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const prevMsgCountRef = useRef(messages.length);
     const [expandedStepMsgIds, setExpandedStepMsgIds] = React.useState<Record<string, boolean>>({});
 
     const toggleStepExpand = (msgId: string) => {
@@ -263,7 +266,16 @@ export const DirectorMessageFeed: React.FC<DirectorMessageFeedProps> = ({
     };
 
     useEffect(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        // Zero-lag instant scroll jump on bulk load / thread switch
+        const countDiff = Math.abs(messages.length - prevMsgCountRef.current);
+        const isBulkOrSwitch = countDiff > 1 || prevMsgCountRef.current === 0;
+        prevMsgCountRef.current = messages.length;
+
+        if (isBulkOrSwitch) {
+            messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
+        } else {
+            messagesEndRef.current?.scrollIntoView({ behavior: isStreaming ? 'auto' : 'smooth' });
+        }
     }, [messages, isStreaming]);
 
     const osBasename = (p: string) => p.split(/[\\/]/).pop() || p;
@@ -317,15 +329,42 @@ export const DirectorMessageFeed: React.FC<DirectorMessageFeedProps> = ({
             )}
 
             {/* Message Stream */}
-            {messages.map((msg) => {
+            {messages.map((msg, idx) => {
                 const messageText = msg.content || msg.text || '';
                 const isUser = msg.role === 'user';
+                const isLatestMessage = idx === messages.length - 1;
 
                 if (isUser) {
                     return (
-                        <div key={msg.id} className="flex justify-end w-full max-w-3xl mx-auto my-1.5 group animate-in fade-in duration-150">
+                        <div key={msg.id} className="flex flex-col items-end w-full max-w-3xl mx-auto my-1.5 group animate-in fade-in duration-150">
                             <div className="max-w-[85%] sm:max-w-[75%] px-4 py-2.5 rounded-2xl bg-primary text-primary-foreground text-sm leading-relaxed whitespace-pre-wrap shadow-xs select-text">
                                 {messageText}
+                            </div>
+                            {/* Hover Action Bar for User Message */}
+                            <div className="flex items-center gap-1.5 mt-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150 pr-1">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        navigator.clipboard.writeText(messageText);
+                                        toast.success('질문이 클립보드에 복사되었습니다.');
+                                    }}
+                                    className="px-2 py-0.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors text-xs flex items-center gap-1 cursor-pointer"
+                                    title="질문 복사"
+                                >
+                                    <Copy className="w-3 h-3" />
+                                    <span className="text-[10px]">복사</span>
+                                </button>
+                                {onEditMessage && (
+                                    <button
+                                        type="button"
+                                        onClick={() => onEditMessage(messageText)}
+                                        className="px-2 py-0.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors text-xs flex items-center gap-1 cursor-pointer"
+                                        title="질문 수정하기 (입력창으로 되돌리기)"
+                                    >
+                                        <Wrench className="w-3 h-3" />
+                                        <span className="text-[10px]">수정</span>
+                                    </button>
+                                )}
                             </div>
                         </div>
                     );
@@ -408,6 +447,14 @@ export const DirectorMessageFeed: React.FC<DirectorMessageFeedProps> = ({
                                         <ReactMarkdown remarkPlugins={[remarkGfm]} components={directorMarkdownComponents}>
                                             {messageText}
                                         </ReactMarkdown>
+                                    </div>
+                                )}
+
+                                {/* Loading / Typing Indicator for Assistant when awaiting text */}
+                                {(!messageText || messageText.trim() === '') && isStreaming && isLatestMessage && (
+                                    <div className="flex items-center gap-2 py-2 text-xs text-muted-foreground animate-pulse">
+                                        <Loader2 className="w-3.5 h-3.5 text-primary animate-spin shrink-0" />
+                                        <span className="font-medium text-foreground/80">지능 응답을 작성하고 있습니다...</span>
                                     </div>
                                 )}
 
@@ -523,12 +570,20 @@ export const DirectorMessageFeed: React.FC<DirectorMessageFeedProps> = ({
             })}
 
             {/* Thinking / Streaming Indicator */}
-            {isStreaming && (
-                <div className="flex items-center gap-2.5 text-xs text-muted-foreground bg-card border border-border px-4 py-2.5 rounded-2xl w-fit shadow-xs animate-in fade-in max-w-3xl mx-auto">
-                    <Loader2 className="w-4 h-4 animate-spin text-primary" />
-                    <span className="font-semibold text-foreground">AI 디렉터가 전략을 수립하고 작업을 진행 중입니다...</span>
-                </div>
-            )}
+            {isStreaming && (() => {
+                const lastMsg = messages[messages.length - 1];
+                const activeStep = lastMsg?.steps?.find(s => s.status === 'in_progress') ||
+                                   lastMsg?.tasks?.[0]?.steps?.find(s => s.status === 'in_progress');
+                const titleText = activeStep?.title || "AI 디렉터가 실시간으로 답변을 작성하고 있습니다...";
+                return (
+                    <div className="flex items-center gap-2.5 text-xs text-muted-foreground bg-card border border-border px-4 py-2.5 rounded-2xl w-fit shadow-xs animate-in fade-in max-w-3xl mx-auto">
+                        <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                        <span className="font-semibold text-foreground">
+                            {titleText}
+                        </span>
+                    </div>
+                );
+            })()}
 
             <div ref={messagesEndRef} />
         </div>

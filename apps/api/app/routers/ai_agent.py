@@ -481,6 +481,7 @@ async def open_workspace_folder(req: OpenFolderRequest):
 
 class BrowserLoginWindowRequest(BaseModel):
     url: Optional[str] = "https://accounts.google.com"
+    profile_name: Optional[str] = None
 
 @router.post("/browser-login-window")
 async def open_browser_login_window(req: BrowserLoginWindowRequest):
@@ -489,7 +490,7 @@ async def open_browser_login_window(req: BrowserLoginWindowRequest):
     so the user can log into Google/YouTube.
     """
     from app.services.local_os_controller import local_os_controller
-    return local_os_controller.open_browser_login_window(url=req.url or "https://accounts.google.com")
+    return local_os_controller.open_browser_login_window(url=req.url or "https://accounts.google.com", profile_name=req.profile_name)
 
 
 

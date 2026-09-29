@@ -14,6 +14,10 @@ import { registerFilesystemIPC } from './ipc/filesystem.js'
 import { registerAuthIPC } from './ipc/auth.js'
 import { registerOttIPC } from './ipc/ott.js'
 import { registerGeminiWebIPC } from './ipc/gemini_web.js'
+import { registerOpenAIWebIPC } from './ipc/openai_web.js'
+import { registerClaudeWebIPC } from './ipc/claude_web.js'
+import { registerGrokWebIPC } from './ipc/grok_web.js'
+import { registerDeepSeekWebIPC } from './ipc/deepseek_web.js'
 import { registerCapcutIPC } from './ipc/capcut.js'
 import { registerMcpIPC } from './ipc/mcp.js'
 import { registerFlowAPIIPC } from './ipc/flow-api.js'
@@ -84,7 +88,7 @@ app.commandLine.appendSwitch('enforce-webrtc-ip-permission-check')
 app.commandLine.appendSwitch('disable-quic')  // [NEW-1] QUIC/UDP 트래픽 누출 차단
 app.commandLine.appendSwitch('enable-features', 'DnsOverHttps,PlatformHEVCDecoderSupport')
 app.commandLine.appendSwitch('dns-over-https-templates', 'https://chrome.cloudflare-dns.com/dns-query')
-app.commandLine.appendSwitch('disable-features', 'WebAuthentication') // [Passkey 완벽 차단] 엔진 레벨에서 WebAuthn 기능 비활성화
+app.commandLine.appendSwitch('disable-features', 'WebAuthentication,WebAuthenticationConditionalUI,WebAuthenticationPermitEnterpriseAttestation,WebAuthenticationEnclaveAuthenticator') // [Passkey 완벽 차단] 엔진 레벨에서 WebAuthn 기능 비활성화
 
 // ═══════════════════════════════════════════════════════════════════════════════
 
@@ -420,6 +424,18 @@ function createWindow() {
 
 
   let initialProfileId = 'default'
+  try {
+    const configPath = path.join(app.getPath('userData'), 'flow-profiles-config.json')
+    if (fsSync.existsSync(configPath)) {
+      const cfg = JSON.parse(fsSync.readFileSync(configPath, 'utf8'))
+      if (cfg && cfg.activeProfileId) {
+        initialProfileId = cfg.activeProfileId
+        console.log(`[Profile Manager] Loaded persisted activeProfileId: ${initialProfileId}`)
+      }
+    }
+  } catch (e) {
+    console.warn('[Profile Manager] Failed to read initial activeProfileId:', e.message)
+  }
   global.activeFlowProfileId = initialProfileId
 
   // Google 로그인 페이지를 프리로드 스크립트 없이 완전히 깨끗한(Pure) 별도 창으로 여는 헬퍼
@@ -437,9 +453,7 @@ function createWindow() {
       }
     }
 
-    console.log(`[Google Login Window] Launching stealth login window for profile: ${profileId}, URL: ${url}`);
-
-    const modernChromeUA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36';
+    console.log(`[Google Login Window] Launching clean native login window for profile: ${profileId}, URL: ${url}`);
 
     const loginWin = new BrowserWindow({
       width: 550,
@@ -457,20 +471,22 @@ function createWindow() {
 
     global.activeLoginWindows.set(profileId, loginWin);
 
-    loginWin.webContents.setUserAgent(modernChromeUA);
-    loginWin.webContents.session.setUserAgent(modernChromeUA);
-
-    // Google 차단 방지용 Sec-CH-UA 및 클라이언트 힌트 헤더 보정
-    loginWin.webContents.session.webRequest.onBeforeSendHeaders(
-      { urls: ['https://accounts.google.com/*', 'https://*.google.com/*'] },
-      (details, callback) => {
-        details.requestHeaders['User-Agent'] = modernChromeUA;
-        details.requestHeaders['Sec-Ch-Ua'] = '"Chromium";v="136", "Google Chrome";v="136", "Not-A.Brand";v="99"';
-        details.requestHeaders['Sec-Ch-Ua-Mobile'] = '?0';
-        details.requestHeaders['Sec-Ch-Ua-Platform'] = '"Windows"';
-        callback({ cancel: false, requestHeaders: details.requestHeaders });
+    // Block Windows Security Passkey modal to guarantee standard Google password / 2FA login form
+    loginWin.webContents.session.setPermissionRequestHandler((webContents, permission, callback) => {
+      if (permission === 'security-key' || permission === 'u2f' || permission === 'webauthn') {
+        return callback(false);
       }
-    );
+      callback(true);
+    });
+
+    loginWin.webContents.on('did-finish-load', () => {
+      loginWin.webContents.executeJavaScript(`
+        if (window.PublicKeyCredential) {
+          PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable = () => Promise.resolve(false);
+          PublicKeyCredential.isConditionalMediationAvailable = () => Promise.resolve(false);
+        }
+      `).catch(() => {});
+    });
 
     loginWin.loadURL(url);
 
@@ -543,9 +559,17 @@ function createWindow() {
         sendFlowStatus({
           loaded: true, url, loggedIn: false, unavailable: true, profileId
         })
+      } else if (url.includes('CookieMismatch')) {
+        console.log(`[Flow - ${profileId}] CookieMismatch detected — auto-navigating to Google Flow auth...`)
+        setTimeout(() => {
+          if (!view.webContents.isDestroyed()) {
+            view.webContents.loadURL('https://accounts.google.com/ServiceLogin?service=aisandbox&continue=https%3A%2F%2Flabs.google%2Ffx%2Ftools%2Fflow')
+          }
+        }, 1200)
       } else {
+        const isFlowStudio = (url.includes('labs.google/fx') || url.includes('flow.google.com')) && !url.includes('/about') && !url.includes('accounts.google.com');
         sendFlowStatus({
-          loaded: true, url, loggedIn: url.includes('labs.google/fx'), profileId
+          loaded: true, url, loggedIn: isFlowStudio, profileId
         })
       }
       const pidMatch = url.match(/\/project\/([a-f0-9-]{36})/)
@@ -557,8 +581,9 @@ function createWindow() {
 
     view.webContents.on('did-navigate-in-page', (event, url) => {
       console.log(`[Flow - ${profileId}] did-navigate-in-page:`, url)
+      const isFlowStudio = (url.includes('labs.google/fx') || url.includes('flow.google.com')) && !url.includes('/about') && !url.includes('accounts.google.com');
       sendFlowStatus({
-        loaded: true, url, loggedIn: url.includes('labs.google/fx'), profileId
+        loaded: true, url, loggedIn: isFlowStudio, profileId
       })
       const pidMatch = url.match(/\/project\/([a-f0-9-]{36})/)
       if (pidMatch) {
@@ -578,11 +603,12 @@ function createWindow() {
       const url = view.webContents.getURL()
       console.log(`[Flow - ${profileId}] did-finish-load:`, url)
       const unavailable = url.includes('unsupported-country')
+      const isFlowStudio = (url.includes('labs.google/fx') || url.includes('flow.google.com')) && !url.includes('/about') && !url.includes('accounts.google.com');
       
       sendFlowStatus({
         loaded: true,
         url,
-        loggedIn: url.includes('labs.google/fx'),
+        loggedIn: isFlowStudio,
         unavailable,
         profileId
       })
@@ -592,8 +618,25 @@ function createWindow() {
         return
       }
 
-      // 랜딩 페이지: "Create with Flow" 버튼 자동 클릭
-      if (url.includes('labs.google')) {
+      // Google 로그인 페이지 진입 시 Passkey(WebAuthn) 팝업 원천 차단 -> 표준 비밀번호 입력 폼 보장
+      if (url.includes('accounts.google.com') || url.includes('google.com/auth')) {
+        view.webContents.executeJavaScript(`
+          if (window.PublicKeyCredential) {
+            PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable = () => Promise.resolve(false);
+            PublicKeyCredential.isConditionalMediationAvailable = () => Promise.resolve(false);
+          }
+        `).catch(() => {});
+        return; // 로그인 페이지에서는 어떠한 랜딩 자동 클릭도 실행하지 않음
+      }
+
+      // 비로그인 소개 페이지(/about)인 경우, 사용자의 명시적 로그인 없이 멋대로 로그인 창으로 이동시키는 무단 클릭 차단
+      if (url.includes('/about') || !isFlowStudio) {
+        console.log(`[Flow - ${profileId}] Landing/About page detected without active session — waiting for explicit user interaction.`);
+        return;
+      }
+
+      // Flow 스튜디오 진입 후: "Create with Flow" / "New Project" 등 프로젝트 생성 보조 클릭
+      if (url.includes('labs.google/fx') || url.includes('flow.google.com')) {
         try {
           await new Promise(r => setTimeout(r, 1500))
           const landingResult = await view.webContents.executeJavaScript(`
@@ -601,7 +644,7 @@ function createWindow() {
               const links = document.querySelectorAll('a, button, [role="button"]');
               for (const el of links) {
                 const text = (el.textContent || '').trim().toLowerCase();
-                if (text.includes('create with flow') || text.includes('flow로 만들기') || text.includes('flow 시작')) {
+                if (text.includes('new project') || text.includes('새 프로젝트')) {
                   el.click();
                   return 'landing_clicked: ' + text.substring(0, 40);
                 }
@@ -610,7 +653,7 @@ function createWindow() {
             })()
           `)
           if (landingResult) {
-            console.log(`[Flow - ${profileId}] Auto-click landing:`, landingResult)
+            console.log(`[Flow - ${profileId}] Auto-click new project:`, landingResult)
             return
           }
         } catch (e) {
@@ -619,7 +662,7 @@ function createWindow() {
       }
 
       // Flow 페이지 로드 후: 동의 버튼 자동 클릭 → projectId 추출
-      if (url.includes('labs.google/fx')) {
+      if (url.includes('labs.google/fx') || url.includes('flow.google.com')) {
         const pState = getProfileState(profileId)
         if (pState.consentClicked && (pState.enterToolClicked || capturedProjectId)) {
           console.log(`[Flow - ${profileId}] Skipping all auto-actions (consent+project already done)`)
@@ -906,6 +949,13 @@ function createWindow() {
     if (!fsSync.existsSync(preloadPath)) {
       preloadPath = path.join(__dirname, 'stealth_preload.mjs');
     }
+    if (!fsSync.existsSync(preloadPath)) {
+      preloadPath = path.resolve(__dirname, '..', 'electron', 'stealth_preload.js');
+    }
+    if (!fsSync.existsSync(preloadPath)) {
+      preloadPath = path.join(app.getAppPath(), 'electron', 'stealth_preload.js');
+    }
+    console.log(`[Flow View] Preload path resolved: ${preloadPath} (exists: ${fsSync.existsSync(preloadPath)})`);
 
     const newView = new WebContentsView({
       webPreferences: {
@@ -929,6 +979,26 @@ function createWindow() {
       });
     }
 
+    // Block Windows Security Passkey modal to guarantee standard Google password / 2FA login form
+    newView.webContents.session.setPermissionRequestHandler((webContents, permission, callback) => {
+      if (permission === 'security-key' || permission === 'u2f' || permission === 'webauthn') {
+        return callback(false);
+      }
+      callback(true);
+    });
+
+    // Strip CSP on Google Accounts so stealth_preload's synchronous inline Passkey suppression script executes without rejection
+    newView.webContents.session.webRequest.onHeadersReceived(
+      { urls: ['https://accounts.google.com/*', 'https://*.google.com/*'] },
+      (details, callback) => {
+        const responseHeaders = { ...details.responseHeaders };
+        delete responseHeaders['content-security-policy'];
+        delete responseHeaders['Content-Security-Policy'];
+        delete responseHeaders['content-security-policy-report-only'];
+        callback({ cancel: false, responseHeaders });
+      }
+    );
+
     setupFlowView(newView, profileId);
 
     global.flowViews.set(profileId, newView);
@@ -942,6 +1012,7 @@ function createWindow() {
     } catch (e) {
       console.warn('[Flow View] addChildView failed:', e.message);
     }
+    syncCookiesToSession(newView.webContents.session).catch(() => {});
 
     newView.webContents.loadURL(targetUrl);
     
@@ -1141,6 +1212,18 @@ registerOttIPC(ipcMain)
 
 // Google Gemini Web Session & Cookie Vault IPC (gemini.google.com)
 registerGeminiWebIPC(ipcMain)
+
+// OpenAI Codex & ChatGPT Web Sovereign Session Vault IPC
+registerOpenAIWebIPC(ipcMain)
+
+// Anthropic Claude Sovereign Multi-Account Session Vault IPC
+registerClaudeWebIPC(ipcMain)
+
+// xAI Grok Sovereign Multi-Account Session Vault IPC
+registerGrokWebIPC(ipcMain)
+
+// DeepSeek Sovereign Multi-Account Session Vault IPC
+registerDeepSeekWebIPC(ipcMain)
 
 // CapCut IPC (path detection, project writing, app launch)
 registerCapcutIPC(ipcMain)
@@ -1480,13 +1563,41 @@ ipcMain.handle('flow:focus-view', async (event, { profileId } = {}) => {
   }
 })
 
+async function syncCookiesToSession(sess) {
+  try {
+    const localAppData = process.env.LOCALAPPDATA || ''
+    const cookieJsonPath = path.join(localAppData, 'ViraLoop Studio', 'media', '04_Profiles', 'browser_user_data', 'extracted_cookies.json')
+    if (fsSync.existsSync(cookieJsonPath)) {
+      const cookies = JSON.parse(fsSync.readFileSync(cookieJsonPath, 'utf-8'))
+      for (const c of cookies) {
+        try {
+          await sess.cookies.set({
+            url: c.url,
+            name: c.name,
+            value: c.value,
+            domain: c.domain,
+            path: c.path,
+            secure: c.secure,
+            httpOnly: c.httpOnly,
+            expirationDate: c.expirationDate || undefined
+          })
+        } catch (_) {}
+      }
+      console.log(`[Flow Session Sync] Successfully applied ${cookies.length} external browser cookies to session.`)
+    }
+  } catch (err) {
+    console.warn('[Flow Session Sync] Cookie sync warning:', err.message)
+  }
+}
+
 ipcMain.handle('flow:reload-view', async (event, { profileId } = {}) => {
   try {
     const targetId = profileId || global.activeFlowProfileId || 'default'
     console.log(`[flow:reload-view] Reloading Flow WebContentsView for profile: ${targetId}`)
     const view = global.flowViews?.get(targetId)
     if (view && !view.webContents.isDestroyed()) {
-      view.webContents.reload()
+      await syncCookiesToSession(view.webContents.session)
+      view.webContents.loadURL(FLOW_URL)
       return { success: true, reloaded: true }
     }
     if (typeof global.recreateFlowViewWithProfile === 'function') {
@@ -1511,7 +1622,8 @@ ipcMain.handle('flow:navigate-home', async (event, { profileId } = {}) => {
       }
     }
     if (view && !view.webContents.isDestroyed()) {
-      view.webContents.loadURL('https://labs.google/fx/tools/flow')
+      await syncCookiesToSession(view.webContents.session)
+      view.webContents.loadURL(FLOW_URL)
       return { success: true }
     }
     return { success: false, error: 'View not found' }

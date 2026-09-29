@@ -140,6 +140,18 @@ async function main() {
   if (inputProps.imageSource && fs.existsSync(inputProps.imageSource)) {
     inputProps.imageSource = mediaServer.registerFile(inputProps.imageSource);
   }
+  if (Array.isArray(inputProps.scenes)) {
+    inputProps.scenes = inputProps.scenes.map((scene) => {
+      if (scene && scene.src && fs.existsSync(scene.src)) {
+        return {
+          ...scene,
+          src: mediaServer.registerFile(scene.src),
+        };
+      }
+      return scene;
+    });
+    console.log(`[MediaServer] ${inputProps.scenes.length} multi-scene clips mapped.`);
+  }
   if (inputProps.sketchImageSource && fs.existsSync(inputProps.sketchImageSource)) {
     inputProps.sketchImageSource = mediaServer.registerFile(inputProps.sketchImageSource);
   }

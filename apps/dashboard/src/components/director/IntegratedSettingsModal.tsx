@@ -79,7 +79,7 @@ export const IntegratedSettingsModal: React.FC<IntegratedSettingsModalProps> = (
         { key: 'gemini', icon: '🔷', title: 'Gemini (Google & Antigravity)', desc: 'Google Gemini 및 Antigravity 2.0 구독 연동' },
         { key: 'omniroute', icon: '🛰️', title: 'OmniRoute (로컬 지능 게이트웨이)', desc: '포트 20128 스마트 콤보 라우터 (비용 0원, 무제한)' },
         { key: 'claude', icon: '🟠', title: 'Claude (Claude Code & Anthropic)', desc: 'Anthropic Claude Code 계정 및 Claude 3.7 API 키' },
-        { key: 'grok', icon: '⚪', title: 'Grok (xAI Grok 3)', desc: 'xAI Grok 3 계정 및 Grok API 키' },
+        { key: 'deepseek', icon: '🐳', title: 'DeepSeek (무료 웹 세션 연동)', desc: 'chat.deepseek.com 웹 세션 기반 DeepSeek-V3 대본 및 R1 심층 추론 (비용 0원)' },
     ];
 
     return (

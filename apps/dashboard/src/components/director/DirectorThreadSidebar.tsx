@@ -234,7 +234,7 @@ export const DirectorThreadSidebar: React.FC<DirectorThreadSidebarProps> = ({
                              currentProvider === 'chatgpt_web' ? 'ChatGPT Web' :
                              currentProvider === 'gemini' ? 'Gemini' :
                              currentProvider === 'claude' ? 'Claude' :
-                             currentProvider === 'grok' ? 'Grok' : 'OmniRoute'}
+                             currentProvider === 'deepseek' ? 'DeepSeek' : 'OmniRoute'}
                         </span>
                         <ChevronDown className="w-3.5 h-3.5 text-muted-foreground opacity-70" />
                     </button>
@@ -251,7 +251,7 @@ export const DirectorThreadSidebar: React.FC<DirectorThreadSidebarProps> = ({
                                 { key: 'gemini', name: 'Google Gemini', badge: '최신 3.8' },
                                 { key: 'omniroute', name: 'OmniRoute Gateway', badge: '로컬' },
                                 { key: 'claude', name: 'Anthropic Claude', badge: '3.7' },
-                                { key: 'grok', name: 'xAI Grok', badge: 'Beta' },
+                                { key: 'deepseek', name: 'DeepSeek Web', badge: '무료 0원' },
                             ].map(p => (
                                 <button
                                     key={p.key}

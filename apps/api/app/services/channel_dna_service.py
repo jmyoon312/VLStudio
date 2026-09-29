@@ -350,11 +350,35 @@ class ChannelDNAService:
                     "zoom_motion": "static"
                 }
             }
+
+            # 💎 [초정밀 스타일 클로닝] 8대 텍스트 포렌식(TextForensicCloner) 연동
+            extracted_transcripts = []
+            if downloaded_video_paths:
+                from app.services.media_intelligence.core import media_intelligence
+                import asyncio
+                for v_p in downloaded_video_paths[:4]:
+                    try:
+                        tr_res = asyncio.run(media_intelligence.extract_speech_transcript(Path(v_p)))
+                        if tr_res and tr_res.get("full_text"):
+                            extracted_transcripts.append(tr_res["full_text"])
+                    except Exception as stt_err:
+                        logger.warning(f"[ChannelDNA] Transcript extraction failed for {v_p}: {stt_err}")
+
+            if not extracted_transcripts and analyzed_videos:
+                extracted_transcripts = [v.get("title", "") for v in analyzed_videos if v.get("title")]
+
+            from app.services.text_forensic_cloner import TextForensicCloner
+            text_forensic_profile = TextForensicCloner.clone_channel_script_style(
+                raw_scripts=extracted_transcripts,
+                channel_name=actual_channel_title
+            )
+
             script_dna = {
-                "opening_hook_type": "직타 훅 (0~2초 내 즉시 시작)",
-                "dominant_endings": ["~라고 함", "~했다는데"],
-                "speech_style": "대화형 해설 및 인터뷰 현장 육성",
-                "chars_per_sec": 6.8
+                "opening_hook_type": text_forensic_profile.get("narrative_arc", {}).get("opening_hook_formula", "직타 훅 (0~2초 내 즉시 시작)"),
+                "dominant_endings": text_forensic_profile.get("syntactic_fingerprint", {}).get("dominant_endings", ["~입니다", "~하는데요", "~라고 하네요"]),
+                "speech_style": text_forensic_profile.get("cognitive_model", {}).get("worldview_filter", "대화형 해설 및 인터뷰 현장 육성"),
+                "chars_per_sec": 6.8,
+                "text_forensic_dna": text_forensic_profile
             }
             audio_dna = {
                 "speaker_gender": "mixed",
@@ -1475,8 +1499,10 @@ class ChannelDNAService:
             },
             "narrative_dna": {
                 "opening_hook_type": script.get("opening_hook_type", "질문형 / 파격 단정 (0~2초 내 즉시 시작)"),
-                "tone_manner": script.get("tone_manner", "위트 있고 몰입감 높은 해설체"),
-                "transition_words": script.get("story_architecture", ["심지어", "알고 보니", "충격적이게도", "반면"])
+                "tone_manner": script.get("speech_style", script.get("tone_manner", "위트 있고 몰입감 높은 해설체")),
+                "transition_words": script.get("story_architecture", ["심지어", "알고 보니", "충격적이게도", "반면"]),
+                "dominant_endings": script.get("dominant_endings", ["~입니다", "~하는데요", "~라고 하네요!"]),
+                "text_forensic_profile": script.get("text_forensic_dna", {})
             }
         }
 

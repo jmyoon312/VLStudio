@@ -235,7 +235,9 @@ export const SidecarBrowserView: React.FC<SidecarBrowserViewProps> = ({
                     src={currentTab.url}
                     className="w-full h-full border-none bg-background"
                     title={currentTab.title}
+                    allow="clipboard-read; clipboard-write; publickey-credentials-get 'none'; publickey-credentials-create 'none'"
                     sandbox="allow-same-origin allow-scripts allow-forms allow-popups"
+                    referrerPolicy="no-referrer"
                     onLoad={() => setIsLoading(false)}
                 />
 

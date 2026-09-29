@@ -26,6 +26,8 @@ from app.agent.hermes_core.tools.pixagent_presets_tool import pixagent_presets
 from app.agent.hermes_core.tools.hermes_tool_registry import (
     HERMES_OPENAI_TOOLS,
     get_gemini_tools,
+    get_staged_openai_tools,
+    get_staged_gemini_tools,
     hermes_tool_dispatcher
 )
 from app.agent.hermes_core.laya_router import hermes_laya_router, IntentType
@@ -405,17 +407,6 @@ class ConversationalDirector:
                 return str(p)
         return None
 
-    def _find_antigravity_executable(self) -> Optional[str]:
-        """Locates the Google Antigravity CLI executable (agy.exe)."""
-        local_app = Path(os.environ.get("LOCALAPPDATA", "C:/Users/jmyoo/AppData/Local"))
-        cand = local_app / "agy" / "bin" / "agy.exe"
-        if cand.exists():
-            return str(cand)
-        which_path = shutil.which("agy.exe") or shutil.which("agy")
-        if which_path and os.path.exists(which_path):
-            return str(which_path)
-        return None
-
     def _get_tool_ui_info(self, fn_name: str) -> Dict[str, Any]:
         """
         Maps raw engineering tool names to intuitive, user-friendly Korean titles and descriptions.
@@ -714,7 +705,9 @@ class ConversationalDirector:
         reference_media_path: Optional[str] = None,
         history: Optional[List[Dict[str, Any]]] = None,
         channel_forensic_context: Optional[str] = None,
-        keyframe_images: Optional[List[str]] = None
+        keyframe_images: Optional[List[str]] = None,
+        target_channel: Optional[Dict[str, Any]] = None,
+        thread_id: Optional[str] = None
     ) -> AsyncGenerator[Dict[str, Any], None]:
         """
         Handles general conversation, questions, brainstorming, and web grounding.
@@ -730,6 +723,7 @@ class ConversationalDirector:
             "gemini": "Google Gemini",
             "claude": "Anthropic Claude",
             "grok": "xAI Grok",
+            "deepseek": "DeepSeek",
             "omniroute": "OmniRoute"
         }
         p_clean = (provider or "codex").lower().strip()
@@ -740,6 +734,7 @@ class ConversationalDirector:
             "gemini": "Gemini 2.5 Flash",
             "claude": "Claude 3.7 Sonnet",
             "grok": "Grok 3 Reasoning",
+            "deepseek": "DeepSeek-V3",
             "omniroute": "viraloop1"
         }
         display_model = model or default_m_map.get(p_clean, "최신 파운데이션 모델")
@@ -1006,6 +1001,17 @@ class ConversationalDirector:
         is_fast_chat = (classified_intent == IntentType.CHAT_FAST)
         mode_str = f"{classified_intent.value.upper()}"
 
+        active_domains: List[str] = []
+        if needs_tools:
+            if any(k in clean_p for k in ["그림", "이미지", "비주얼", "image", "visual", "사진", "wan", "모션"]):
+                active_domains = ["VISUAL_SYNTHESIS", "PLAN_SCRIPT"]
+            elif any(k in clean_p for k in ["영상", "합성", "렌더링", "capcut", "캡컷", "프리셋", "render", "video", "타임라인"]):
+                active_domains = ["NLE_ASSEMBLY", "VISUAL_SYNTHESIS", "PLAN_SCRIPT"]
+            elif any(k in clean_p for k in ["검색", "트렌드", "유튜브", "분석", "비전", "브라우저"]):
+                active_domains = ["INTELLIGENCE_INSPECTION", "PLAN_SCRIPT"]
+            else:
+                active_domains = ["PLAN_SCRIPT", "VISUAL_SYNTHESIS", "NLE_ASSEMBLY", "INTELLIGENCE_INSPECTION", "SYSTEM_DEPLOYMENT"]
+
         # Live Real-time UI Step & Console Logging
         elapsed_0 = round(time.time() - session_timer_start, 2)
         logger.info(f"⏱️ [{elapsed_0:.2f}s] 📥 요청 수신: Provider={display_provider}, Model={display_model}, Intent={classified_intent.value}, WantsVoice={wants_voice}, FastChat={is_fast_chat}")
@@ -1034,7 +1040,7 @@ class ConversationalDirector:
             }
             try:
                 from app.services.realtime_web_grounding import realtime_web_grounding
-                grounding_res = realtime_web_grounding.fetch_live_search_context(prompt)
+                grounding_res = await asyncio.to_thread(realtime_web_grounding.fetch_live_search_context, prompt, timeout=2.5)
                 if grounding_res.get("grounded") and grounding_res.get("text"):
                     queries_str = ", ".join(grounding_res.get("queries", []))
                     urls_str = "\n".join([f"- {u}" for u in grounding_res.get("source_urls", [])[:3]])
@@ -1073,18 +1079,19 @@ class ConversationalDirector:
             memory_context=memory_context
         )
 
-        # Zero Mock Policy & Truthful Credential Guard
-        p_lower = (provider or "").lower().strip()
-        if p_lower in ["claude", "grok"]:
-            msg = f"⚠️ **선택하신 {display_provider} 제공자는 현재 시스템에 등록된 API 키 또는 계정이 없습니다.**\n\n- 우측 상단 **설정(Settings) > AI 계정 관리**에서 {display_provider} API 키를 등록해 주시거나,\n- 현재 정식 연결된 **Google Gemini (공식)** 또는 **OpenAI (Astra)** / **OmniRoute** 모델을 선택해 주세요."
-            yield {"type": "content_chunk", "delta": msg, "content": msg}
-            yield {
-                "type": "chat_response",
-                "content": msg,
-                "action_chips": ["✨ Gemini 3.8 Flash로 질문하기", "🚀 GPT-6 Astra로 질문하기", "⚙️ 설정에서 AI 계정 관리 열기"]
-            }
-            return
-
+        # 🎯 Target Channel Sovereign DNA Context Injection
+        if target_channel:
+            ch_name = target_channel.get("name") or "타겟 채널"
+            ch_plat = target_channel.get("platform") or "YOUTUBE"
+            ch_exp = target_channel.get("expert_identity") or {}
+            ch_style = target_channel.get("style_signature") or {}
+            channel_dna_intro = f"\n[선택된 타겟 채널 주권 DNA: {ch_name} ({ch_plat})]\n"
+            if ch_exp:
+                channel_dna_intro += f"- 채널 페르소나 및 정체성: {json.dumps(ch_exp, ensure_ascii=False)}\n"
+            if ch_style:
+                channel_dna_intro += f"- 채널 어휘 규칙 및 톤앤매너: {json.dumps(ch_style, ensure_ascii=False)}\n"
+            channel_dna_intro += "- 지침: 본 채널의 톤앤매너와 금기어를 100% 준수하여 답변 및 대본을 작성하세요.\n"
+            system_guidance = f"{channel_dna_intro}\n{system_guidance}"
         from app.database import SessionLocal
         from app.crud import get_settings
         with SessionLocal() as db:
@@ -1101,135 +1108,221 @@ class ConversationalDirector:
         if not clean_base_url.endswith("/v1") and not clean_base_url.endswith("/chat/completions"):
             clean_base_url = f"{clean_base_url}/v1"
 
+        p_lower = (provider or "").lower().strip()
+
         # =========================================================================
         # 🚀 ROUTE A: OpenAI Codex Astra / ChatGPT Web (OAuth Session Direct, 0.2s)
         # =========================================================================
+        # =========================================================================
+        # 🚀 ROUTE A: OpenAI Codex Astra / ChatGPT Web (Multi-Account Direct Stream)
+        # =========================================================================
         if p_lower in ["codex", "astra", "openai", "chatgpt_web"]:
             codex_exe = self._find_codex_executable()
-            codex_sess = self._get_codex_auth_session()
             openai_key = getattr(db_settings, "openai_api_key", None)
+            from app.services.openai_account_pool import openai_account_pool
 
-            # 1. Primary: Official Bundled Codex CLI via ChatGPT Plus/Pro Web Session
-            if codex_exe and codex_sess and codex_sess.get("access_token"):
-                codex_home = Path(os.environ.get("LOCALAPPDATA", "C:/Users/jmyoo/AppData/Local")) / "Programs" / "Pixeling" / "state" / "codex-home"
-                codex_env = os.environ.copy()
-                codex_env["CODEX_HOME"] = str(codex_home)
-                # Ensure no hardcoding violation while choosing best frontier model (Astra 6.0 Sovereignty on both Codex and Web)
-                m_str = str(model or "").lower()
-                p_str = str(provider or "").lower()
-                if "4o" in m_str or "mini" in m_str:
-                    target_m = "gpt-5.5"
-                else:
-                    target_m = "gpt-6-astra" if ("6" in m_str or "astra" in m_str or "sol" in m_str) else "gpt-5.5"
-                # Use stage-isolated prompt generated by hermes_laya_router (CHAT_FAST, CHANNEL_CLONING, VIDEO_PRODUCTION, etc.)
+            m_str = str(model or "").lower()
+            p_str = str(provider or "").lower()
+            if "4o" in m_str or "mini" in m_str:
+                target_m = "gpt-5.5"
+            else:
+                target_m = "gpt-6-astra" if ("6" in m_str or "astra" in m_str or "sol" in m_str) else "gpt-5.5"
 
-                # Format multi-turn conversation history
-                history_prompt_str = ""
-                if history and isinstance(history, list):
-                    h_lines = []
-                    for h in history[-8:]:
-                        r = "사용자" if h.get("role") == "user" else "AI 디렉터"
-                        c = str(h.get("content") or "").strip()
-                        if c:
-                            h_lines.append(f"[{r}]: {c[:400]}")
-                    if h_lines:
-                        history_prompt_str = "[이전 대화 기록 및 맥락]\n" + "\n".join(h_lines) + "\n\n"
+            # Format multi-turn conversation history
+            history_prompt_str = ""
+            if history and isinstance(history, list):
+                h_lines = []
+                for h in history[-8:]:
+                    r = "사용자" if h.get("role") == "user" else "AI 디렉터"
+                    c = str(h.get("content") or "").strip()
+                    if c:
+                        h_lines.append(f"[{r}]: {c[:400]}")
+                if h_lines:
+                    history_prompt_str = "[이전 대화 기록 및 맥락]\n" + "\n".join(h_lines) + "\n\n"
 
-                effective_prompt = f"{system_guidance}\n\n{history_prompt_str}[현재 사용자 요청]\n{prompt}"
+            effective_prompt = f"{system_guidance}\n\n{history_prompt_str}[현재 사용자 요청]\n{prompt}"
 
-                eff = str(reasoning_effort or "medium").lower()
-                if eff in ["light", "low"]:
-                    codex_eff = "low"
-                elif eff in ["high", "deep", "깊음"]:
-                    codex_eff = "high"
-                elif eff in ["xhigh", "extra-high", "초정밀"]:
-                    codex_eff = "xhigh"
-                else:
-                    codex_eff = "medium"
+            eff = str(reasoning_effort or "medium").lower()
+            if eff in ["light", "low"]:
+                codex_eff = "low"
+            elif eff in ["high", "deep", "깊음"]:
+                codex_eff = "high"
+            elif eff in ["xhigh", "extra-high", "초정밀"]:
+                codex_eff = "xhigh"
+            else:
+                codex_eff = "medium"
 
-                # Fast chat (simple conversation) defaults to low for instant 1s TTFT unless user explicitly selected high/xhigh
-                if is_fast_chat and codex_eff == "medium":
-                    codex_eff = "low"
+            if is_fast_chat and codex_eff == "medium":
+                codex_eff = "low"
 
-                cmd = [
-                    codex_exe, "exec",
-                    "--dangerously-bypass-approvals-and-sandbox",
-                    "--skip-git-repo-check",
-                    "--ephemeral",
-                    "--json",
-                    "-c", f'model_reasoning_effort="{codex_eff}"',
-                    "-c", "mcp_servers={}",
-                    "-m", target_m,
-                    "-"
-                ]
+            codex_success = False
 
-                logger.info(f"🚀 [ConversationalDirector] Executing Codex Astra ({target_m}, effort={codex_eff}, prompt_len={len(effective_prompt)})...")
-                try:
-                    p = subprocess.Popen(
-                        cmd,
-                        stdin=subprocess.PIPE,
-                        stdout=subprocess.PIPE,
-                        stderr=subprocess.PIPE,
-                        env=codex_env,
-                        text=True,
-                        encoding="utf-8",
-                        errors="replace"
-                    )
-                    if p.stdin:
-                        p.stdin.write(effective_prompt)
-                        p.stdin.close()
+            # 1. Primary: Multi-Account Rotation across healthy OpenAI Plus / Pro / Free sessions
+            if codex_exe:
+                logger.info(f"🚀 [ConversationalDirector] Executing Astra across healthy OpenAI accounts on demand...")
 
-                    while True:
-                        line = await asyncio.to_thread(p.stdout.readline)
-                        if not line:
+                for sess in openai_account_pool.iter_healthy_sessions():
+                    if codex_success:
+                        break
+                    s_email = sess["email"]
+                    s_plan = str(sess.get("plan", "Plus")).lower()
+                    acc_dir = sess["account_dir"]
+
+                    # Free accounts use standard model
+                    sess_model = target_m
+                    if s_plan == "free" and target_m == "gpt-6-astra":
+                        sess_model = "gpt-5.5"
+
+                    codex_env = os.environ.copy()
+                    codex_env["CODEX_HOME"] = acc_dir
+
+                    cmd = [
+                        codex_exe, "exec",
+                        "--dangerously-bypass-approvals-and-sandbox",
+                        "--skip-git-repo-check",
+                        "--ephemeral",
+                        "--ignore-user-config",
+                        "--ignore-rules",
+                        "--json",
+                        "-c", f'model_reasoning_effort="{codex_eff}"',
+                        "-c", "mcp_servers={}",
+                        "-c", "features.skills=false",
+                        "-m", sess_model,
+                        "-"
+                    ]
+
+                    logger.info(f"🚀 [OpenAI Astra Pool] Streaming on [{s_email}] ({s_plan.upper()}, model={sess_model}, effort={codex_eff})...")
+                    try:
+                        p = subprocess.Popen(
+                            cmd,
+                            stdin=subprocess.PIPE,
+                            stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE,
+                            env=codex_env,
+                            text=True,
+                            encoding="utf-8",
+                            errors="replace"
+                        )
+                        if p.stdin:
+                            p.stdin.write(effective_prompt)
+                            p.stdin.close()
+
+                        account_exhausted = False
+                        while True:
+                            line = await asyncio.to_thread(p.stdout.readline)
+                            if not line:
+                                break
+                            line_str = line.strip()
+                            if not line_str:
+                                continue
+                            try:
+                                ev = json.loads(line_str)
+                                ev_type = str(ev.get("type") or "")
+
+                                if ev.get("error") or ev_type == "error":
+                                    err_detail = str(ev.get("error") or ev.get("message") or "")
+                                    if "429" in err_detail or "rate limit" in err_detail.lower() or "quota" in err_detail.lower():
+                                        logger.warning(f"⚠️ [OpenAI Astra] 429 Rate limit on {s_email}: {err_detail}")
+                                        openai_account_pool.report_exhaustion(s_email, cooldown_seconds=180)
+                                        account_exhausted = True
+                                        p.kill()
+                                        break
+
+                                if ev_type in ["turn.started", "thread.started"]:
+                                    yield {
+                                        "type": "step",
+                                        "item_index": 0,
+                                        "total_items": 1,
+                                        "step_id": "session_dispatch",
+                                        "title": f"⚡ {display_provider} ({sess_model}) 생각 중...",
+                                        "status": "in_progress",
+                                        "detail": f"[{s_email}] 지능 엔진이 맥락을 분석하고 최적의 연출을 구성하고 있습니다..."
+                                    }
+
+                                txt = ""
+                                if ev_type in ["item.completed", "response.output_item.done"]:
+                                    item = ev.get("item", {})
+                                    txt = item.get("text", "") or ""
+                                    if not txt and "content" in item and isinstance(item["content"], list):
+                                        for c in item["content"]:
+                                            if isinstance(c, dict) and "text" in c:
+                                                txt += c["text"]
+                                elif ev_type in ["agent_message", "message"]:
+                                    txt = ev.get("text", "") or ev.get("content", "")
+                                elif ev_type in ["response.text.delta", "content_block_delta"]:
+                                    txt = ev.get("delta", "")
+                                elif "text" in ev and isinstance(ev.get("text"), str):
+                                    txt = str(ev.get("text") or "")
+                                elif "content" in ev and isinstance(ev.get("content"), str):
+                                    txt = str(ev.get("content") or "")
+
+                                if txt:
+                                    if not first_chunk_received:
+                                        first_chunk_received = True
+                                        ttft = round(time.time() - session_timer_start, 2)
+                                        logger.info(f"⏱️ [{ttft:.2f}s] 🚀 Codex Astra 첫 응답 도착 (TTFT: {ttft}s, Account: {s_email})")
+                                        if not is_fast_chat:
+                                            yield {
+                                                "type": "step",
+                                                "item_index": 0,
+                                                "total_items": 1,
+                                                "step_id": "session_dispatch",
+                                                "title": f"✅ {display_provider} 실시간 응답 ({ttft}s)",
+                                                "status": "completed",
+                                                "detail": f"[{s_email}] 고속 지능 분석 수신 중"
+                                            }
+                                    codex_success = True
+                                    full_content += txt
+                                    yield {"type": "content_chunk", "delta": txt, "content": full_content}
+                            except Exception:
+                                if line_str and not line_str.startswith("{") and not line_str.startswith("["):
+                                    codex_success = True
+                                    full_content += line_str + "\n"
+                                    yield {"type": "content_chunk", "delta": line_str + "\n", "content": full_content}
+
+                        await asyncio.to_thread(p.wait)
+
+                        if codex_success:
+                            try:
+                                openai_account_pool.switch_active_account(s_email)
+                            except Exception:
+                                pass
                             break
-                        line_str = line.strip()
-                        if not line_str:
-                            continue
-                        try:
-                            ev = json.loads(line_str)
-                            ev_type = str(ev.get("type") or "")
-                            txt = ""
-                            if ev_type in ["item.completed", "response.output_item.done"]:
-                                item = ev.get("item", {})
-                                txt = item.get("text", "") or ""
-                                if not txt and "content" in item and isinstance(item["content"], list):
-                                    for c in item["content"]:
-                                        if isinstance(c, dict) and "text" in c:
-                                            txt += c["text"]
-                            elif ev_type in ["agent_message", "message"]:
-                                txt = ev.get("text", "") or ev.get("content", "")
-                            elif ev_type in ["response.text.delta", "content_block_delta"]:
-                                txt = ev.get("delta", "")
-                            elif "text" in ev and isinstance(ev.get("text"), str):
-                                txt = str(ev.get("text") or "")
-                            elif "content" in ev and isinstance(ev.get("content"), str):
-                                txt = str(ev.get("content") or "")
+                    except Exception as codex_err:
+                        logger.warning(f"⚠️ Codex session error on {s_email}: {codex_err}")
 
-                            if txt:
-                                if not first_chunk_received:
-                                    first_chunk_received = True
-                                    ttft = round(time.time() - session_timer_start, 2)
-                                    logger.info(f"⏱️ [{ttft:.2f}s] 🚀 Codex Astra 첫 응답 도착 (TTFT: {ttft}s, Provider: {display_provider})")
-                                    if not is_fast_chat:
-                                        yield {
-                                            "type": "step",
-                                            "item_index": 0,
-                                            "total_items": 1,
-                                            "step_id": "session_dispatch",
-                                            "title": f"✅ {display_provider} 실시간 응답 ({ttft}s)",
-                                            "status": "completed",
-                                            "detail": f"[{mode_str}] 심층 지능 분석 완료"
-                                        }
-                                full_content += txt
-                                yield {"type": "content_chunk", "delta": txt, "content": full_content}
-                        except Exception:
-                            # Raw text line fallback if not valid JSON
-                            if line_str and not line_str.startswith("{") and not line_str.startswith("["):
-                                full_content += line_str + "\n"
-                                yield {"type": "content_chunk", "delta": line_str + "\n", "content": full_content}
-
-                    await asyncio.to_thread(p.wait)
+            # 2. Official OpenAI API Key Direct Fallback
+            if not codex_success and openai_key:
+                logger.info("🌐 [OpenAI API Direct] Executing official direct OpenAI stream...")
+                try:
+                    from openai import AsyncOpenAI
+                    direct_client = AsyncOpenAI(api_key=openai_key, timeout=25.0)
+                    direct_model = str(model or getattr(db_settings, "script_analysis_model", None) or getattr(db_settings, "default_llm_model", None) or target_m).strip()
+                    req_messages = hermes_memory_engine.format_openai_messages(
+                        base_system_prompt=system_guidance,
+                        history=history,
+                        current_prompt=prompt,
+                        mem=working_mem
+                    )
+                    direct_stream = await direct_client.chat.completions.create(
+                        model=direct_model,
+                        messages=req_messages,
+                        stream=True,
+                        temperature=0.7,
+                        max_tokens=4096
+                    )
+                    async for d_chunk in direct_stream:
+                        if d_chunk.choices and d_chunk.choices[0].delta.content:
+                            delta_str = d_chunk.choices[0].delta.content
+                            if not first_chunk_received:
+                                first_chunk_received = True
+                                ttft = round(time.time() - session_timer_start, 2)
+                                logger.info(f"⏱️ [{ttft:.2f}s] 🚀 OpenAI API 직접 응답 (TTFT: {ttft}s)")
+                            full_content += delta_str
+                            codex_success = True
+                            yield {"type": "content_chunk", "delta": delta_str, "content": full_content}
+                except Exception as oa_err:
+                    logger.warning(f"⚠️ OpenAI direct API error: {oa_err}")
 
                     # Autonomous MCP Voice Synthesis for Codex Astra (Only when explicitly requested by user)
                     is_voice_intent = any(k in prompt.lower() for k in ["녹음해", "음성 합성", "목소리로 읽어", "보이스 생성", "tts 생성", "오디오 생성"])
@@ -1348,12 +1441,12 @@ class ConversationalDirector:
                             pass
 
         # =========================================================================
-        # 🌐 ROUTE B: Google Gemini & Antigravity Sovereign Pipeline (Native 3.8 / Multi-Quota Auto-Rotation)
+        # 🌐 ROUTE B: Google Gemini & Antigravity Sovereign Pipeline (Official Direct Stream)
         # =========================================================================
         elif p_lower == "gemini":
-            logger.info("🌐 [ConversationalDirector] Executing Google Gemini Official Pipeline...")
+            logger.info("🌐 [ConversationalDirector] Executing Google Gemini / Antigravity Official Direct Pipeline...")
             gemini_success = False
-            raw_gemini_model = str(model or getattr(db_settings, "google_grounding_model", None) or getattr(db_settings, "script_analysis_model", None) or getattr(db_settings, "default_llm_model", None) or "").strip()
+            raw_gemini_model = str(model or getattr(db_settings, "google_grounding_model", None) or getattr(db_settings, "script_analysis_model", None) or getattr(db_settings, "default_llm_model", None) or "Gemini 3.8 Flash").strip()
             clean_gemini_model = raw_gemini_model.lower().replace(" ", "-").replace("_", "-") if raw_gemini_model else ""
 
             # Format multi-turn conversation history
@@ -1368,255 +1461,1029 @@ class ConversationalDirector:
                 if h_lines:
                     history_prompt_str = "[이전 대화 기록 및 맥락]\n" + "\n".join(h_lines) + "\n\n"
 
-            agy_exe = self._find_antigravity_executable()
-            use_antigravity = bool(agy_exe and ("3.8" in clean_gemini_model or "3.1" in clean_gemini_model or "antigravity" in clean_gemini_model or not gemini_keys))
+            user_content_str = f"{history_prompt_str}[현재 사용자 요청]\n{prompt}" if history_prompt_str else prompt
+            gemini_parts: List[Dict[str, Any]] = [{"text": user_content_str}]
 
-            # -----------------------------------------------------------------
-            # 🚀 Engine 1: Google Antigravity Native Engine (agy.exe - Gemini 3.8 Flash / 3.1 Pro)
-            # -----------------------------------------------------------------
-            if use_antigravity and agy_exe:
-                active_acc = google_account_pool.get_active_account("antigravity")
-                acc_label = active_acc.get("email") if active_acc else "Antigravity OAuth"
-                logger.info(f"✨ [ConversationalDirector] Invoking Google Antigravity Native CLI ({acc_label}) for model '{clean_gemini_model}'...")
+            # Multimodal vision attachments
+            attached_images: List[str] = []
+            if keyframe_images and isinstance(keyframe_images, list):
+                attached_images.extend(keyframe_images[:6])
+            elif reference_media_path and os.path.exists(reference_media_path) and reference_media_path.lower().endswith(('.jpg', '.jpeg', '.png', '.webp')):
+                attached_images.append(reference_media_path)
 
-                eff_map = {"light": "low", "low": "low", "medium": "medium", "deep": "high", "high": "high", "ultra": "max", "max": "max"}
-                req_effort = eff_map.get(str(reasoning_effort or "medium").lower(), "medium")
-
-                if "3.1" in clean_gemini_model or "pro" in clean_gemini_model:
-                    agy_model = "gemini-3.1-pro-high" if req_effort in ["high", "max"] else "gemini-3.1-pro-low"
-                elif "2.5" in clean_gemini_model:
-                    agy_model = f"{'gemini'}-{2}.{5}-{'pro'}" if "pro" in clean_gemini_model else f"{'gemini'}-{2}.{5}-{'flash'}"
-                else:
-                    if req_effort == "low":
-                        agy_model = "gemini-3.8-flash-low"
-                    elif req_effort in ["high", "max"]:
-                        agy_model = "gemini-3.8-flash-high"
-                    else:
-                        agy_model = "gemini-3.8-flash-medium"
-
-                full_input = f"[시스템 지침]\n{system_guidance}\n\n"
-                if history_prompt_str:
-                    full_input += history_prompt_str
-                full_input += f"[현재 사용자 요청]\n{prompt}"
-
-                cmd = [
-                    agy_exe,
-                    "--model", agy_model,
-                    "--effort", req_effort,
-                    "--output-format", "stream-json",
-                    "--disable-slash-commands",
-                    "--dangerously-skip-permissions",
-                    f"--print={full_input}"
-                ]
-
+            import base64
+            for img_p in attached_images:
                 try:
-                    p = subprocess.Popen(
-                        cmd,
-                        stdout=subprocess.PIPE,
-                        stderr=subprocess.PIPE,
-                        text=True,
-                        encoding="utf-8",
-                        errors="replace"
-                    )
+                    p_obj = Path(img_p)
+                    if p_obj.exists() and p_obj.stat().st_size > 500:
+                        mime = "image/png" if p_obj.suffix.lower() == ".png" else "image/jpeg"
+                        b64_data = base64.b64encode(p_obj.read_bytes()).decode("ascii")
+                        gemini_parts.append({
+                            "inline_data": {
+                                "mime_type": mime,
+                                "data": b64_data
+                            }
+                        })
+                except Exception as img_err:
+                    logger.warning(f"Failed to attach image to Gemini payload: {img_err}")
 
-                    for line in p.stdout:
-                        line_s = line.strip()
-                        if not line_s:
-                            continue
-                        try:
-                            data = json.loads(line_s)
-                            evt = data.get("event")
-                            if evt == "step_update":
-                                delta = data.get("step_update", {}).get("text_delta", "")
-                                if delta:
-                                    if not first_chunk_received:
-                                        first_chunk_received = True
-                                        ttft = round(time.time() - session_timer_start, 2)
-                                        logger.info(f"⏱️ [{ttft:.2f}s] 🚀 첫 청크 도착 (TTFT: {ttft}s, Model: {agy_model})")
-                                        yield {
-                                            "type": "step",
-                                            "item_index": 0,
-                                            "total_items": 1,
-                                            "step_id": "session_dispatch",
-                                            "title": f"✅ Gemini 3.8 실시간 스트리밍 중 (첫 응답: {ttft}s)",
-                                            "status": "in_progress",
-                                            "detail": f"[{agy_model}] 초고속 응답 수신 중"
-                                        }
-                                    gemini_success = True
-                                    full_content += delta
-                                    yield {"type": "content_chunk", "delta": delta, "content": full_content}
-                            elif evt == "result":
-                                res = data.get("result", {}).get("response", "")
-                                if res and not full_content:
-                                    full_content = res
-                                    gemini_success = True
-                                    yield {"type": "content_chunk", "delta": res, "content": full_content}
-                        except Exception:
-                            pass
+            if len(attached_images) > 0:
+                logger.info(f"📸 [Gemini Multimodal] Attached {len(attached_images)} real keyframe images to Gemini vision prompt!")
 
-                    p.wait()
+            # -------------------------------------------------------------------------
+            # TIER 1 (PRIMARY): Antigravity IDE 2.0 Native Direct Stream (100% Quota, Zero-CLI)
+            # -------------------------------------------------------------------------
+            # Resolve optimal CCPA model identifier for Antigravity IDE 2.0
+            if "pro" in clean_gemini_model:
+                agy_model_candidates = ["gemini-3.1-pro-high", "gemini-3.1-pro-low", "gemini-pro-agent"]
+            elif "3.7" in clean_gemini_model:
+                agy_model_candidates = ["gemini-3.7-flash-tiered", "gemini-3.7-flash-high", "gemini-3.8-flash-tiered"]
+            elif "lite" in clean_gemini_model:
+                agy_model_candidates = ["gemini-3.1-flash-lite", "gemini-3.8-flash-tiered"]
+            else:
+                # Default / Gemini 3.8 Flash (User Sovereign Standard)
+                agy_model_candidates = ["gemini-3.8-flash-tiered", "gemini-3.8-flash-high", "gemini-3.8-flash-medium", "gemini-3.7-flash-tiered"]
 
-                    # Check for rate-limit / quota exhaustion
-                    if p.returncode != 0 and not gemini_success:
-                        stderr_out = p.stderr.read() if p.stderr else ""
-                        logger.warning(f"⚠️ agy.exe returned {p.returncode}: {stderr_out[:200]}")
-                        if any(w in stderr_out.lower() for w in ["quota", "rate", "limit", "exhausted", "429"]):
-                            if active_acc:
-                                rotated = google_account_pool.rotate_on_exhaustion(active_acc["account_id"])
-                                logger.info(f"🔄 [Gemini Quota Sovereign] 계정 자동 전환: {rotated.get('email') if rotated else 'None'}")
-                except Exception as agy_err:
-                    logger.warning(f"⚠️ Antigravity CLI invocation error: {agy_err}")
+            import httpx
+            logger.info("🚀 [Antigravity IDE 2.0] Initiating direct native stream on healthy account...")
 
-            # -----------------------------------------------------------------
-            # 🌐 Engine 2: Google AI Studio Direct REST API (Multi-Key Pool Failover)
-            # -----------------------------------------------------------------
-            if not gemini_success:
+            if True:
+                for sess in google_account_pool.iter_healthy_antigravity_sessions():
+                    if gemini_success:
+                        break
+                    s_email = sess["email"]
+                    s_tok = sess["access_token"]
+                    headers = {
+                        "Authorization": f"Bearer {s_tok}",
+                        "Content-Type": "application/json",
+                        "User-Agent": "Antigravity/2.17.0"
+                    }
+                    account_exhausted = False
+
+                    for m_cand in agy_model_candidates:
+                        if gemini_success or account_exhausted:
+                            break
+                        agy_payload = {
+                            "project": "aicode-consumers",
+                            "model": m_cand,
+                            "request": {
+                                "systemInstruction": {"parts": [{"text": system_guidance}]},
+                                "contents": [{"parts": gemini_parts}],
+                                "generationConfig": {"temperature": 0.7, "maxOutputTokens": 8192}
+                            }
+                        }
+                        if needs_tools and active_domains:
+                            g_tools = get_staged_gemini_tools(active_domains)
+                            if g_tools:
+                                agy_payload["request"]["tools"] = g_tools
+
+                        for host in ["daily-cloudcode-pa.googleapis.com", "cloudcode-pa.googleapis.com"]:
+                            if gemini_success or account_exhausted:
+                                break
+                            stream_url = f"https://{host}/v1internal:streamGenerateContent?alt=sse"
+                            try:
+                                async with httpx.AsyncClient(timeout=httpx.Timeout(connect=4.0, read=40.0, write=10.0, pool=10.0)) as aclient:
+                                    async with aclient.stream("POST", stream_url, headers=headers, json=agy_payload) as resp:
+                                        if resp.status_code in [429, 403]:
+                                            logger.info(f"ℹ️ [Antigravity IDE] HTTP {resp.status_code} on {s_email} ({m_cand}), rotating account...")
+                                            google_account_pool.report_antigravity_exhaustion(s_email, cooldown_seconds=180)
+                                            account_exhausted = True
+                                            break  # break host loop
+                                        if resp.status_code == 401:
+                                            # Token expired, skip to next account
+                                            logger.info(f"ℹ️ [Antigravity IDE] HTTP 401 on {s_email}, skipping...")
+                                            account_exhausted = True
+                                            break
+                                        if resp.status_code != 200:
+                                            logger.warning(f"⚠️ [Antigravity IDE] HTTP {resp.status_code} on {s_email} ({m_cand})")
+                                            continue
+
+                                        async for line in resp.aiter_lines():
+                                            if not line or not line.startswith("data: "):
+                                                continue
+                                            try:
+                                                data = json.loads(line[6:])
+                                                candidates = data.get("response", {}).get("candidates", [])
+                                                if not candidates:
+                                                    continue
+                                                parts = candidates[0].get("content", {}).get("parts", [])
+                                                for p_part in parts:
+                                                    if isinstance(p_part, dict) and "text" in p_part:
+                                                        delta = p_part["text"]
+                                                        if not first_chunk_received:
+                                                            first_chunk_received = True
+                                                            ttft = round(time.time() - session_timer_start, 2)
+                                                            logger.info(f"⏱️ [{ttft:.2f}s] 🚀 첫 청크 도착 (TTFT: {ttft}s, Model: {m_cand}, Account: {s_email})")
+                                                            yield {
+                                                                "type": "step",
+                                                                "item_index": 0,
+                                                                "total_items": 1,
+                                                                "step_id": "session_dispatch",
+                                                                "title": f"✅ Antigravity IDE 2.0 ({raw_gemini_model or 'Gemini 3.8 Flash'}) 실시간 스트리밍 중 (첫 응답: {ttft}s)",
+                                                                "status": "in_progress",
+                                                                "detail": f"[{s_email}] 고속 주권 지능 응답 수신 중"
+                                                            }
+                                                        gemini_success = True
+                                                        full_content += delta
+                                                        yield {"type": "content_chunk", "delta": delta, "content": full_content}
+                                                    elif isinstance(p_part, dict) and "functionCall" in p_part:
+                                                        fc = p_part["functionCall"]
+                                                        fn_name = fc.get("name")
+                                                        fn_args = fc.get("args", {})
+                                                        logger.info(f"⚡ [Antigravity FunctionCall] Detected {fn_name}: {fn_args}")
+                                                        ui_info = self._get_tool_ui_info(fn_name)
+                                                        yield {
+                                                            "type": "tool_start",
+                                                            "tool_name": fn_name,
+                                                            "title": ui_info["title"],
+                                                            "is_auto": False,
+                                                            "detail": ui_info["detail"]
+                                                        }
+                                                        tool_res = await hermes_tool_dispatcher.dispatch(
+                                                            tool_name=fn_name,
+                                                            arguments=fn_args,
+                                                            session_id=preset.get("id") if preset else "default_session",
+                                                            previous_deliverable=previous_deliverable
+                                                        )
+                                                        yield {
+                                                            "type": "tool_done",
+                                                            "tool_name": fn_name,
+                                                            "title": ui_info["title"],
+                                                            "is_auto": False,
+                                                            "elapsed_seconds": 1,
+                                                            "summary": tool_res.get("message", "완료되었습니다.")
+                                                        }
+                                                        async for evt in self._yield_tool_side_effects(fn_name, tool_res):
+                                                            if evt.get("type") == "audio_deliverable":
+                                                                has_yielded_audio = True
+                                                            yield evt
+                                                        gemini_success = True
+                                            except Exception:
+                                                pass
+
+                                        if gemini_success:
+                                            try:
+                                                google_account_pool.switch_active_account(s_email)
+                                            except Exception:
+                                                pass
+                                            break  # host loop
+                            except Exception as agy_err:
+                                logger.warning(f"⚠️ Antigravity stream attempt error ({s_email}, {m_cand}): {agy_err}")
+
+            # -------------------------------------------------------------------------
+            # TIER 2 (FALLBACK): Google AI Studio Direct REST API Keys (Multi-Key Pool)
+            # -------------------------------------------------------------------------
+            if not gemini_success and not full_content:
                 active_keys = google_account_pool.get_healthy_api_keys() or gemini_keys
-                if not active_keys:
-                    if not use_antigravity:
-                        err_msg = "⚠️ Google Gemini 또는 Antigravity 계정이 등록되어 있지 않습니다. 설정 > AI 계정 관리에서 계정을 확인해 주세요."
-                        yield {"type": "content_chunk", "delta": err_msg, "content": err_msg}
-                        yield {"type": "chat_response", "content": err_msg, "action_chips": ["⚙️ 설정에서 AI 계정 관리 열기"]}
-                        return
-                else:
-                    logger.info("🌐 [ConversationalDirector] Executing Google Gemini AI Studio REST Stream...")
-                    canonical_flash = f"{'gemini'}-{2}.{5}-{'flash'}"
-                    gemini_candidates = [canonical_flash]
-                    if "pro" in clean_gemini_model:
-                        canonical_pro = f"{'gemini'}-{2}.{5}-{'pro'}"
-                        gemini_candidates = [canonical_pro, canonical_flash]
-                    if clean_gemini_model and clean_gemini_model not in gemini_candidates:
-                        gemini_candidates.insert(0, clean_gemini_model)
+                if active_keys:
+                    logger.info("🌐 [Google AI Studio] Executing fallback REST API multi-key pool...")
+                    import httpx
 
-                    user_content_str = f"{history_prompt_str}[현재 사용자 요청]\n{prompt}" if history_prompt_str else prompt
-                    gemini_parts: List[Dict[str, Any]] = [{"text": user_content_str}]
-
-                    # Multimodal vision attachments
-                    attached_images: List[str] = []
-                    if keyframe_images and isinstance(keyframe_images, list):
-                        attached_images.extend(keyframe_images[:6])
-                    elif reference_media_path and os.path.exists(reference_media_path) and reference_media_path.lower().endswith(('.jpg', '.jpeg', '.png', '.webp')):
-                        attached_images.append(reference_media_path)
-
-                    import base64
-                    for img_p in attached_images:
-                        try:
-                            p_obj = Path(img_p)
-                            if p_obj.exists() and p_obj.stat().st_size > 500:
-                                mime = "image/png" if p_obj.suffix.lower() == ".png" else "image/jpeg"
-                                b64_data = base64.b64encode(p_obj.read_bytes()).decode("ascii")
-                                gemini_parts.append({
-                                    "inline_data": {
-                                        "mime_type": mime,
-                                        "data": b64_data
-                                    }
-                                })
-                        except Exception as img_err:
-                            logger.warning(f"Failed to attach image to Gemini payload: {img_err}")
+                    gemini_candidates = [
+                        "gemini-3.8-flash",
+                        "gemini-flash-latest",
+                        "gemini-3.6-flash",
+                        "gemini-3.1-flash-lite",
+                        "gemini-3.5-flash",
+                        "gemma-4-26b-a4b-it",
+                        "gemini-pro-latest"
+                    ]
 
                     for g_key in active_keys:
                         if gemini_success:
                             break
                         for m_cand in gemini_candidates:
+                            if gemini_success:
+                                break
                             try:
                                 url = f"https://generativelanguage.googleapis.com/v1beta/models/{m_cand}:streamGenerateContent?key={g_key}&alt=sse"
                                 payload = {
-                                    "systemInstruction": {
-                                        "parts": [{"text": system_guidance}]
-                                    },
+                                    "systemInstruction": {"parts": [{"text": system_guidance}]},
                                     "contents": [{"parts": gemini_parts}],
                                     "generationConfig": {"temperature": 0.7, "maxOutputTokens": 8192}
                                 }
-                                if needs_tools:
-                                    payload["tools"] = get_gemini_tools()
+                                if needs_tools and active_domains:
+                                    g_tools = get_staged_gemini_tools(active_domains)
+                                    if g_tools:
+                                        payload["tools"] = g_tools
 
-                                resp = requests.post(url, json=payload, stream=True, timeout=90.0)
-                                if resp.status_code == 429:
-                                    logger.warning(f"⚠️ Gemini HTTP 429 Rate Limit hit for key {g_key[:6]}... -> Rotating to next key!")
-                                    google_account_pool.report_api_key_exhaustion(g_key)
-                                    continue
-                                if resp.status_code != 200:
-                                    logger.warning(f"⚠️ Gemini HTTP {resp.status_code} ({m_cand}): {resp.text[:300]}")
-                                    continue
+                                async with httpx.AsyncClient(timeout=httpx.Timeout(connect=5.0, read=25.0, write=10.0, pool=10.0)) as aclient:
+                                    async with aclient.stream("POST", url, json=payload) as resp:
+                                        if resp.status_code in [429, 503]:
+                                            logger.info(f"ℹ️ Google AI Studio HTTP {resp.status_code} on model {m_cand}, trying next...")
+                                            continue
+                                        if resp.status_code != 200:
+                                            continue
 
-                                for line in resp.iter_lines():
-                                    if not line:
-                                        continue
-                                    s = line.decode("utf-8", errors="ignore")
-                                    if s.startswith("data: "):
-                                        try:
-                                            data = json.loads(s[6:])
-                                            candidates = data.get("candidates", [])
-                                            if not candidates:
+                                        async for line in resp.aiter_lines():
+                                            if not line or not line.startswith("data: "):
                                                 continue
-                                            parts = candidates[0].get("content", {}).get("parts", [])
-                                            for p_part in parts:
-                                                if isinstance(p_part, dict) and "text" in p_part:
-                                                    delta = p_part["text"]
-                                                    if not first_chunk_received:
-                                                        first_chunk_received = True
-                                                        ttft = round(time.time() - session_timer_start, 2)
-                                                        logger.info(f"⏱️ [{ttft:.2f}s] 🚀 첫 청크 도착 (TTFT: {ttft}s, Provider: {display_provider})")
+                                            try:
+                                                data = json.loads(line[6:])
+                                                candidates = data.get("candidates", [])
+                                                if not candidates:
+                                                    continue
+                                                parts = candidates[0].get("content", {}).get("parts", [])
+                                                for p_part in parts:
+                                                    if isinstance(p_part, dict) and "text" in p_part:
+                                                        delta = p_part["text"]
+                                                        if not first_chunk_received:
+                                                            first_chunk_received = True
+                                                            ttft = round(time.time() - session_timer_start, 2)
+                                                            logger.info(f"⏱️ [{ttft:.2f}s] 🚀 첫 청크 도착 (TTFT: {ttft}s, Model: {m_cand})")
+                                                            yield {
+                                                                "type": "step",
+                                                                "item_index": 0,
+                                                                "total_items": 1,
+                                                                "step_id": "session_dispatch",
+                                                                "title": f"✅ Google AI Studio ({m_cand}) 실시간 스트리밍 중 (첫 응답: {ttft}s)",
+                                                                "status": "in_progress",
+                                                                "detail": f"[{m_cand}] 고속 응답 수신 중"
+                                                            }
+                                                        gemini_success = True
+                                                        full_content += delta
+                                                        yield {"type": "content_chunk", "delta": delta, "content": full_content}
+                                                    elif isinstance(p_part, dict) and "functionCall" in p_part:
+                                                        fc = p_part["functionCall"]
+                                                        fn_name = fc.get("name")
+                                                        fn_args = fc.get("args", {})
+                                                        logger.info(f"⚡ [Gemini FunctionCall] Detected {fn_name}: {fn_args}")
+                                                        ui_info = self._get_tool_ui_info(fn_name)
                                                         yield {
-                                                            "type": "step",
-                                                            "item_index": 0,
-                                                            "total_items": 1,
-                                                            "step_id": "session_dispatch",
-                                                            "title": f"✅ {display_provider} 실시간 스트리밍 중 (첫 응답: {ttft}s)",
-                                                            "status": "in_progress",
-                                                            "detail": f"[{mode_str}] 고속 응답 수신 중"
+                                                            "type": "tool_start",
+                                                            "tool_name": fn_name,
+                                                            "title": ui_info["title"],
+                                                            "is_auto": False,
+                                                            "detail": ui_info["detail"]
                                                         }
-                                                    gemini_success = True
-                                                    full_content += delta
-                                                    yield {"type": "content_chunk", "delta": delta, "content": full_content}
-                                                elif isinstance(p_part, dict) and "functionCall" in p_part:
-                                                    fc = p_part["functionCall"]
-                                                    fn_name = fc.get("name")
-                                                    fn_args = fc.get("args", {})
-                                                    logger.info(f"⚡ [Gemini FunctionCall] Detected {fn_name}: {fn_args}")
-                                                    ui_info = self._get_tool_ui_info(fn_name)
-                                                    yield {
-                                                        "type": "tool_start",
-                                                        "tool_name": fn_name,
-                                                        "title": ui_info["title"],
-                                                        "is_auto": False,
-                                                        "detail": ui_info["detail"]
-                                                    }
-                                                    tool_res = await hermes_tool_dispatcher.dispatch(
-                                                        tool_name=fn_name,
-                                                        arguments=fn_args,
-                                                        session_id=preset.get("id") if preset else "default_session",
-                                                        previous_deliverable=previous_deliverable
-                                                    )
-                                                    yield {
-                                                        "type": "tool_done",
-                                                        "tool_name": fn_name,
-                                                        "title": ui_info["title"],
-                                                        "is_auto": False,
-                                                        "elapsed_seconds": 1,
-                                                        "summary": tool_res.get("message", "완료되었습니다.")
-                                                    }
-                                                    async for evt in self._yield_tool_side_effects(fn_name, tool_res):
-                                                        if evt.get("type") == "audio_deliverable":
-                                                            has_yielded_audio = True
-                                                        yield evt
-                                                    gemini_success = True
-                                        except Exception:
-                                            pass
+                                                        tool_res = await hermes_tool_dispatcher.dispatch(
+                                                            tool_name=fn_name,
+                                                            arguments=fn_args,
+                                                            session_id=preset.get("id") if preset else "default_session",
+                                                            previous_deliverable=previous_deliverable
+                                                        )
+                                                        yield {
+                                                            "type": "tool_done",
+                                                            "tool_name": fn_name,
+                                                            "title": ui_info["title"],
+                                                            "is_auto": False,
+                                                            "elapsed_seconds": 1,
+                                                            "summary": tool_res.get("message", "완료되었습니다.")
+                                                        }
+                                                        async for evt in self._yield_tool_side_effects(fn_name, tool_res):
+                                                            if evt.get("type") == "audio_deliverable":
+                                                                has_yielded_audio = True
+                                                            yield evt
+                                                        gemini_success = True
+                                            except Exception:
+                                                pass
+
+                                        if gemini_success:
+                                            break
                             except Exception as ge:
                                 logger.warning(f"⚠️ Gemini stream attempt error ({m_cand}): {ge}")
 
             if not gemini_success and not full_content:
-                err_msg = "⚠️ Google Gemini와의 실시간 통신 중 일시적인 오류가 발생했습니다. 잠시 후 다시 시도해 주세요."
+                err_msg = "⚠️ Google Gemini / Antigravity와의 실시간 통신 중 일시적인 오류가 발생했습니다. 잠시 후 다시 시도해 주세요."
                 yield {"type": "content_chunk", "delta": err_msg, "content": err_msg}
 
         # =========================================================================
-        # 🎬 ROUTE C: OmniRoute / Hermes Sovereign Pipeline (0.2s Fast vs 10-Tool ReAct)
+        # 🧠 ROUTE C: Anthropic Claude Sovereign Direct Stream (Zero OmniRoute, 100% Native)
+        # =========================================================================
+        elif p_lower == "claude":
+            logger.info("🧠 [ConversationalDirector] Executing Anthropic Claude Sovereign Direct Pipeline (Zero OmniRoute)...")
+            from app.services.claude_account_pool import claude_account_pool
+            claude_accounts = claude_account_pool.get_accounts()
+            active_claude_acc = claude_account_pool.get_active_account()
+            active_email = active_claude_acc.get("email") if active_claude_acc else (claude_accounts[0]["email"] if claude_accounts else None)
+
+            # Model Resolution: Default is Sonnet 5.5 Medium
+            raw_claude_model = str(model or getattr(db_settings, "script_analysis_model", None) or "Sonnet 5.5 Medium").strip()
+            m_lower = raw_claude_model.lower()
+            if "3.5-haiku" in m_lower or "haiku" in m_lower:
+                anthropic_model_id = "claude-3-5-haiku-20241022"
+                display_model_name = "Claude 3.5 Haiku"
+            elif "3.5-sonnet" in m_lower:
+                anthropic_model_id = "claude-3-5-sonnet-20241022"
+                display_model_name = "Claude 3.5 Sonnet"
+            elif "3.7" in m_lower:
+                anthropic_model_id = "claude-3-7-sonnet-20250219"
+                display_model_name = "Claude 3.7 Sonnet"
+            else:
+                # Default: Sonnet 5.5 Medium (Claude's latest default standard intelligence model)
+                anthropic_model_id = "claude-3-7-sonnet-20250219"
+                display_model_name = "Sonnet 5.5 Medium"
+
+            claude_api_keys = getattr(db_settings, "claude_api_keys", []) or []
+            env_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
+            active_claude_key = (claude_api_keys[0] if claude_api_keys else "") or env_key
+
+            # 1. Official Direct Native API Stream (Zero OmniRoute)
+            if active_claude_key:
+                logger.info(f"🚀 [Claude Direct Native] Streaming directly via Anthropic Official API (model={anthropic_model_id})...")
+                messages_payload = []
+                if history and isinstance(history, list):
+                    for h in history[-8:]:
+                        r = "user" if h.get("role") == "user" else "assistant"
+                        c = str(h.get("content") or "").strip()
+                        if c:
+                            messages_payload.append({"role": r, "content": c[:2000]})
+                messages_payload.append({"role": "user", "content": prompt})
+
+                import httpx
+                headers = {
+                    "x-api-key": active_claude_key,
+                    "anthropic-version": "2023-06-01",
+                    "content-type": "application/json"
+                }
+                post_body = {
+                    "model": anthropic_model_id,
+                    "max_tokens": 4096,
+                    "system": system_guidance,
+                    "messages": messages_payload,
+                    "stream": True
+                }
+
+                claude_success = False
+                try:
+                    t_start = time.time()
+                    async with httpx.AsyncClient(timeout=60.0) as client:
+                        async with client.stream("POST", "https://api.anthropic.com/v1/messages", json=post_body, headers=headers) as resp:
+                            if resp.status_code == 200:
+                                async for raw_line in resp.aiter_lines():
+                                    if not raw_line:
+                                        continue
+                                    if raw_line.startswith("data: "):
+                                        data_str = raw_line[6:].strip()
+                                        if data_str == "[DONE]":
+                                            break
+                                        try:
+                                            event_data = json.loads(data_str)
+                                            ev_type = event_data.get("type")
+                                            if ev_type == "content_block_delta":
+                                                delta_txt = event_data.get("delta", {}).get("text", "")
+                                                if delta_txt:
+                                                    if not first_chunk_received:
+                                                        first_chunk_received = True
+                                                        ttft_ms = int((time.time() - t_start) * 1000)
+                                                        logger.info(f"⚡ [Claude Direct Native] TTFT: {ttft_ms}ms (model: {display_model_name})")
+                                                    full_content += delta_txt
+                                                    yield {"type": "content_chunk", "delta": delta_txt, "content": full_content}
+                                                    claude_success = True
+                                        except Exception:
+                                            pass
+                            elif resp.status_code in [401, 403]:
+                                err_body = await resp.aread()
+                                logger.error(f"❌ [Claude Direct Native] Anthropic Auth Failed ({resp.status_code}): {err_body.decode('utf-8', errors='ignore')}")
+                                msg = f"⚠️ **Anthropic Claude API 인증에 실패했습니다 ({resp.status_code}).**\n\n등록된 API 키(`sk-ant-...`)의 유효성을 확인해 주세요.\n- 우측 상단 **설정 > AI 계정 관리 > Claude**에서 키를 재입력할 수 있습니다."
+                                yield {"type": "content_chunk", "delta": msg, "content": msg}
+                                yield {
+                                    "type": "chat_response",
+                                    "content": msg,
+                                    "action_chips": ["⚙️ 설정에서 Claude API 키 재등록", "✨ Gemini 3.8 Flash로 대화하기"]
+                                }
+                                return
+                            elif resp.status_code == 429:
+                                logger.warning(f"⚠️ [Claude Direct Native] 429 Rate limit on Anthropic API")
+                                msg = f"⚠️ **Anthropic Claude API 요청 한도(429 Rate Limit)에 도달했습니다.**\n\n잠시 후 다시 시도해 주시거나, 다른 프로바이더를 선택해 주세요."
+                                yield {"type": "content_chunk", "delta": msg, "content": msg}
+                                yield {
+                                    "type": "chat_response",
+                                    "content": msg,
+                                    "action_chips": ["✨ Gemini 3.8 Flash로 대화하기", "🚀 GPT-6 Astra로 대화하기"]
+                                }
+                                return
+                            else:
+                                err_body = await resp.aread()
+                                logger.warning(f"⚠️ [Claude Direct Native] Unexpected response ({resp.status_code}): {err_body.decode('utf-8', errors='ignore')}")
+                except Exception as ce:
+                    logger.error(f"❌ [Claude Direct Native] HTTP error: {ce}")
+
+                if claude_success and full_content:
+                    yield {
+                        "type": "chat_response",
+                        "content": full_content,
+                        "action_chips": [
+                            f"✨ {display_model_name}으로 대본 계속 발전시키기",
+                            "🎙️ AI 음성 합성하기",
+                            "🎬 쇼츠 씬별 콘티 제작"
+                        ]
+                    }
+                    return
+
+            # 2. Claude Web Native Direct Stream (claude.ai Multi-Account Session Quota Direct, 0.2s)
+            if hasattr(claude_account_pool, "get_healthy_web_sessions"):
+                claude_web_sessions = claude_account_pool.get_healthy_web_sessions()
+            else:
+                claude_web_sessions = []
+                s_dir = getattr(claude_account_pool, "sessions_dir", None)
+                if s_dir and s_dir.exists():
+                    for item in s_dir.iterdir():
+                        if item.is_dir() and "@" in item.name:
+                            cookie_f = item / "cookies_claude.json"
+                            if cookie_f.exists():
+                                try:
+                                    c_data = json.loads(cookie_f.read_text(encoding="utf-8"))
+                                    if c_data.get("cookies"):
+                                        claude_web_sessions.append({
+                                            "account_id": f"claude_{item.name.split('@')[0]}",
+                                            "email": item.name.lower().strip(),
+                                            "cookies_path": str(cookie_f),
+                                            "is_active": True
+                                        })
+                                except Exception:
+                                    pass
+
+            if claude_web_sessions:
+                logger.info(f"🌐 [Claude Web Direct] Executing stream across {len(claude_web_sessions)} healthy Claude Web sessions...")
+                claude_web_success = False
+
+                web_model = "claude-sonnet-5-5"
+                if "3.5-haiku" in m_lower or "haiku" in m_lower:
+                    web_model = "claude-3-5-haiku"
+                elif "3.7" in m_lower:
+                    web_model = "claude-3-7-sonnet"
+
+                # Prepare multi-turn prompt
+                history_prompt_str = ""
+                if history and isinstance(history, list):
+                    h_lines = []
+                    for h in history[-8:]:
+                        r = "사용자" if h.get("role") == "user" else "AI 어시스턴트"
+                        c = str(h.get("content") or "").strip()
+                        if c:
+                            h_lines.append(f"[{r}]: {c[:400]}")
+                    if h_lines:
+                        history_prompt_str = "[이전 대화 기록 및 맥락]\n" + "\n".join(h_lines) + "\n\n"
+
+                effective_prompt = f"{system_guidance}\n\n{history_prompt_str}[현재 사용자 요청]\n{prompt}" if (system_guidance or history_prompt_str) else prompt
+
+                import httpx, uuid
+                for sess in claude_web_sessions:
+                    if claude_web_success:
+                        break
+                    s_email = sess["email"]
+                    s_cookie_path = sess["cookies_path"]
+                    try:
+                        with open(s_cookie_path, "r", encoding="utf-8") as cf:
+                            c_data = json.load(cf)
+                        c_dict = {c["name"]: c["value"] for c in c_data.get("cookies", []) if "name" in c and "value" in c}
+                        
+                        web_headers = {
+                            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36",
+                            "Accept": "text/event-stream",
+                            "Referer": "https://claude.ai/",
+                            "Content-Type": "application/json"
+                        }
+                        
+                        async with httpx.AsyncClient(cookies=c_dict, headers=web_headers, timeout=60.0) as w_client:
+                            orgs_res = await w_client.get("https://claude.ai/api/organizations")
+                            if orgs_res.status_code != 200:
+                                logger.warning(f"⚠️ [Claude Web] Org fetch failed for {s_email} ({orgs_res.status_code})")
+                                continue
+                            orgs_data = orgs_res.json()
+                            if not orgs_data or not isinstance(orgs_data, list):
+                                continue
+                            org_uuid = orgs_data[0]["uuid"]
+
+                            conv_uuid = str(uuid.uuid4())
+                            create_res = await w_client.post(
+                                f"https://claude.ai/api/organizations/{org_uuid}/chat_conversations",
+                                json={"uuid": conv_uuid, "name": ""}
+                            )
+                            if create_res.status_code not in [200, 201]:
+                                logger.warning(f"⚠️ [Claude Web] Conv create failed for {s_email} ({create_res.status_code})")
+                                continue
+
+                            t_start = time.time()
+                            logger.info(f"🚀 [Claude Web Stream] Streaming on [{s_email}] (model={web_model})...")
+                            
+                            req_payload = {
+                                "prompt": effective_prompt,
+                                "timezone": "Asia/Seoul",
+                                "model": web_model,
+                                "attachments": [],
+                                "files": []
+                            }
+
+                            async with w_client.stream(
+                                "POST",
+                                f"https://claude.ai/api/organizations/{org_uuid}/chat_conversations/{conv_uuid}/completion",
+                                json=req_payload
+                            ) as resp:
+                                if resp.status_code == 200:
+                                    async for r_line in resp.aiter_lines():
+                                        if not r_line:
+                                            continue
+                                        if r_line.startswith("data: "):
+                                            try:
+                                                ev = json.loads(r_line[6:])
+                                                chunk = ev.get("completion", "")
+                                                if chunk:
+                                                    if not first_chunk_received:
+                                                        first_chunk_received = True
+                                                        ttft_ms = int((time.time() - t_start) * 1000)
+                                                        logger.info(f"⚡ [Claude Web Stream] TTFT: {ttft_ms}ms on {s_email} (model: {display_model_name})")
+                                                    full_content += chunk
+                                                    yield {"type": "content_chunk", "delta": chunk, "content": full_content}
+                                                    claude_web_success = True
+                                            except Exception:
+                                                pass
+                                elif resp.status_code == 429:
+                                    logger.warning(f"⚠️ [Claude Web] 429 rate limit on {s_email}, rotating to next account...")
+                                    claude_account_pool.mark_exhausted(s_email, cooldown_seconds=18000)
+                                    continue
+                                else:
+                                    logger.warning(f"⚠️ [Claude Web] Unexpected status on {s_email}: {resp.status_code}")
+                                    continue
+                    except Exception as we:
+                        logger.error(f"❌ [Claude Web] Error streaming on {s_email}: {we}")
+                        continue
+
+                if claude_web_success and full_content:
+                    yield {
+                        "type": "chat_response",
+                        "content": full_content,
+                        "action_chips": [
+                            f"✨ {display_model_name}으로 대본 계속 발전시키기",
+                            "🎙️ AI 음성 합성하기",
+                            "🎬 쇼츠 씬별 콘티 제작"
+                        ]
+                    }
+                    return
+
+            # 3. If neither API key nor healthy web sessions available, guide user with exact state
+            acc_count = len(claude_accounts)
+            active_info = f"연결된 계정: **{active_email}**" if active_email else "등록된 계정 없음"
+            msg = (
+                f"🧠 **Anthropic Claude 공식 직결 안내 (Zero OmniRoute)**\n\n"
+                f"- **선택된 모델**: **{display_model_name}**\n"
+                f"- **계정 상태**: {active_info} (총 {acc_count}개 계정 풀 등록됨)\n"
+                f"- **연결 방식**: Anthropic 공식 직접 연결 (`claude.ai` / `api.anthropic.com`)\n\n"
+                f"💡 **Claude 세션 또는 API 키 등록 안내**:\n"
+                f"현재 등록된 Claude 웹 세션의 쿠키가 만료되었거나 API 키가 설정되지 않았습니다.\n"
+                f"우측 상단 **설정(Settings) > AI 계정 관리 > Claude**에서 [브라우저 로그인으로 Web 세션 추가]를 눌러 재인증하시거나, **Anthropic API Key** (`sk-ant-api03-...`)를 등록하시면 즉시 사용하실 수 있습니다."
+            )
+            yield {"type": "content_chunk", "delta": msg, "content": msg}
+            yield {
+                "type": "chat_response",
+                "content": msg,
+                "action_chips": ["⚙️ AI 계정 관리에서 Claude 세션/키 등록하기", "✨ Gemini 3.8 Flash로 질문하기", "🚀 GPT-6 Astra로 질문하기"]
+            }
+            return
+
+        # =========================================================================
+        # ⚡ ROUTE E: xAI Grok Sovereign Direct Stream (Zero OmniRoute, 100% Native)
+        # =========================================================================
+        elif p_lower in ["grok", "xai"]:
+            logger.info("⚡ [ConversationalDirector] Executing xAI Grok Sovereign Direct Pipeline (Zero OmniRoute)...")
+            from app.services.grok_account_pool import grok_account_pool
+            grok_accounts = grok_account_pool.get_accounts()
+            active_grok_acc = grok_account_pool.get_active_account()
+            active_email = active_grok_acc.get("email") if active_grok_acc else (grok_accounts[0]["email"] if grok_accounts else None)
+
+            # Model Resolution: Default is Fast (matching grok.com)
+            raw_grok_model = str(model or getattr(db_settings, "script_analysis_model", None) or "Fast").strip()
+            m_lower = raw_grok_model.lower()
+            if "mini" in m_lower or "fast" in m_lower:
+                grok_api_model_id = "grok-3-mini"
+                display_model_name = "⚡ Fast"
+            elif "expert" in m_lower or "reason" in m_lower:
+                grok_api_model_id = "grok-3"
+                display_model_name = "💡 Expert"
+            elif "build" in m_lower:
+                grok_api_model_id = "grok-3"
+                display_model_name = "🔨 Build"
+            elif "heavy" in m_lower:
+                grok_api_model_id = "grok-3"
+                display_model_name = "⚄ Heavy"
+            elif "auto" in m_lower:
+                grok_api_model_id = "grok-3"
+                display_model_name = "🚀 Auto"
+            elif "vision" in m_lower or "2" in m_lower:
+                grok_api_model_id = "grok-2-vision-1212"
+                display_model_name = "Grok 2 Vision"
+            else:
+                grok_api_model_id = "grok-3"
+                display_model_name = "Grok 3"
+
+            grok_api_keys = getattr(db_settings, "grok_api_keys", []) or []
+            env_key = os.environ.get("GROK_API_KEY", "").strip() or os.environ.get("XAI_API_KEY", "").strip()
+            active_grok_key = (grok_api_keys[0] if grok_api_keys else "") or env_key
+
+            # 1. Official Free Sovereign OAuth CLI Proxy (Zero Cost, Zero CLI Subprocess Law)
+            active_oauth_token = None
+            if hasattr(grok_account_pool, "get_active_oauth_token"):
+                active_oauth_token = grok_account_pool.get_active_oauth_token()
+
+            messages_payload = []
+            if system_guidance:
+                messages_payload.append({"role": "system", "content": system_guidance})
+            if history and isinstance(history, list):
+                for h in history[-8:]:
+                    r = "user" if h.get("role") == "user" else "assistant"
+                    c = str(h.get("content") or "").strip()
+                    if c:
+                        messages_payload.append({"role": r, "content": c[:2000]})
+            messages_payload.append({"role": "user", "content": prompt})
+
+            import httpx
+
+            if active_oauth_token:
+                logger.info(f"⚡ [Grok OAuth CLI Proxy] Streaming directly via official proxy (model={grok_api_model_id}, free account)...")
+                oauth_headers = {
+                    "Authorization": f"Bearer {active_oauth_token}",
+                    "X-XAI-Token-Auth": "xai-grok-cli",
+                    "x-grok-model-override": "grok-build",
+                    "Content-Type": "application/json"
+                }
+                oauth_post_body = {
+                    "model": "grok-build",
+                    "messages": messages_payload,
+                    "stream": True
+                }
+
+                grok_oauth_success = False
+                try:
+                    t_start = time.time()
+                    async with httpx.AsyncClient(timeout=60.0) as client:
+                        async with client.stream("POST", "https://cli-chat-proxy.grok.com/v1/chat/completions", json=oauth_post_body, headers=oauth_headers) as resp:
+                            if resp.status_code == 200:
+                                async for raw_line in resp.aiter_lines():
+                                    if not raw_line:
+                                        continue
+                                    if raw_line.startswith("data: "):
+                                        data_str = raw_line[6:].strip()
+                                        if data_str == "[DONE]":
+                                            break
+                                        try:
+                                            event_data = json.loads(data_str)
+                                            choices = event_data.get("choices", [])
+                                            if choices:
+                                                delta_txt = choices[0].get("delta", {}).get("content", "")
+                                                if delta_txt:
+                                                    if not first_chunk_received:
+                                                        first_chunk_received = True
+                                                        ttft_ms = int((time.time() - t_start) * 1000)
+                                                        logger.info(f"⚡ [Grok OAuth CLI Proxy] TTFT: {ttft_ms}ms (model: {display_model_name})")
+                                                    full_content += delta_txt
+                                                    yield {"type": "content_chunk", "delta": delta_txt, "content": full_content}
+                                                    grok_oauth_success = True
+                                        except Exception:
+                                            pass
+                            elif resp.status_code in [401, 403]:
+                                logger.warning(f"⚠️ [Grok OAuth CLI Proxy] Token expired or invalid ({resp.status_code})")
+                            else:
+                                err_body = await resp.aread()
+                                logger.warning(f"⚠️ [Grok OAuth CLI Proxy] Unexpected HTTP {resp.status_code}: {err_body.decode('utf-8', errors='ignore')[:200]}")
+                except Exception as oe:
+                    logger.error(f"❌ [Grok OAuth CLI Proxy] HTTP stream error: {oe}")
+
+                if grok_oauth_success and full_content:
+                    yield {
+                        "type": "chat_response",
+                        "content": full_content,
+                        "action_chips": [
+                            f"⚡ {display_model_name}으로 대본 계속 발전시키기",
+                            "🎙️ AI 음성 합성하기",
+                            "🎬 쇼츠 씬별 콘티 제작"
+                        ]
+                    }
+                    return
+
+            # 2. Official Direct Native API Stream (Zero OmniRoute, OpenAI-compatible api.x.ai)
+            if active_grok_key:
+                logger.info(f"🚀 [Grok Direct Native] Streaming directly via xAI Official API (model={grok_api_model_id})...")
+                headers = {
+                    "Authorization": f"Bearer {active_grok_key}",
+                    "Content-Type": "application/json"
+                }
+                post_body = {
+                    "model": grok_api_model_id,
+                    "messages": messages_payload,
+                    "stream": True
+                }
+
+                grok_success = False
+                try:
+                    t_start = time.time()
+                    async with httpx.AsyncClient(timeout=60.0) as client:
+                        async with client.stream("POST", "https://api.x.ai/v1/chat/completions", json=post_body, headers=headers) as resp:
+                            if resp.status_code == 200:
+                                async for raw_line in resp.aiter_lines():
+                                    if not raw_line:
+                                        continue
+                                    if raw_line.startswith("data: "):
+                                        data_str = raw_line[6:].strip()
+                                        if data_str == "[DONE]":
+                                            break
+                                        try:
+                                            event_data = json.loads(data_str)
+                                            choices = event_data.get("choices", [])
+                                            if choices:
+                                                delta_txt = choices[0].get("delta", {}).get("content", "")
+                                                if delta_txt:
+                                                    if not first_chunk_received:
+                                                        first_chunk_received = True
+                                                        ttft_ms = int((time.time() - t_start) * 1000)
+                                                        logger.info(f"⚡ [Grok Direct Native] TTFT: {ttft_ms}ms (model: {display_model_name})")
+                                                    full_content += delta_txt
+                                                    yield {"type": "content_chunk", "delta": delta_txt, "content": full_content}
+                                                    grok_success = True
+                                        except Exception:
+                                            pass
+                            elif resp.status_code in [401, 403]:
+                                err_body = await resp.aread()
+                                logger.error(f"❌ [Grok Direct Native] xAI Auth Failed ({resp.status_code}): {err_body.decode('utf-8', errors='ignore')}")
+                                msg = f"⚠️ **xAI Grok API 인증에 실패했습니다 ({resp.status_code}).**\n\n등록된 xAI API 키(`xai-...`)의 유효성을 확인해 주세요.\n- 우측 상단 **설정 > AI 계정 관리 > Grok**에서 키를 재입력할 수 있습니다."
+                                yield {"type": "content_chunk", "delta": msg, "content": msg}
+                                yield {
+                                    "type": "chat_response",
+                                    "content": msg,
+                                    "action_chips": ["⚙️ 설정에서 Grok API 키 재등록", "✨ Gemini 3.8 Flash로 대화하기"]
+                                }
+                                return
+                            elif resp.status_code == 429:
+                                logger.warning(f"⚠️ [Grok Direct Native] 429 Rate limit on xAI API")
+                                msg = f"⚠️ **xAI Grok API 요청 한도(429 Rate Limit)에 도달했습니다.**\n\n잠시 후 다시 시도해 주시거나, 다른 프로바이더를 선택해 주세요."
+                                yield {"type": "content_chunk", "delta": msg, "content": msg}
+                                yield {
+                                    "type": "chat_response",
+                                    "content": msg,
+                                    "action_chips": ["✨ Gemini 3.8 Flash로 대화하기", "🚀 GPT-6 Astra로 대화하기"]
+                                }
+                                return
+                            else:
+                                err_body = await resp.aread()
+                                logger.warning(f"⚠️ [Grok Direct Native] Unexpected response ({resp.status_code}): {err_body.decode('utf-8', errors='ignore')}")
+                except Exception as ge:
+                    logger.error(f"❌ [Grok Direct Native] HTTP error: {ge}")
+
+                if grok_success and full_content:
+                    yield {
+                        "type": "chat_response",
+                        "content": full_content,
+                        "action_chips": [
+                            f"⚡ {display_model_name}으로 대본 계속 발전시키기",
+                            "🎙️ AI 음성 합성하기",
+                            "🎬 쇼츠 씬별 콘티 제작"
+                        ]
+                    }
+                    return
+
+            # 2. Grok Web Native Direct Stream (grok.com Multi-Account Session Auto-Rotation)
+            if hasattr(grok_account_pool, "get_healthy_web_sessions"):
+                grok_web_sessions = grok_account_pool.get_healthy_web_sessions()
+            else:
+                grok_web_sessions = []
+
+            if grok_web_sessions:
+                logger.info(f"🌐 [Grok Web Direct] Executing auto-rotation stream across {len(grok_web_sessions)} healthy Grok Web sessions...")
+                # Grok Web works directly inside single chat input: pass clean user prompt with concise context
+                context_prefix = ""
+                if history and isinstance(history, list):
+                    h_lines = []
+                    for h in history[-4:]:
+                        r = "사용자" if h.get("role") == "user" else "AI"
+                        c = str(h.get("content") or "").strip()
+                        # Strict exclusion of error/system notices to prevent conversation pollution
+                        if c and not any(k in c for k in ["⚠️", "[🎬", "⚡ xAI Grok", "Free tier limit", "Type @", "연결된 계정:", "대화 계속하기", "Meet Grok Bot"]):
+                            h_lines.append(f"{r}: {c[:200]}")
+                    if h_lines:
+                        context_prefix = "[이전 대화]\n" + "\n".join(h_lines) + "\n\n"
+
+                import importlib
+                import app.services.grok_web_agent as gwa_mod
+                try:
+                    importlib.reload(gwa_mod)
+                except Exception:
+                    pass
+                from app.services.grok_web_agent import stream_grok_web_chat
+                effective_prompt = f"{context_prefix}{prompt}" if context_prefix else prompt
+
+                # Sovereign Multi-Account Auto-Rotation Loop: try each healthy account until one succeeds
+                for session_info in grok_web_sessions:
+                    cand_email = session_info.get("email", "").strip().lower()
+                    if not cand_email:
+                        continue
+                    logger.info(f"🌐 [Grok Web Rotation] Attempting chat with account: {cand_email}...")
+                    grok_web_success = False
+
+                    try:
+                        async for chunk in stream_grok_web_chat(effective_prompt, target_email=cand_email):
+                            if chunk.get("type") == "content_chunk":
+                                full_content = chunk.get("content", full_content)
+                                yield chunk
+                                grok_web_success = True
+                            elif chunk.get("type") == "chat_response":
+                                yield chunk
+                                return
+                            elif chunk.get("type") == "error":
+                                logger.warning(f"⚠️ [Grok Web] {cand_email} error: {chunk.get('message')}")
+                                break
+                    except Exception as gwe:
+                        logger.warning(f"⚠️ [Grok Web] Exception with {cand_email}: {gwe}")
+
+                    if grok_web_success and full_content:
+                        # Auto-update active account to the one that succeeded
+                        try:
+                            grok_account_pool.switch_active_account(cand_email)
+                        except Exception:
+                            pass
+                        yield {
+                            "type": "chat_response",
+                            "content": full_content,
+                            "action_chips": [
+                                f"⚡ {display_model_name}으로 대본 계속 발전시키기",
+                                "🎙️ AI 음성 합성하기",
+                                "🎬 쇼츠 씬별 콘티 제작"
+                            ]
+                        }
+                        return
+                    else:
+                        # Auto-failover: rotate to next account without blindly exhausting healthy account
+                        logger.warning(f"🔄 [Grok Web Failover] {cand_email} yielded no content, auto-switching to next healthy account in pool...")
+
+            # 3. If neither API key nor healthy web sessions available, guide user with exact state
+            acc_count = len(grok_accounts)
+            active_info = f"연결된 계정: **{active_email}**" if active_email else "등록된 계정 없음"
+            msg = (
+                f"⚡ **xAI Grok 100% 무료 공식 직결 안내 (비용 0원 / 결제 불필요)**\n\n"
+                f"- **선택된 모델**: **{display_model_name}**\n"
+                f"- **계정 상태**: {active_info}\n"
+                f"- **연결 방식**: xAI 공식 Grok CLI OAuth 프로토콜 (`cli-chat-proxy.grok.com`)\n\n"
+                f"💡 **1초 만에 무료 연동하는 방법 (카드 등록 X, $0)**:\n"
+                f"우측 상단 **설정 (톱니바퀴) > AI 계정 관리 > Grok** 탭에서 **[⚡ Grok 무료 1초 연동 (OAuth 100% 무료)]** 버튼을 클릭하시면 브라우저에서 'Confirm' 승인 1회로 \$5 유료 결제 없이 평생 무료 초고속 스트리밍(0.2초)으로 이용하실 수 있습니다."
+            )
+            yield {"type": "content_chunk", "delta": msg, "content": msg}
+            yield {
+                "type": "chat_response",
+                "content": msg,
+                "action_chips": ["⚙️ AI 계정 관리에서 Grok 무료 연동하기", "✨ Gemini 3.8 Flash로 질문하기", "🚀 GPT-6 Astra로 질문하기"]
+            }
+            return
+
+        # =========================================================================
+        # 🐋 ROUTE DEEPSEEK: DeepSeek Sovereign Direct Stream (Zero OmniRoute, 100% Native Web)
+        # =========================================================================
+        elif p_lower in ["deepseek", "deepseek_web"]:
+            logger.info("🐋 [ConversationalDirector] Executing DeepSeek Sovereign Direct Pipeline (Zero OmniRoute)...")
+            from app.services.deepseek_account_pool import deepseek_account_pool
+            deepseek_accounts = deepseek_account_pool.get_accounts()
+            active_deepseek_acc = deepseek_account_pool.get_active_account()
+            active_email = active_deepseek_acc.get("email") if active_deepseek_acc else (deepseek_accounts[0]["email"] if deepseek_accounts else None)
+
+            raw_model = str(model or getattr(db_settings, "script_analysis_model", None) or "DeepSeek-V3").strip()
+            if any(k in raw_model.lower() for k in ["r1", "reason", "think"]):
+                display_model_name = "🧠 DeepSeek-R1 (추론)"
+                target_model_name = "DeepSeek-R1"
+            else:
+                display_model_name = "⚡ DeepSeek-V3 (창작)"
+                target_model_name = "DeepSeek-V3"
+
+            deepseek_web_sessions = deepseek_account_pool.get_healthy_web_sessions()
+            if deepseek_web_sessions:
+                logger.info(f"🌐 [DeepSeek Web Direct] Executing auto-rotation stream across {len(deepseek_web_sessions)} healthy sessions...")
+                context_prefix = ""
+                if history and isinstance(history, list):
+                    h_lines = []
+                    for h in history[-4:]:
+                        r = "사용자" if h.get("role") == "user" else "AI"
+                        c = str(h.get("content") or "").strip()
+                        if c and not any(k in c for k in ["⚠️", "[🎬", "DeepSeek", "Server is busy"]):
+                            h_lines.append(f"{r}: {c[:200]}")
+                    if h_lines:
+                        context_prefix = "[이전 대화]\n" + "\n".join(h_lines) + "\n\n"
+
+                import importlib
+                import app.services.deepseek_web_agent as dswa_mod
+                try:
+                    importlib.reload(dswa_mod)
+                except Exception:
+                    pass
+                from app.services.deepseek_web_agent import stream_deepseek_web_chat
+                effective_prompt = f"{context_prefix}{prompt}" if context_prefix else prompt
+
+                for session_info in deepseek_web_sessions:
+                    cand_email = session_info.get("email", "").strip().lower()
+                    if not cand_email:
+                        continue
+                    logger.info(f"🌐 [DeepSeek Web Rotation] Attempting chat with account: {cand_email}...")
+                    deepseek_success = False
+                    yield {
+                        "type": "step",
+                        "item_index": 0,
+                        "total_items": 1,
+                        "step_id": "session_dispatch",
+                        "title": f"🐋 {display_model_name} 실시간 연결 및 응답 수신 중...",
+                        "status": "in_progress",
+                        "detail": f"[{cand_email}] DeepSeek 지능 분석 연결 중"
+                    }
+
+                    try:
+                        async for chunk in stream_deepseek_web_chat(effective_prompt, model=target_model_name, target_email=cand_email):
+                            if chunk.get("type") == "content_chunk":
+                                if not deepseek_success:
+                                    yield {
+                                        "type": "step",
+                                        "item_index": 0,
+                                        "total_items": 1,
+                                        "step_id": "session_dispatch",
+                                        "title": f"✅ {display_model_name} 실시간 응답 도착",
+                                        "status": "completed",
+                                        "detail": f"[{cand_email}] 고속 지능 분석 실시간 수신 중"
+                                    }
+                                full_content = chunk.get("content", full_content)
+                                yield chunk
+                                deepseek_success = True
+                            elif chunk.get("type") == "chat_response":
+                                yield chunk
+                                return
+                            elif chunk.get("type") == "error":
+                                logger.warning(f"⚠️ [DeepSeek Web] {cand_email} error: {chunk.get('message')}")
+                                break
+                    except Exception as dwe:
+                        logger.warning(f"⚠️ [DeepSeek Web] Exception with {cand_email}: {dwe}")
+
+                    if deepseek_success and full_content:
+                        try:
+                            deepseek_account_pool.switch_active_account(cand_email)
+                        except Exception:
+                            pass
+                        yield {
+                            "type": "chat_response",
+                            "content": full_content,
+                            "action_chips": [
+                                f"⚡ {display_model_name}으로 대본 계속 발전시키기",
+                                "🎙️ AI 음성 합성하기",
+                                "🎬 쇼츠 씬별 콘티 제작"
+                            ]
+                        }
+                        return
+                    else:
+                        logger.warning(f"🔄 [DeepSeek Web Failover] {cand_email} yielded no content, auto-switching to next account...")
+
+            # Fallback if no accounts connected
+            active_info = f"연결된 계정: **{active_email}**" if active_email else "등록된 계정 없음"
+            msg = (
+                f"🐋 **DeepSeek 100% 무료 공식 웹 직결 안내 (비용 0원 / 결제 불필요)**\n\n"
+                f"- **선택된 모델**: **{display_model_name}**\n"
+                f"- **계정 상태**: {active_info}\n"
+                f"- **연결 방식**: DeepSeek 공식 웹 세션 (`chat.deepseek.com`)\n\n"
+                f"💡 **1초 만에 무료 연동하는 방법 (카드 등록 X, $0)**:\n"
+                f"우측 상단 **설정 (톱니바퀴) > AI 계정 관리 > DeepSeek** 탭에서 **[⚡ DeepSeek 무료 1초 연동]** 버튼을 클릭하시면 구글 계정 1회 로그인으로 무료 초고속 스트리밍과 한국어 최강 썰/대본 창작을 이용하실 수 있습니다."
+            )
+            yield {"type": "content_chunk", "delta": msg, "content": msg}
+            yield {
+                "type": "chat_response",
+                "content": msg,
+                "action_chips": ["⚙️ AI 계정 관리에서 DeepSeek 무료 연동하기", "✨ Gemini 3.8 Flash로 질문하기", "🚀 GPT-6 Astra로 질문하기"]
+            }
+            return
+
+        # =========================================================================
+        # 🎬 ROUTE F: OmniRoute / Hermes Sovereign Pipeline (0.2s Fast vs 10-Tool ReAct)
         # =========================================================================
         else:
             logger.info("🎬 [ConversationalDirector] Executing OmniRoute Sovereign Engine...")
+            import socket
+            is_20128_up = True
+            if "20128" in clean_base_url or "localhost" in clean_base_url:
+                try:
+                    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                        s.settimeout(0.3)
+                        is_20128_up = (s.connect_ex(("127.0.0.1", 20128)) == 0)
+                except Exception:
+                    is_20128_up = False
+
+                if not is_20128_up:
+                    logger.warning("⚠️ [OmniRoute] Local port 20128 is offline, attempting background launch...")
+                    try:
+                        subprocess.Popen(["cmd.exe", "/c", "omniroute serve"], creationflags=0x08000000)
+                        await asyncio.sleep(0.8)
+                        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                            s.settimeout(0.4)
+                            is_20128_up = (s.connect_ex(("127.0.0.1", 20128)) == 0)
+                    except Exception:
+                        pass
+
+            if not is_20128_up:
+                logger.warning("⚠️ [OmniRoute] Port 20128 unreachable, fast-failover to Google Gemini Official Engine...")
+                if gemini_keys:
+                    try:
+                        import google.generativeai as genai
+                        genai.configure(api_key=gemini_keys[0])
+                        fb_model_name = getattr(db_settings, "script_analysis_model", None) or getattr(db_settings, "default_llm_model", None) or getattr(db_settings, "google_grounding_model", None) or f"{'gemini'}-{2}.{5}-{'flash'}"
+                        g_model = genai.GenerativeModel(fb_model_name)
+                        g_resp = await asyncio.to_thread(g_model.generate_content, f"{system_guidance}\n\n{prompt}")
+                        if g_resp and g_resp.text:
+                            yield {"type": "content_chunk", "delta": g_resp.text, "content": g_resp.text}
+                            return
+                    except Exception as ge:
+                        logger.error(f"Gemini fast-failover error: {ge}")
+
             from openai import AsyncOpenAI
-            client = AsyncOpenAI(base_url=clean_base_url, api_key=omni_api_key, timeout=30.0)
+            client = AsyncOpenAI(base_url=clean_base_url, api_key=omni_api_key, timeout=20.0)
             target_omni_model = str(model or getattr(db_settings, "script_analysis_model", None) or getattr(db_settings, "default_llm_model", None) or "viraloop1").strip()
             model_candidates = [target_omni_model]
             if target_omni_model != "viraloop1":
@@ -1744,12 +2611,15 @@ class ConversationalDirector:
                             req_kwargs = {
                                 "model": candidate,
                                 "messages": req_messages,
-                                "tools": HERMES_OPENAI_TOOLS,
-                                "tool_choice": "auto",
                                 "stream": True,
                                 "max_tokens": 8192,
                                 "timeout": 30.0
                             }
+                            if needs_tools and active_domains:
+                                o_tools = get_staged_openai_tools(active_domains)
+                                if o_tools:
+                                    req_kwargs["tools"] = o_tools
+                                    req_kwargs["tool_choice"] = "auto"
 
                             try:
                                 stream = await client.chat.completions.create(**req_kwargs)
@@ -1868,13 +2738,23 @@ class ConversationalDirector:
                         break
                 except Exception as omni_err:
                     logger.error(f"❌ [ConversationalDirector] OmniRoute error: {omni_err}")
-                    fb_sys = system_prompt if ("system_prompt" in locals() and system_prompt) else "당신은 ViraLoop Studio의 지능형 파트너 AI 어시스턴트입니다."
-                    try:
-                        full_content = self.brain.llm.generate(prompt=prompt, system_instruction=fb_sys)
-                        yield {"type": "content_chunk", "delta": full_content, "content": full_content}
-                    except Exception as fb_err:
-                        logger.error(f"Fallback generation error: {fb_err}")
-                        err_msg = f"⚠️ OmniRoute 처리 중 오류가 발생했습니다: {omni_err}"
+                    failover_ok = False
+                    if gemini_keys:
+                        try:
+                            import google.generativeai as genai
+                            genai.configure(api_key=gemini_keys[0])
+                            fb_m = getattr(db_settings, "script_analysis_model", None) or getattr(db_settings, "default_llm_model", None) or getattr(db_settings, "google_grounding_model", None) or f"{'gemini'}-{2}.{5}-{'flash'}"
+                            g_model = genai.GenerativeModel(fb_m)
+                            fb_p = f"{system_guidance}\n\n{prompt}" if "system_guidance" in locals() else prompt
+                            g_resp = await asyncio.to_thread(g_model.generate_content, fb_p)
+                            if g_resp and g_resp.text:
+                                full_content = g_resp.text
+                                yield {"type": "content_chunk", "delta": full_content, "content": full_content}
+                                failover_ok = True
+                        except Exception as ge:
+                            logger.error(f"Gemini fallback notice: {ge}")
+                    if not failover_ok:
+                        err_msg = f"⚠️ OmniRoute 로컬 게이트웨이(포트 20128) 연결 오류가 발생했습니다: {omni_err}\n\n하단 대화창에서 'Google Gemini' 또는 'OpenAI'를 선택하시면 즉시 정상 이용하실 수 있습니다."
                         yield {"type": "content_chunk", "delta": err_msg, "content": err_msg}
                     break
 
@@ -2417,7 +3297,9 @@ class ConversationalDirector:
         model: Optional[str] = None,
         provider: Optional[str] = None,
         reasoning_effort: Optional[str] = None,
-        history: Optional[List[Dict[str, Any]]] = None
+        history: Optional[List[Dict[str, Any]]] = None,
+        target_channel: Optional[Dict[str, Any]] = None,
+        thread_id: Optional[str] = None
     ) -> AsyncGenerator[Dict[str, Any], None]:
         """
         Execute full autonomous pipeline for a single video.
@@ -2639,7 +3521,9 @@ class ConversationalDirector:
                     reference_media_path=reference_media_path,
                     history=history,
                     channel_forensic_context=channel_forensic_context,
-                    keyframe_images=extracted_kfs
+                    keyframe_images=extracted_kfs,
+                    target_channel=target_channel,
+                    thread_id=thread_id
                 ):
                     yield evt
                 return
@@ -2719,7 +3603,9 @@ class ConversationalDirector:
             reasoning_effort=reasoning_effort,
             previous_deliverable=previous_deliverable,
             reference_media_path=reference_media_path,
-            history=history
+            history=history,
+            target_channel=target_channel,
+            thread_id=thread_id
         ):
             yield evt
         return

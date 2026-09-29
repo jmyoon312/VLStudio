@@ -1,17 +1,83 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, webFrame } from 'electron'
 
-/**
- * Electron Preload Script for Stealth WebContentsView
- *
- * Injects fingerprint protection overrides to mask canvas, WebGL vendor,
- * languages, and the webdriver flag from YouTube Studio anti-bot detection.
- *
- * Patch Order (critical):
- *   1. Function.prototype.toString 위장 (NEW-3) — 반드시 최상단
- *   2. navigator.webdriver / hardwareConcurrency 등 기존 패치
- *   3. Canvas/Audio Deterministic Noise (NEW-4)
- *   4. window.chrome, Notification, mimeTypes, connection 위장 (NEW-11)
- */
+// ─────────────────────────────────────────────────────────────────────────────
+// [WebAuthn / Passkey Block] Windows Security Passkey modal prevention for clean password login
+// Synchronously inject into Main World DOM so Google sees window.PublicKeyCredential === undefined
+// ─────────────────────────────────────────────────────────────────────────────
+try {
+  const syncPasskeySuppressCode = `
+    (function () {
+      try {
+        delete window.PublicKeyCredential;
+        Object.defineProperty(window, 'PublicKeyCredential', {
+          get: function() { return undefined; },
+          set: function() {},
+          configurable: false
+        });
+        if (window.navigator && window.navigator.credentials) {
+          window.navigator.credentials.get = function (options) {
+            return Promise.reject(new DOMException("The operation either timed out or was not allowed.", "NotAllowedError"));
+          };
+          window.navigator.credentials.create = function () {
+            return Promise.reject(new DOMException("The operation either timed out or was not allowed.", "NotAllowedError"));
+          };
+        }
+      } catch (e) {}
+    })();
+  `;
+
+  // 1. Synchronous inline DOM script execution (runs immediately before any remote scripts)
+  const injectSync = () => {
+    try {
+      const container = document.head || document.documentElement || document;
+      if (container) {
+        const scriptEl = document.createElement('script');
+        scriptEl.textContent = syncPasskeySuppressCode;
+        container.appendChild(scriptEl);
+        scriptEl.remove();
+      }
+    } catch (_) {}
+  };
+
+  injectSync();
+  if (document.readyState === 'loading') {
+    document.addEventListener('readystatechange', injectSync, { once: true });
+  }
+
+  // 2. Backup execution via webFrame.executeJavaScript
+  webFrame.executeJavaScript(syncPasskeySuppressCode).catch(() => {});
+
+  // 3. Strip autocomplete="webauthn" from all input elements to prevent Chromium C++ Form Autofill from triggering OS WebAuthn
+  const stripWebAuthnAutofill = () => {
+    try {
+      const inputs = document.querySelectorAll('input');
+      for (const el of inputs) {
+        const ac = el.getAttribute('autocomplete');
+        if (ac && ac.includes('webauthn')) {
+          el.setAttribute('autocomplete', ac.replace('webauthn', '').trim() || 'off');
+        }
+      }
+    } catch (_) {}
+  };
+
+  if (typeof document !== 'undefined') {
+    stripWebAuthnAutofill();
+    const observer = new MutationObserver(() => stripWebAuthnAutofill());
+    const target = document.documentElement || document;
+    if (target) {
+      observer.observe(target, { childList: true, subtree: true, attributes: true, attributeFilter: ['autocomplete'] });
+    }
+    document.addEventListener('DOMContentLoaded', stripWebAuthnAutofill);
+    document.addEventListener('focusin', (e) => {
+      if (e.target && e.target.tagName === 'INPUT') {
+        const ac = e.target.getAttribute('autocomplete');
+        if (ac && ac.includes('webauthn')) {
+          e.target.setAttribute('autocomplete', ac.replace('webauthn', '').trim() || 'off');
+        }
+      }
+    }, true);
+  }
+} catch (e) {}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // [NEW-3] Function.prototype.toString 네이티브 위장

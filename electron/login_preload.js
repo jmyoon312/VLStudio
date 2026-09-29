@@ -3,9 +3,7 @@ const { webFrame } = require('electron');
 // We use webFrame.executeJavaScript to run this in the Main World before Google's scripts run.
 webFrame.executeJavaScript(`
   (function () {
-    'use strict';
-    
-    // 1. Setup WeakMap-based toString() masking
+    // Setup WeakMap-based toString() masking helper
     const _nativeToString = Function.prototype.toString;
     const _proxyMap = new WeakMap();
 
@@ -26,14 +24,24 @@ webFrame.executeJavaScript(`
       return getter;
     };
 
-    // mask toString itself
     _proxyMap.set(Function.prototype.toString, 'function toString() { [native code] }');
 
-    // 2. Block WebAuthn safely
+    // 1. Block WebAuthn safely (Must run on ALL domains including Google to prevent Windows Passkey modal)
     try {
+      if (globalThis.PublicKeyCredential) {
+        globalThis.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable = function () {
+          return Promise.resolve(false);
+        };
+        globalThis.PublicKeyCredential.isConditionalMediationAvailable = function () {
+          return Promise.resolve(false);
+        };
+      }
       if (globalThis.CredentialsContainer && CredentialsContainer.prototype) {
         if (CredentialsContainer.prototype.get) {
-          const fakeGet = function() {
+          const fakeGet = function(options) {
+            if (options && (options.publicKey || options.mediation === 'conditional')) {
+              return Promise.reject(new DOMException("The operation either timed out or was not allowed.", "NotAllowedError"));
+            }
             return Promise.reject(new DOMException("The operation either timed out or was not allowed.", "NotAllowedError"));
           };
           maskFunction(fakeGet, 'function get() { [native code] }');
@@ -49,7 +57,12 @@ webFrame.executeJavaScript(`
       }
     } catch(e) {}
 
-    // 3. Spoof userAgentData to remove "Electron" & mask webdriver
+    // Never tamper with userAgent or chrome object on Google Accounts domains to prevent "쿠키 설정에 문제가 있음을 발견했습니다"
+    if (window.location.hostname === 'accounts.google.com' || window.location.hostname.endsWith('.google.com')) {
+      return;
+    }
+
+    // 2. Spoof userAgentData to remove "Electron" & mask webdriver
     try {
       if (Navigator.prototype.userAgentData) {
         const mockUserAgentData = {
