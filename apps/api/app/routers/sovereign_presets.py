@@ -69,7 +69,7 @@ class BasicEditorPresetSaveRequest(BaseModel):
     category: str = "custom"
     description: Optional[str] = ""
     aspect_ratio: str = "9:16"
-    style: Dict[str, Any]
+    style: Optional[Dict[str, Any]] = None
     blueprint: Optional[Dict[str, Any]] = None
     source_video_path: Optional[str] = None
 
@@ -1117,8 +1117,9 @@ def save_from_basic_editor(req: BasicEditorPresetSaveRequest) -> Dict[str, Any]:
 
     dest = PRESETS_DIR / f"{preset_id}.json"
 
-    # Merge blueprint v2
-    blueprint = req.blueprint or req.style
+    # Merge blueprint v3
+    blueprint = req.blueprint or req.style or {}
+    style_dict = req.style or req.blueprint or {}
 
     data = {
         "id": preset_id,
@@ -1128,9 +1129,9 @@ def save_from_basic_editor(req: BasicEditorPresetSaveRequest) -> Dict[str, Any]:
         "description": req.description or "",
         "aspect_ratio": req.aspect_ratio,
         "source": "viraloop_user",
-        "style": req.style,
+        "style": style_dict,
         "blueprint": blueprint,
-        "visual_geometry": req.style.get("visual_geometry", blueprint.get("visual_geometry", {})),
+        "visual_geometry": style_dict.get("visual_geometry", blueprint.get("visual_geometry", {})),
         "recipe": req.description or f"{req.archetype} 기본 에디터 커스텀 프리셋",
         "content_rules": [
             f"폼팩터 아키타입: {req.archetype}",
