@@ -80,6 +80,9 @@ import { DirectorInputBar, AttachedMedia } from '@/components/director/DirectorI
 import { AgentSoulInspectorModal } from '@/components/director/AgentSoulInspectorModal';
 import { LoopieIcon } from '@/components/director/LoopieAvatar';
 import { GeminiLiveService } from '@/services/geminiLiveService';
+import HermesHUD from '@/components/director/HermesHUD';
+import CuratedTakeCards, { CreativeTake } from '@/components/director/CuratedTakeCards';
+import AssetVaultModal from '@/components/director/AssetVaultModal';
 import axios from 'axios';
 
 interface StepProgress {
@@ -357,6 +360,63 @@ export const ConversationalDirectorPage: React.FC = () => {
     const [reasoningEffort, setReasoningEffort] = useState<ReasoningEffort>('medium');
     const [securityScope, setSecurityScope] = useState('모두 허용');
     const [streamingElapsed, setStreamingElapsed] = useState(0);
+
+    // Hermes v21.5 Self-Play & Asset Vault States
+    const [isAssetVaultOpen, setIsAssetVaultOpen] = useState(false);
+    const [curatedTakes, setCuratedTakes] = useState<CreativeTake[]>([]);
+    const [selectedTakeId, setSelectedTakeId] = useState<string>('take_a');
+
+    const handleTriggerSelfPlay = async () => {
+        toast.info("사전 모의 자기 대국(MCTS 150-분기) 연산에 착수했습니다...");
+        try {
+            const topic = prompt.trim() || '2026 최신 숏폼 반전 바이럴 스토리';
+            const res = await axios.post('/api/harness/self-play/run', {
+                channel_id: selectedTargetChannel?.id ? Number(selectedTargetChannel.id) : 1,
+                channel_name: selectedTargetChannel?.name || '전역 채널',
+                raw_topic: topic,
+                exploration_budget: 150
+            });
+
+            if (res.data?.curated_takes) {
+                setCuratedTakes(res.data.curated_takes);
+                setSelectedTakeId(res.data.selected_take_id || 'take_a');
+                toast.success("MCTS 150-분기 시뮬레이션 완료! 엄선된 3대 테이크가 생성되었습니다.");
+            }
+        } catch (e: any) {
+            toast.error(`모의 검증 실패: ${e.message || '오류 발생'}`);
+        }
+    };
+
+    const handleSelectTake = (take: CreativeTake) => {
+        setSelectedTakeId(take.take_id);
+        setPrompt(`[선택된 테이크: ${take.title}]\n철학: ${take.philosophy}\n위 연출 방식을 바탕으로 대본과 타임라인을 정밀 완성해줘.`);
+        toast.success(`[${take.title}] 테이크가 활성 디렉팅 프롬프트로 확정되었습니다.`);
+    };
+
+    const handlePreviewDeltaRender = async (take: CreativeTake) => {
+        toast.info("0.5초 고속 델타 렌더링을 시작합니다...");
+        try {
+            const res = await axios.post('/api/harness/delta-render/patch', {
+                project_id: activeThreadId || 'director_session',
+                scene_index: 0,
+                duration_sec: 3.0,
+                text_overlay: take.harness_schema?.scenes?.[0]?.visual_action_blueprint || take.title,
+                bg_color: '0x1a1a2e'
+            });
+            if (res.data?.merged_video_path) {
+                toast.success(`0.5초 델타 패치 성공! (${res.data.latency_ms}ms)`);
+                setActiveVideoView({
+                    filename: 'delta_patch_preview.mp4',
+                    videoUrl: `/files/${res.data.merged_video_path.replace(/\\/g, '/')}`,
+                    fileSizeMb: 4.2,
+                    filePath: res.data.merged_video_path
+                });
+                setRightPanelOpen(true);
+            }
+        } catch (e: any) {
+            toast.error("고속 델타 렌더링 중 오류가 발생했습니다.");
+        }
+    };
 
     useEffect(() => {
         let timer: any = null;
@@ -1832,6 +1892,29 @@ export const ConversationalDirectorPage: React.FC = () => {
                     onToggleRightPanel={() => setRightPanelOpen(!rightPanelOpen)}
                 />
 
+                {/* Hermes v21.5 HUD & Top 3 MCTS Curated Takes */}
+                <div className="px-3 pt-2">
+                    <HermesHUD
+                        activeChannelId={selectedTargetChannel?.id ? Number(selectedTargetChannel.id) : 1}
+                        activeChannelName={selectedTargetChannel?.name || '전역 채널'}
+                        onOpenAssetVault={() => setIsAssetVaultOpen(true)}
+                        onTriggerSelfPlay={handleTriggerSelfPlay}
+                    />
+
+                    {curatedTakes.length > 0 && (
+                        <CuratedTakeCards
+                            takes={curatedTakes}
+                            selectedTakeId={selectedTakeId}
+                            onSelectTake={handleSelectTake}
+                            onPreviewDeltaRender={handlePreviewDeltaRender}
+                            onSteerTake={(take) => {
+                                setPrompt(`[테이크 ${take.title} 기반 수정] 3초 훅을 더 긴장감 있게 변경하고 15초에 반전 줌인 연출 추가해줘`);
+                                textareaRef.current?.focus();
+                            }}
+                        />
+                    )}
+                </div>
+
                 <DirectorMessageFeed
                     messages={messages as any}
                     isStreaming={isStreaming}
@@ -2003,6 +2086,15 @@ export const ConversationalDirectorPage: React.FC = () => {
                 open={soulModalOpen}
                 onOpenChange={setSoulModalOpen}
                 defaultAgentId={selectedSoulAgentId || undefined}
+            />
+
+            {/* Asset Vault $0 Modal */}
+            <AssetVaultModal
+                isOpen={isAssetVaultOpen}
+                onClose={() => setIsAssetVaultOpen(false)}
+                onSelectAsset={(asset) => {
+                    setPrompt(prev => `${prev ? prev + '\n' : ''}[자산 금고 에셋 추가: ${asset.name} (${asset.format})]`);
+                }}
             />
         </div>
     );

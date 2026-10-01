@@ -172,7 +172,7 @@ from app.routers import (
     media_intelligence, viral_intelligence, discovery, bgm_router, ranking_shorts,
     long_to_short, meokguri, video_creative, movie_drama_shorts, song_shorts, sns_trend,
     ai_accounts, director_sessions, sourcing_center, stream_slicer, gemini_live_router, video_director,
-    shorts_templates, nle_export, montage_nle, agent_profiles
+    shorts_templates, nle_export, montage_nle, agent_profiles, harness_router
 )
 from app import job_queue, crud, models, scheduler
 from app.utils.path_utils import normalize_path
@@ -697,6 +697,7 @@ app.include_router(stream_slicer.vault_router)
 app.include_router(shorts_templates.router)
 app.include_router(nle_export.router)
 app.include_router(montage_nle.router, prefix="/api", tags=["montage_nle"])
+app.include_router(harness_router.router, prefix="/api", tags=["harness"])
 
 # New Phase 7-10 Routers
 app.include_router(queue_management.router)

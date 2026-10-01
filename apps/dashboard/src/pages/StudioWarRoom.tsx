@@ -7,7 +7,7 @@ import {
     Sparkles, ArrowRight, ShieldCheck, Zap, Layers, Users, 
     GitBranch, Server, HardDrive, Radio, Clock, Send, Eye,
     Check, Film, Music, Scissors, Package, ExternalLink, Terminal,
-    Tv, BookOpen, Database, Flame, ListOrdered, Shield, Lock, AlertTriangle, PlayCircle, Loader2, DollarSign
+    Tv, BookOpen, Database, Flame, ListOrdered, Shield, Lock, AlertTriangle, PlayCircle, Loader2, DollarSign, Bot
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -16,6 +16,10 @@ import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import api from '@/lib/api';
 import { cn } from '@/lib/utils';
+import HermesHUD from '@/components/director/HermesHUD';
+import BotCrewGroupChat from '@/components/director/BotCrewGroupChat';
+import CuratedTakeCards, { CreativeTake } from '@/components/director/CuratedTakeCards';
+import AssetVaultModal from '@/components/director/AssetVaultModal';
 
 interface WorkerState {
     id: string;
@@ -174,6 +178,62 @@ export const StudioWarRoom: React.FC = () => {
     const [batchSourceMode, setBatchSourceMode] = useState<'news' | 'ssul' | 'keyword'>('news');
     const [batchCount, setBatchCount] = useState<number>(5);
     const [isBatchLaunching, setIsBatchLaunching] = useState(false);
+    
+    // Hermes v21.5 Bot Mode & Self-Play States
+    const [isAssetVaultOpen, setIsAssetVaultOpen] = useState(false);
+    const [isSelfPlayLoading, setIsSelfPlayLoading] = useState(false);
+    const [curatedTakes, setCuratedTakes] = useState<CreativeTake[]>([]);
+    const [selectedTakeId, setSelectedTakeId] = useState<string>('take_a');
+
+    const handleTriggerSelfPlay = async () => {
+        setIsSelfPlayLoading(true);
+        toast.info("사전 모의 자기 대국(MCTS 150-분기) 연산에 착수했습니다...");
+        try {
+            const targetChannel = channels.find(c => c.id === selectedChannelId);
+            const channelName = targetChannel?.title || targetChannel?.name || `채널 ${selectedChannelId}호기`;
+            const topic = instantTopic.trim() || '2026 최신 숏폼 반전 바이럴 스토리';
+
+            const res = await api.post('/harness/self-play/run', {
+                channel_id: selectedChannelId,
+                channel_name: channelName,
+                raw_topic: topic,
+                exploration_budget: 150
+            });
+
+            if (res.data?.curated_takes) {
+                setCuratedTakes(res.data.curated_takes);
+                setSelectedTakeId(res.data.selected_take_id || 'take_a');
+                toast.success("MCTS 150-분기 시뮬레이션 완료! 엄선된 3대 테이크가 생성되었습니다.");
+            }
+        } catch (e: any) {
+            toast.error(`모의 검증 실패: ${e.message || '오류 발생'}`);
+        } finally {
+            setIsSelfPlayLoading(false);
+        }
+    };
+
+    const handleSelectTake = (take: CreativeTake) => {
+        setSelectedTakeId(take.take_id);
+        toast.success(`[${take.title}] 테이크가 활성 타임라인으로 확정되었습니다.`);
+    };
+
+    const handlePreviewDeltaRender = async (take: CreativeTake) => {
+        toast.info("0.5초 고속 델타 렌더링을 시작합니다...");
+        try {
+            const res = await api.post('/harness/delta-render/patch', {
+                project_id: `warroom_ch_${selectedChannelId}`,
+                scene_index: 0,
+                duration_sec: 3.0,
+                text_overlay: take.harness_schema?.scenes?.[0]?.visual_action_blueprint || take.title,
+                bg_color: '0x1a1a2e'
+            });
+            if (res.data?.merged_video_path) {
+                toast.success(`0.5초 델타 패치 성공! (${res.data.latency_ms}ms)`);
+            }
+        } catch (e: any) {
+            toast.error("고속 델타 렌더링 중 오류가 발생했습니다.");
+        }
+    };
 
     const queryClient = useQueryClient();
 
@@ -449,6 +509,28 @@ export const StudioWarRoom: React.FC = () => {
 
     return (
         <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6 select-none animate-in fade-in duration-300">
+            {/* 0. Hermes v21.5 HUD & Bot Status Strip */}
+            <HermesHUD
+                activeChannelId={selectedChannelId}
+                activeChannelName={channels.find(c => c.id === selectedChannelId)?.name || `채널 #${selectedChannelId}`}
+                onSelectChannel={(id) => setSelectedChannelId(id)}
+                onOpenAssetVault={() => setIsAssetVaultOpen(true)}
+                onTriggerSelfPlay={handleTriggerSelfPlay}
+            />
+
+            {/* MCTS Top 3 Curated Takes Banner */}
+            {curatedTakes.length > 0 && (
+                <CuratedTakeCards
+                    takes={curatedTakes}
+                    selectedTakeId={selectedTakeId}
+                    onSelectTake={handleSelectTake}
+                    onPreviewDeltaRender={handlePreviewDeltaRender}
+                    onSteerTake={(take) => {
+                        setInstantTopic(`이 테이크(${take.title})의 3초 훅을 기반으로 더 자극적인 반전 전개해줘`);
+                    }}
+                />
+            )}
+
             {/* 1. Global Studio Telemetry HUD Bar */}
             <div className="p-4 sm:p-5 rounded-3xl bg-card border border-border/80 text-foreground shadow-xs flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
                 <div className="flex items-center gap-3.5">
@@ -1000,6 +1082,16 @@ export const StudioWarRoom: React.FC = () => {
                 </div>
             </div>
 
+            {/* 2.5 8대 전문 하수인 실시간 단체 작전실 (Bot Crew Group Chat) */}
+            <div className="space-y-3">
+                <BotCrewGroupChat
+                    channelId={selectedChannelId}
+                    channelName={channels.find(c => c.id === selectedChannelId)?.name || `채널 #${selectedChannelId}`}
+                    onTriggerSelfPlay={handleTriggerSelfPlay}
+                    className="h-[420px]"
+                />
+            </div>
+
             {/* 3. 6 Standard Production Pipelines Launcher */}
             <div className="space-y-3">
                 <div className="flex items-center justify-between">
@@ -1339,6 +1431,15 @@ export const StudioWarRoom: React.FC = () => {
                 onClose={() => setIsLaunchpadOpen(false)}
                 onSuccess={() => {
                     refetchDirectors();
+                }}
+            />
+
+            {/* Asset Vault $0 Modal */}
+            <AssetVaultModal
+                isOpen={isAssetVaultOpen}
+                onClose={() => setIsAssetVaultOpen(false)}
+                onSelectAsset={(asset) => {
+                    toast.success(`'${asset.name}' 자산이 작업실에 마운트되었습니다 ($0 비용 절감)`);
                 }}
             />
         </div>

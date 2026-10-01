@@ -357,6 +357,17 @@ def migrate_source_external_id():
             except Exception as sns_err:
                 print(f"[Migration] sns_trend schema migration skipped: {sns_err}")
 
+            # 9. Harness v2 & Bot Mode Tables Auto-Creation
+            try:
+                from app.models import AssetVaultItem, BotCanonicalMemory, ViralCausalityRule, HarnessRun
+                AssetVaultItem.__table__.create(bind=conn, checkfirst=True)
+                BotCanonicalMemory.__table__.create(bind=conn, checkfirst=True)
+                ViralCausalityRule.__table__.create(bind=conn, checkfirst=True)
+                HarnessRun.__table__.create(bind=conn, checkfirst=True)
+                print("[Migration] Verified Harness v2 & Bot Mode tables (asset_vault, bot_canonical_memory, viral_causality_rules, harness_runs)")
+            except Exception as harness_tbl_err:
+                print(f"[Migration] Harness tables create check: {harness_tbl_err}")
+
         return True
     except Exception as e:
         print(f"[Migration] migration skipped: {e}")

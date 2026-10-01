@@ -1920,3 +1920,86 @@ class SourcingCampaign(Base):
     created_at = Column(DateTime, default=datetime.now)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
 
+
+# ── 🏛️ 하네스(Harness v2) & 헤르메스 봇 모드(Bot Mode) 단일 진실 공급원 모델 ──
+class AssetVaultItem(Base):
+    """
+    [Asset Vault] 채널 DNA 인증을 통과한 고화질 영상 소스 보관소
+    - 1회 통과 소스를 영구 보관하여 향후 유사 씬 기획 시 비용 $0, 5초 내 재활용
+    """
+    __tablename__ = "asset_vault"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    asset_id = Column(String(100), unique=True, index=True)  # vault_asset_17908...
+    channel_id = Column(Integer, ForeignKey("brand_channels.id"), nullable=True, index=True)
+    local_path = Column(String(500), nullable=False)
+    remote_url = Column(String(500), nullable=True)
+    duration_sec = Column(Float, default=0.0)
+    resolution = Column(String(20), default="1080p")
+    visual_score = Column(Integer, default=90)
+    mood_score = Column(Integer, default=90)
+    keywords = Column(JSON, default=list)  # ["cyberpunk", "dark", "office"]
+    ai_description = Column(Text, nullable=True)
+    camera_movement = Column(String(50), default="Slow Zoom-in")
+    total_reuse_count = Column(Integer, default=0)
+    performance_rating = Column(String(20), default="HIGH_RETENTION")  # HIGH_RETENTION, NORMAL, AVOID
+    vetted_by = Column(String(50), default="Vault-Curator")
+    created_at = Column(DateTime, default=datetime.now)
+    last_reused_at = Column(DateTime, nullable=True)
+
+
+class BotCanonicalMemory(Base):
+    """
+    [Hermes Bot Mode] 봇별 독립 영구 정경 기억 (Canonical Memory)
+    - 봇 세션이 분기되거나 리셋되어도 각 봇의 고유 경험과 학습 패턴을 영구 보존
+    """
+    __tablename__ = "bot_canonical_memory"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    bot_name = Column(String(50), index=True)  # 'Scout-Alpha', 'Writer-Pro', 'Critic-85'
+    channel_id = Column(Integer, ForeignKey("brand_channels.id"), nullable=True, index=True)
+    memory_type = Column(String(50), index=True)  # 'taste_pattern', 'flaw_pattern', 'viral_hit', 'steering_delta'
+    key = Column(String(200), index=True)
+    value = Column(JSON, default=dict)
+    created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+
+
+class ViralCausalityRule(Base):
+    """
+    [Synthetic Self-Play] 1,000만 뷰 바이럴 인과 지식 그래프 규칙
+    - 사전 자가 대국 및 MCTS 가설 분기 시 도발가/알고리즘 봇이 참조하는 성공 인과 공식
+    """
+    __tablename__ = "viral_causality_rules"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    rule_name = Column(String(100), index=True)
+    category = Column(String(50), index=True)  # 'hook', 'pacing', 'subtitle', 'twist', 'retention'
+    condition_pattern = Column(Text, nullable=False)
+    action_directive = Column(Text, nullable=False)
+    weight = Column(Float, default=1.0)
+    hit_count = Column(Integer, default=0)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.now)
+
+
+class HarnessRun(Base):
+    """
+    [Harness v2 Execution Log] 숏폼 영상 제작 오케스트레이션 실행 및 델타 패치 이력
+    """
+    __tablename__ = "harness_runs"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    project_id = Column(String(100), unique=True, index=True)
+    channel_id = Column(Integer, ForeignKey("brand_channels.id"), nullable=True)
+    title = Column(String(200))
+    current_phase = Column(String(50), default="PLANNING")  # PLANNING, GENERATING, EDITING, QC_CRITIC, COMPLETED, DELTA_PATCHING
+    storyboard_json = Column(JSON, default=dict)
+    qc_report_json = Column(JSON, default=dict)
+    is_passed = Column(Boolean, default=False)
+    critic_retry_count = Column(Integer, default=0)
+    final_video_path = Column(String(500), nullable=True)
+    created_at = Column(DateTime, default=datetime.now)
+    completed_at = Column(DateTime, nullable=True)
+
+

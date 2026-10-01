@@ -339,8 +339,7 @@ async def gemini_live_websocket_endpoint(websocket: WebSocket, thread_id: Option
                                                 if not full_user:
                                                     full_user = "🎙️ [음성 질문]"
                                                 full_model = "".join(curr_model_text).strip()
-
-                                                 if thread_id and (full_user or full_model):
+                                                if thread_id and (full_user or full_model):
                                                     try:
                                                         import uuid
                                                         from datetime import datetime
