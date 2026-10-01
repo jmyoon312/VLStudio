@@ -35,6 +35,11 @@ import {
   ExternalLink,
   Users,
   Tv,
+  Scissors,
+  HelpCircle,
+  HardDrive,
+  Check,
+  X,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -223,6 +228,7 @@ export const SourcingCenterPage: React.FC = () => {
   const [showTrendRadarModal, setShowTrendRadarModal] = useState(false);
   const [trendRadarData, setTrendRadarData] = useState<any>(null);
   const [slicingAssetId, setSlicingAssetId] = useState<string | null>(null);
+  const [showStrategyGuideModal, setShowStrategyGuideModal] = useState(false);
 
   // Campaigns State
   const [campaigns, setCampaigns] = useState<SourcingCampaign[]>([]);
@@ -564,59 +570,71 @@ export const SourcingCenterPage: React.FC = () => {
           </div>
         </div>
 
-        {/* 탭 네비게이션 */}
-        <div className="flex items-center p-1 bg-muted rounded-xl border border-border">
+        {/* 우측 탭 네비게이션 & 소싱 가이드 버튼 */}
+        <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={() => setActiveTab('curation')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
-              activeTab === 'curation'
-                ? 'bg-background text-foreground shadow-xs'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
+            onClick={() => setShowStrategyGuideModal(true)}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/25 transition-all shadow-xs"
+            title="대용량 장편(무다운로드) vs 숏폼(전체다운로드) 소싱 전략 가이드"
           >
-            <Compass className="w-4 h-4 text-rose-500" />
-            명작·트렌드 발굴소
-            {curatedWorks.length > 0 && (
-              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-rose-500/10 text-rose-600 dark:text-rose-400 font-bold">
-                {curatedWorks.length}
-              </span>
-            )}
+            <HelpCircle className="w-3.5 h-3.5" />
+            <span>소싱 전략 가이드</span>
           </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('vault')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
-              activeTab === 'vault'
-                ? 'bg-background text-foreground shadow-xs'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            <Video className="w-4 h-4 text-primary" />
-            원천 영상 보관소
-            {assets.length > 0 && (
-              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-primary/10 text-primary font-bold">
-                {assets.length}
-              </span>
-            )}
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('campaigns')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
-              activeTab === 'campaigns'
-                ? 'bg-background text-foreground shadow-xs'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            <Sliders className="w-4 h-4 text-amber-500" />
-            프리셋별 자동 소싱 제어기
-            {campaigns.length > 0 && (
-              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-amber-500/10 text-amber-600 font-bold">
-                {campaigns.filter((c) => c.is_active).length} 가동
-              </span>
-            )}
-          </button>
+
+          <div className="flex items-center p-1 bg-muted rounded-xl border border-border">
+            <button
+              type="button"
+              onClick={() => setActiveTab('curation')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
+                activeTab === 'curation'
+                  ? 'bg-background text-foreground shadow-xs'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <Compass className="w-4 h-4 text-rose-500" />
+              명작·트렌드 발굴소
+              {curatedWorks.length > 0 && (
+                <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-rose-500/10 text-rose-600 dark:text-rose-400 font-bold">
+                  {curatedWorks.length}
+                </span>
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('vault')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
+                activeTab === 'vault'
+                  ? 'bg-background text-foreground shadow-xs'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <Video className="w-4 h-4 text-primary" />
+              원천 영상 보관소
+              {assets.length > 0 && (
+                <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-primary/10 text-primary font-bold">
+                  {assets.length}
+                </span>
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('campaigns')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
+                activeTab === 'campaigns'
+                  ? 'bg-background text-foreground shadow-xs'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <Sliders className="w-4 h-4 text-amber-500" />
+              프리셋별 자동 소싱 제어기
+              {campaigns.length > 0 && (
+                <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-amber-500/10 text-amber-600 font-bold">
+                  {campaigns.filter((c) => c.is_active).length} 가동
+                </span>
+              )}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -931,6 +949,7 @@ export const SourcingCenterPage: React.FC = () => {
                             onClick={() => handleSliceAndCreate(work)}
                             disabled={isSlicing}
                             className="flex-1 inline-flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-xl text-xs font-bold bg-primary text-primary-foreground hover:bg-primary/90 transition-all shadow-xs disabled:opacity-50 cursor-pointer"
+                            title="전체 다운로드 없이 10~20GB 장편에서 15~30초 하이라이트 구간만 초고속 스트림 슬라이싱"
                           >
                             {isSlicing ? (
                               <>
@@ -940,7 +959,7 @@ export const SourcingCenterPage: React.FC = () => {
                             ) : (
                               <>
                                 <Zap className="w-3.5 h-3.5 fill-current" />
-                                1초 씬 발골 & 제작
+                                1초 무다운로드 발골 & 제작
                               </>
                             )}
                           </button>
@@ -1294,35 +1313,36 @@ export const SourcingCenterPage: React.FC = () => {
                               >
                                 <Send className="w-3.5 h-3.5 text-primary" />
                               </button>
-                              <button
-                                type="button"
-                                onClick={async () => {
-                                  try {
-                                    const res = await fetch(
-                                      '/api/sourcing-center/assets/render-to-queue',
-                                      {
-                                        method: 'POST',
-                                        headers: { 'Content-Type': 'application/json' },
-                                        body: JSON.stringify({
-                                          asset_ids: [asset.id],
-                                          preset_id: 'tearful_cinema_v1',
-                                          auto_start: true,
-                                        }),
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    try {
+                                      const res = await fetch(
+                                        '/api/sourcing-center/assets/render-to-queue',
+                                        {
+                                          method: 'POST',
+                                          headers: { 'Content-Type': 'application/json' },
+                                          body: JSON.stringify({
+                                            asset_ids: [asset.id],
+                                            preset_id: 'tearful_cinema_v1',
+                                            auto_start: true,
+                                          }),
+                                        }
+                                      );
+                                      const data = await res.json();
+                                      if (data.status === 'ok') {
+                                        toast.success('렌더링 대기열에 등록되었습니다.');
                                       }
-                                    );
-                                    const data = await res.json();
-                                    if (data.status === 'ok') {
-                                      toast.success('렌더링 대기열에 등록되었습니다.');
+                                    } catch (err: any) {
+                                      toast.error(`실패: ${err.message}`);
                                     }
-                                  } catch (err: any) {
-                                    toast.error(`실패: ${err.message}`);
-                                  }
-                                }}
-                                className="px-2.5 py-1 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 transition-all flex items-center gap-1"
-                              >
-                                <Sparkles className="w-3 h-3" />
-                                지금 제작
-                              </button>
+                                  }}
+                                  className="px-2.5 py-1 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 transition-all flex items-center gap-1"
+                                  title="로컬 다운로드 1080p 고화질 원본 기반 무손실 컷편집 렌더링"
+                                >
+                                  <HardDrive className="w-3 h-3" />
+                                  고화질 컷제작
+                                </button>
                             </div>
                           </div>
 
@@ -1653,6 +1673,177 @@ export const SourcingCenterPage: React.FC = () => {
                 <p className="text-xs">실시간 알고리즘 지표를 연산하는 중입니다...</p>
               </div>
             )}
+          </div>
+        </div>
+      )}
+      {/* 4. 소싱 전략 & 하이브리드 제작 가이드 모달 */}
+      {showStrategyGuideModal && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-card border border-border w-full max-w-3xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh] animate-in fade-in zoom-in-95 duration-200">
+            {/* 모달 헤더 */}
+            <div className="px-6 py-4 border-b border-border/80 flex items-center justify-between bg-muted/40">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                  <Scissors className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-foreground">
+                    소싱 센터 전략 가이드: 무다운로드 vs 전체 다운로드
+                  </h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    영상 포맷(영화·드라마 vs 숏폼)과 용량에 따른 최적의 쇼츠 제작 파이프라인 지침
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowStrategyGuideModal(false)}
+                className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* 모달 본문 */}
+            <div className="p-6 overflow-y-auto space-y-6 text-xs text-foreground leading-relaxed">
+              {/* 핵심 요약 배너 */}
+              <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-800 dark:text-emerald-300">
+                <span className="font-bold text-emerald-700 dark:text-emerald-400 text-sm block mb-1">
+                  💡 핵심 적용 원칙 (하이브리드 소싱)
+                </span>
+                <p>
+                  <strong>대용량 장편 영상(영화, 드라마, 라이브 등 1~20GB)</strong>은 인터넷에서 <strong>무다운로드 1초 스트림 슬라이싱</strong>으로 원하는 하이라이트 구간만 신속하게 추출하고,
+                  <strong>용량이 적은 숏폼(틱톡, 릴스, 클립 등 10~80MB)</strong>이나 다중 컷 분할/4K 보존이 필요한 영상은 <strong>로컬 보관함에 전체 다운로드</strong>하여 컷편집하는 것이 최상의 전략입니다.
+                </p>
+              </div>
+
+              {/* 1. 비교 분석 매트릭스 */}
+              <div>
+                <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-1.5">
+                  <Film className="w-4 h-4 text-primary" />
+                  소싱 방식별 기술 스펙 및 장단점 비교
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                  {/* 무다운로드 슬라이싱 */}
+                  <div className="p-4 rounded-xl border border-border/80 bg-background/60 flex flex-col justify-between gap-3">
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                          ⚡ 무다운로드 슬라이싱 (HTTP Range)
+                        </span>
+                        <span className="text-[10px] text-muted-foreground">HTTP Range 분할</span>
+                      </div>
+                      <p className="text-muted-foreground text-[11px] mb-2.5">
+                        전체 파일을 다운받지 않고, 지정한 시작/종료 초(Seconds)의 미디어 패킷 청크만 즉시 수신
+                      </p>
+                      <ul className="space-y-1.5 text-[11px] text-muted-foreground">
+                        <li className="flex items-start gap-1.5">
+                          <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0 mt-0.5" />
+                          <span><strong>10~20GB 영화</strong>도 1~2초 만에 15초 하이라이트 씬 발골</span>
+                        </li>
+                        <li className="flex items-start gap-1.5">
+                          <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0 mt-0.5" />
+                          <span>네트워크 트래픽 소모 99% 절감 (수 MB 수준 임시 수신)</span>
+                        </li>
+                        <li className="flex items-start gap-1.5">
+                          <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0 mt-0.5" />
+                          <span>Lanczos 고차원 보간 + Unsharp 엣지 샤프닝으로 선명도 복원</span>
+                        </li>
+                      </ul>
+                    </div>
+                    <div className="pt-2.5 border-t border-border/50 text-[10px] text-primary font-semibold">
+                      추천: 영화/드라마 명장면, 다큐멘터리, 1~3시간 라이브 방송
+                    </div>
+                  </div>
+
+                  {/* 전체 다운로드 후 컷편집 */}
+                  <div className="p-4 rounded-xl border border-border/80 bg-background/60 flex flex-col justify-between gap-3">
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
+                          💾 전체 다운로드 컷편집 (Local NLE)
+                        </span>
+                        <span className="text-[10px] text-muted-foreground">07_Downloads 보관</span>
+                      </div>
+                      <p className="text-muted-foreground text-[11px] mb-2.5">
+                        영상을 원본 그대로 로컬 디스크에 내려받은 후 프레임 단위로 미세 분할 편집
+                      </p>
+                      <ul className="space-y-1.5 text-[11px] text-muted-foreground">
+                        <li className="flex items-start gap-1.5">
+                          <Check className="w-3.5 h-3.5 text-blue-500 shrink-0 mt-0.5" />
+                          <span>1080p/4K 최고 비트레이트 원본 손실 0% 영구 보존</span>
+                        </li>
+                        <li className="flex items-start gap-1.5">
+                          <Check className="w-3.5 h-3.5 text-blue-500 shrink-0 mt-0.5" />
+                          <span>하나의 영상에서 여러 쇼츠(10개 이상)를 반복 추출할 때 안정적</span>
+                        </li>
+                        <li className="flex items-start gap-1.5">
+                          <Check className="w-3.5 h-3.5 text-blue-500 shrink-0 mt-0.5" />
+                          <span>숏폼 영상(수십 MB)은 1~2초 만에 다운로드되므로 부담 없음</span>
+                        </li>
+                      </ul>
+                    </div>
+                    <div className="pt-2.5 border-t border-border/50 text-[10px] text-blue-600 dark:text-blue-400 font-semibold">
+                      추천: 틱톡/릴스 숏폼, 시리즈물 대량 컷팅, 무손실 4K 영상
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* 2. 구간 자르기 기술적 핵심 (Keyframes & GOP) */}
+              <div className="p-4 rounded-xl bg-card border border-border/80 space-y-2">
+                <h4 className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                  <Scissors className="w-4 h-4 text-amber-500" />
+                  원하는 구간 자르기(Cutting)의 기술적 핵심
+                </h4>
+                <p className="text-muted-foreground text-[11px] leading-relaxed">
+                  비디오 스트림은 완전한 이미지인 <strong>키프레임(I-Frame)</strong>과 전후 프레임 변화량만 저장하는 <strong>P/B-Frame</strong>으로 이루어져 있습니다.
+                  단순 복사로 임의 시간을 자르면 <strong>첫 1~2초간 화면이 멈추거나 깨지는 현상(검은 화면)</strong>이 발생합니다.
+                  <br />
+                  ViraLoop 소싱 엔진은 슬라이싱 시 <code className="px-1.5 py-0.5 rounded bg-muted text-primary font-mono text-[10px]">--force-keyframes-at-cuts</code>를 강제 적용하여 <strong>시작 지점에 새 키프레임을 즉시 생성</strong>하므로, 어떤 초(Second)를 지정해도 0.1초의 오차 없이 첫 프레임부터 깨끗하게 재생됩니다.
+                </p>
+              </div>
+
+              {/* 3. 소싱 센터 메뉴별 활용법 */}
+              <div>
+                <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-1.5">
+                  <Sliders className="w-4 h-4 text-emerald-500" />
+                  소싱 센터 메뉴별 연계 프로세스
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-[11px]">
+                  <div className="p-3 rounded-lg border border-border/60 bg-muted/20">
+                    <span className="font-bold text-foreground block mb-1">
+                      1. [명작·트렌드 발굴소] 탭
+                    </span>
+                    <span className="text-muted-foreground">
+                      영화/드라마/시리즈 큐레이션 작품 카드의 <strong>[1초 씬 발골 & 제작]</strong> 버튼을 누르면 무다운로드 슬라이싱으로 즉시 하이라이트 구간을 생성하여 디렉터 제작창으로 연결됩니다.
+                    </span>
+                  </div>
+                  <div className="p-3 rounded-lg border border-border/60 bg-muted/20">
+                    <span className="font-bold text-foreground block mb-1">
+                      2. [원천 영상 보관소] 탭
+                    </span>
+                    <span className="text-muted-foreground">
+                      이미 다운로드된 1080p 고화질 클립들이 보관되어 있으며, <strong>[지금 제작]</strong> 또는 <strong>[대화창 전송]</strong>을 통해 로컬 컷편집 파이프라인으로 무손실 제작됩니다.
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 모달 푸터 */}
+            <div className="px-6 py-3 border-t border-border/80 bg-muted/30 flex items-center justify-between">
+              <span className="text-[11px] text-muted-foreground">
+                ViraLoop 하이브리드 소싱 엔진 v2.5
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowStrategyGuideModal(false)}
+                className="px-4 py-1.5 rounded-xl text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-all shadow-xs"
+              >
+                확인 완료
+              </button>
+            </div>
           </div>
         </div>
       )}

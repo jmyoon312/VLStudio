@@ -30,6 +30,7 @@ from app.services.channel_workflow_builder import channel_workflow_builder
 from app.services.youtube_analytics import YouTubeAnalyticsService
 from app.services.batch_release_orchestrator import orchestrator
 from app.config import settings
+from app.utils.ytdlp_utils import get_ytdlp_cmd
 
 logger = logging.getLogger("mcp_server")
 
@@ -2834,8 +2835,8 @@ async def analyze_single_video(
         video_out_path = work_dir / "target_video.mp4"
         
         # 1. Fetch title and metadata with yt-dlp
-        meta_cmd = [
-            "yt-dlp",
+        ytdlp_bin = get_ytdlp_cmd()
+        meta_cmd = ytdlp_bin + [
             "--no-playlist",
             "--print", "%(title)s",
             "--no-check-certificates",
@@ -2851,8 +2852,7 @@ async def analyze_single_video(
         # 2. Download target clip (up to 60s for rapid forensic)
         if not video_out_path.exists() or video_out_path.stat().st_size < 50000:
             logger.info(f"📥 [MCP:SINGLE_FORENSIC] Downloading video: {video_source}")
-            dl_cmd = [
-                "yt-dlp",
+            dl_cmd = ytdlp_bin + [
                 "--no-playlist",
                 "--extractor-args", "youtube:player_client=android,web",
                 "--no-check-certificates",
@@ -2866,8 +2866,7 @@ async def analyze_single_video(
                 dl_res = subprocess.run(dl_cmd, capture_output=True, text=True, errors="replace", timeout=60)
                 if dl_res.returncode != 0 or not video_out_path.exists() or video_out_path.stat().st_size < 50000:
                     # Fallback without section cut
-                    dl_cmd_fallback = [
-                        "yt-dlp",
+                    dl_cmd_fallback = ytdlp_bin + [
                         "--no-playlist",
                         "--extractor-args", "youtube:player_client=android,web",
                         "--no-check-certificates",

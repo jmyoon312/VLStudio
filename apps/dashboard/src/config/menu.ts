@@ -104,11 +104,11 @@ export const getMenuGroups = (captainId: string | null): MenuGroup[] => [
 
     // 2. CREATION (콘텐츠 제작 스튜디오)
     {
-        title: "⚡ 올인원 생성",
+        title: "⚡ 일괄 생성",
         mode: "CREATION",
         defaultExpanded: true,
         items: [
-            { name: '올인원 생성', path: '/shorts-batch', icon: Zap, highlight: true },
+            { name: '원테이크 일괄 생성', path: '/shorts-batch', icon: Zap, highlight: true },
         ]
     },
     {

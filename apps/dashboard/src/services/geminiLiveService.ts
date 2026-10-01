@@ -11,8 +11,12 @@
 
 export interface GeminiLiveCallbacks {
     onReady?: (model: string) => void;
+    onUserTranscript?: (text: string, finished: boolean) => void;
     onTranscript?: (text: string) => void;
     onTalkingChange?: (isTalking: boolean) => void;
+    onToolCalling?: (toolName: string, args: any, step: any) => void;
+    onToolResult?: (toolName: string, result: any, step: any) => void;
+    onTurnComplete?: (userText: string, assistantText: string) => void;
     onInterrupted?: () => void;
     onError?: (err: string) => void;
     onClose?: () => void;
@@ -20,13 +24,15 @@ export interface GeminiLiveCallbacks {
 
 export class GeminiLiveService {
     private ws: WebSocket | null = null;
+    // Unified AudioContext for both Mic input and AI playback (Essential for Mobile/iOS/Android)
     private audioContext: AudioContext | null = null;
     private mediaStream: MediaStream | null = null;
     private processor: ScriptProcessorNode | null = null;
     private sourceNode: MediaStreamAudioSourceNode | null = null;
 
-    // Audio Playback Queue
-    private playbackContext: AudioContext | null = null;
+    // Audio Playback Queue with Dynamics Compressor (shares this.audioContext)
+    private compressorNode: DynamicsCompressorNode | null = null;
+    private gainNode: GainNode | null = null;
     private nextPlaybackTime: number = 0;
     private isPlayingAudio: boolean = false;
     private activeAudioNodes: AudioBufferSourceNode[] = [];
@@ -41,17 +47,18 @@ export class GeminiLiveService {
         this.callbacks = callbacks;
     }
 
-    public async connect(): Promise<boolean> {
+    public async connect(threadId?: string): Promise<boolean> {
         return new Promise((resolve) => {
             try {
                 const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
                 const host = window.location.host;
-                const wsUrl = `${protocol}//${host}/api/agent/live-session`;
+                const queryParam = threadId ? `?thread_id=${encodeURIComponent(threadId)}` : '';
+                const wsUrl = `${protocol}//${host}/api/agent/live-session${queryParam}`;
 
                 this.ws = new WebSocket(wsUrl);
 
                 this.ws.onopen = () => {
-                    console.log('🎙️ [GeminiLiveService] WebSocket connected to backend proxy.');
+                    console.log('🎙️ [GeminiLiveService] WebSocket connected to backend proxy (thread:', threadId, ')');
                     this.isConnected = true;
                 };
 
@@ -61,10 +68,22 @@ export class GeminiLiveService {
                         if (data.type === 'ready') {
                             this.callbacks.onReady?.(data.model || 'gemini-3.8-live');
                             resolve(true);
+                        } else if (data.type === 'user_transcript') {
+                            this.callbacks.onUserTranscript?.(data.text, !!data.finished);
                         } else if (data.type === 'transcript') {
                             this.callbacks.onTranscript?.(data.text);
                         } else if (data.type === 'audio_chunk') {
                             await this.enqueuePcmChunk(data.pcm);
+                        } else if (data.type === 'tool_calling') {
+                            this.callbacks.onToolCalling?.(data.tool_name, data.args, data.step);
+                        } else if (data.type === 'tool_result') {
+                            this.callbacks.onToolResult?.(data.tool_name, data.result, data.step);
+                        } else if (data.type === 'turn_complete') {
+                            // Ensure audio context remains active for the next turn
+                            if (this.audioContext && this.audioContext.state === 'suspended') {
+                                this.audioContext.resume().catch(() => {});
+                            }
+                            this.callbacks.onTurnComplete?.(data.user_text || '', data.assistant_text || '');
                         } else if (data.type === 'interrupted') {
                             this.clearPlaybackQueue();
                             this.callbacks.onInterrupted?.();
@@ -97,36 +116,87 @@ export class GeminiLiveService {
 
     /**
      * Start capturing microphone audio and streaming 16kHz PCM to Gemini.
+     * Uses a single unified AudioContext for both Mic and Playback to prevent
+     * mobile OS (iOS Safari / Android Chrome) audio session suspension bugs.
      */
     public async startAudioCapture(): Promise<boolean> {
         try {
             this.mediaStream = await navigator.mediaDevices.getUserMedia({
                 audio: {
                     channelCount: 1,
-                    sampleRate: 16000,
                     echoCancellation: true,
                     noiseSuppression: true,
-                    autoGainControl: true
+                    autoGainControl: false
                 }
             });
 
-            this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)({
-                sampleRate: 16000
-            });
+            const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+            if (!this.audioContext || this.audioContext.state === 'closed') {
+                try {
+                    this.audioContext = new AudioContextClass({ sampleRate: 16000 });
+                } catch {
+                    this.audioContext = new AudioContextClass();
+                }
+            }
+
+            if (this.audioContext.state === 'suspended') {
+                await this.audioContext.resume();
+            }
+
+            // Set up audioContext state watcher for auto-recovery on mobile
+            this.audioContext.onstatechange = () => {
+                if (this.audioContext?.state === 'suspended' && this.isConnected) {
+                    this.audioContext.resume().catch(() => {});
+                }
+            };
+
+            // Setup dynamics compressor & gain node for AI voice output on the SAME AudioContext
+            this.compressorNode = this.audioContext.createDynamicsCompressor();
+            this.compressorNode.threshold.setValueAtTime(-24, this.audioContext.currentTime);
+            this.compressorNode.knee.setValueAtTime(30, this.audioContext.currentTime);
+            this.compressorNode.ratio.setValueAtTime(12, this.audioContext.currentTime);
+            this.compressorNode.attack.setValueAtTime(0.003, this.audioContext.currentTime);
+            this.compressorNode.release.setValueAtTime(0.25, this.audioContext.currentTime);
+
+            this.gainNode = this.audioContext.createGain();
+            this.gainNode.gain.setValueAtTime(1.4, this.audioContext.currentTime);
+
+            this.compressorNode.connect(this.gainNode);
+            this.gainNode.connect(this.audioContext.destination);
+            this.nextPlaybackTime = this.audioContext.currentTime;
 
             this.sourceNode = this.audioContext.createMediaStreamSource(this.mediaStream);
-            // 4096 buffer size at 16kHz gives ~256ms chunk
+            // 4096 buffer size gives ~256ms chunk
             this.processor = this.audioContext.createScriptProcessor(4096, 1, 1);
 
             this.processor.onaudioprocess = (e) => {
                 if (!this.isConnected || !this.ws || this.ws.readyState !== WebSocket.OPEN) return;
 
+                // Auto-resume if mobile OS suspended the context
+                if (this.audioContext && this.audioContext.state === 'suspended') {
+                    this.audioContext.resume().catch(() => {});
+                }
+
                 const inputData = e.inputBuffer.getChannelData(0);
-                // Convert Float32Array (-1.0 to 1.0) to Int16Array (PCM 16-bit)
-                const pcm16 = new Int16Array(inputData.length);
-                for (let i = 0; i < inputData.length; i++) {
-                    const s = Math.max(-1, Math.min(1, inputData[i]));
-                    pcm16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+                const currentSampleRate = this.audioContext?.sampleRate || 16000;
+
+                let pcm16: Int16Array;
+                if (currentSampleRate === 16000) {
+                    pcm16 = new Int16Array(inputData.length);
+                    for (let i = 0; i < inputData.length; i++) {
+                        const s = Math.max(-1, Math.min(1, inputData[i]));
+                        pcm16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+                    }
+                } else {
+                    // Safe linear resample down to 16000 for Gemini Live if native sample rate is 44.1k or 48k
+                    const ratio = currentSampleRate / 16000;
+                    const targetLen = Math.floor(inputData.length / ratio);
+                    pcm16 = new Int16Array(targetLen);
+                    for (let i = 0; i < targetLen; i++) {
+                        const srcIdx = Math.floor(i * ratio);
+                        const s = Math.max(-1, Math.min(1, inputData[srcIdx]));
+                        pcm16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+                    }
                 }
 
                 // Base64 encode PCM binary
@@ -140,12 +210,18 @@ export class GeminiLiveService {
 
                 this.ws.send(JSON.stringify({
                     type: 'audio_pcm',
-                    pcm: b64
+                    pcm: b64,
+                    sampleRate: 16000
                 }));
             };
 
+            // Mute microphone loopback to speakers
+            const muteGain = this.audioContext.createGain();
+            muteGain.gain.value = 0;
             this.sourceNode.connect(this.processor);
-            this.processor.connect(this.audioContext.destination);
+            this.processor.connect(muteGain);
+            muteGain.connect(this.audioContext.destination);
+
             return true;
         } catch (err: any) {
             console.error('[GeminiLiveService] Failed to capture microphone:', err);
@@ -155,19 +231,15 @@ export class GeminiLiveService {
     }
 
     /**
-     * Playback 24kHz PCM audio chunks streamed from Gemini Live.
+     * Playback 24kHz PCM audio chunks streamed from Gemini Live with Dynamics Compression.
+     * Decoded directly onto the unified AudioContext.
      */
     private async enqueuePcmChunk(b64Pcm: string) {
         try {
-            if (!this.playbackContext || this.playbackContext.state === 'closed') {
-                this.playbackContext = new (window.AudioContext || (window as any).webkitAudioContext)({
-                    sampleRate: 24000
-                });
-                this.nextPlaybackTime = this.playbackContext.currentTime;
-            }
+            if (!this.audioContext || this.audioContext.state === 'closed') return;
 
-            if (this.playbackContext.state === 'suspended') {
-                await this.playbackContext.resume();
+            if (this.audioContext.state === 'suspended') {
+                await this.audioContext.resume();
             }
 
             const binaryStr = window.atob(b64Pcm);
@@ -184,14 +256,19 @@ export class GeminiLiveService {
                 float32[i] = int16[i] / 32768.0;
             }
 
-            const audioBuffer = this.playbackContext.createBuffer(1, float32.length, 24000);
+            // Web Audio automatically resamples 24kHz to this.audioContext.sampleRate
+            const audioBuffer = this.audioContext.createBuffer(1, float32.length, 24000);
             audioBuffer.copyToChannel(float32, 0);
 
-            const source = this.playbackContext.createBufferSource();
+            const source = this.audioContext.createBufferSource();
             source.buffer = audioBuffer;
-            source.connect(this.playbackContext.destination);
+            if (this.compressorNode) {
+                source.connect(this.compressorNode);
+            } else {
+                source.connect(this.audioContext.destination);
+            }
 
-            const currentTime = this.playbackContext.currentTime;
+            const currentTime = this.audioContext.currentTime;
             if (this.nextPlaybackTime < currentTime) {
                 this.nextPlaybackTime = currentTime;
             }
@@ -228,8 +305,8 @@ export class GeminiLiveService {
         }
         this.activeAudioNodes = [];
         this.callbacks.onTalkingChange?.(false);
-        if (this.playbackContext) {
-            this.nextPlaybackTime = this.playbackContext.currentTime;
+        if (this.audioContext) {
+            this.nextPlaybackTime = this.audioContext.currentTime;
         }
     }
 
@@ -302,10 +379,6 @@ export class GeminiLiveService {
         if (this.audioContext) {
             try { this.audioContext.close(); } catch {}
             this.audioContext = null;
-        }
-        if (this.playbackContext) {
-            try { this.playbackContext.close(); } catch {}
-            this.playbackContext = null;
         }
     }
 }

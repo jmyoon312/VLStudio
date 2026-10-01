@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Sparkles, Download, Check, RefreshCw, Film, Sliders, Layers, FileCode, CheckCircle2, Trash2, Edit3, Play, Pause, Music, Mic, Volume2, Clock, X } from 'lucide-react';
+import { Sparkles, Download, Check, RefreshCw, Film, Sliders, Layers, FileCode, CheckCircle2, Trash2, Edit3, Play, Pause, Music, Mic, Volume2, Clock, X, Palette } from 'lucide-react';
 import { toast } from 'sonner';
 import { PresetCustomizeModal } from './PresetCustomizeModal';
 
@@ -85,6 +86,7 @@ export const PresetLibraryModal: React.FC<PresetLibraryModalProps> = ({
     activePresetId,
     onSelectPreset,
 }) => {
+    const navigate = useNavigate();
     const [presets, setPresets] = useState<SovereignPreset[]>([]);
     const [loading, setLoading] = useState(false);
     const [harvesting, setHarvesting] = useState(false);
@@ -496,6 +498,21 @@ export const PresetLibraryModal: React.FC<PresetLibraryModalProps> = ({
                                                 >
                                                     <Sliders className="w-3.5 h-3.5" />
                                                     수정/복제
+                                                </Button>
+
+                                                <Button
+                                                    size="sm"
+                                                    variant="ghost"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        onOpenChange(false);
+                                                        navigate(`/basic-editor?presetId=${encodeURIComponent(preset.id)}`);
+                                                    }}
+                                                    className="h-7 px-2 text-xs gap-1 text-primary hover:text-primary hover:bg-primary/10"
+                                                    title="기본 에디터(프리셋 공방)에서 열어 정밀하게 수정합니다"
+                                                >
+                                                    <Palette className="w-3.5 h-3.5" />
+                                                    에디터로 수정
                                                 </Button>
 
                                                 {(preset.source === 'viraloop_user' || preset.source === 'user') && (

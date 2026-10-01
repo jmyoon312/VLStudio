@@ -587,18 +587,18 @@ MODELS_REGISTRY_FILE = Path(LOCAL_APPDATA) / "ViraLoop Studio" / "media" / "06_D
 DEFAULT_MODELS_REGISTRY = {
     "codex": {
         "label": "OpenAI Codex",
-        "default_model": "Codex Astra 6.0",
+        "default_model": "Codex Astra 6.1",
         "models": [
-            {"id": "Codex Astra 6.0", "name": "Codex Astra 6.0 (Codex 아스트라)", "desc": "OpenAI Codex CLI 직결 아스트라 6.0 심층 추론 (코덱스 쿼터)"},
+            {"id": "Codex Astra 6.1", "name": "Codex Astra 6.1 (Codex 아스트라)", "desc": "OpenAI Codex CLI 직결 아스트라 6.1 심층 추론 (코덱스 쿼터)"},
             {"id": "GPT-5.6 Sol High", "name": "GPT-5.6 Sol High (Codex 솔)", "desc": "초고속 멀티모달 분석 및 타임코드 대본 구조화 (코덱스 쿼터)"},
             {"id": "GPT-5.6 Terra Max", "name": "GPT-5.6 Terra Max (심층 기획)", "desc": "장편 시나리오 구조화 및 캐릭터 톤앤매너"}
         ]
     },
     "chatgpt_web": {
         "label": "ChatGPT Web",
-        "default_model": "Codex Astra 6.0 (Web)",
+        "default_model": "Codex Astra 6.1 (Web)",
         "models": [
-            {"id": "Codex Astra 6.0 (Web)", "name": "Codex Astra 6.0 (Web 아스트라)", "desc": "ChatGPT Web 세션 직결 아스트라 6.0 심층 추론 (웹 쿼터)"},
+            {"id": "Codex Astra 6.1 (Web)", "name": "Codex Astra 6.1 (Web 아스트라)", "desc": "ChatGPT Web 세션 직결 아스트라 6.1 심층 추론 (웹 쿼터)"},
             {"id": "GPT-5.6 Sol (Web)", "name": "GPT-5.6 Sol (Web 솔)", "desc": "ChatGPT Web 세션 직결 Sol 고속 추론 (웹 쿼터)"},
             {"id": "GPT-5.6 Pro (Web)", "name": "GPT-5.6 Pro (Web 프로)", "desc": "ChatGPT Pro Web 세션 연동 고용량 추론"},
             {"id": "ChatGPT-4o (Web)", "name": "ChatGPT-4o (Web 4o)", "desc": "ChatGPT Web 4o 일반 대화 쿼터 기반 생성"}
@@ -645,71 +645,11 @@ DEFAULT_MODELS_REGISTRY = {
 }
 
 
-def _load_models_registry(db_settings=None) -> Dict[str, Any]:
-    """Load dynamic model registry from database/file storage. Never hardcoded."""
-    registry = {}
-    if MODELS_REGISTRY_FILE.exists():
-        try:
-            with open(MODELS_REGISTRY_FILE, "r", encoding="utf-8") as f:
-                registry = json.load(f)
-        except Exception as e:
-            logger.warning(f"Failed to read models registry file: {e}")
-            registry = json.loads(json.dumps(DEFAULT_MODELS_REGISTRY))
-    else:
-        registry = json.loads(json.dumps(DEFAULT_MODELS_REGISTRY))
-        try:
-            MODELS_REGISTRY_FILE.parent.mkdir(parents=True, exist_ok=True)
-            with open(MODELS_REGISTRY_FILE, "w", encoding="utf-8") as f:
-                json.dump(registry, f, ensure_ascii=False, indent=2)
-        except Exception as se:
-            logger.warning(f"Failed to initialize models registry file: {se}")
+from app.services.ai_models_discovery import sync_and_load_models_registry, DEFAULT_DISCOVERY_CATALOG
 
-    # Synchronize with dynamic DB Settings if custom models configured
-    if db_settings:
-        custom_script_model = getattr(db_settings, "script_analysis_model", None)
-        if custom_script_model and "/" in custom_script_model:
-            prov, m_id = custom_script_model.split("/", 1)
-            prov_key = "omniroute" if "omni" in prov else prov
-            if prov_key in registry:
-                exists = any(m["id"] == m_id for m in registry[prov_key]["models"])
-                if not exists:
-                    registry[prov_key]["models"].append({
-                        "id": m_id,
-                        "name": f"{m_id} (사용자 설정 모델)",
-                        "desc": "DB 환경설정에서 동적으로 연결된 커스텀 모델"
-                    })
-
-    # Ensure Sonnet 5.5 Medium is always present for Claude
-    if "claude" in registry:
-        c_models = registry["claude"].get("models", [])
-        if not any(m.get("id") == "Sonnet 5.5 Medium" for m in c_models):
-            registry["claude"]["default_model"] = "Sonnet 5.5 Medium"
-            registry["claude"]["models"] = DEFAULT_MODELS_REGISTRY["claude"]["models"]
-            try:
-                with open(MODELS_REGISTRY_FILE, "w", encoding="utf-8") as f:
-                    json.dump(registry, f, ensure_ascii=False, indent=2)
-            except Exception:
-                pass
-
-    # Ensure DeepSeek models (DeepSeek-V3, DeepSeek-R1, DeepSeek-Chat) are present
-    if "deepseek" not in registry or not any(m.get("id") == "DeepSeek-V3" for m in registry.get("deepseek", {}).get("models", [])):
-        registry["deepseek"] = DEFAULT_MODELS_REGISTRY["deepseek"]
-        try:
-            with open(MODELS_REGISTRY_FILE, "w", encoding="utf-8") as f:
-                json.dump(registry, f, ensure_ascii=False, indent=2)
-        except Exception:
-            pass
-
-    # Completely remove grok from registry if present
-    if "grok" in registry:
-        del registry["grok"]
-        try:
-            with open(MODELS_REGISTRY_FILE, "w", encoding="utf-8") as f:
-                json.dump(registry, f, ensure_ascii=False, indent=2)
-        except Exception:
-            pass
-
-    return registry
+def _load_models_registry(db_settings=None, force_live: bool = False) -> Dict[str, Any]:
+    """Load dynamic model registry via Sovereign Dynamic Discovery Service."""
+    return sync_and_load_models_registry(db_settings, force_live=force_live)
 
 
 @router.get("/models")
@@ -719,7 +659,17 @@ def get_available_models(db: Session = Depends(get_db)):
     Reads live models from persistent storage & DB settings without hardcoding.
     """
     db_settings = crud.get_settings(db)
-    return _load_models_registry(db_settings)
+    return _load_models_registry(db_settings, force_live=False)
+
+
+@router.post("/models/refresh")
+def refresh_available_models(db: Session = Depends(get_db)):
+    """
+    Force live query across all providers (Google Gemini, OpenAI, Claude, DeepSeek, OmniRoute)
+    to discover newly released models in real time and persist to registry.
+    """
+    db_settings = crud.get_settings(db)
+    return _load_models_registry(db_settings, force_live=True)
 
 
 @router.post("/models/register")
@@ -749,6 +699,7 @@ def register_custom_model(req: Dict[str, Any]):
         raise HTTPException(status_code=500, detail=f"Failed to persist model registry: {e}")
 
     return {"status": "success", "provider": provider, "registered_model": model_id}
+
 
 
 @router.post("/{provider}/connect")

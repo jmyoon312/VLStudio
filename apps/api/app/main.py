@@ -171,7 +171,8 @@ from app.routers import (
     pipeline_router, universal_cutter, analytics, community, shorts_production,
     media_intelligence, viral_intelligence, discovery, bgm_router, ranking_shorts,
     long_to_short, meokguri, video_creative, movie_drama_shorts, song_shorts, sns_trend,
-    ai_accounts, director_sessions, sourcing_center, stream_slicer, gemini_live_router, video_director
+    ai_accounts, director_sessions, sourcing_center, stream_slicer, gemini_live_router, video_director,
+    shorts_templates, nle_export, montage_nle, agent_profiles
 )
 from app import job_queue, crud, models, scheduler
 from app.utils.path_utils import normalize_path
@@ -677,6 +678,7 @@ app.include_router(analytics_endpoints.router, prefix="/api/analytics")
 app.include_router(bridge_api.router, prefix="/api/bridge")
 app.include_router(bridge_config_v2.router, prefix="/api/bridge/config/v2")
 app.include_router(bridge_search.router, prefix="/api/bridge/search")
+app.include_router(bridge_audio.router, prefix="/api/bridge/audio", tags=["bridge-audio"])
 
 app.include_router(ranking_shorts.router, prefix="/api/ranking", tags=["ranking-shorts"])
 app.include_router(meokguri.router, prefix="/api/meokguri", tags=["meokguri"])
@@ -689,8 +691,12 @@ app.include_router(sovereign_presets.router, prefix="/api", tags=["sovereign_pre
 app.include_router(ai_accounts.router, prefix="/api", tags=["ai_accounts"])
 app.include_router(director_sessions.router, prefix="/api", tags=["director_sessions"])
 app.include_router(sourcing_center.router, tags=["sourcing_center"])
+app.include_router(agent_profiles.router, tags=["agent_profiles"])
 app.include_router(stream_slicer.router)
 app.include_router(stream_slicer.vault_router)
+app.include_router(shorts_templates.router)
+app.include_router(nle_export.router)
+app.include_router(montage_nle.router, prefix="/api", tags=["montage_nle"])
 
 # New Phase 7-10 Routers
 app.include_router(queue_management.router)

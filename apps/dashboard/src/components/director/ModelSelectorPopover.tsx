@@ -8,7 +8,8 @@ import {
     Sliders, 
     Cpu, 
     Sparkles, 
-    ShieldCheck 
+    ShieldCheck,
+    RefreshCw
 } from 'lucide-react';
 
 export type ReasoningEffort = 'light' | 'medium' | 'deep' | 'ultra';
@@ -45,17 +46,24 @@ const PROVIDER_MODELS: Record<string, { label: string; hasAccount: boolean; mode
         label: 'OpenAI Codex',
         hasAccount: true,
         models: [
-            { id: 'Codex Astra 6.0', name: 'Codex Astra 6.0 (Codex 아스트라)', desc: 'OpenAI Codex CLI 직결 아스트라 6.0 심층 추론 (코덱스 쿼터)' },
-            { id: 'GPT-5.6 Sol High', name: 'GPT-5.6 Sol High (Codex 솔)', desc: '초고속 멀티모달 분석 및 타임코드 대본 구조화 (코덱스 쿼터)' },
-            { id: 'GPT-5.6 Sol Medium', name: 'GPT-5.6 Sol Medium (밸런스)', desc: '경량 밸런스형 실시간 아이디어 발굴' },
+            { id: 'GPT-6.1', name: 'GPT-6.1 (최신 차세대 플래그십)', desc: 'OpenAI 최신 6.1 차세대 심층 추론 및 멀티모달 자율 디렉팅 (Codex 직결)' },
+            { id: 'Codex Astra 6.1', name: 'Codex Astra 6.1 (최신 아스트라 심층 추론)', desc: '최신 Astra 6.1 심층 논리 추론 및 타임코드 대본 구조화 (코덱스 쿼터)' },
+            { id: 'Codex Astra 6.0', name: 'Codex Astra 6.0 (안정 플래그십)', desc: 'OpenAI Codex CLI 직결 안정 6.0 심층 추론 (코덱스 쿼터)' },
+            { id: 'GPT-6.1 Sol High', name: 'GPT-6.1 Sol High (초고속 멀티모달)', desc: '초고속 실시간 멀티모달 분석 및 즉시 씬보드 도출' },
+            { id: 'GPT-5.6 Sol High', name: 'GPT-5.6 Sol High (고속·초정밀)', desc: '초고속 멀티모달 분석 및 타임코드 대본 구조화 (코덱스 쿼터)' },
             { id: 'GPT-5.6 Terra Max', name: 'GPT-5.6 Terra Max (심층 기획)', desc: '장편 시나리오 구조화 및 캐릭터 톤앤매너' },
+            { id: 'o3-mini', name: 'o3-mini (초고속 논리 추론)', desc: 'OpenAI 차세대 추론 모델 (논리/수학/코드/대본 특화)' },
+            { id: 'gpt-4o', name: 'GPT-4o (고성능 비전)', desc: '옴니 멀티모달 실시간 영상 프레임 분석' },
         ]
     },
     chatgpt_web: {
         label: 'ChatGPT Web',
         hasAccount: true,
         models: [
-            { id: 'Codex Astra 6.0 (Web)', name: 'Codex Astra 6.0 (Web 아스트라)', desc: 'ChatGPT Web 세션 직결 아스트라 6.0 심층 추론 (웹 쿼터)' },
+            { id: 'GPT-6.1 (Web)', name: 'GPT-6.1 (Web 세션)', desc: 'ChatGPT Web 세션 기반 최신 6.1 차세대 추론 (웹 쿼터)' },
+            { id: 'Codex Astra 6.1 (Web)', name: 'Codex Astra 6.1 (Web 아스트라)', desc: 'ChatGPT Web 세션 직결 최신 Astra 6.1 심층 추론' },
+            { id: 'Codex Astra 6.0 (Web)', name: 'Codex Astra 6.0 (Web 세션)', desc: 'ChatGPT Web 세션 기반 안정 Astra 추론' },
+            { id: 'GPT-6.1 Sol (Web)', name: 'GPT-6.1 Sol (Web 솔)', desc: 'ChatGPT Web 최신 고속 솔 엔진 연동' },
             { id: 'GPT-5.6 Sol (Web)', name: 'GPT-5.6 Sol (Web 솔)', desc: 'ChatGPT Web 세션 직결 Sol 고속 추론 (웹 쿼터)' },
             { id: 'GPT-5.6 Pro (Web)', name: 'GPT-5.6 Pro (Web 프로)', desc: 'ChatGPT Pro Web 세션 연동 고용량 추론' },
             { id: 'ChatGPT-4o (Web)', name: 'ChatGPT-4o (Web 4o)', desc: 'ChatGPT Web 4o 일반 대화 쿼터 기반 생성' },
@@ -65,8 +73,10 @@ const PROVIDER_MODELS: Record<string, { label: string; hasAccount: boolean; mode
         label: 'Google Gemini',
         hasAccount: true,
         models: [
-            { id: 'Gemini 3.8 Flash', name: 'Gemini 3.8 Flash (보통/Medium · 현역)', desc: '초고속 멀티모달 및 실시간 구글 검색' },
+            { id: 'Gemini 3.8 Flash', name: 'Gemini 3.8 Flash (최신 · 초고속 현역)', desc: '초고속 멀티모달 및 실시간 구글 검색 최신 플래그십' },
             { id: 'Gemini 3.1 Pro', name: 'Gemini 3.1 Pro (초정밀/Thinking)', desc: '200만 토큰 심층 추론 및 비전 분석' },
+            { id: 'Gemini 2.5 Flash', name: 'Gemini 2.5 Flash (초저지연 플래시)', desc: '공식 직접 API 최신 초저지연 멀티모달 모델' },
+            { id: 'Gemini 2.5 Pro', name: 'Gemini 2.5 Pro (심층 추론)', desc: '공식 직접 API 최상위 심층 지능 추론 모델' },
             { id: 'Google Antigravity 2.0', name: 'Google Antigravity 2.0 (Agent)', desc: '자율 디렉터 브레인 및 채널 DNA 역공학' },
         ]
     },
@@ -84,18 +94,19 @@ const PROVIDER_MODELS: Record<string, { label: string; hasAccount: boolean; mode
         label: 'Anthropic Claude',
         hasAccount: true,
         models: [
+            { id: 'Claude 3.7 Sonnet', name: 'Claude 3.7 Sonnet (최신 · 하이브리드)', desc: '사고(Thinking) 및 코딩·대본 연출 특화 최신 플래그십' },
             { id: 'Sonnet 5.5 Medium', name: 'Sonnet 5.5 Medium (기본 · 무료/표준)', desc: 'Anthropic Claude 기본 무료/표준 지능 모델' },
-            { id: 'Claude 3.7 Sonnet', name: 'Claude 3.7 Sonnet (최신 · 하이브리드)', desc: '사고(Thinking) 및 코딩·대본 연출 특화' },
-            { id: 'Claude 3.5 Haiku', name: 'Claude 3.5 Haiku (초경량)', desc: '즉각적인 프롬프트 응답 및 고속 요약' },
             { id: 'Claude 3.5 Sonnet', name: 'Claude 3.5 Sonnet (고성능)', desc: '균형잡힌 지능 및 고속 추론' },
+            { id: 'Claude 3.5 Haiku', name: 'Claude 3.5 Haiku (초경량)', desc: '즉각적인 프롬프트 응답 및 고속 요약' },
         ]
     },
     deepseek: {
         label: 'DeepSeek',
         hasAccount: true,
         models: [
-            { id: 'DeepSeek-V3', name: '⚡ DeepSeek-V3 (초고속 대본·기본 무료)', desc: 'chat.deepseek.com 실시간 한국어 서사 및 유튜브 쇼츠 대본 최적화 (비용 0원)' },
-            { id: 'DeepSeek-R1', name: '🧠 DeepSeek-R1 (심층 추론·사고 전문가)', desc: '복잡한 기획 및 고난도 분석을 위한 DeepSeek R1 심층 추론 (비용 0원)' },
+            { id: 'DeepSeek-V3.1', name: '⚡ DeepSeek-V3.1 (최신 차세대 · 기본 무료)', desc: '최신 V3.1 실시간 한국어 서사 및 유튜브 쇼츠 대본 최적화 (비용 0원)' },
+            { id: 'DeepSeek-V3', name: '⚡ DeepSeek-V3 (초고속 대본 · 기본 무료)', desc: 'chat.deepseek.com 실시간 한국어 서사 및 유튜브 쇼츠 대본 최적화 (비용 0원)' },
+            { id: 'DeepSeek-R1', name: '🧠 DeepSeek-R1 (심층 추론 · 사고 전문가)', desc: '복잡한 기획 및 고난도 분석을 위한 DeepSeek R1 심층 추론 (비용 0원)' },
             { id: 'DeepSeek-Chat', name: '💬 DeepSeek-Chat (자율 대화)', desc: '일반 대화 및 아이디어 브레인스토밍 (비용 0원)' },
         ]
     }
@@ -110,7 +121,7 @@ const EFFORT_STEPS: { key: ReasoningEffort; label: string; desc: string }[] = [
 
 export const ModelSelectorPopover: React.FC<ModelSelectorPopoverProps> = (props) => {
     const parentProvider = props.currentProvider || props.selectedProvider || 'codex';
-    const currentModel = props.currentModel || props.selectedModel || 'Codex Astra 6.0';
+    const currentModel = props.currentModel || props.selectedModel || 'Codex Astra 6.1';
     const currentEffort = props.currentEffort || props.reasoningEffort || 'medium';
     const onModelChange = props.onModelChange || props.onSelectModel || (() => {});
     const onEffortChange = props.onEffortChange || props.onSelectReasoningEffort || (() => {});
@@ -154,6 +165,26 @@ export const ModelSelectorPopover: React.FC<ModelSelectorPopoverProps> = (props)
     useEffect(() => {
         setActiveTab(parentProvider);
     }, [parentProvider]);
+
+    const [isRefreshing, setIsRefreshing] = useState(false);
+
+    const handleRefreshLiveModels = useCallback(async (e?: React.MouseEvent) => {
+        if (e) e.stopPropagation();
+        setIsRefreshing(true);
+        try {
+            const res = await fetch('/api/ai-accounts/models/refresh', { method: 'POST' });
+            if (res.ok) {
+                const data = await res.json();
+                if (data && typeof data === 'object') {
+                    setDynamicRegistry(data);
+                }
+            }
+        } catch (err) {
+            console.error('Failed to refresh live models:', err);
+        } finally {
+            setIsRefreshing(false);
+        }
+    }, []);
 
     // Fetch dynamic model registry from backend (zero-hardcoding, live updates)
     useEffect(() => {
@@ -216,8 +247,8 @@ export const ModelSelectorPopover: React.FC<ModelSelectorPopoverProps> = (props)
     const effectiveProvider = activeTab || parentProvider || 'codex';
     const providerConfig = dynamicRegistry[effectiveProvider] || dynamicRegistry['codex'] || PROVIDER_MODELS['codex'];
     const currentModelObj = providerConfig?.models?.find(m => m.id === currentModel || m.name === currentModel);
-    const rawModelName = currentModelObj?.name || currentModel || 'Codex Astra 6.0';
-    // 버튼 칩에는 괄호 부가설명을 제외한 핵심 모델명만 깔끔하게 노출 (예: 'Codex Astra 6.0 (기본 · 플래그십)' -> 'Codex Astra 6.0')
+    const rawModelName = currentModelObj?.name || currentModel || 'Codex Astra 6.1';
+    // 버튼 칩에는 괄호 부가설명을 제외한 핵심 모델명만 깔끔하게 노출 (예: 'Codex Astra 6.1 (최신 아스트라 심층 추론)' -> 'Codex Astra 6.1')
     const displayModelName = rawModelName.replace(/\s*\(.*?\)/g, '').trim() || rawModelName;
 
     return (
@@ -227,7 +258,7 @@ export const ModelSelectorPopover: React.FC<ModelSelectorPopoverProps> = (props)
                 ref={triggerRef}
                 type="button"
                 onClick={toggleOpen}
-                className={`h-8 px-2.5 sm:px-3 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-all shadow-2xs shrink-0 cursor-pointer ${
+                className={`h-8 px-2 sm:px-2.5 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-all shadow-2xs shrink-0 cursor-pointer ${
                     isOpen 
                         ? 'bg-muted border-primary/60 text-foreground ring-2 ring-primary/20' 
                         : 'bg-card border-border/80 text-foreground hover:border-primary/40 hover:bg-muted/50'
@@ -235,8 +266,8 @@ export const ModelSelectorPopover: React.FC<ModelSelectorPopoverProps> = (props)
                 title="AI 모델 및 추론 강도 조절"
             >
                 <Zap className="w-3.5 h-3.5 text-amber-500 fill-amber-500 shrink-0" />
-                <span className="font-bold truncate max-w-[110px] sm:max-w-[140px] whitespace-nowrap">{displayModelName}</span>
-                <span className="text-[11px] text-muted-foreground font-normal whitespace-nowrap shrink-0">· {effortLabel}</span>
+                <span className="font-bold truncate max-w-[85px] sm:max-w-[110px] md:max-w-[140px] whitespace-nowrap">{displayModelName}</span>
+                <span className="text-[11px] text-muted-foreground font-normal whitespace-nowrap shrink-0 hidden md:inline">· {effortLabel}</span>
                 <ChevronDown className={`w-3.5 h-3.5 text-muted-foreground transition-transform duration-200 shrink-0 ${isOpen ? 'rotate-180' : ''}`} />
             </button>
 
@@ -275,7 +306,7 @@ export const ModelSelectorPopover: React.FC<ModelSelectorPopoverProps> = (props)
                                     onClick={() => {
                                         setActiveTab(p.key);
                                         onProviderChange(p.key);
-                                        const defaultM = pCfg?.models?.[0]?.id || (p.key === 'chatgpt_web' ? 'Codex Astra 6.0 (Web)' : 'Codex Astra 6.0');
+                                        const defaultM = pCfg?.models?.[0]?.id || (p.key === 'chatgpt_web' ? 'Codex Astra 6.1 (Web)' : 'Codex Astra 6.1');
                                         onModelChange(defaultM);
                                     }}
                                     className={`px-2 py-1 rounded-lg text-xs font-bold transition-all shrink-0 cursor-pointer ${
@@ -293,12 +324,24 @@ export const ModelSelectorPopover: React.FC<ModelSelectorPopoverProps> = (props)
                     {/* 2. Direct Instant Model List (No double-clicking required) */}
                     <div className="space-y-1">
                         <div className="flex items-center justify-between text-[11px] font-bold text-muted-foreground px-1">
-                            <span>{providerConfig.label} 사용 가능한 모델</span>
-                            {providerAccountLabel && (
-                                <span className="text-[10px] text-muted-foreground bg-muted/60 px-2 py-0.5 rounded-full font-mono truncate max-w-[140px]">
-                                    {providerAccountLabel}
-                                </span>
-                            )}
+                            <span>{providerConfig.label} 가용 모델</span>
+                            <div className="flex items-center gap-1.5">
+                                <button
+                                    type="button"
+                                    onClick={handleRefreshLiveModels}
+                                    disabled={isRefreshing}
+                                    className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground bg-muted/60 hover:bg-muted px-1.5 py-0.5 rounded transition-colors cursor-pointer"
+                                    title="공식 프로바이더 API에서 최신 가용 모델 동적 갱신"
+                                >
+                                    <RefreshCw className={`w-2.5 h-2.5 ${isRefreshing ? 'animate-spin text-primary' : ''}`} />
+                                    <span>{isRefreshing ? '조회 중...' : '최신 갱신'}</span>
+                                </button>
+                                {providerAccountLabel && (
+                                    <span className="text-[10px] text-muted-foreground bg-muted/60 px-2 py-0.5 rounded-full font-mono truncate max-w-[120px]">
+                                        {providerAccountLabel}
+                                    </span>
+                                )}
+                            </div>
                         </div>
 
                         <div className="p-1 rounded-xl border border-border/60 bg-muted/20 max-h-52 overflow-y-auto space-y-1">

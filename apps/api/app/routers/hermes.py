@@ -4,12 +4,61 @@ import os
 import subprocess
 import logging
 import re
+import time
+import requests
 from .. import crud, schemas, database
 from app.global_swarm_master import global_master
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["hermes"])
+
+_hermes_release_cache = {}
+
+def fetch_latest_release_info(repo: str = "NousResearch/hermes-agent", fallback: str = "Hermes Agent v0.21.5 (v2026.9.24)", force_refresh: bool = False) -> dict:
+    """Fetches latest release info from GitHub Releases API with in-memory caching."""
+    global _hermes_release_cache
+    now = time.time()
+    cache_key = repo
+
+    if not force_refresh and cache_key in _hermes_release_cache:
+        entry = _hermes_release_cache[cache_key]
+        if now - entry.get("timestamp", 0) < 600:  # 10 minutes cache
+            return entry.get("data", {"name": fallback, "tag": fallback})
+
+    headers = {
+        "User-Agent": "ViraLoop-Studio",
+        "Accept": "application/vnd.github.v3+json"
+    }
+    github_token = os.environ.get("GITHUB_TOKEN")
+    if github_token:
+        headers["Authorization"] = f"token {github_token}"
+
+    try:
+        url = f"https://api.github.com/repos/{repo}/releases/latest"
+        resp = requests.get(url, headers=headers, timeout=5)
+        if resp.status_code == 200:
+            data = resp.json()
+            latest_name = data.get("name") or data.get("tag_name") or fallback
+            tag_name = data.get("tag_name") or latest_name
+            res = {
+                "name": latest_name,
+                "tag": tag_name,
+                "published_at": data.get("published_at"),
+                "html_url": data.get("html_url", f"https://github.com/{repo}"),
+                "body": data.get("body", "")
+            }
+            _hermes_release_cache[cache_key] = {"data": res, "timestamp": now}
+            return res
+        else:
+            logger.warning(f"[Hermes] GitHub API returned status {resp.status_code} for {repo}")
+    except Exception as e:
+        logger.warning(f"[Hermes] Failed to fetch latest release for {repo}: {e}")
+
+    fallback_data = {"name": fallback, "tag": fallback, "html_url": f"https://github.com/{repo}"}
+    _hermes_release_cache[cache_key] = {"data": fallback_data, "timestamp": now}
+    return fallback_data
+
 
 
 def _read_local_version(project_root: str, path: str) -> str:
@@ -172,6 +221,7 @@ async def stream_director_execution(request: dict):
     history = request.get("history", [])
     target_channel = request.get("target_channel")
     thread_id = request.get("thread_id")
+    attached_images = request.get("attached_images", [])
 
     import importlib
     import app.agent.hermes_core.conversational_director as cd_mod
@@ -201,6 +251,7 @@ async def stream_director_execution(request: dict):
                     preset=preset,
                     aspect_ratio=aspect_ratio,
                     reference_media_path=reference_media_path or (media_paths[0] if media_paths else None),
+                    attached_images=attached_images,
                     item_index=0,
                     total_items=1,
                     previous_deliverable=previous_deliverable,
@@ -233,5 +284,42 @@ async def stream_director_execution(request: dict):
             "X-Accel-Buffering": "no"
         }
     )
+
+
+@router.get("/skills/catalog")
+def get_hermes_skills_catalog():
+    """Returns available auto-loaded form factor skills and synthesized channel skills."""
+    from app.services.channel_dna_skill_fabric import channel_dna_skill_fabric
+    from app.agent.hermes_core.skills_auto_loader import FORM_FACTOR_SKILLS
+    return {
+        "success": True,
+        "form_factors": list(FORM_FACTOR_SKILLS.keys()),
+        "synthesized_channel_skills": channel_dna_skill_fabric.list_synthesized_skills()
+    }
+
+
+@router.get("/tools/mesh")
+def get_hermes_tool_mesh():
+    """Returns all registered native and hot-plugged tools."""
+    from app.agent.hermes_core.tools.hermes_tool_registry import HERMES_OPENAI_TOOLS, TOOL_DOMAINS
+    from app.agent.hermes_core.tools.hermes_hotplug_mesh import hermes_hotplug_mesh
+    return {
+        "success": True,
+        "total_tools": len(HERMES_OPENAI_TOOLS),
+        "domains": TOOL_DOMAINS,
+        "tools": [t.get("function", {}).get("name") for t in HERMES_OPENAI_TOOLS],
+        "hotplugged": hermes_hotplug_mesh.list_hotplugged_tools()
+    }
+
+
+@router.get("/cooldowns")
+def get_model_cooldowns():
+    """Returns list of active provider/model cooldowns."""
+    from app.services.model_cooldown_manager import model_cooldown_manager
+    return {
+        "success": True,
+        "active_cooldowns": model_cooldown_manager.get_cooldown_status()
+    }
+
 
 

@@ -474,7 +474,7 @@ def get_agent_versions():
     claw_latest = fetch_latest_release_info("openclaw/openclaw", "openclaw 2026.4.29")
     paper_latest = fetch_latest_release_info("paperclipai/paperclip", "v2026.428.0")
     claude_latest = fetch_latest_release_info("Gitlawb/openclaude", "v0.25.1")
-    hermes_latest = fetch_latest_release_info("ViraLoop/hermes", "v0.11.0")
+    hermes_latest = fetch_latest_release_info("NousResearch/hermes-agent", "Hermes Agent v0.21.5 (v2026.9.24)")
 
     return {
         "openclaw": {
@@ -498,8 +498,8 @@ def get_agent_versions():
         "hermes": {
             "local": get_display_version("apps/api/app/agent/hermes_core", hermes_latest),
             "latest": hermes_latest["name"],
-            "github_url": "https://github.com/ViraLoop/hermes",
-            "homepage_url": "https://viral-hermes.ai"
+            "github_url": "https://github.com/NousResearch/hermes-agent",
+            "homepage_url": "https://nousresearch.com"
         }
     }
 

@@ -359,26 +359,45 @@ class MediaIntelligenceCore:
         if purpose == "layout_dna":
             system_prompt = (
                 "당신은 최고 수준의 숏폼 UI/UX 및 영상 디자인 분석 전문가입니다.\n"
-                "제공된 프레임들을 정밀 분석하여, 영상의 비주얼 레이아웃과 텍스트 스타일 구조를 픽셀 단위로 역공학 분석해 주십시오.\n\n"
+                "제공된 프레임들을 정밀 분석하여, 영상의 비주얼 레이아웃과 텍스트 스타일 구조를 픽셀 단위(1080x1920 기준)로 정밀 역공학 분석해 주십시오.\n\n"
                 "[분석 요구사항]\n"
-                "1. [상단 및 하단 배경 바 (Letterbox)]: 상단/하단에 검은색이나 유색 바가 있는지, 화면 전체 높이 대비 각각 몇 %를 차지하는지 추정 (예: top_bar_height_pct: 18.0, bottom_bar_height_pct: 6.0)\n"
-                "2. [상단 타이틀 텍스트]: 상단 바 내부 또는 영상 상단에 큰 제목 글자가 있는지, Y축 위치(상단 기준 몇 %), 폰트 굵기(Bold/ExtraBold), 글자 색상(흰색, 노란색 등), 배경 박스(하이라이터/필/박스) 유무 및 색상 분석\n"
-                "3. [본문 자막 (말자막)]: 대사 자막이 표시되는 화면 Y축 위치(상단 기준 몇 %, 보통 65~75%), 글자 색상, 외곽선(스트로크) 두께 및 색상, 폰트 크기 비율 분석\n"
-                "4. [중간 쨉쨉이/리액션 텍스트]: 화면 중간이나 인물 주변에 뜨는 짧은 감탄사/해설 자막의 위치와 스타일\n"
-                "5. 분석 결과를 아래 JSON 형식만으로 깔끔하게 반환해 주십시오 (마크다운 백틱 없이 또는 백틱 내부에 순수 json만):\n"
+                "1. [상단 및 하단 배경 바 (Letterbox)]:\n"
+                "   - 상단/하단에 검은색이나 유색 바(또는 극장 커튼/좌석 등 특수 프레임)가 있는지, 화면 높이 대비 각각 몇 %인지 추정 (예: top_bar_height_pct: 24.0, bottom_bar_height_pct: 24.0)\n"
+                "   - 상단/하단 바의 배경 색상 또는 프레임 타입 (예: #000000, cinema_curtain, cinema_seats)\n"
+                "2. [상단 타이틀 텍스트 (2단 헤더)]:\n"
+                "   - 1행 텍스트의 정확한 문구, 글자 색상(예: #FFFFFF), 1080p 해상도 기준 폰트 크기(보통 76~84px)\n"
+                "   - 2행 텍스트의 정확한 문구, 글자 색상(예: #FFE838 노란색), 1080p 해상도 기준 폰트 크기(보통 82~90px)\n"
+                "   - Y축 위치(화면 상단 기준 몇 %, 보통 12~16%), 폰트 굵기(Black 900 / ExtraBold), 자간(보통 -2px)\n"
+                "3. [본문 자막 (말자막)]:\n"
+                "   - 대사 자막이 표시되는 화면 Y축 위치(상단 기준 %, 보통 65~75%)\n"
+                "   - 화면에 표시된 자막 문구 샘플 (예: '뭐죠?')\n"
+                "   - 자막 글자 색상(예: 흰색 #FFFFFF, 라임그린 #4DE558, 노랑 등), 외곽선(스트로크) 두께(4~6px) 및 색상, 폰트 크기(보통 54~62px)\n"
+                "4. [하단 출처 표기]: 하단에 채널명이나 출처 표기 텍스트가 있는지 여부 및 텍스트\n"
+                "5. 반드시 아래 JSON 포맷만을 출력해 주십시오:\n"
                 "{\n"
-                '  "top_bar_height_pct": 18.0,\n'
-                '  "bottom_bar_height_pct": 6.0,\n'
-                '  "top_title_y_pct": 5.5,\n'
-                '  "title_colors": ["#FFFFFF", "#F5F420"],\n'
-                '  "title_bg_mode": "none",\n'
-                '  "subtitle_y_pct": 68.5,\n'
-                '  "subtitle_color": "#FFFFFF",\n'
+                '  "top_bar_height_pct": 24.0,\n'
+                '  "top_bar_bg_color": "#000000",\n'
+                '  "bottom_bar_height_pct": 24.0,\n'
+                '  "bottom_bar_bg_color": "#000000",\n'
+                '  "top_title_y_pct": 14.5,\n'
+                '  "title_line1_text": "사랑을 배신한 여자와",\n'
+                '  "title_line1_color": "#FFFFFF",\n'
+                '  "title_line1_font_size_px": 80,\n'
+                '  "title_line2_text": "배신을 용서한 남자",\n'
+                '  "title_line2_color": "#FFE838",\n'
+                '  "title_line2_font_size_px": 86,\n'
+                '  "title_colors": ["#FFFFFF", "#FFE838"],\n'
+                '  "title_font_family": "Pretendard",\n'
+                '  "subtitle_y_pct": 66.0,\n'
+                '  "subtitle_sample_text": "뭐죠?",\n'
+                '  "subtitle_color": "#4DE558",\n'
                 '  "subtitle_stroke_color": "#000000",\n'
                 '  "subtitle_stroke_width_px": 5,\n'
-                '  "has_jab_hook": true,\n'
-                '  "jab_hook_y_pct": 42.0,\n'
-                '  "layout_style_name": "상하단 블랙바 + 2단 타이틀 + 68% 자막"\n'
+                '  "subtitle_font_size_px": 58,\n'
+                '  "has_bottom_source": true,\n'
+                '  "bottom_source_text": "출처: 눈물한가득",\n'
+                '  "has_jab_hook": false,\n'
+                '  "layout_style_name": "클래식 샌드위치 + 2단 볼드 타이틀 + 라임 자막"\n'
                 "}"
             )
         else:
@@ -622,23 +641,69 @@ class MediaIntelligenceCore:
         opening_frames = [f for f in frames if f.get("timestamp", 0) <= 3.0]
 
         # 6. 표준 ChannelDNABenchmark 스키마 구조체 조립
-        top_bar_h = float(layout_data.get("top_bar_height_pct") or 18.0)
-        bot_bar_h = float(layout_data.get("bottom_bar_height_pct") or 6.0)
-        top_title_y = float(layout_data.get("top_title_y_pct") or 5.5)
-        sub_y = float(layout_data.get("subtitle_y_pct") or 68.5)
-        sub_color = str(layout_data.get("subtitle_color") or "#FFFFFF")
+        top_bar_h = float(layout_data.get("top_bar_height_pct") or 24.0)
+        bot_bar_h = float(layout_data.get("bottom_bar_height_pct") or 24.0)
+        top_title_y = float(layout_data.get("top_title_y_pct") or 14.5)
+        top_bar_bg = str(layout_data.get("top_bar_bg_color") or "#000000")
+        bot_bar_bg = str(layout_data.get("bottom_bar_bg_color") or "#000000")
+
+        # 1080p 기준 헤드라인 타이틀 정밀 추출
+        t_colors = layout_data.get("title_colors") or ["#FFFFFF", "#FFE838"]
+        l1_color = str(layout_data.get("title_line1_color") or (t_colors[0] if len(t_colors) > 0 else "#FFFFFF"))
+        l2_color = str(layout_data.get("title_line2_color") or (t_colors[1] if len(t_colors) > 1 else "#FFE838"))
+        l1_text = str(layout_data.get("title_line1_text") or "사랑을 배신한 여자와")
+        l2_text = str(layout_data.get("title_line2_text") or "배신을 용서한 남자")
+        l1_size = int(layout_data.get("title_line1_font_size_px") or 80)
+        l2_size = int(layout_data.get("title_line2_font_size_px") or 86)
+        title_font = str(layout_data.get("title_font_family") or "Pretendard")
+
+        header_lines = [
+            {
+                "line": 1,
+                "role": "condition",
+                "color": l1_color,
+                "size_pt": round(l1_size * 0.75),
+                "size_px": l1_size,
+                "font_style": "Black",
+                "font_weight": "900",
+                "font_family": title_font,
+                "text_example": l1_text,
+                "letter_spacing": -2
+            },
+            {
+                "line": 2,
+                "role": "hook_noun",
+                "color": l2_color,
+                "size_pt": round(l2_size * 0.75),
+                "size_px": l2_size,
+                "font_style": "Black",
+                "font_weight": "900",
+                "font_family": title_font,
+                "text_example": l2_text,
+                "letter_spacing": -2
+            }
+        ]
+
+        sub_y = float(layout_data.get("subtitle_y_pct") or 66.0)
+        sub_color = str(layout_data.get("subtitle_color") or "#4DE558")
         sub_stroke_color = str(layout_data.get("subtitle_stroke_color") or "#000000")
         sub_stroke_w = int(layout_data.get("subtitle_stroke_width_px") or 5)
+        sub_size = int(layout_data.get("subtitle_font_size_px") or 58)
+        sub_sample = str(layout_data.get("subtitle_sample_text") or "뭐죠?")
+
+        has_bot_src = bool(layout_data.get("has_bottom_source", True))
+        bot_src_text = str(layout_data.get("bottom_source_text") or "출처: 공식 영상")
 
         visual_dna = {
             "canvas_type": "LETTERBOX_SOLID" if (top_bar_h > 5 or bot_bar_h > 3) else "FULLSCREEN",
             "video_fit_mode": "sandwich" if (top_bar_h > 5 or bot_bar_h > 3) else "fullscreen",
             "has_top_bar_bg": top_bar_h > 5,
-            "top_bar_bg": "#000000",
+            "top_bar_bg": top_bar_bg,
             "top_bar_height_pct": top_bar_h,
             "has_top_title": bool(top_title_y > 0),
             "top_title_y_pct": top_title_y,
-            "title_colors": layout_data.get("title_colors") or ["#FFFFFF", "#F5F420"],
+            "header_lines": header_lines,
+            "title_colors": [l1_color, l2_color],
             "title_bg_mode": layout_data.get("title_bg_mode") or "none",
             "has_subtitle": True,
             "subtitle": {
@@ -646,21 +711,29 @@ class MediaIntelligenceCore:
                 "color": sub_color,
                 "stroke_color": sub_stroke_color,
                 "stroke_width_px": sub_stroke_w,
-                "size_pt": 48,
-                "size_px": 24,
+                "size_pt": round(sub_size * 0.8),
+                "size_px": sub_size,
                 "font_family": "Pretendard",
                 "safe_zone": f"OPTIMAL_{int(sub_y)}",
-                "motion_preset": "word_pop"
+                "motion_preset": "word_pop",
+                "sample_text": sub_sample
             },
-            "has_jab_hook": bool(layout_data.get("has_jab_hook", True)),
+            "has_jab_hook": bool(layout_data.get("has_jab_hook", False)),
             "jab_hook": {
-                "enabled": bool(layout_data.get("has_jab_hook", True)),
+                "enabled": bool(layout_data.get("has_jab_hook", False)),
                 "y_percent": float(layout_data.get("jab_hook_y_pct") or 42.0),
                 "color": "#F5F420",
                 "avg_interval_sec": round(duration / max(sfx_peaks_count, 1), 1) if sfx_peaks_count > 0 else 7.5
             },
+            "has_bottom_source": has_bot_src,
+            "bottom_source": {
+                "text": bot_src_text,
+                "color": "#94A3B8",
+                "size_px": 14,
+                "bottom_pct": 2.2
+            },
             "has_bottom_bar_bg": bot_bar_h > 3,
-            "bottom_bar_bg": "#000000",
+            "bottom_bar_bg": bot_bar_bg,
             "bottom_bar_height_pct": bot_bar_h,
             "editing_grammar": {
                 "avg_cut_sec": avg_cut_sec,

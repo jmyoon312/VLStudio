@@ -380,38 +380,87 @@ class TrendRadarService:
         cat_name = cat.name if cat else "트렌드"
 
         # 2. Fetch real videos for this channel from DB and YouTube
-        cands = db.query(models.RadarCandidate).filter(
-            models.RadarCandidate.channel_title == ch_name
-        ).order_by(models.RadarCandidate.view_count.desc()).all()
+        import os, urllib.parse
+
+        def resolve_thumb_url(t_path: Optional[str], vid: str) -> str:
+            if not t_path:
+                return f"https://i.ytimg.com/vi/{vid}/hqdefault.jpg"
+            if t_path.startswith("http") or t_path.startswith("data:"):
+                return t_path
+            norm = t_path.replace("\\", "/")
+            if "/media/" in norm.lower():
+                norm = norm[norm.lower().index("/media/") + len("/media/"):]
+            elif norm.lower().startswith("media/"):
+                norm = norm[len("media/"):]
+            if ":" in norm:
+                norm = norm.split(":")[-1].lstrip("/")
+            encoded = "/".join(urllib.parse.quote(seg) for seg in norm.lstrip("/").split("/"))
+            return f"/files/{encoded}"
 
         recent_videos = []
-        for c in cands[:6]:
-            recent_videos.append({
-                "video_id": c.video_id,
-                "title": c.title,
-                "thumbnail_url": c.thumbnail_url,
-                "view_count": c.view_count,
-                "outlier_ratio": c.outlier_ratio,
-                "published_at": c.published_at.strftime("%Y-%m-%d") if c.published_at else None,
-                "created_at": c.created_at.strftime("%Y-%m-%d") if c.created_at else None
-            })
+        seen_ids = set()
 
+        # 2-A. Prioritize real downloaded videos from models.Video (local disk thumbnails)
+        db_v_query = None
+        if ch:
+            db_v_query = db.query(models.Video).filter(models.Video.channel_id == ch.id)
+        elif cand and getattr(cand, 'channel_id', None):
+            db_v_query = db.query(models.Video).filter(models.Video.channel_id == cand.channel_id)
+
+        if db_v_query:
+            for v in db_v_query.order_by(models.Video.view_count.desc()).limit(6).all():
+                vid = v.video_id or str(v.id)
+                seen_ids.add(vid)
+                recent_videos.append({
+                    "video_id": vid,
+                    "title": v.title,
+                    "thumbnail_url": resolve_thumb_url(v.thumbnail_path, vid),
+                    "view_count": v.view_count or 0,
+                    "outlier_ratio": getattr(v, "viral_score", None) or 3.0,
+                    "published_at": v.upload_date.strftime("%Y-%m-%d") if v.upload_date else None,
+                    "created_at": v.downloaded_at.strftime("%Y-%m-%d") if getattr(v, "downloaded_at", None) else None
+                })
+
+        # 2-B. Augment with RadarCandidate if more videos needed
+        if len(recent_videos) < 6:
+            cands = db.query(models.RadarCandidate).filter(
+                models.RadarCandidate.channel_title == ch_name
+            ).order_by(models.RadarCandidate.view_count.desc()).all()
+
+            for c in cands:
+                if c.video_id not in seen_ids:
+                    seen_ids.add(c.video_id)
+                    recent_videos.append({
+                        "video_id": c.video_id,
+                        "title": c.title,
+                        "thumbnail_url": c.thumbnail_url,
+                        "view_count": c.view_count,
+                        "outlier_ratio": c.outlier_ratio,
+                        "published_at": c.published_at.strftime("%Y-%m-%d") if c.published_at else None,
+                        "created_at": c.created_at.strftime("%Y-%m-%d") if c.created_at else None
+                    })
+                if len(recent_videos) >= 6:
+                    break
+
+        # 2-C. Fallback to external YouTube reels scraper only if fewer than 3 videos
         if len(recent_videos) < 3:
             from app.routers.trend_radar import fetch_channel_recent_reels
             yt_reels = fetch_channel_recent_reels(ch_name, limit=6)
-            seen_ids = {v["video_id"] for v in recent_videos}
             for yr in yt_reels:
                 if yr["video_id"] not in seen_ids:
+                    seen_ids.add(yr["video_id"])
+                    # Check if models.Video has local file for this video
+                    v_match = db.query(models.Video).filter(models.Video.video_id == yr["video_id"]).first()
+                    t_url = resolve_thumb_url(v_match.thumbnail_path, yr["video_id"]) if v_match and v_match.thumbnail_path else yr["thumbnail_url"]
                     recent_videos.append({
                         "video_id": yr["video_id"],
                         "title": yr["title"],
-                        "thumbnail_url": yr["thumbnail_url"],
+                        "thumbnail_url": t_url,
                         "view_count": yr["view_count"],
                         "outlier_ratio": yr.get("outlier_ratio", 3.5),
                         "published_at": yr.get("published_at"),
                         "created_at": yr.get("created_at")
                     })
-                    seen_ids.add(yr["video_id"])
 
         views_list = [v["view_count"] for v in recent_videos] if recent_videos else [250000]
         avg_views = int(sum(views_list) / len(views_list))

@@ -36,8 +36,9 @@ class LocalOSController:
 
         if custom_path:
             p = Path(custom_path).resolve()
-            # Security guard: ensure path is within MEDIA_ROOT or CAPCUT_DRAFT_ROOT or AppData
-            if str(p).startswith(str(MEDIA_ROOT)) or str(p).startswith(str(CAPCUT_DRAFT_ROOT)):
+            if p.exists():
+                target_path = p if p.is_dir() else p.parent
+            elif str(p).startswith(str(MEDIA_ROOT)) or str(p).startswith(str(CAPCUT_DRAFT_ROOT)):
                 target_path = p if p.is_dir() else p.parent
             else:
                 target_path = EXPORTS_DIR

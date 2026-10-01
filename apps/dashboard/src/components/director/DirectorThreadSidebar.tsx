@@ -176,7 +176,7 @@ export const DirectorThreadSidebar: React.FC<DirectorThreadSidebarProps> = ({
 
     if (isCollapsed) {
         return (
-            <div className="w-12 shrink-0 border-r border-border bg-card/50 flex flex-col items-center py-3 gap-3 z-10 transition-all">
+            <div className="hidden md:flex w-12 shrink-0 border-r border-border bg-card/50 flex-col items-center py-3 gap-3 z-10 transition-all">
                 <button
                     onClick={onToggleCollapse}
                     title="사이드바 펼치기 (대화 및 프로젝트 목록)"
@@ -196,7 +196,10 @@ export const DirectorThreadSidebar: React.FC<DirectorThreadSidebarProps> = ({
                     {threads.slice(0, 10).map(t => (
                         <button
                             key={t.id}
-                            onClick={() => onSelectThread(t.id)}
+                            onClick={() => {
+                                onSelectThread(t.id);
+                                if (typeof window !== 'undefined' && window.innerWidth < 768) onToggleCollapse();
+                            }}
                             title={t.title}
                             className={`p-2 rounded-lg text-xs transition-colors ${
                                 t.id === activeThreadId
@@ -213,10 +216,18 @@ export const DirectorThreadSidebar: React.FC<DirectorThreadSidebarProps> = ({
     }
 
     return (
-        <aside
-            data-app-action-sidebar-thread-row
-            className="w-64 xl:w-72 shrink-0 border-r border-border bg-card/70 flex flex-col h-full z-10 backdrop-blur-md transition-all select-none"
-        >
+        <>
+            {/* Mobile Backdrop Overlay (Click to close sidebar on mobile) */}
+            <div 
+                className="md:hidden fixed inset-0 z-40 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200"
+                onClick={onToggleCollapse}
+                aria-hidden="true"
+            />
+
+            <aside
+                data-app-action-sidebar-thread-row
+                className="fixed md:static inset-y-0 left-0 z-50 md:z-10 w-72 sm:w-80 md:w-64 xl:w-72 shrink-0 border-r border-border bg-card shadow-2xl md:shadow-none flex flex-col h-full backdrop-blur-md transition-all select-none animate-in slide-in-from-left duration-200"
+            >
             {/* Header: Provider Selector Dropdown (Benchmarked 1:1 with Codex Desktop) */}
             <div className="p-2.5 border-b border-border/80 flex items-center justify-between relative">
                 <div className="relative">
@@ -277,12 +288,22 @@ export const DirectorThreadSidebar: React.FC<DirectorThreadSidebarProps> = ({
                 </div>
 
                 <div className="flex items-center gap-1">
+                    {/* Desktop Collapse Button */}
                     <button
                         onClick={onToggleCollapse}
                         title="사이드바 접기"
-                        className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                        className="hidden md:flex p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
                     >
                         <PanelLeftClose className="w-4 h-4" />
+                    </button>
+                    {/* Mobile Explicit Close Button */}
+                    <button
+                        onClick={onToggleCollapse}
+                        title="대화창으로 돌아가기"
+                        className="md:hidden flex items-center gap-1 px-2.5 py-1 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary text-xs font-bold transition-colors cursor-pointer border border-primary/20"
+                    >
+                        <X className="w-4 h-4" />
+                        <span>닫기</span>
                     </button>
                 </div>
             </div>
@@ -290,7 +311,12 @@ export const DirectorThreadSidebar: React.FC<DirectorThreadSidebarProps> = ({
             {/* Quick Actions Menu (Pixeling & Codex Desktop 1:1) */}
             <div className="p-2.5 space-y-1.5 border-b border-border/60">
                 <button
-                    onClick={onCreateThread}
+                    onClick={() => {
+                        onCreateThread();
+                        if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+                            onToggleCollapse();
+                        }
+                    }}
                     className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold transition-all shadow-xs group cursor-pointer active:scale-98"
                 >
                     <Plus className="w-4 h-4" />
@@ -441,7 +467,14 @@ export const DirectorThreadSidebar: React.FC<DirectorThreadSidebarProps> = ({
                                                     return (
                                                         <div
                                                             key={thread.id}
-                                                            onClick={() => !isEditing && onSelectThread(thread.id)}
+                                                            onClick={() => {
+                                                                if (!isEditing) {
+                                                                    onSelectThread(thread.id);
+                                                                    if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+                                                                        onToggleCollapse();
+                                                                    }
+                                                                }
+                                                            }}
                                                             className={`relative flex items-center justify-between gap-1.5 px-2.5 py-2 rounded-xl cursor-pointer group transition-all ${
                                                                 isThreadActive
                                                                     ? 'bg-primary/15 dark:bg-primary/20 text-foreground font-bold border border-primary/35 shadow-2xs'
@@ -698,5 +731,6 @@ export const DirectorThreadSidebar: React.FC<DirectorThreadSidebarProps> = ({
                 document.body
             )}
         </aside>
+        </>
     );
 };

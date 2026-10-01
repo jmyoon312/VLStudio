@@ -847,7 +847,7 @@ export function ApiIntegrationsTab({ formData, setFormData, onSave, isSaving }: 
                                         </div>
                                         <div>
                                             <CardTitle className="text-sm font-bold text-foreground">Google AI Studio (Gemini 3.8 Live)</CardTitle>
-                                            <CardDescription className="text-xs text-muted-foreground">Gemini 3.8 Live 실시간 음성/화면 인식 & 2.5 Flash 멀티모달</CardDescription>
+                                            <CardDescription className="text-xs text-muted-foreground">Gemini 3.8 Live 실시간 음성/화면 인식 & 3.8 Flash 멀티모달</CardDescription>
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-2">

@@ -216,6 +216,8 @@ function MainAppContent() {
                     {/* 기본 에디터 (프리셋 비주얼 공방) */}
                     <Route path="/basic-editor" element={<RouteErrorBoundary><BasicEditorStudio /></RouteErrorBoundary>} />
                     <Route path="/basic-editor/:mode" element={<RouteErrorBoundary><BasicEditorStudio /></RouteErrorBoundary>} />
+                    <Route path="/studio/basic" element={<RouteErrorBoundary><BasicEditorStudio /></RouteErrorBoundary>} />
+                    <Route path="/studio/basic/:mode" element={<RouteErrorBoundary><BasicEditorStudio /></RouteErrorBoundary>} />
 
                     {/* 4대 전문 편집기 */}
                     <Route path="/shorts-editor" element={<Navigate to="/shorts-editor/classic" replace />} />

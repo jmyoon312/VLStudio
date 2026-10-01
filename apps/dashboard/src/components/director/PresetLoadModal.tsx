@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -50,6 +51,7 @@ export const PresetLoadModal: React.FC<PresetLoadModalProps> = ({
     activePresetId,
     onSelectPreset,
 }) => {
+    const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState<TabType>('all');
     const [selectedFolder, setSelectedFolder] = useState<string>('all');
     const [viewMode, setViewMode] = useState<ViewMode>('small_card');
@@ -194,7 +196,7 @@ export const PresetLoadModal: React.FC<PresetLoadModalProps> = ({
 
     const tabs: { id: TabType; label: string; desc: string }[] = [
         { id: 'all', label: '전체 프리셋', desc: '모든 보관함의 프리셋을 한눈에 볼 수 있어요.' },
-        { id: 'personal', label: '내 커스텀', desc: '발골/저장한 대표님의 맞춤형 제작 기준이에요.' },
+        { id: 'personal', label: '내 커스텀', desc: '발골/저장한 사용자 맞춤형 제작 기준이에요.' },
         { id: 'pixeling', label: '픽셀링 공식', desc: '픽셀링이 기본으로 제공하는 검증된 제작 기준이에요.' },
         { id: 'favorites', label: '즐겨찾기', desc: '자주 쓰는 프리셋을 모아 볼 수 있어요.' },
     ];
@@ -481,6 +483,19 @@ export const PresetLoadModal: React.FC<PresetLoadModalProps> = ({
                                                 </div>
 
                                                 <div className="flex items-center gap-1 shrink-0">
+                                                    {/* 🎨 기본 에디터에서 열어 수정하기 버튼 */}
+                                                    <button
+                                                        type="button"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            onOpenChange(false);
+                                                            navigate(`/basic-editor?presetId=${encodeURIComponent(preset.id)}`);
+                                                        }}
+                                                        className="p-1 rounded-md text-muted-foreground hover:text-primary hover:bg-muted transition-colors cursor-pointer"
+                                                        title="기본 에디터에서 열어 자유롭게 수정하기"
+                                                    >
+                                                        <Edit3 className="w-3.5 h-3.5" />
+                                                    </button>
                                                     {preset.channel_url && (
                                                         <a
                                                             href={preset.channel_url}
@@ -660,7 +675,7 @@ export const PresetLoadModal: React.FC<PresetLoadModalProps> = ({
                                                         }`}
                                                     >
                                                         {isSelected ? <Check className="w-3.5 h-3.5" /> : <Sparkles className="w-3.5 h-3.5" />}
-                                                        {isSelected ? '선택됨' : '대화창 적용'}
+                                                        {isSelected ? '선택됨' : activePresetId !== undefined ? '캔버스에 적용' : '대화창 적용'}
                                                     </Button>
                                                 </div>
                                             </div>

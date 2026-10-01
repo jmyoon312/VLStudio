@@ -248,15 +248,53 @@ export function getMediaUrl(path: string | null, rootDownloadPath?: string): str
  * [Resilience] 유튜브 썸네일 404 방어용 계층적 폴백 핸들러
  * hq720/hqdefault/mqdefault 순차적 폴백 후 최종 플레이스홀더로 안착하여 브라우저 콘솔 404 및 무한 루프 방지
  */
+export const DEFAULT_THUMBNAIL_SVG = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="320" height="180" viewBox="0 0 320 180" fill="%231e293b"><rect width="320" height="180" fill="%231e293b"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%2364748b" font-size="14" font-family="sans-serif">No Thumbnail</text></svg>';
+
+/**
+ * [Resilience] 유튜브 썸네일 404 방어용 계층적 폴백 핸들러
+ * hq720/maxresdefault -> hqdefault -> mqdefault -> channelThumb -> 최종 SVG 플레이스홀더로 안착
+ * 각 단계 실패 시 중단 없이 다음 단계로 부드럽게 전환하여 브라우저 콘솔 404 및 이미지 깨짐 완벽 방지
+ */
 export const handleImageErrorWithFallback = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
     const img = e.currentTarget;
-    img.onerror = null;
     const currentSrc = img.src || '';
-    if (currentSrc.includes('hq720') || currentSrc.includes('maxresdefault.jpg')) {
-        img.src = currentSrc.replace(/hq720.*\.jpg.*/, 'hqdefault.jpg').replace('maxresdefault.jpg', 'hqdefault.jpg');
-    } else {
-        img.src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="320" height="180" viewBox="0 0 320 180" fill="%231e293b"><rect width="320" height="180" fill="%231e293b"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%2364748b" font-size="14" font-family="sans-serif">No Thumbnail</text></svg>';
+
+    // 이미 플레이스홀더이거나 빈 이미지인 경우 즉시 에러 핸들러 해제 및 중단 (재귀 방지)
+    if (!currentSrc || currentSrc.startsWith('data:image/svg+xml')) {
+        img.onerror = null;
+        return;
     }
+
+    const step = parseInt(img.dataset.fallbackStep || '0', 10);
+    const channelThumb = img.dataset.channelThumb || '';
+
+    // YouTube Video ID 추출
+    const ytMatch = currentSrc.match(/(?:vi|vi_webp)\/([A-Za-z0-9_-]{11})\//);
+    const videoId = ytMatch ? ytMatch[1] : '';
+
+    if (videoId) {
+        if (step === 0 && (currentSrc.includes('maxresdefault') || currentSrc.includes('hq720'))) {
+            img.dataset.fallbackStep = '1';
+            img.src = `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+            return;
+        }
+        if (step <= 1 && (currentSrc.includes('hqdefault') || step === 1)) {
+            img.dataset.fallbackStep = '2';
+            img.src = `https://i.ytimg.com/vi/${videoId}/mqdefault.jpg`;
+            return;
+        }
+    }
+
+    // 채널 썸네일 폴백 시도
+    if (channelThumb && img.src !== channelThumb && step < 3) {
+        img.dataset.fallbackStep = '3';
+        img.src = channelThumb;
+        return;
+    }
+
+    // 최종 안전 플레이스홀더 안착 (더 이상의 에러 이벤트 차단)
+    img.onerror = null;
+    img.src = DEFAULT_THUMBNAIL_SVG;
 };
 
 

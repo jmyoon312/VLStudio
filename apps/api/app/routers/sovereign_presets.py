@@ -52,6 +52,8 @@ class PresetUpdateRequest(BaseModel):
     recipe: Optional[str] = None
     content_rules: Optional[List[str]] = None
     style: Optional[Dict[str, Any]] = None
+    blueprint_v4: Optional[Dict[str, Any]] = None
+    layout: Optional[Dict[str, Any]] = None
 
 
 class PresetCloneRequest(BaseModel):
@@ -60,6 +62,8 @@ class PresetCloneRequest(BaseModel):
     recipe: Optional[str] = None
     content_rules: Optional[List[str]] = None
     style: Optional[Dict[str, Any]] = None
+    blueprint_v4: Optional[Dict[str, Any]] = None
+    layout: Optional[Dict[str, Any]] = None
 
 
 class BasicEditorPresetSaveRequest(BaseModel):
@@ -221,10 +225,12 @@ def list_sovereign_presets(
         return presets
 
     for file in PRESETS_DIR.glob("*.json"):
+        if file.name.endswith(".blueprint_v4.json") or file.name == "preset_folders.json":
+            continue
         try:
             with open(file, "r", encoding="utf-8") as f:
                 data = json.load(f)
-                if isinstance(data, dict) and "style" in data:
+                if isinstance(data, dict) and ("style" in data or "blueprint_v4" in data or "layout" in data):
                     pid = data.get("id", file.stem)
                     import urllib.parse
                     
@@ -308,6 +314,7 @@ def list_sovereign_presets(
                         "content_rules": data.get("content_rules", []),
                         "production_bible_17": data.get("production_bible_17") or (data.get("blueprint", {}).get("production_bible_17") if isinstance(data.get("blueprint"), dict) else None) or {},
                         "blueprint": data.get("blueprint", {}),
+                        "blueprint_v4": data.get("blueprint_v4"),
                         "layout": data.get("layout", {}),
                         "visual_dna": data.get("visual_dna", {}),
                         "audio_dna": data.get("audio_dna", {}),
@@ -361,6 +368,94 @@ def list_sovereign_presets(
         presets.sort(key=lambda x: x.get("metrics", {}).get("views", 0), reverse=True)
 
     return presets
+
+
+@router.get("/list")
+def list_sovereign_presets_alias(
+    category: Optional[str] = None,
+    q: Optional[str] = None,
+    sort: Optional[str] = "latest"
+) -> List[Dict[str, Any]]:
+    """Alias for GET /sovereign-presets to conform with 08_API_IPC_CONTRACT_REFERENCE."""
+    return list_sovereign_presets(category=category, q=q, sort=sort)
+
+
+@router.post("/save-v4")
+def save_sovereign_preset_v4(blueprint: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Save or update a preset directly using VLStandardBlueprint v4.0 specification.
+    Performs atomic file write with os.replace and syncs with SQLite shorts_templates.
+    """
+    import tempfile
+    bp_id = blueprint.get("blueprintId") or blueprint.get("id") or f"custom_{int(datetime.now().timestamp())}"
+    name = blueprint.get("name") or "커스텀 4.0 프리셋"
+    archetype = blueprint.get("archetype") or "classic"
+    category = blueprint.get("category") or "user"
+
+    preset_payload = {
+        "id": bp_id,
+        "name": name,
+        "category": category,
+        "category_tab": "user",
+        "archetype": archetype,
+        "schemaVersion": "viraloop-blueprint/v4.0",
+        "version": 4,
+        "blueprint_v4": blueprint,
+        "globalLayers": blueprint.get("globalLayers", []),
+        "scenes": blueprint.get("scenes", []),
+        "audioDSP": blueprint.get("audioDSP", {}),
+        "productionBible": blueprint.get("productionBible", {}),
+        "style": blueprint
+    }
+
+    target_file = PRESETS_DIR / f"{bp_id}.json"
+    temp_fd, temp_path = tempfile.mkstemp(dir=str(PRESETS_DIR), prefix=f"{bp_id}_", suffix=".tmp")
+    try:
+        with os.fdopen(temp_fd, "w", encoding="utf-8") as f:
+            json.dump(preset_payload, f, ensure_ascii=False, indent=2)
+        os.replace(temp_path, str(target_file))
+    except Exception as e:
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
+        logger.error(f"Atomic file write failed for V4 preset {bp_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to write preset file: {str(e)}")
+
+    # Sync with SQLite DB
+    try:
+        from app.database import SessionLocal
+        from app.models import ShortsTemplate
+        db = SessionLocal()
+        existing = db.query(ShortsTemplate).filter((ShortsTemplate.id == bp_id) | (ShortsTemplate.name == name)).first()
+        if existing:
+            existing.blueprint_v4 = blueprint
+            existing.layout = blueprint.get("globalLayers", [])
+            existing.manifest = blueprint
+            existing.updated_at = datetime.now()
+        else:
+            tmpl = ShortsTemplate(
+                id=bp_id,
+                name=name,
+                archetype=archetype,
+                aspect_ratio=blueprint.get("canvas", {}).get("aspectRatio", "9:16"),
+                is_system=False,
+                layout=blueprint.get("globalLayers", []),
+                manifest=blueprint,
+                blueprint_v4=blueprint
+            )
+            db.add(tmpl)
+        db.commit()
+        db.close()
+    except Exception as db_err:
+        logger.warning(f"Failed to sync V4 preset with SQLite DB: {db_err}")
+
+    logger.info(f"✅ [SovereignPresets] Saved V4 preset: {name} ({bp_id})")
+    return {
+        "success": True,
+        "blueprintId": bp_id,
+        "filePath": str(target_file),
+        "preset": preset_payload
+    }
+
 
 
 @router.post("/harvest-pixeling")
@@ -848,8 +943,10 @@ def get_sovereign_preset(preset_id: str) -> Dict[str, Any]:
                     "category": tmpl.badge or "custom",
                     "description": tmpl.description,
                     "archetype": tmpl.archetype,
-                    "style": blueprint,
-                    "blueprint": blueprint,
+                    "blueprint_v4": tmpl.blueprint_v4,
+                    "layout": tmpl.layout,
+                    "style": tmpl.blueprint_v4 if tmpl.blueprint_v4 else blueprint,
+                    "blueprint": tmpl.blueprint_v4 if tmpl.blueprint_v4 else blueprint,
                     "production_bible_17": bible,
                     "recipe": tmpl.description or "",
                     "content_rules": [
@@ -922,6 +1019,10 @@ def update_sovereign_preset(preset_id: str, req: PresetUpdateRequest) -> Dict[st
             data["content_rules"] = req.content_rules
         if req.style is not None:
             data["style"] = req.style
+        if req.blueprint_v4 is not None:
+            data["blueprint_v4"] = req.blueprint_v4
+        if req.layout is not None:
+            data["layout"] = req.layout
         
         # If modifying, mark as custom modified if not already
         if not data.get("source", "").startswith("viraloop_"):
@@ -960,11 +1061,15 @@ def clone_sovereign_preset(preset_id: str, req: PresetCloneRequest) -> Dict[str,
             "id": new_id,
             "name": req.new_name,
             "category": req.category or base_data.get("category", "custom"),
+            "category_tab": "personal",
             "source": "viraloop_user",
             "cloned_from": preset_id,
             "style": req.style if req.style is not None else base_data.get("style", {}),
             "recipe": req.recipe if req.recipe is not None else base_data.get("recipe", ""),
-            "content_rules": req.content_rules if req.content_rules is not None else base_data.get("content_rules", [])
+            "content_rules": req.content_rules if req.content_rules is not None else base_data.get("content_rules", []),
+            "blueprint_v4": req.blueprint_v4 if req.blueprint_v4 is not None else base_data.get("blueprint_v4"),
+            "layout": req.layout if req.layout is not None else base_data.get("layout", {}),
+            "production_bible_17": base_data.get("production_bible_17", {})
         }
 
         with open(dest_path, "w", encoding="utf-8") as f:
@@ -1124,13 +1229,15 @@ def save_from_basic_editor(req: BasicEditorPresetSaveRequest) -> Dict[str, Any]:
     data = {
         "id": preset_id,
         "name": clean_name,
-        "category": req.category,
+        "category": req.category or "custom",
+        "category_tab": "personal",
         "archetype": req.archetype,
         "description": req.description or "",
         "aspect_ratio": req.aspect_ratio,
         "source": "viraloop_user",
         "style": style_dict,
         "blueprint": blueprint,
+        "blueprint_v4": blueprint,
         "visual_geometry": style_dict.get("visual_geometry", blueprint.get("visual_geometry", {})),
         "recipe": req.description or f"{req.archetype} 기본 에디터 커스텀 프리셋",
         "content_rules": [
@@ -1207,6 +1314,28 @@ async def render_with_preset(req: PresetRenderRequest) -> Dict[str, Any]:
         with open(filepath, "r", encoding="utf-8") as f:
             data = json.load(f)
             style = data.get("style", {})
+            if "blueprint_v4" in data:
+                style["blueprint_v4"] = data["blueprint_v4"]
+            if "scenes" in data and not req.clips:
+                req.clips = [
+                    {
+                        "source_path": sc.get("mediaUrl") or sc.get("source_path"),
+                        "start_ms": round(float(sc.get("start", 0)) * 1000),
+                        "end_ms": round(float(sc.get("end", 0)) * 1000),
+                    }
+                    for sc in data["scenes"]
+                    if sc.get("mediaUrl") or sc.get("source_path")
+                ]
+            if "scenes" in data and not req.captions:
+                req.captions = [
+                    {
+                        "text": sc.get("narration") or sc.get("text", ""),
+                        "start_ms": round(float(sc.get("start", 0)) * 1000),
+                        "end_ms": round(float(sc.get("end", 0)) * 1000),
+                    }
+                    for sc in data["scenes"]
+                    if sc.get("narration") or sc.get("text")
+                ]
 
     try:
         render_res = await sovereign_preset_engine.render_parametric(

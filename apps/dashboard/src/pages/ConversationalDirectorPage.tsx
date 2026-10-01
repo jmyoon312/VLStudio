@@ -77,6 +77,7 @@ import { CloudMediaSourceModal } from '@/components/director/CloudMediaSourceMod
 import { DirectorHeader } from '@/components/director/DirectorHeader';
 import { DirectorMessageFeed, DirectorChatMessage } from '@/components/director/DirectorMessageFeed';
 import { DirectorInputBar, AttachedMedia } from '@/components/director/DirectorInputBar';
+import { AgentSoulInspectorModal } from '@/components/director/AgentSoulInspectorModal';
 import { LoopieIcon } from '@/components/director/LoopieAvatar';
 import { GeminiLiveService } from '@/services/geminiLiveService';
 import axios from 'axios';
@@ -139,6 +140,7 @@ interface ChatMessage {
     staged_preset_name?: string;
     action_chips?: string[];
     image_url?: string;
+    attachments?: any[];
     audio_url?: string;
     audio_engine?: string;
     audio_voice_id?: string;
@@ -314,7 +316,12 @@ export const ConversationalDirectorPage: React.FC = () => {
     const [threads, setThreads] = useState<DirectorThread[]>([]);
     const [activeProjectId, setActiveProjectId] = useState<string>('proj_default');
     const [activeThreadId, setActiveThreadId] = useState<string>('');
-    const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+    const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+        if (typeof window !== 'undefined') {
+            return window.innerWidth < 1024; // Auto-collapse on mobile & tablets for 100% screen focus
+        }
+        return false;
+    });
 
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [prompt, setPrompt] = useState('');
@@ -346,7 +353,7 @@ export const ConversationalDirectorPage: React.FC = () => {
 
     // Model & Security selections
     const [selectedProvider, setSelectedProvider] = useState<'codex' | 'chatgpt_web' | 'gemini' | 'claude' | 'deepseek' | 'omniroute'>('codex');
-    const [selectedModel, setSelectedModel] = useState('Codex Astra 6.0');
+    const [selectedModel, setSelectedModel] = useState('Codex Astra 6.1');
     const [reasoningEffort, setReasoningEffort] = useState<ReasoningEffort>('medium');
     const [securityScope, setSecurityScope] = useState('모두 허용');
     const [streamingElapsed, setStreamingElapsed] = useState(0);
@@ -370,8 +377,8 @@ export const ConversationalDirectorPage: React.FC = () => {
         const provKey = key as any;
         setSelectedProvider(provKey);
         const defaultModels: Record<string, string> = {
-            codex: 'Codex Astra 6.0',
-            chatgpt_web: 'Codex Astra 6.0 (Web)',
+            codex: 'Codex Astra 6.1',
+            chatgpt_web: 'Codex Astra 6.1 (Web)',
             gemini: 'Gemini 3.8 Flash',
             claude: 'Claude 3.7 Sonnet',
             deepseek: 'DeepSeek-V3',
@@ -399,6 +406,15 @@ export const ConversationalDirectorPage: React.FC = () => {
         enabled: true,
         deletePreviousThread: false,
     });
+
+    // Bot Mode & SOUL.md Inspector Modal State
+    const [soulModalOpen, setSoulModalOpen] = useState(false);
+    const [selectedSoulAgentId, setSelectedSoulAgentId] = useState<string | null>(null);
+
+    const handleOpenAgentSoul = (agentId?: string) => {
+        if (agentId) setSelectedSoulAgentId(agentId);
+        setSoulModalOpen(true);
+    };
 
     // Cloud Media Source Modal & Sovereign Target Channels
     const [cloudMediaModalOpen, setCloudMediaModalOpen] = useState(false);
@@ -513,7 +529,12 @@ export const ConversationalDirectorPage: React.FC = () => {
     };
 
     // Right Panel & Sidecar Browser state (Codex Desktop 1:1)
-    const [rightPanelOpen, setRightPanelOpen] = useState(true);
+    const [rightPanelOpen, setRightPanelOpen] = useState(() => {
+        if (typeof window !== 'undefined') {
+            return window.innerWidth >= 1280;
+        }
+        return false;
+    });
     const [rightPanelTab, setRightPanelTab] = useState<DockTab>('menu');
     const [activeVideoView, setActiveVideoView] = useState<ActiveVideoView | null>(null);
     const [sidecarBrowserOpen, setSidecarBrowserOpen] = useState(false);
@@ -604,28 +625,141 @@ export const ConversationalDirectorPage: React.FC = () => {
             }
             setIsGeminiLiveActive(false);
             setIsTalking(false);
+            if (activeThreadId) {
+                loadThreadMessages(activeThreadId);
+            }
             toast.info("Gemini 3.8 Live 음성 통화가 종료되었습니다.");
         } else {
             setIsConnectingLive(true);
+            let currentLiveUserMsgId = `live-user-${Date.now()}`;
+            let currentLiveAsstMsgId = `live-asst-${Date.now()}`;
+
             const service = new GeminiLiveService({
-                onConnected: () => {
+                onReady: () => {
                     setIsConnectingLive(false);
                     setIsGeminiLiveActive(true);
-                    toast.success("🎙️ Gemini 3.8 Live 네이티브 음성 연결 완료! 사람과 대화하듯 편하게 말씀하세요.");
+                    toast.success("🎙️ 루피 실시간 음성 디렉터 연결 완료! 편하게 말씀하세요.");
+                },
+                onUserTranscript: (text) => {
+                    if (!text) return;
+                    setMessages(prev => {
+                        const existingIdx = prev.findIndex(m => m.id === currentLiveUserMsgId);
+                        if (existingIdx !== -1) {
+                            const updated = [...prev];
+                            updated[existingIdx] = {
+                                ...updated[existingIdx],
+                                content: text
+                            };
+                            return updated;
+                        } else {
+                            return [...prev, {
+                                id: currentLiveUserMsgId,
+                                role: 'user',
+                                content: text,
+                                timestamp: Date.now()
+                            }];
+                        }
+                    });
                 },
                 onTranscript: (text) => {
+                    if (!text) return;
                     setMessages(prev => {
-                        const last = prev[prev.length - 1];
-                        if (last && last.role === 'assistant' && last.id.startsWith('live-')) {
-                            return [...prev.slice(0, -1), { ...last, content: (last.content || '') + text }];
+                        const existingIdx = prev.findIndex(m => m.id === currentLiveAsstMsgId);
+                        if (existingIdx !== -1) {
+                            const updated = [...prev];
+                            updated[existingIdx] = {
+                                ...updated[existingIdx],
+                                content: (updated[existingIdx].content || '') + text
+                            };
+                            return updated;
+                        } else {
+                            return [...prev, {
+                                id: currentLiveAsstMsgId,
+                                role: 'assistant',
+                                content: text,
+                                timestamp: Date.now()
+                            }];
                         }
-                        return [...prev, {
-                            id: `live-${Date.now()}`,
-                            role: 'assistant',
-                            content: text,
-                            timestamp: Date.now()
-                        }];
                     });
+                },
+                onToolCalling: (toolName, args, step) => {
+                    setMessages(prev => {
+                        const existingIdx = prev.findIndex(m => m.id === currentLiveAsstMsgId);
+                        if (existingIdx !== -1) {
+                            const updated = [...prev];
+                            const currentSteps = updated[existingIdx].steps || [];
+                            updated[existingIdx] = {
+                                ...updated[existingIdx],
+                                steps: [...currentSteps, step]
+                            };
+                            return updated;
+                        } else {
+                            return [...prev, {
+                                id: currentLiveAsstMsgId,
+                                role: 'assistant',
+                                content: '',
+                                steps: [step],
+                                timestamp: Date.now()
+                            }];
+                        }
+                    });
+                },
+                onToolResult: (toolName, result, step) => {
+                    setMessages(prev => {
+                        const existingIdx = prev.findIndex(m => m.id === currentLiveAsstMsgId);
+                        if (existingIdx !== -1) {
+                            const updated = [...prev];
+                            const currentSteps = (updated[existingIdx].steps || []).map(s => 
+                                s.id === step.id ? { ...s, ...step } : s
+                            );
+                            updated[existingIdx] = {
+                                ...updated[existingIdx],
+                                steps: currentSteps
+                            };
+                            return updated;
+                        }
+                        return prev;
+                    });
+                },
+                onTurnComplete: (userText, assistantText) => {
+                    setMessages(prev => {
+                        const updated = [...prev];
+                        if (userText && userText.trim()) {
+                            const uIdx = updated.findIndex(m => m.id === currentLiveUserMsgId);
+                            if (uIdx !== -1) {
+                                updated[uIdx] = { ...updated[uIdx], content: userText.trim() };
+                            } else {
+                                updated.push({
+                                    id: currentLiveUserMsgId,
+                                    role: 'user',
+                                    content: userText.trim(),
+                                    timestamp: Date.now() - 1000
+                                });
+                            }
+                        }
+                        if (assistantText && assistantText.trim()) {
+                            const aIdx = updated.findIndex(m => m.id === currentLiveAsstMsgId);
+                            if (aIdx !== -1) {
+                                updated[aIdx] = { ...updated[aIdx], content: assistantText.trim() };
+                            } else {
+                                updated.push({
+                                    id: currentLiveAsstMsgId,
+                                    role: 'assistant',
+                                    content: assistantText.trim(),
+                                    timestamp: Date.now()
+                                });
+                            }
+                        }
+                        return updated;
+                    });
+                    // 다음 턴을 위한 신규 메시지 슬롯 준비 (새로운 ID 할당으로 이전 턴 100% 보존)
+                    currentLiveUserMsgId = `live-user-${Date.now()}`;
+                    currentLiveAsstMsgId = `live-asst-${Date.now()}`;
+
+                    // Auto-scroll to show updated dialogue in chat
+                    setTimeout(() => {
+                        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+                    }, 50);
                 },
                 onTalkingChange: (talking) => {
                     setIsTalking(talking);
@@ -639,21 +773,46 @@ export const ConversationalDirectorPage: React.FC = () => {
                     setIsConnectingLive(false);
                     setIsGeminiLiveActive(false);
                     setIsTalking(false);
+                    if (activeThreadId) {
+                        loadThreadMessages(activeThreadId);
+                    }
                 }
             });
 
-            const connected = await service.connect();
-            setIsConnectingLive(false);
-            if (connected) {
-                const micStarted = await service.startAudioCapture();
-                if (micStarted) {
-                    liveServiceRef.current = service;
-                    setIsGeminiLiveActive(true);
-                } else {
-                    service.disconnect();
-                    setIsGeminiLiveActive(false);
+            // Mobile User Activation Sovereignty: Start mic capture synchronously on user tap
+            const micCapturePromise = service.startAudioCapture();
+
+            let threadId = activeThreadId;
+            if (!threadId) {
+                try {
+                    const res = await directorSessionService.createThread({
+                        project_id: activeProjectId || 'proj_default',
+                        title: '🎙️ 음성 라이브 대화',
+                        provider: selectedProvider,
+                        model: selectedModel,
+                        reasoning_effort: reasoningEffort
+                    });
+                    if (res?.thread?.id) {
+                        setThreads(prev => [res.thread, ...prev]);
+                        setActiveThreadId(res.thread.id);
+                        threadId = res.thread.id;
+                    }
+                } catch (e) {
+                    console.debug('Thread creation error for live:', e);
                 }
+            }
+
+            const [connected, micStarted] = await Promise.all([
+                service.connect(threadId || 'thread_live_default'),
+                micCapturePromise
+            ]);
+
+            setIsConnectingLive(false);
+            if (connected && micStarted) {
+                liveServiceRef.current = service;
+                setIsGeminiLiveActive(true);
             } else {
+                service.disconnect();
                 setIsGeminiLiveActive(false);
             }
         }
@@ -771,6 +930,7 @@ export const ConversationalDirectorPage: React.FC = () => {
                 id: h.id || Math.random().toString(),
                 role: h.role,
                 content: h.content,
+                attachments: h.attachments,
                 steps: h.steps,
                 deliverable: h.deliverable,
                 created_preset: h.created_preset,
@@ -823,6 +983,9 @@ export const ConversationalDirectorPage: React.FC = () => {
         const target = threads.find(t => t.id === threadId);
         if (target?.project_id) setActiveProjectId(target.project_id);
         loadThreadMessages(threadId);
+        if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+            setSidebarCollapsed(true);
+        }
     };
 
     const handleSelectProject = (projId: string) => {
@@ -901,6 +1064,9 @@ export const ConversationalDirectorPage: React.FC = () => {
                 setPrompt('');
                 setAttachedFiles([]);
                 toast.success('새 채팅 세션이 시작되었습니다.');
+                if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+                    setSidebarCollapsed(true);
+                }
                 setTimeout(() => textareaRef.current?.focus(), 50);
             }
         } catch (e) {
@@ -908,6 +1074,9 @@ export const ConversationalDirectorPage: React.FC = () => {
             setPrompt('');
             setAttachedFiles([]);
             toast.success('새 채팅 세션이 시작되었습니다.');
+            if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+                setSidebarCollapsed(true);
+            }
             setTimeout(() => textareaRef.current?.focus(), 50);
         }
     };
@@ -936,19 +1105,72 @@ export const ConversationalDirectorPage: React.FC = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages, isStreaming]);
 
-    // File attachments
-    const handleAttachFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // File attachments (Max 5 images recommended sweet spot for vision & short-form pacing)
+    const handleAttachFiles = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const files = e.target.files;
         if (!files || files.length === 0) return;
 
-        const newMedia: AttachedMedia[] = Array.from(files).map((f) => ({
-            id: Math.random().toString(36).substring(7),
-            name: f.name,
-            path: (f as any).path || URL.createObjectURL(f),
+        const maxAllowed = 5;
+        const currentCount = attachedFiles.length;
+        const remainingSlots = Math.max(0, maxAllowed - currentCount);
+
+        if (remainingSlots <= 0) {
+            toast.warning(`이미지는 최대 ${maxAllowed}개까지 첨부할 수 있습니다.`);
+            if (fileInputRef.current) fileInputRef.current.value = '';
+            return;
+        }
+
+        const selectedFiles = Array.from(files).slice(0, remainingSlots);
+        if (files.length > remainingSlots) {
+            toast.info(`최대 ${maxAllowed}장 제한으로 처음 ${remainingSlots}장만 추가되었습니다.`);
+        }
+
+        const newMedia: AttachedMedia[] = await Promise.all(selectedFiles.map(async (f) => {
+            const isImg = f.type.startsWith('image/') || /\.(jpg|jpeg|png|webp|gif|bmp)$/i.test(f.name);
+            let dataUrl: string | undefined = undefined;
+            let serverPath: string = (f as any).path || '';
+
+            if (isImg) {
+                try {
+                    dataUrl = await new Promise<string>((resolve) => {
+                        const reader = new FileReader();
+                        reader.onload = () => resolve(reader.result as string);
+                        reader.onerror = () => resolve('');
+                        reader.readAsDataURL(f);
+                    });
+                } catch (err) {
+                    console.debug('Failed to read image as data URL:', err);
+                }
+            }
+
+            // Upload in background to local temp disk for LLM vision and video tools
+            try {
+                const formData = new FormData();
+                formData.append('file', f);
+                const uploadRes = await axios.post('/api/video/upload', formData, {
+                    headers: { 'Content-Type': 'multipart/form-data' }
+                });
+                if (uploadRes.data?.server_path) {
+                    serverPath = uploadRes.data.server_path;
+                }
+            } catch (uploadErr) {
+                console.debug('Background file upload notice:', uploadErr);
+            }
+
+            return {
+                id: Math.random().toString(36).substring(7),
+                name: f.name,
+                path: serverPath || (f as any).path || dataUrl || '',
+                isUrl: false,
+                isImage: isImg,
+                previewUrl: dataUrl || URL.createObjectURL(f),
+                dataUrl: dataUrl,
+                serverPath: serverPath
+            };
         }));
 
         setAttachedFiles(prev => [...prev, ...newMedia]);
-        toast.success(`${files.length}개 파일이 첨부되었습니다.`);
+        toast.success(`${newMedia.length}개 파일이 첨부되었습니다. (최대 5장)`);
         if (fileInputRef.current) fileInputRef.current.value = '';
     };
 
@@ -1079,6 +1301,7 @@ export const ConversationalDirectorPage: React.FC = () => {
             content: textToSend,
             preset_name: activePreset?.name,
             timestamp: Date.now(),
+            attachments: [...attachedFiles] as any
         };
 
         const assistantMsgId = (Date.now() + 1).toString();
@@ -1094,13 +1317,22 @@ export const ConversationalDirectorPage: React.FC = () => {
         setPrompt('');
         setIsStreaming(true);
 
-        // Persist User Message to DB
+        // Persist User Message to DB with full attachments metadata
         if (currentThreadId) {
             directorSessionService.saveThreadMessage(currentThreadId, {
                 role: 'user',
                 content: textToSend,
-                preset_id: activePreset?.id
-            }).catch(err => console.debug('Failed to persist user message:', err));
+                preset_id: activePreset?.id,
+                attachments: attachedFiles.map(a => ({
+                    id: a.id,
+                    name: a.name,
+                    path: a.serverPath || a.path,
+                    previewUrl: a.previewUrl || a.dataUrl,
+                    dataUrl: a.dataUrl,
+                    serverPath: a.serverPath,
+                    isImage: a.isImage
+                }))
+            } as any).catch(err => console.debug('Failed to persist user message:', err));
         }
 
         // Assistant final message tracking
@@ -1115,7 +1347,12 @@ export const ConversationalDirectorPage: React.FC = () => {
         let finalSteps: StepProgress[] = initialAssistantMsg.steps || [];
 
         try {
-            const firstMediaPath = attachedFiles[0]?.path || undefined;
+            const imagePayloads = attachedFiles
+                .filter(a => a.isImage)
+                .map(a => a.serverPath || a.path || a.dataUrl)
+                .filter(Boolean) as string[];
+
+            const firstMediaPath = imagePayloads[0] || attachedFiles[0]?.serverPath || attachedFiles[0]?.path || undefined;
             const lastDeliverableMsg = [...messages].reverse().find(m => m.deliverable || m.audio_url);
             const hasRecentFailure = messages.slice(-2).some(m => 
                 m.role === 'assistant' && (m.steps?.some(s => s.status === 'failed') || m.content?.includes('오류') || m.content?.includes('⚠️'))
@@ -1163,6 +1400,7 @@ export const ConversationalDirectorPage: React.FC = () => {
                     prompt: textToSend,
                     preset: activePreset || undefined,
                     reference_media_path: firstMediaPath,
+                    attached_images: imagePayloads,
                     aspect_ratio: '1080x1920',
                     previous_deliverable: previousDeliverable,
                     model: selectedModel,
@@ -1404,10 +1642,11 @@ export const ConversationalDirectorPage: React.FC = () => {
                                 }));
                             }
 
-                            // Sidecar browser live navigation event (Codex/Pixeling 1:1)
+                            // Sidecar browser live navigation event (sync to Right Panel browser tab)
                             if (data.type === 'browser_navigate' && data.url) {
                                 setBrowserActiveUrl(data.url);
-                                setSidecarBrowserOpen(true);
+                                setRightPanelOpen(true);
+                                setRightPanelTab('browser');
                             }
 
                             // Command log side effect from local_os_controller
@@ -1519,9 +1758,9 @@ export const ConversationalDirectorPage: React.FC = () => {
 
     const getTimeGreeting = () => {
         const hour = new Date().getHours();
-        if (hour >= 5 && hour < 12) return '대표님, 활기찬 아침이에요';
-        if (hour >= 12 && hour < 18) return '대표님, 좋은 오후에요';
-        return '대표님, 편안한 저녁이에요';
+        if (hour >= 5 && hour < 12) return '기분 좋은 아침이에요';
+        if (hour >= 12 && hour < 18) return '활기찬 오후예요';
+        return '편안한 저녁이에요';
     };
 
     return (
@@ -1553,9 +1792,14 @@ export const ConversationalDirectorPage: React.FC = () => {
                 <DirectorHeader
                     title="루피 AI 디렉터"
                     leadingElement={
-                        messages.length > 0 ? (
-                            <LoopieIcon className="w-7 h-7 mr-1" isTalking={isTalking} isLive={isGeminiLiveActive} isSmall={true} />
-                        ) : undefined
+                        <div className="flex items-center mr-1">
+                            <LoopieIcon 
+                                className="w-8 h-8" 
+                                isTalking={isTalking} 
+                                isLive={isGeminiLiveActive} 
+                                isSmall={false} 
+                            />
+                        </div>
                     }
                     channelSelectorElement={
                         <div className="relative">
@@ -1603,7 +1847,7 @@ export const ConversationalDirectorPage: React.FC = () => {
                     }}
                     avatarElement={() => <LoopieIcon className="w-16 h-16" isTalking={isTalking} isLive={isGeminiLiveActive} isSmall={false} />}
                     emptyStateTitle="루피 AI 디렉터"
-                    emptyStateSubtitle="반갑습니다 대표님! 4대 쇼츠(클래식, 인스타, 군림보, 썰형) 제작 총괄 연출뿐 아니라, 채널 성장 로드맵과 Gemini 3.8 Live 실시간 음성까지 무엇이든 명령해 주세요."
+                    emptyStateSubtitle="4대 쇼츠(클래식, 인스타, 군림보, 썰형) 제작 총괄 연출뿐 아니라, 채널 성장 로드맵과 Gemini 3.8 Live 실시간 음성까지 무엇이든 명령해 주세요."
                 />
 
                 <DirectorInputBar
@@ -1620,6 +1864,7 @@ export const ConversationalDirectorPage: React.FC = () => {
                     onClearPreset={() => setActivePreset(null)}
                     onOpenCustomizeModal={() => setCustomizeModalOpen(true)}
                     onOpenCloudMediaModal={() => setCloudMediaModalOpen(true)}
+                    onOpenAgentSoul={handleOpenAgentSoul}
                     securityScope={securityScope}
                     onChangeSecurityScope={setSecurityScope}
                     isLiveVoiceActive={isGeminiLiveActive}
@@ -1652,6 +1897,7 @@ export const ConversationalDirectorPage: React.FC = () => {
                 onClose={() => setRightPanelOpen(false)}
                 activeTab={rightPanelTab}
                 onTabChange={setRightPanelTab}
+                activeBrowserUrl={browserActiveUrl}
                 threadId={activeThreadId}
                 activeVideo={activeVideoView}
                 onClearActiveVideo={() => setActiveVideoView(null)}
@@ -1666,6 +1912,7 @@ export const ConversationalDirectorPage: React.FC = () => {
                         path: f.path
                     }]);
                 }}
+                onOpenAgentSoul={handleOpenAgentSoul}
                 commandLogs={commandLogs}
                 browserSnapshot={browserSnapshot}
                 visionData={visionData}
@@ -1749,6 +1996,13 @@ export const ConversationalDirectorPage: React.FC = () => {
                 open={cloudMediaModalOpen}
                 onClose={() => setCloudMediaModalOpen(false)}
                 onAttachClip={handleAttachCloudClip}
+            />
+
+            {/* 🤖 8대 전문 하수인 SOUL.md 및 독립 메모리 인스펙터 모달 (Bot Mode) */}
+            <AgentSoulInspectorModal
+                open={soulModalOpen}
+                onOpenChange={setSoulModalOpen}
+                defaultAgentId={selectedSoulAgentId || undefined}
             />
         </div>
     );

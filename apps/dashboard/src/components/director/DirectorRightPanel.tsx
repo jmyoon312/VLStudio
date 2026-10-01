@@ -48,6 +48,7 @@ import {
     CrossVerifyData
 } from './LiveAutonomousWorkspacePanel';
 import { Sparkles, Shield, GitCompare, Eye } from 'lucide-react';
+import { SovereignAgentBoard } from './SovereignAgentBoard';
 
 export interface ActiveVideoView {
     filename: string;
@@ -63,6 +64,7 @@ interface DirectorRightPanelProps {
     onClearActiveVideo?: () => void;
     onSelectVideo?: (video: ActiveVideoView) => void;
     onAttachFile?: (file: { name: string; path: string }) => void;
+    onOpenAgentSoul?: (agentId: string) => void;
     commandLogs?: CommandLogItem[];
     browserSnapshot?: BrowserSnapshotData | null;
     visionData?: VisionForensicData | null;
@@ -74,9 +76,10 @@ interface DirectorRightPanelProps {
     activeTab?: DockTab;
     onTabChange?: (tab: DockTab) => void;
     threadId?: string;
+    activeBrowserUrl?: string;
 }
 
-export type DockTab = 'menu' | 'preview' | 'files' | 'browser' | 'vision' | 'local_pc' | 'terminal' | 'backlot' | 'cross_diff';
+export type DockTab = 'menu' | 'board' | 'preview' | 'files' | 'browser' | 'vision' | 'local_pc' | 'terminal' | 'backlot' | 'cross_diff';
 
 export const TAB_DEFINITIONS: Record<DockTab, {
     label: string;
@@ -86,6 +89,7 @@ export const TAB_DEFINITIONS: Record<DockTab, {
     description: string;
 }> = {
     menu: { label: '홈', shortLabel: '홈', icon: Home, color: 'text-primary', description: '실시간 AI 작업 관찰 데스크 & 퀵 액션' },
+    board: { label: '자율 보드', shortLabel: '보드', icon: LayoutGrid, color: 'text-violet-500', description: '8대 하수인 실시간 파이프라인 관제 보드' },
     browser: { label: '브라우저', shortLabel: '브라우저', icon: Globe, color: 'text-cyan-500', description: 'AI 실시간 웹 탐색 & 9:16 모바일 뷰' },
     vision: { label: '비전 실측', shortLabel: '비전 실측', icon: Eye, color: 'text-amber-500', description: 'OmniRoute 키프레임 & 시각 요소 실측' },
     files: { label: '작업 파일', shortLabel: '작업 파일', icon: FileText, color: 'text-blue-500', description: '02_Operations 작업 디렉토리 탐색기' },
@@ -115,6 +119,7 @@ export const DirectorRightPanel: React.FC<DirectorRightPanelProps> = ({
     activeTab,
     onTabChange,
     threadId,
+    activeBrowserUrl,
 }) => {
     const [fileScope, setFileScope] = useState<'thread' | 'all'>('thread');
     const [internalDockTab, setInternalDockTab] = useState<DockTab>(defaultTab);
@@ -147,6 +152,15 @@ export const DirectorRightPanel: React.FC<DirectorRightPanelProps> = ({
     const [browserUrl, setBrowserUrl] = useState('https://www.google.com/search?igu=1');
     const [browserMode, setBrowserMode] = useState<'snapshot' | 'live'>('snapshot');
     const [localBrowserSnapshot, setLocalBrowserSnapshot] = useState<BrowserSnapshotData | null>(browserSnapshot || null);
+
+    // Sync real-time browser navigation from AI conversational search
+    useEffect(() => {
+        if (activeBrowserUrl) {
+            setBrowserUrl(activeBrowserUrl);
+            setBrowserMode('live');
+        }
+    }, [activeBrowserUrl]);
+
     const [isSearchingBrowser, setIsSearchingBrowser] = useState(false);
     const [searchFilter, setSearchFilter] = useState('');
     const [loading, setLoading] = useState(false);
@@ -441,9 +455,16 @@ export const DirectorRightPanel: React.FC<DirectorRightPanelProps> = ({
     };
 
     return (
-        <aside className={`${
-            isMaximized ? 'w-full md:w-[760px]' : 'w-full md:w-[480px] lg:w-[500px] xl:w-[540px]'
-        } border-l border-border/80 bg-card flex flex-col h-full transition-all duration-200 z-20 shrink-0 select-none`}>
+        <>
+            {/* Mobile Backdrop Overlay (Click to close right panel on mobile) */}
+            <div 
+                className="md:hidden fixed inset-0 z-40 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200"
+                onClick={onClose}
+                aria-hidden="true"
+            />
+            <aside className={`${
+                isMaximized ? 'w-full md:w-[760px]' : 'w-full sm:w-[480px] md:w-[480px] lg:w-[500px] xl:w-[540px]'
+            } fixed md:static inset-y-0 right-0 z-50 md:z-20 border-l border-border/80 bg-card shadow-2xl md:shadow-none flex flex-col h-full transition-all duration-200 shrink-0 select-none animate-in slide-in-from-right duration-200`}>
             
             {/* Hidden native file input */}
             <input 
@@ -460,6 +481,7 @@ export const DirectorRightPanel: React.FC<DirectorRightPanelProps> = ({
                 <div className="flex items-center gap-1 flex-1 min-w-0 py-0.5">
                     {([
                         'menu', 
+                        'board',
                         'browser', 
                         'vision', 
                         'files', 
@@ -536,6 +558,23 @@ export const DirectorRightPanel: React.FC<DirectorRightPanelProps> = ({
             <div className={`flex-1 overflow-y-auto flex flex-col ${
                 activeDockTab === 'preview' ? 'p-0 overflow-hidden bg-neutral-950' : 'p-3.5 space-y-3.5'
             }`}>
+                
+                {/* 0. Sovereign Kanban Board Tab */}
+                {activeDockTab === 'board' && (
+                    <div className="flex-1 h-full min-h-0 -m-3.5 flex flex-col">
+                        <SovereignAgentBoard
+                            onOpenVideo={(url, title) => {
+                                if (onSelectVideo) {
+                                    onSelectVideo({
+                                        filename: title,
+                                        videoUrl: url
+                                    });
+                                }
+                            }}
+                            onOpenAgentSoul={onOpenAgentSoul}
+                        />
+                    </div>
+                )}
                 
                 {/* 1. Main Action Hub Menu (Real-Time Observability Dashboard) */}
                 {activeDockTab === 'menu' && (
@@ -1260,8 +1299,8 @@ export const DirectorRightPanel: React.FC<DirectorRightPanelProps> = ({
                                     src={browserUrl.startsWith('http') ? browserUrl : `https://www.google.com/search?igu=1&q=${encodeURIComponent(browserUrl)}`}
                                     className="w-full h-full border-none min-h-[360px]"
                                     title="Embedded Browser Frame"
-                                    allow="clipboard-read; clipboard-write; publickey-credentials-get 'none'; publickey-credentials-create 'none'"
-                                    sandbox="allow-same-origin allow-scripts allow-forms allow-popups"
+                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
+                                    sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-modals"
                                     referrerPolicy="no-referrer"
                                 />
                             </div>
@@ -1988,6 +2027,7 @@ export const DirectorRightPanel: React.FC<DirectorRightPanelProps> = ({
                 )}
             </div>
         </aside>
+        </>
     );
 };
 export default DirectorRightPanel;

@@ -21,8 +21,23 @@ class ScoutCandidatesRequest(BaseModel):
 
 
 class IngestAssetRequest(BaseModel):
-    candidate_data: Dict[str, Any]
+    candidate_data: Optional[Dict[str, Any]] = None
     custom_category: Optional[Dict[str, str]] = None
+    title: Optional[str] = None
+    source_url: Optional[str] = None
+    url: Optional[str] = None
+    video_duration_sec: Optional[float] = None
+    duration_sec: Optional[float] = None
+    resolution: Optional[str] = None
+    thumbnail_url: Optional[str] = None
+    clean_zone_score: Optional[float] = None
+    genre: Optional[str] = None
+    genre_major: Optional[str] = None
+    genre_mid: Optional[str] = None
+    sub_category: Optional[str] = None
+    script_draft_60s: Optional[str] = None
+    script_draft: Optional[str] = None
+    summary: Optional[str] = None
 
 
 class UpdateCampaignRequest(BaseModel):
@@ -62,11 +77,27 @@ def get_sourcing_assets(
 def ingest_sourcing_asset(req: IngestAssetRequest):
     """대화창 또는 외부에서 후보 영상을 소싱 센터에 영구 자산으로 입고"""
     try:
+        c_data = dict(req.candidate_data) if req.candidate_data else {}
+        if not c_data:
+            c_data = {
+                "title": req.title or "무제 원천 영상",
+                "url": req.source_url or req.url,
+                "source_url": req.source_url or req.url,
+                "duration_sec": req.duration_sec or req.video_duration_sec or 45.0,
+                "resolution": req.resolution or "1080p",
+                "thumbnail_url": req.thumbnail_url or "",
+                "clean_zone_score": req.clean_zone_score or 95.0,
+                "genre_major": req.genre_major or req.genre or "일반/트렌드",
+                "genre_mid": req.genre_mid or req.sub_category or "실시간 화제",
+                "script_draft": req.script_draft or req.script_draft_60s or "",
+                "summary": req.summary or ""
+            }
         asset = UniversalVideoSourcingService.download_and_ingest_asset(
-            req.candidate_data,
+            c_data,
             custom_category=req.custom_category
         )
         return {
+            "status": "ok",
             "success": True,
             "asset_id": asset.id,
             "title": asset.title,

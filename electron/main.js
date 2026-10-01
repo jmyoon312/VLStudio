@@ -82,6 +82,7 @@ app.setPath('userData', persistentDataDir)
 // ═══════════════════════════════════════════════════════════════════════════════
 app.commandLine.appendSwitch('disable-gpu-shader-disk-cache')
 app.commandLine.appendSwitch('disable-gpu-program-cache')
+app.commandLine.appendSwitch('enable-unsafe-swiftshader')
 app.commandLine.appendSwitch('force-webrtc-ip-handling-policy', 'disable_non_proxied_udp')
 app.commandLine.appendSwitch('disable-webrtc-multiple-routes')
 app.commandLine.appendSwitch('enforce-webrtc-ip-permission-check')
@@ -3130,14 +3131,16 @@ app.whenReady().then(async () => {
   // ═══════════════════════════════════════════════════════════════════════
   try {
     const { session: electronSess } = await import('electron')
-    const ytFilter = { urls: [
+    const embedFilter = { urls: [
       '*://*.youtube.com/*',
       '*://*.youtube-nocookie.com/*',
       '*://*.ytimg.com/*',
-      '*://youtube.com/*'
+      '*://youtube.com/*',
+      '*://*.google.com/*',
+      '*://google.com/*'
     ]}
     
-    electronSess.defaultSession.webRequest.onBeforeSendHeaders(ytFilter, (details, callback) => {
+    electronSess.defaultSession.webRequest.onBeforeSendHeaders(embedFilter, (details, callback) => {
       const headers = { ...details.requestHeaders }
       const ref = headers['Referer'] || headers['referer'] || ''
       const orig = headers['Origin'] || headers['origin'] || ''
@@ -3153,17 +3156,25 @@ app.whenReady().then(async () => {
       callback({ requestHeaders: headers })
     })
 
-    electronSess.defaultSession.webRequest.onHeadersReceived(ytFilter, (details, callback) => {
+    electronSess.defaultSession.webRequest.onHeadersReceived(embedFilter, (details, callback) => {
       const responseHeaders = { ...details.responseHeaders }
       // Remove headers that prevent embedding
       delete responseHeaders['X-Frame-Options']
       delete responseHeaders['x-frame-options']
-      delete responseHeaders['Content-Security-Policy']
-      delete responseHeaders['content-security-policy']
+      if (responseHeaders['Content-Security-Policy']) {
+        responseHeaders['Content-Security-Policy'] = responseHeaders['Content-Security-Policy'].map(
+          h => h.replace(/frame-ancestors [^;]+(;|$)/gi, '')
+        )
+      }
+      if (responseHeaders['content-security-policy']) {
+        responseHeaders['content-security-policy'] = responseHeaders['content-security-policy'].map(
+          h => h.replace(/frame-ancestors [^;]+(;|$)/gi, '')
+        )
+      }
       callback({ cancel: false, responseHeaders })
     })
     
-    console.log('[YouTube Embed Fix] webRequest Referer/Origin & Headers injection registered.')
+    console.log('[Embed Fix] webRequest Referer/Origin & Headers injection registered for YouTube & Google.')
   } catch (e) {
     console.warn('[YouTube Embed Fix] Failed to register webRequest handler:', e.message)
   }

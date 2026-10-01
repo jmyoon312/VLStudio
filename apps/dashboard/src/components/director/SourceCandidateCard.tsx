@@ -4,17 +4,27 @@ import { toast } from 'sonner';
 
 export interface SourceCandidate {
   title: string;
-  source_url: string;
+  source_url?: string;
+  url?: string;
   duration_sec: number;
   thumbnail_url: string;
   resolution: string;
   clean_zone_score: number;
-  vision_notes: string;
-  genre: string;
+  vision_score?: number;
+  vision_notes?: string;
+  genre?: string;
+  genre_major?: string;
+  view_count?: number;
+  start_seconds?: number;
+  duration_seconds?: number;
+  timecode_str?: string;
   sub_category?: string;
   movie_title?: string;
   release_year?: string;
   script_draft_60s?: string;
+  script_draft?: string;
+  summary?: string;
+  linked_preset_name?: string;
 }
 
 interface SourceCandidateCardProps {
@@ -45,22 +55,35 @@ export const SourceCandidateCard: React.FC<SourceCandidateCardProps> = ({
     if (isSaved || isSaving) return;
     setIsSaving(true);
     try {
+      const genreMajor = candidate.genre_major || candidate.genre || '일반/트렌드';
+      const genreMid = candidate.sub_category || '실시간 화제';
+      const cPayload = {
+        title: candidate.title,
+        source_url: candidate.source_url || candidate.url,
+        url: candidate.url || candidate.source_url,
+        video_duration_sec: candidate.duration_sec,
+        duration_sec: candidate.duration_sec,
+        resolution: candidate.resolution || '1080p',
+        thumbnail_url: candidate.thumbnail_url,
+        clean_zone_score: candidate.clean_zone_score,
+        genre: genreMajor,
+        genre_major: genreMajor,
+        genre_mid: genreMid,
+        sub_category: genreMid,
+        movie_title: candidate.movie_title || '',
+        release_year: candidate.release_year || '',
+        script_draft: candidate.script_draft || candidate.script_draft_60s || '',
+        script_draft_60s: candidate.script_draft_60s || candidate.script_draft || '',
+        summary: candidate.summary || '',
+        auto_download: false,
+      };
+
       const res = await fetch('/api/sourcing-center/assets', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          title: candidate.title,
-          source_url: candidate.source_url,
-          video_duration_sec: candidate.duration_sec,
-          resolution: candidate.resolution || '1080p',
-          thumbnail_url: candidate.thumbnail_url,
-          clean_zone_score: candidate.clean_zone_score,
-          genre: candidate.genre || '시네마/드라마',
-          sub_category: candidate.sub_category || '감동/눈물실화',
-          movie_title: candidate.movie_title || '',
-          release_year: candidate.release_year || '',
-          script_draft_60s: candidate.script_draft_60s || '',
-          auto_download: false,
+          candidate_data: cPayload,
+          ...cPayload
         }),
       });
       const data = await res.json();
@@ -78,8 +101,9 @@ export const SourceCandidateCard: React.FC<SourceCandidateCardProps> = ({
   };
 
   const handleCopyScript = () => {
-    if (!candidate.script_draft_60s) return;
-    navigator.clipboard.writeText(candidate.script_draft_60s);
+    const textToCopy = candidate.script_draft || candidate.script_draft_60s;
+    if (!textToCopy) return;
+    navigator.clipboard.writeText(textToCopy);
     setCopiedScript(true);
     toast.success('60초 대본 초안이 클립보드에 복사되었습니다.');
     setTimeout(() => setCopiedScript(false), 2000);
@@ -141,8 +165,13 @@ export const SourceCandidateCard: React.FC<SourceCandidateCardProps> = ({
             {/* 태그 & 실측 비전 배지 */}
             <div className="flex flex-wrap items-center gap-1.5 mb-2.5">
               <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-secondary text-secondary-foreground">
-                {candidate.genre}
+                {candidate.genre || candidate.genre_major || '쇼츠 소스'}
               </span>
+              {candidate.view_count && (
+                <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-muted text-muted-foreground border border-border">
+                  👁️ {candidate.view_count >= 10000 ? `${(candidate.view_count / 10000).toFixed(1)}만회` : `${candidate.view_count.toLocaleString()}회`}
+                </span>
+              )}
               {candidate.movie_title && (
                 <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
                   🎬 {candidate.movie_title} {candidate.release_year ? `(${candidate.release_year})` : ''}
@@ -151,27 +180,32 @@ export const SourceCandidateCard: React.FC<SourceCandidateCardProps> = ({
               {/* 비전 클린존 점수 */}
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
                 <ShieldCheck className="w-3 h-3" />
-                클린존 적합도 {candidate.clean_zone_score}%
+                클린존 {candidate.clean_zone_score}%
+              </span>
+              {/* 무다운로드 스트림 슬라이싱 구간 배지 */}
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-primary/10 text-primary border border-primary/25">
+                <Sparkles className="w-3 h-3 text-primary" />
+                추천 구간: {candidate.timecode_str || `${candidate.start_seconds || 15}s ~ ${(candidate.start_seconds || 15) + (candidate.duration_seconds || 15)}s`}
               </span>
             </div>
 
             {/* 비전 실측 코멘트 */}
             <p className="text-xs text-muted-foreground line-clamp-2 mb-3">
-              {candidate.vision_notes || '자막 및 로고 간섭이 적어 9:16 쇼츠 변환 시 최적의 몰입감을 제공합니다.'}
+              {candidate.summary || candidate.vision_notes || '자막 및 로고 간섭이 적어 9:16 쇼츠 변환 시 최적의 몰입감을 제공합니다.'}
             </p>
           </div>
 
           {/* 액션 버튼 그룹 */}
           <div className="flex items-center gap-2 pt-2 border-t border-border/60">
             {/* 60초 대본 초안 토글 */}
-            {candidate.script_draft_60s && (
+            {(candidate.script_draft || candidate.script_draft_60s) && (
               <button
                 type="button"
                 onClick={() => setShowScript(!showScript)}
                 className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-foreground bg-secondary/80 hover:bg-secondary transition-colors"
               >
                 {showScript ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-                60초 대본 초안
+                60초 나레이션 초안
               </button>
             )}
 
@@ -217,12 +251,12 @@ export const SourceCandidateCard: React.FC<SourceCandidateCardProps> = ({
       </div>
 
       {/* 60초 대본 아코디언 */}
-      {showScript && candidate.script_draft_60s && (
+      {showScript && (candidate.script_draft || candidate.script_draft_60s) && (
         <div className="bg-muted/40 border-t border-border p-3.5 text-xs text-foreground/90 font-mono">
           <div className="flex items-center justify-between mb-2">
             <span className="text-[11px] font-bold text-muted-foreground flex items-center gap-1">
               <Sparkles className="w-3 h-3 text-amber-500" />
-              {presetName || '프리셋'} 맞춤형 60초 나레이션 대본 초안:
+              {presetName ? `[${presetName}] 맞춤형 60초 나레이션 대본 초안:` : '60초 나레이션 대본 초안:'}
             </span>
             <button
               type="button"
@@ -234,7 +268,7 @@ export const SourceCandidateCard: React.FC<SourceCandidateCardProps> = ({
             </button>
           </div>
           <div className="p-2.5 rounded bg-background border border-border/80 text-xs whitespace-pre-wrap leading-relaxed select-text">
-            {candidate.script_draft_60s}
+            {candidate.script_draft || candidate.script_draft_60s}
           </div>
         </div>
       )}

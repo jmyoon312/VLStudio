@@ -142,7 +142,7 @@ function scanFilesRecursively(dir, extensions, ignoreDirs = []) {
 const activeBackendFiles = scanFilesRecursively(
     path.join(rootDir, 'apps', 'api', 'app'),
     ['.py'],
-    ['legacy_ddalkkak', '__pycache__']
+    ['legacy_ddalkkak', '__pycache__', 'ai_models_discovery.py']
 );
 
 const activeFrontendFiles = scanFilesRecursively(

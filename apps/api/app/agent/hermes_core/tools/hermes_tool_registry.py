@@ -20,8 +20,7 @@ from app.services.openmontage.viraloop_openmontage_mcp import ViraLoopOpenMontag
 from app.services.openmontage.tool_registry import openmontage_registry
 from app.agent.hermes_core.tools.pixagent_presets_tool import pixagent_presets
 from app.services.sovereign_preset_engine import sovereign_preset_engine
-from app.services.capcut_registry_manager import CapCutRegistryManager
-from app.services.local_os_controller import local_os_controller
+from app.services.local_os_controller import local_os_controller, EXPORTS_DIR
 
 logger = logging.getLogger("hermes_tool_registry")
 
@@ -521,6 +520,38 @@ HERMES_OPENAI_TOOLS: List[Dict[str, Any]] = [
                 "required": ["image_path", "audio_path"]
             }
         }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "generate_ltx_video",
+            "description": "[Hermes v0.21.4 비디오 카탈로그] Lightricks LTX Video 2.5 초고속 24fps 오픈소스 AI 비디오 모델을 활용하여 정지 이미지를 역동적인 카메라 무빙과 고속 액션 5초 영상으로 생성합니다. (원격 혼잡 시 로컬 2.5D 패럴랙스로 자가 치유)",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "image_path": {"type": "string", "description": "입력 이미지 파일 경로"},
+                    "prompt": {"type": "string", "description": "동작 및 카메라 연출 프롬프트 (영문 권장)"},
+                    "duration_sec": {"type": "integer", "default": 5}
+                },
+                "required": ["image_path", "prompt"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "generate_kling_video",
+            "description": "[Hermes v0.21.4 비디오 카탈로그] Kling O3 시네마틱 AI 비디오 모델을 활용하여 정지 이미지를 헐리우드급 물리 시뮬레이션 및 초고화질 B-roll 5초 영상으로 생성합니다. (원격 혼잡 시 로컬 2.5D 패럴랙스로 자가 치유)",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "image_path": {"type": "string", "description": "입력 이미지 파일 경로"},
+                    "prompt": {"type": "string", "description": "시네마틱 연출 및 조명 프롬프트 (영문 권장)"},
+                    "duration_sec": {"type": "integer", "default": 5}
+                },
+                "required": ["image_path", "prompt"]
+            }
+        }
     }
 ]
 
@@ -538,6 +569,8 @@ TOOL_DOMAINS: Dict[str, List[str]] = {
         "generate_scene_image",
         "enhance_image_prompt",
         "generate_wan21_ai_video",
+        "generate_ltx_video",
+        "generate_kling_video",
         "generate_talking_head_video",
         "render_25d_parallax_video",
         "stream_slice_online",
@@ -581,7 +614,7 @@ def get_staged_openai_tools(domains: Optional[List[str]] = None) -> List[Dict[st
     return [t for t in HERMES_OPENAI_TOOLS if t.get("function", {}).get("name") in allowed_names]
 
 
-def get_staged_gemini_tools(domains: Optional[List[str]] = None) -> List[Dict[str, Any]]:
+def get_staged_gemini_tools(domains: Optional[List[str]] = None, camel_case: bool = True) -> List[Dict[str, Any]]:
     """Returns Gemini function declarations filtered by specified domains. If empty list [], returns []."""
     staged = get_staged_openai_tools(domains)
     if not staged:
@@ -594,13 +627,14 @@ def get_staged_gemini_tools(domains: Optional[List[str]] = None) -> List[Dict[st
             "description": fn["description"],
             "parameters": fn["parameters"]
         })
-    return [{"function_declarations": declarations}]
+    key = "functionDeclarations" if camel_case else "function_declarations"
+    return [{key: declarations}]
 
 
 # === 3. Google Gemini Function Declarations (Backward Compatibility) ===
-def get_gemini_tools(domains: Optional[List[str]] = None) -> List[Dict[str, Any]]:
+def get_gemini_tools(domains: Optional[List[str]] = None, camel_case: bool = True) -> List[Dict[str, Any]]:
     """Converts OpenAI tool schemas to Google Gemini function declaration format with domain filtering support."""
-    return get_staged_gemini_tools(domains)
+    return get_staged_gemini_tools(domains, camel_case=camel_case)
 
 
 # === 3. Autonomous Tool Execution Dispatcher ===
@@ -620,6 +654,23 @@ class HermesToolDispatcher:
         Executes the specified tool with arguments and returns structured outcome.
         """
         logger.info(f"⚡ [HermesToolDispatcher] Executing '{tool_name}' with args: {arguments}")
+
+        # Hermes Multi-Turn Pre-Execution Guardrails (Hermes v0.21.5)
+        from app.agent.hermes_core.tools.hermes_tool_guardrails import hermes_guardrails, ToolResultCategory
+        is_valid, guard_err, sanitized_args = hermes_guardrails.pre_validate(
+            tool_name=tool_name,
+            arguments=arguments,
+            session_id=session_id
+        )
+        if not is_valid:
+            logger.warning(f"🛡️ [Hermes Guardrails] Pre-validation blocked '{tool_name}': {guard_err}")
+            return {
+                "success": False,
+                "tool_name": tool_name,
+                "error": guard_err,
+                "result_category": ToolResultCategory.LOOP_TRAP.value if "무한" in (guard_err or "") else ToolResultCategory.FATAL_ERROR.value
+            }
+        arguments = sanitized_args or arguments
 
         # 1. OpenMontage: Production Plan
         if tool_name == "montage_create_production_plan":
@@ -1054,7 +1105,7 @@ class HermesToolDispatcher:
         # 13. Autonomous File Manager: system_file_manager
         elif tool_name == "system_file_manager":
             operation = arguments.get("operation", "list")
-            path = arguments.get("path", str(local_os_controller.EXPORTS_DIR))
+            path = arguments.get("path") or str(EXPORTS_DIR)
             content = arguments.get("content")
             res = local_os_controller.file_manager(
                 operation=operation,
@@ -1067,7 +1118,9 @@ class HermesToolDispatcher:
                 "operation": operation,
                 "path": path,
                 "result": res,
-                "message": f"파일시스템 [{operation}] 작업이 완료되었습니다."
+                "items": res.get("items", []),
+                "content": res.get("content", ""),
+                "message": f"파일시스템 [{operation}] 작업이 완료되었습니다. ({path})"
             }
 
         # 14. Multi-AI Cross Verification: cross_verify_channel_dna
@@ -1298,6 +1351,52 @@ class HermesToolDispatcher:
                 "source": res.get("source"),
                 "message": f"LivePortrait 립싱크 토킹헤드 비디오 생성이 완료되었습니다! (소스: {res.get('source')})" if res.get("success") else f"토킹헤드 생성 실패: {res.get('error')}"
             }
+
+        # 24. Lightricks LTX Video 2.5 (Hermes v0.21.4 Video Catalog)
+        elif tool_name == "generate_ltx_video":
+            image_path = arguments.get("image_path", "")
+            prompt = arguments.get("prompt", "")
+            duration_sec = int(arguments.get("duration_sec", 5))
+            from app.services.hf_zerogpu_video_client import hf_zerogpu_video_client
+            res = hf_zerogpu_video_client.generate_ltx_video(
+                image_path=image_path,
+                prompt=prompt,
+                duration_sec=duration_sec
+            )
+            return {
+                "success": res.get("success", False),
+                "tool_name": tool_name,
+                "video_path": res.get("video_path"),
+                "engine": res.get("engine"),
+                "fallback": res.get("fallback", False),
+                "message": f"LTX Video 2.5 비디오 생성이 완료되었습니다! (엔진: {res.get('engine')})" if res.get("success") else f"LTX 비디오 생성 실패: {res.get('error')}"
+            }
+
+        # 25. Kling O3 Cinematic Video (Hermes v0.21.4 Video Catalog)
+        elif tool_name == "generate_kling_video":
+            image_path = arguments.get("image_path", "")
+            prompt = arguments.get("prompt", "")
+            duration_sec = int(arguments.get("duration_sec", 5))
+            from app.services.hf_zerogpu_video_client import hf_zerogpu_video_client
+            res = hf_zerogpu_video_client.generate_kling_video(
+                image_path=image_path,
+                prompt=prompt,
+                duration_sec=duration_sec
+            )
+            return {
+                "success": res.get("success", False),
+                "tool_name": tool_name,
+                "video_path": res.get("video_path"),
+                "engine": res.get("engine"),
+                "fallback": res.get("fallback", False),
+                "message": f"Kling O3 시네마틱 비디오 생성이 완료되었습니다! (엔진: {res.get('engine')})" if res.get("success") else f"Kling 비디오 생성 실패: {res.get('error')}"
+            }
+
+        # Check Live Hot-Plug Tool Mesh (Hermes v0.21.5 Connectors)
+        from app.agent.hermes_core.tools.hermes_hotplug_mesh import hermes_hotplug_mesh
+        if hermes_hotplug_mesh.has_handler(tool_name):
+            logger.info(f"🔌 [HermesToolDispatcher] Executing hot-plugged tool '{tool_name}' via Live Mesh")
+            return await hermes_hotplug_mesh.execute_custom(tool_name, arguments)
 
         else:
             return {

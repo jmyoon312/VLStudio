@@ -318,6 +318,62 @@ class RemotionRenderer:
                 "error": f"{type(e).__name__}: {str(e)}\n{tb}"
             }
 
+    async def render_blueprint_v4(
+        self,
+        project_id: str,
+        blueprint_v4: Dict[str, Any],
+        output_mp4_path: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Render a video directly from VLStandardBlueprint v4.0 schema.
+        Maps globalLayers (top_bar_bg, bottom_bar_bg, title_line1, title_line2, bottom_source, subtitle_main)
+        and scenes sequentially into Remotion ViraShortComposition.
+        """
+        gl = blueprint_v4.get("globalLayers", [])
+        tb_layer = next((l for l in gl if l.get("id") == "top_bar_bg"), None)
+        bb_layer = next((l for l in gl if l.get("id") == "bottom_bar_bg"), None)
+        t1_layer = next((l for l in gl if l.get("id") == "title_line1"), None)
+        t2_layer = next((l for l in gl if l.get("id") == "title_line2"), None)
+        src_layer = next((l for l in gl if l.get("id") == "bottom_source"), None)
+
+        scenes_data = blueprint_v4.get("scenes", [])
+        remotion_scenes = []
+        subtitles = []
+        for idx, sc in enumerate(scenes_data):
+            st = float(sc.get("start", idx * 4.0))
+            et = float(sc.get("end", (idx + 1) * 4.0))
+            dur = max(0.5, et - st)
+            media = sc.get("mediaUrl") or sc.get("source_path") or sc.get("videoUrl")
+            remotion_scenes.append({
+                "id": sc.get("id", f"scene_{idx}"),
+                "videoSource": media if media and os.path.exists(media) else None,
+                "imageSource": media if media and not (media.endswith(".mp4") or media.endswith(".webm")) else None,
+                "durationSeconds": dur,
+                "narrationText": sc.get("narration") or sc.get("text", "")
+            })
+            if sc.get("narration") or sc.get("text"):
+                subtitles.append({
+                    "start": st,
+                    "end": et,
+                    "text": sc.get("narration") or sc.get("text")
+                })
+
+        total_dur = max(sum(s.get("durationSeconds", 4.0) for s in remotion_scenes), 5.0)
+
+        return await self.render_short(
+            project_id=project_id,
+            scenes=remotion_scenes if remotion_scenes else None,
+            title_hook=t1_layer.get("content", "") if t1_layer else "ViraLoop Sovereign Short",
+            subtitles=subtitles,
+            has_top_header=tb_layer is not None and not tb_layer.get("hidden", False),
+            title_line1=t1_layer.get("content") if t1_layer else None,
+            title_line2=t2_layer.get("content") if t2_layer else None,
+            has_bottom_credit=bb_layer is not None and not bb_layer.get("hidden", False),
+            bottom_credit_text=src_layer.get("content") if src_layer else None,
+            canvas_type="LETTERBOX_SOLID" if tb_layer else "FULLSCREEN",
+            duration_seconds=total_dur
+        )
+
 
 remotion_renderer = RemotionRenderer()
 

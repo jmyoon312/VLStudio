@@ -135,3 +135,55 @@ def get_standard_ytdlp_opts(extra_opts: Optional[Dict[str, Any]] = None) -> Dict
             opts.pop('compat_opts', None)
 
     return opts
+
+
+def get_ytdlp_cmd() -> list:
+    """Return command list to execute yt-dlp executable or Python module."""
+    import sys
+    import os
+    from pathlib import Path
+    local_app_data = os.environ.get("LOCALAPPDATA", "")
+    system_bin = Path(local_app_data) / "ViraLoop Studio" / "media" / "09_System" / "bin"
+    exe_name = "yt-dlp.exe" if sys.platform == "win32" else "yt-dlp"
+
+    candidates = [
+        system_bin / "yt-dlp" / exe_name,
+        system_bin / exe_name,
+        Path(sys.executable).parent / exe_name,
+    ]
+    for cand in candidates:
+        if cand.exists():
+            return [str(cand)]
+
+    which_path = shutil.which("yt-dlp")
+    if which_path:
+        return [which_path]
+
+    return [sys.executable, "-m", "yt_dlp"]
+
+
+def get_ffmpeg_cmd() -> list:
+    """Return command list to execute ffmpeg executable."""
+    import sys
+    import os
+    from pathlib import Path
+    local_app_data = os.environ.get("LOCALAPPDATA", "")
+    system_bin = Path(local_app_data) / "ViraLoop Studio" / "media" / "09_System" / "bin"
+    exe_name = "ffmpeg.exe" if sys.platform == "win32" else "ffmpeg"
+
+    candidates = [
+        system_bin / "ffmpeg" / "bin" / exe_name,
+        system_bin / "ffmpeg" / exe_name,
+        system_bin / exe_name,
+        Path(sys.executable).parent / exe_name,
+    ]
+    for cand in candidates:
+        if cand.exists():
+            return [str(cand)]
+
+    which_path = shutil.which("ffmpeg")
+    if which_path:
+        return [which_path]
+
+    return ["ffmpeg"]
+

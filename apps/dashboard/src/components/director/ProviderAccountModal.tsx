@@ -1151,7 +1151,7 @@ export const ProviderAccountModal: React.FC<ProviderAccountModalProps> = ({
                             : activeProviderKey === 'chatgpt_web'
                             ? 'OpenAI 공식 ChatGPT Web (chatgpt.com) 세션 연동입니다. 일반 웹 대화는 Codex 쿼터에 포함되지 않는 독립적인 Plus 롤링 정책을 따릅니다.'
                             : activeProviderKey === 'codex'
-                            ? '공식 OpenAI Codex CLI OAuth 세션 연동입니다. Codex Astra 6.0 심층 추론 엔진을 직접 구동하며 5시간/주간 슬라이딩 윈도우 쿼터를 적용받습니다.'
+                            ? '공식 OpenAI Codex CLI OAuth 세션 연동입니다. Codex Astra 6.1 심층 추론 엔진을 직접 구동하며 5시간/주간 슬라이딩 윈도우 쿼터를 적용받습니다.'
                             : `${providerData.name} 계정을 연결하여 사용할 수 있습니다.`}
                     </DialogDescription>
                 </DialogHeader>

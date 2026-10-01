@@ -65,7 +65,7 @@ export const GlobalLoopieChat: React.FC = () => {
             {
                 id: 'init-1',
                 role: 'assistant',
-                text: "반갑습니다 대표님! ViraLoop Studio의 만능 AI 총괄 디렉터 **'루피(Loopie)'**입니다.\n\n4대 쇼츠(클래식, 인스타, 군림보, 썰형) 제작 총괄 연출뿐 아니라, 비즈니스 전략, 채널 성장 로드맵, 창의적 스토리텔링, 그리고 **Google Gemini 3.8 Live** 실시간 초저지연 양방향 음성 코칭까지 모든 준비가 완료되어 있습니다. 무엇을 도와드릴까요?",
+                text: "반갑습니다! ViraLoop Studio의 만능 AI 총괄 디렉터 **'루피(Loopie)'**입니다.\n\n4대 쇼츠(클래식, 인스타, 군림보, 썰형) 제작 총괄 연출뿐 아니라, 비즈니스 전략, 채널 성장 로드맵, 창의적 스토리텔링, 그리고 **Google Gemini 3.8 Live** 실시간 초저지연 양방향 음성 코칭까지 모든 준비가 완료되어 있습니다. 무엇을 도와드릴까요?",
                 timestamp: Date.now()
             }
         ];
@@ -102,9 +102,9 @@ export const GlobalLoopieChat: React.FC = () => {
     // Attached Media Files
     const [attachedFiles, setAttachedFiles] = useState<AttachedMedia[]>([]);
 
-    // Model & Security selections - Default is Codex Astra 6.0
+    // Model & Security selections - Default is Codex Astra 6.1
     const [selectedProvider, setSelectedProvider] = useState<'codex' | 'chatgpt_web' | 'gemini' | 'claude' | 'deepseek' | 'omniroute'>('codex');
-    const [selectedModel, setSelectedModel] = useState('Codex Astra 6.0');
+    const [selectedModel, setSelectedModel] = useState('Codex Astra 6.1');
     const [reasoningEffort, setReasoningEffort] = useState<ReasoningEffort>('medium');
     const [securityScope, setSecurityScope] = useState('모두 허용');
 
@@ -113,9 +113,9 @@ export const GlobalLoopieChat: React.FC = () => {
         if (provider === 'gemini') {
             setSelectedModel('Gemini 3.8 Flash');
         } else if (provider === 'codex') {
-            setSelectedModel('Codex Astra 6.0');
+            setSelectedModel('Codex Astra 6.1');
         } else if (provider === 'chatgpt_web') {
-            setSelectedModel('Codex Astra 6.0 (Web)');
+            setSelectedModel('Codex Astra 6.1 (Web)');
         } else if (provider === 'omniroute') {
             setSelectedModel('viraloop1');
         } else if (provider === 'claude') {
@@ -524,10 +524,13 @@ export const GlobalLoopieChat: React.FC = () => {
                     {/* Cockpit Window Container */}
                     <div 
                         className={cn(
-                            "z-[9999] rounded-3xl border border-border/80 shadow-2xl bg-background flex flex-col overflow-hidden animate-in duration-200",
-                            displayMode === 'dock' && "fixed top-3 bottom-3 right-3 h-[calc(100vh-24px)] w-[660px] max-w-[calc(100vw-24px)] slide-in-from-right",
-                            displayMode === 'floating' && "fixed top-5 bottom-5 right-5 w-[820px] max-w-[calc(100vw-32px)] h-[calc(100vh-40px)] max-h-[940px] zoom-in-95",
-                            displayMode === 'fullscreen' && "fixed inset-3 md:inset-5 zoom-in-95"
+                            "z-[9999] border border-border/80 shadow-2xl bg-background flex flex-col overflow-hidden animate-in duration-200",
+                            // Mobile Fullscreen Guarantee: max-md에서는 무조건 뷰포트 100dvh, inset-0, rounded-none
+                            "max-md:fixed max-md:inset-0 max-md:w-full max-md:h-[100dvh] max-md:rounded-none max-md:border-none",
+                            // Desktop display modes
+                            displayMode === 'dock' && "md:fixed md:top-3 md:bottom-3 md:right-3 md:h-[calc(100vh-24px)] md:w-[660px] md:max-w-[calc(100vw-24px)] md:rounded-3xl slide-in-from-right",
+                            displayMode === 'floating' && "md:fixed md:top-5 md:bottom-5 md:right-5 md:w-[820px] md:max-w-[calc(100vw-32px)] md:h-[calc(100vh-40px)] md:max-h-[940px] md:rounded-3xl zoom-in-95",
+                            displayMode === 'fullscreen' && "md:fixed md:inset-3 lg:md:inset-5 md:rounded-3xl zoom-in-95"
                         )}
                         onClick={(e) => e.stopPropagation()}
                     >
@@ -623,7 +626,7 @@ export const GlobalLoopieChat: React.FC = () => {
                                         />
                                     )}
                                     emptyStateTitle="루피 AI 디렉터"
-                                    emptyStateSubtitle="4대 쇼츠 제작, CapCut 조립, 채널 성장 전략, 비즈니스 아이디어부터 인생 상담까지 대표님의 전속 파트너로서 함께합니다."
+                                    emptyStateSubtitle="4대 쇼츠 제작, CapCut 조립, 채널 성장 전략, 비즈니스 아이디어부터 심층 분석까지 맞춤 파트너로서 함께합니다."
                                 />
 
                                 <DirectorInputBar

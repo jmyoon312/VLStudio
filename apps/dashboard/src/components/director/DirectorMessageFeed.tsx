@@ -2,7 +2,7 @@ import React, { useRef, useEffect } from 'react';
 import { 
     Check, Copy, FileText, CheckCircle2, Loader2, Sparkles, Film, 
     BookmarkPlus, ExternalLink, Volume2, PlayCircle, Eye, ArrowRight,
-    Rocket, ChevronDown, Wrench, Folder, Globe, Clock
+    Rocket, ChevronDown, Wrench, Folder, Globe, Clock, Paperclip
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -80,6 +80,7 @@ export interface DirectorChatMessage {
     staged_preset_name?: string;
     action_chips?: string[];
     image_url?: string;
+    attachments?: any[];
     audio_url?: string;
     audio_engine?: string;
     audio_voice_id?: string;
@@ -262,6 +263,7 @@ export const DirectorMessageFeed: React.FC<DirectorMessageFeedProps> = ({
     const prevMsgCountRef = useRef(messages.length);
     const [expandedStepMsgIds, setExpandedStepMsgIds] = React.useState<Record<string, boolean>>({});
     const [showScrollBottom, setShowScrollBottom] = React.useState(false);
+    const [previewImageModalUrl, setPreviewImageModalUrl] = React.useState<string | null>(null);
 
     const toggleStepExpand = (msgId: string) => {
         setExpandedStepMsgIds(prev => ({ ...prev, [msgId]: !prev[msgId] }));
@@ -375,6 +377,30 @@ export const DirectorMessageFeed: React.FC<DirectorMessageFeedProps> = ({
                 if (isUser) {
                     return (
                         <div key={msg.id} className="flex flex-col items-end w-full max-w-3xl mx-auto my-1.5 group animate-in fade-in duration-150">
+                            {/* Attached media images preview in chat */}
+                            {msg.attachments && msg.attachments.length > 0 && (
+                                <div className="flex flex-wrap gap-2 mb-1.5 justify-end">
+                                    {msg.attachments.map((att: any, attIdx: number) => {
+                                        const isImg = att.isImage || /\.(jpg|jpeg|png|webp|gif|bmp)$/i.test(att.name || att.path) || att.previewUrl || att.dataUrl;
+                                        const src = att.dataUrl || att.previewUrl || (att.path?.startsWith('blob:') || att.path?.startsWith('data:') || att.path?.startsWith('http') ? att.path : `/files/${att.path}`);
+                                        return isImg ? (
+                                            <div key={attIdx} className="relative rounded-xl overflow-hidden border border-border/80 shadow-xs max-w-[220px] max-h-[160px] bg-muted/40">
+                                                <img 
+                                                    src={src} 
+                                                    alt={att.name || "첨부 이미지"} 
+                                                    className="w-full h-full object-cover cursor-zoom-in hover:scale-105 transition-transform" 
+                                                    onClick={() => setPreviewImageModalUrl(src)} 
+                                                />
+                                            </div>
+                                        ) : (
+                                            <div key={attIdx} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-muted border border-border text-xs">
+                                                <Paperclip className="w-3.5 h-3.5 text-muted-foreground" />
+                                                <span className="truncate max-w-[150px]">{att.name}</span>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
                             <div className="max-w-[85%] sm:max-w-[75%] px-4 py-2.5 rounded-2xl bg-primary text-primary-foreground text-sm leading-relaxed whitespace-pre-wrap shadow-xs select-text">
                                 {messageText}
                             </div>
@@ -595,7 +621,11 @@ export const DirectorMessageFeed: React.FC<DirectorMessageFeedProps> = ({
                                                         presetId={activePreset?.id}
                                                         presetName={activePreset?.name}
                                                         onProduceNow={(selectedCand) => {
-                                                            onSendMessage(`발굴된 영상 "${selectedCand.title}" 소스로 지금 숏폼 영상 제작해줘`);
+                                                            const videoUrl = selectedCand.url || selectedCand.source_url || '';
+                                                            const startSec = selectedCand.start_seconds ?? 15;
+                                                            const pName = selectedCand.linked_preset_name || activePreset?.name || '';
+                                                            const styleClause = pName ? `[${pName}] 스타일로` : '모던 클린 숏폼 스타일로';
+                                                            onSendMessage(`발굴된 영상 "${selectedCand.title}" (URL: ${videoUrl}, 구간: ${startSec}초~${startSec + durSec}초) 소스로 지금 숏폼 영상 제작해줘. 풀영상 다운로드 없이 온라인 스트림에서 해당 하이라이트 구간만 즉시 슬라이싱해서 ${styleClause} 완성해줘.`);
                                                         }}
                                                     />
                                                 ))}
@@ -649,6 +679,29 @@ export const DirectorMessageFeed: React.FC<DirectorMessageFeedProps> = ({
                 >
                     <ChevronDown className="w-4 h-4 text-primary group-hover:translate-y-0.5 transition-transform" />
                 </button>
+            )}
+
+            {/* Enlarged Image Lightbox Modal */}
+            {previewImageModalUrl && (
+                <div 
+                    className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200"
+                    onClick={() => setPreviewImageModalUrl(null)}
+                >
+                    <div className="relative max-w-4xl max-h-[90vh] flex flex-col items-center" onClick={e => e.stopPropagation()}>
+                        <img 
+                            src={previewImageModalUrl} 
+                            alt="확대 이미지" 
+                            className="max-w-full max-h-[85vh] object-contain rounded-xl shadow-2xl border border-white/10" 
+                        />
+                        <button
+                            type="button"
+                            onClick={() => setPreviewImageModalUrl(null)}
+                            className="mt-3 px-4 py-1.5 rounded-full bg-white/20 hover:bg-white/30 text-white text-xs font-medium cursor-pointer transition-colors backdrop-blur-md"
+                        >
+                            닫기
+                        </button>
+                    </div>
+                </div>
             )}
 
             <div ref={messagesEndRef} />

@@ -173,6 +173,13 @@ class ZeroDownloadSlicer:
             "is_direct": False
         }
 
+    @staticmethod
+    def _sec_to_tc(sec: float) -> str:
+        sec_int = max(0, int(sec))
+        m, s = divmod(sec_int, 60)
+        h, m = divmod(m, 60)
+        return f"{h:02d}:{m:02d}:{s:02d}"
+
     @classmethod
     async def slice_stream(
         cls,
@@ -183,41 +190,115 @@ class ZeroDownloadSlicer:
     ) -> Dict[str, Any]:
         """
         Extract a high-resolution clip directly from stream without downloading full media.
+        Uses yt-dlp HTTP range requests (--download-sections) for YouTube/Douyin/TikTok,
+        and falls back to FFmpeg fast-seek for direct stream URLs.
         """
-        # Step 1: Probe stream URL
-        stream_info = await cls.extract_stream_urls(source_url)
-        video_url = stream_info.get("video_url")
-        audio_url = stream_info.get("audio_url")
+        start_seconds = max(0.0, float(start_seconds))
+        duration_seconds = max(3.0, float(duration_seconds))
+        end_seconds = start_seconds + duration_seconds
 
-        if not video_url:
-            raise ValueError("유효한 비디오 스트림 URL이 없습니다.")
+        ytdlp = cls._get_bin_path("yt-dlp")
+        cookie_file = cls._find_platform_cookie_file(source_url)
 
-        # Step 2: Prepare Output Path
-        clean_title = re.sub(r'[^\w\s-]', '', stream_info.get("title", "clip")).strip().replace(' ', '_')[:30]
+        # Step 1: Probe metadata (non-fatal if probe fails)
+        stream_info = {}
+        try:
+            stream_info = await cls.extract_stream_urls(source_url)
+        except Exception as pe:
+            logger.warning(f"⚠️ [StreamSlicer] Initial probe notice: {pe}")
+
+        title = stream_info.get("title") or "Stream Clip"
+        clean_title = re.sub(r'[^\w\s-]', '', title).strip().replace(' ', '_')[:30] or "clip"
+
         if not output_filename:
             file_uid = uuid.uuid4().hex[:8]
             output_filename = f"slice_{clean_title}_{int(start_seconds)}s_{file_uid}.mp4"
 
         output_path = OPERATIONS_TEMP / output_filename
-        ffmpeg = cls._get_bin_path("ffmpeg")
 
-        # Step 3: Fast Seek & Ultra-Fast Transcode to Guarantee Audio/Video Frame Alignment
-        # Placing -ss before -i triggers input fast-seeking directly on remote HTTP/HLS stream chunks!
+        # Step 2: Primary Slicing via yt-dlp --download-sections (HTTP range chunks, no full download)
+        start_tc = cls._sec_to_tc(start_seconds)
+        end_tc = cls._sec_to_tc(end_seconds)
+        section_spec = f"*{start_tc}-{end_tc}"
+
+        logger.info(f"⚡ [StreamSlicer] Slicing stream on-the-fly: {source_url} [{section_spec}] -> {output_filename}")
+        ytdlp_cmd = [
+            ytdlp,
+            "--no-playlist",
+            "--extractor-args", "youtube:player_client=android,web",
+            "--download-sections", section_spec,
+            "--force-keyframes-at-cuts",
+            "-f", "bestvideo[height<=1080]+bestaudio/best[height<=1080]/best",
+            "--merge-output-format", "mp4",
+            "-o", str(output_path),
+            source_url
+        ]
+        if cookie_file and os.path.exists(cookie_file):
+            ytdlp_cmd.extend(["--cookies", cookie_file])
+
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                *ytdlp_cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=45)
+            if output_path.exists() and output_path.stat().st_size > 1000:
+                file_size_mb = round(output_path.stat().st_size / (1024 * 1024), 2)
+                stream_http_url = f"/api/files/stream-media?path={output_path.as_posix()}"
+                logger.info(f"✅ [StreamSlicer] yt-dlp range slice successful: {output_path.name} ({file_size_mb}MB)")
+                return {
+                    "success": True,
+                    "filename": output_path.name,
+                    "filepath": str(output_path),
+                    "stream_url": stream_http_url,
+                    "size_mb": file_size_mb,
+                    "duration": duration_seconds,
+                    "start_time": start_seconds,
+                    "title": title,
+                    "thumbnail": stream_info.get("thumbnail")
+                }
+            # Check for alternative extensions merged by yt-dlp
+            matches = list(OPERATIONS_TEMP.glob(f"{output_path.stem}.*"))
+            if matches and matches[0].stat().st_size > 1000:
+                target_file = matches[0]
+                file_size_mb = round(target_file.stat().st_size / (1024 * 1024), 2)
+                stream_http_url = f"/api/files/stream-media?path={target_file.as_posix()}"
+                logger.info(f"✅ [StreamSlicer] yt-dlp range slice found: {target_file.name} ({file_size_mb}MB)")
+                return {
+                    "success": True,
+                    "filename": target_file.name,
+                    "filepath": str(target_file),
+                    "stream_url": stream_http_url,
+                    "size_mb": file_size_mb,
+                    "duration": duration_seconds,
+                    "start_time": start_seconds,
+                    "title": title,
+                    "thumbnail": stream_info.get("thumbnail")
+                }
+        except Exception as ye:
+            logger.warning(f"⚠️ [StreamSlicer] yt-dlp range slice warning: {ye}, attempting FFmpeg fast-seek fallback...")
+
+        # Step 3: FFmpeg Fast Seek Fallback (for direct m3u8 / MP4 URLs)
+        video_url = stream_info.get("video_url")
+        audio_url = stream_info.get("audio_url")
+        if not video_url:
+            raise ValueError(f"유효한 스트림 주소를 확보하지 못했습니다: {source_url}")
+
+        ffmpeg = cls._get_bin_path("ffmpeg")
         cmd = [
             ffmpeg,
             "-y",
-            "-ss", str(max(0.0, start_seconds)),
+            "-ss", str(start_seconds),
             "-i", video_url
         ]
-
         if audio_url:
             cmd.extend([
-                "-ss", str(max(0.0, start_seconds)),
+                "-ss", str(start_seconds),
                 "-i", audio_url,
                 "-map", "0:v:0",
                 "-map", "1:a:0"
             ])
-
         cmd.extend([
             "-t", str(duration_seconds),
             "-c:v", "libx264",
@@ -230,7 +311,7 @@ class ZeroDownloadSlicer:
             str(output_path)
         ])
 
-        logger.info(f"✂️ [StreamSlicer] Executing stream slice: {start_seconds}s ~ +{duration_seconds}s -> {output_filename}")
+        logger.info(f"✂️ [StreamSlicer] Fallback FFmpeg slice: {start_seconds}s ~ +{duration_seconds}s -> {output_filename}")
         proc = await asyncio.create_subprocess_exec(
             *cmd,
             stdout=asyncio.subprocess.PIPE,
@@ -246,7 +327,18 @@ class ZeroDownloadSlicer:
         file_size_mb = round(output_path.stat().st_size / (1024 * 1024), 2)
         stream_http_url = f"/api/files/stream-media?path={output_path.as_posix()}"
 
-        logger.info(f"✅ [StreamSlicer] Stream slice successful: {output_path.name} ({file_size_mb}MB)")
+        logger.info(f"✅ [StreamSlicer] FFmpeg stream slice successful: {output_path.name} ({file_size_mb}MB)")
+        return {
+            "success": True,
+            "filename": output_path.name,
+            "filepath": str(output_path),
+            "stream_url": stream_http_url,
+            "size_mb": file_size_mb,
+            "duration": duration_seconds,
+            "start_time": start_seconds,
+            "title": title,
+            "thumbnail": stream_info.get("thumbnail")
+        }
         return {
             "success": True,
             "filename": output_path.name,

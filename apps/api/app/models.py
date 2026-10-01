@@ -1674,6 +1674,7 @@ class ShortsTemplate(Base):
     channel_id = Column(Integer, ForeignKey("brand_channels.id"), nullable=True)
     layout = Column(JSON, nullable=False) # 캔버스/타이틀/자막/댓글카드/쨉쨉이/비디오 세부 수치 일체
     manifest = Column(JSON, nullable=True) # Full TemplateManifest
+    blueprint_v4 = Column(JSON, nullable=True) # VLStandardBlueprint v4.0 Full Schema (6 Orthogonal Layers)
     created_at = Column(DateTime, default=datetime.now)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
 

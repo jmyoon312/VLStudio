@@ -22,7 +22,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 
 import { ScrollArea } from "@/components/ui/scroll-area";
 
-import { cn, getMediaUrl } from "@/lib/utils";
+import { cn, getMediaUrl, handleImageErrorWithFallback } from "@/lib/utils";
 
 import { Loader2, Trash2, Play, FileText, Flame, Zap, TrendingUp, RefreshCw, Filter, Settings2, FolderOpen, Calendar, Copy, Check, Languages, CheckSquare, Square, AlertCircle, LineChart, Download, ExternalLink, PlaySquare, ChevronRight, CheckCircle2, X, Sparkles, Radio, Scissors, Search, ArrowUpDown, Layers,
     Clapperboard, ChevronDown, Grid, SlidersHorizontal } from "lucide-react";
@@ -1185,17 +1185,8 @@ const Gallery = () => {
                             src={thumbUrl}
                             alt={video.title}
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                            onError={(e) => {
-                                const img = e.currentTarget;
-                                img.onerror = null;
-                                if (img.src.includes('maxresdefault.jpg')) {
-                                    img.src = img.src.replace('maxresdefault.jpg', 'hqdefault.jpg');
-                                } else if (channelThumb && img.src !== channelThumb) {
-                                    img.src = channelThumb;
-                                } else {
-                                    img.src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="320" height="180" viewBox="0 0 320 180" fill="%231e293b"><rect width="320" height="180" fill="%231e293b"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%2364748b" font-size="14" font-family="sans-serif">No Thumbnail</text></svg>';
-                                }
-                            }}
+                            data-channel-thumb={channelThumb || ''}
+                            onError={handleImageErrorWithFallback}
                         />
                     ) : (
                         <div className="w-full h-full flex flex-col items-center justify-center bg-slate-900 text-slate-500 gap-1">
@@ -2186,6 +2177,8 @@ const Gallery = () => {
                                             alt={selectedVideo.title} 
 
                                             className="w-full h-full object-cover opacity-60 filter blur-xs scale-105" 
+
+                                            onError={handleImageErrorWithFallback}
 
                                         />
 

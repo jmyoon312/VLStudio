@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -15,6 +15,8 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { SovereignPreset } from './PresetLibraryModal';
+import { migrateToBlueprintV4, resolveFontFamily } from '@/lib/blueprintV4Migrator';
+import { VLStandardBlueprintV4 } from '@/types/blueprintV4';
 
 interface PresetCustomizeModalProps {
     open: boolean;
@@ -43,6 +45,9 @@ export const PresetCustomizeModal: React.FC<PresetCustomizeModalProps> = ({
     const [textForensicProfile, setTextForensicProfile] = useState<any>(null);
     const [customPresetNameInput, setCustomPresetNameInput] = useState<string>('');
     const [evolvingPreset, setEvolvingPreset] = useState<boolean>(false);
+
+    // 🌟 Standard Blueprint v4.0 Single Source of Truth
+    const [blueprintV4, setBlueprintV4] = useState<VLStandardBlueprintV4 | null>(null);
 
     // 🌟 A/B Onion Skin Comparison View Mode: 'preset' (복제 레이어) | 'original' (원본 캡처) | 'overlay' (1:1 반투명 겹침)
     const [previewViewMode, setPreviewViewMode] = useState<'preset' | 'original' | 'overlay'>('preset');
@@ -215,6 +220,24 @@ export const PresetCustomizeModal: React.FC<PresetCustomizeModalProps> = ({
     const [selectedBibleSection, setSelectedBibleSection] = useState<string | null>(null);
     const [isTheaterMode, setIsTheaterMode] = useState<boolean>(false);
 
+    // 🌟 True 9:16 Canvas Responsive Auto-Scale Engine (Zero Drifting Law)
+    const phoneFrameRef = useRef<HTMLDivElement>(null);
+    const [previewScale, setPreviewScale] = useState<number>(262 / 1080);
+
+    useEffect(() => {
+        if (!phoneFrameRef.current) return;
+        const updateScale = () => {
+            if (phoneFrameRef.current) {
+                const w = phoneFrameRef.current.clientWidth;
+                if (w > 0) setPreviewScale(w / 1080);
+            }
+        };
+        updateScale();
+        const ro = new ResizeObserver(updateScale);
+        ro.observe(phoneFrameRef.current);
+        return () => ro.disconnect();
+    }, [open]);
+
     useEffect(() => {
         if (!preset) return;
 
@@ -304,34 +327,37 @@ export const PresetCustomizeModal: React.FC<PresetCustomizeModalProps> = ({
         const topHeader = style.top_header || {};
         const hLines = vg.top_header_lines || [];
 
+        // 🌟 Standard Blueprint v4 Hydration
+        const bp = (rawPreset.blueprint_v4 || migrateToBlueprintV4(rawPreset)) as VLStandardBlueprintV4;
+        setBlueprintV4(bp);
+
         // Header Line 1
-        if (topHeader.line1?.text) {
-            setHeaderLine1Text(topHeader.line1.text);
-            setHeaderLine1Color(topHeader.line1.color || '#FFFFFF');
-            setHeaderLine1Size(topHeader.line1.size_px || 28);
-        } else if (hLines[0]?.text_example || hLines[0]?.text) {
-            setHeaderLine1Text(hLines[0].text_example || hLines[0].text);
-            setHeaderLine1Color(hLines[0].color || '#FFFFFF');
-            setHeaderLine1Size(hLines[0].size_px || 28);
+        const rawL1 = topHeader.line1?.text || hLines[0]?.text_example || hLines[0]?.text || '';
+        const isPlaceholderL1 = !rawL1 || rawL1.trim().toLowerCase() === 'moving beyond ju' || rawL1.trim() === '영상 대제목 1줄';
+        const rawL1Size = topHeader.line1?.size_px || hLines[0]?.size_px || 0;
+        const normalizedL1Size = rawL1Size >= 45 ? rawL1Size : (rawL1Size ? Math.round(rawL1Size * 2.6) : 80);
+        if (!isPlaceholderL1) {
+            setHeaderLine1Text(rawL1);
+            setHeaderLine1Color(topHeader.line1?.color || hLines[0]?.color || '#FFFFFF');
+            setHeaderLine1Size(normalizedL1Size);
         } else {
             setHeaderLine1Text(preset.name || '영상 대제목 1줄');
-            setHeaderLine1Color(style.title?.color || '#FFFFFF');
-            setHeaderLine1Size(style.title?.size_px ? Math.min(style.title.size_px, 32) : 28);
+            setHeaderLine1Color(topHeader.line1?.color || hLines[0]?.color || style.title?.color || '#FFFFFF');
+            setHeaderLine1Size(normalizedL1Size);
         }
 
         // Header Line 2
-        if (topHeader.line2?.text) {
-            setHeaderLine2Text(topHeader.line2.text);
-            setHeaderLine2Color(topHeader.line2.color || '#FFE838');
-            setHeaderLine2Size(topHeader.line2.size_px || 32);
-        } else if (hLines[1]?.text_example || hLines[1]?.text) {
-            setHeaderLine2Text(hLines[1].text_example || hLines[1].text);
-            setHeaderLine2Color(hLines[1].color || '#FFE838');
-            setHeaderLine2Size(hLines[1].size_px || 32);
+        const rawL2 = topHeader.line2?.text || hLines[1]?.text_example || hLines[1]?.text || '';
+        const rawL2Size = topHeader.line2?.size_px || hLines[1]?.size_px || 0;
+        const normalizedL2Size = rawL2Size >= 45 ? rawL2Size : (rawL2Size ? Math.round(rawL2Size * 2.6) : 86);
+        if (rawL2 && rawL2.trim() !== '핵심 훅 명사') {
+            setHeaderLine2Text(rawL2);
+            setHeaderLine2Color(topHeader.line2?.color || hLines[1]?.color || '#FFE838');
+            setHeaderLine2Size(normalizedL2Size);
         } else {
             setHeaderLine2Text('핵심 훅 명사');
-            setHeaderLine2Color('#FFE838');
-            setHeaderLine2Size(32);
+            setHeaderLine2Color(topHeader.line2?.color || hLines[1]?.color || '#FFE838');
+            setHeaderLine2Size(normalizedL2Size);
         }
 
         // 3. Bilingual Caption
@@ -359,12 +385,13 @@ export const PresetCustomizeModal: React.FC<PresetCustomizeModalProps> = ({
         const cap = vg.caption || style.caption || {};
         const defaultCaption = isBilingual 
             ? (bilingual.secondary_ko?.text || `${preset.name} 자막`)
-            : (cap.example || `${preset.name} 본문 자막`);
+            : (cap.sample_text || cap.text_example || cap.example || `${preset.name} 본문 자막`);
         setCaptionText(defaultCaption);
-        setFontSize(cap.size_px || 32);
-        setCaptionColor(cap.color || '#FFFFFF');
+        const rawCapSize = cap.size_px || 0;
+        setFontSize(rawCapSize >= 40 ? rawCapSize : (rawCapSize ? Math.round(rawCapSize * 2.2) : 58));
+        setCaptionColor(cap.color || '#4DE558');
         setOutlineColor(cap.outline_color || '#000000');
-        setOutlinePx(cap.outline_px || 6);
+        setOutlinePx(cap.outline_px || 5);
         setCaptionMarginBottom(cap.margin_v_pct || 28);
 
         // 5. Reference Video Frame, Preserved Keyframes & Clean Thumbnail
@@ -587,6 +614,80 @@ export const PresetCustomizeModal: React.FC<PresetCustomizeModalProps> = ({
                 .catch(() => {});
         }
     }, [open, preset, fullBible, keyframesList, videoBgUrl, refThumbnailUrl]);
+
+    // 🌟 Live Synchronize Blueprint v4 Layers with Inspector Controls
+    useEffect(() => {
+        if (!blueprintV4) return;
+        setBlueprintV4(prev => {
+            if (!prev) return prev;
+            const updatedLayers = prev.globalLayers.map(l => {
+                // Top Bar Background
+                if (l.id === 'top_bar_bg' || (l.kind === 'shape' && ((l as any).shapeRole === 'urgent_banner' || l.id.includes('top_bar') || l.id.includes('letterbox_top')))) {
+                    const barHeight = Math.round((topBarHeightPct / 100) * 1920);
+                    const shouldHide = isTheaterMode || containerType === 'sandwich_theater' || topBarBgColor === 'transparent';
+                    return {
+                        ...l,
+                        hidden: shouldHide,
+                        opacity: shouldHide ? 0.0 : 1.0,
+                        fillColor: topBarBgColor,
+                        transform: {
+                            ...l.transform,
+                            height: barHeight,
+                            y: Math.round(barHeight / 2),
+                        }
+                    };
+                }
+                // Bottom Bar Background
+                if (l.id === 'bottom_bar_bg' || (l.kind === 'shape' && (l.id.includes('bottom_bar') || l.id.includes('letterbox_bottom')))) {
+                    const shouldHide = isTheaterMode || containerType === 'sandwich_theater' || topBarBgColor === 'transparent';
+                    return {
+                        ...l,
+                        hidden: shouldHide,
+                        opacity: shouldHide ? 0.0 : 1.0,
+                    };
+                }
+                // Title Line 1
+                if (l.id === 'title_line1' || ((l as any).textRole === 'title_header' && !l.id.includes('2') && !l.id.includes('line2')) || l.id === 'headline_text') {
+                    const resolvedSize = headerLine1Size >= 45 ? headerLine1Size : Math.round(headerLine1Size * 2.6);
+                    return {
+                        ...l,
+                        content: headerLine1Text,
+                        fontColor: headerLine1Color,
+                        fontSize: resolvedSize,
+                        fontFamily: fontFamily,
+                    };
+                }
+                // Title Line 2
+                if (l.id === 'title_line2' || l.id.includes('title_2') || l.id.includes('line2') || l.id.includes('hook_text')) {
+                    const resolvedSize = headerLine2Size >= 45 ? headerLine2Size : Math.round(headerLine2Size * 2.6);
+                    return {
+                        ...l,
+                        content: headerLine2Text,
+                        fontColor: headerLine2Color,
+                        fontSize: resolvedSize,
+                        fontFamily: fontFamily,
+                    };
+                }
+                // Subtitle
+                if (l.id === 'subtitle_main' || (l as any).textRole === 'subtitle_narrative' || l.id.includes('subtitle')) {
+                    const resolvedSize = fontSize >= 40 ? fontSize : Math.round(fontSize * 2.2);
+                    return {
+                        ...l,
+                        content: captionText,
+                        fontColor: captionColor,
+                        fontSize: resolvedSize,
+                        fontFamily: fontFamily,
+                        stroke: outlineColor && outlinePx > 0 ? { color: outlineColor, width: outlinePx } : undefined,
+                    };
+                }
+                return l;
+            });
+            return {
+                ...prev,
+                globalLayers: updatedLayers,
+            };
+        });
+    }, [headerLine1Text, headerLine1Color, headerLine1Size, headerLine2Text, headerLine2Color, headerLine2Size, topBarBgColor, topBarHeightPct, captionText, captionColor, fontSize, outlineColor, outlinePx, fontFamily, isTheaterMode, containerType]);
 
     if (!preset) return null;
 
@@ -850,6 +951,7 @@ export const PresetCustomizeModal: React.FC<PresetCustomizeModalProps> = ({
                     ...contentRules.filter(r => !r.includes('상단 바') && !r.includes('WPM') && !r.includes('컷 전환'))
                 ],
                 style: buildFullStylePayload(),
+                blueprint_v4: blueprintV4,
             };
 
             const res = await fetch(`/api/sovereign-presets/${preset.id}`, {
@@ -883,9 +985,13 @@ export const PresetCustomizeModal: React.FC<PresetCustomizeModalProps> = ({
         setSaving(true);
         try {
             const clonePayload = {
+                new_name: cloneName.trim(),
                 target_name: cloneName.trim(),
                 custom_recipe: recipe,
+                recipe: recipe,
                 custom_style: buildFullStylePayload(),
+                style: buildFullStylePayload(),
+                blueprint_v4: blueprintV4,
             };
 
             const res = await fetch(`/api/sovereign-presets/${preset.id}/clone`, {
@@ -1036,9 +1142,24 @@ export const PresetCustomizeModal: React.FC<PresetCustomizeModalProps> = ({
                                 쇼츠 스타일 상세 설정
                             </DialogTitle>
                         </div>
-                        <Badge variant="outline" className="text-xs bg-primary/10 text-primary border-primary/30">
-                            제작 가이드라인 연동
-                        </Badge>
+                        <div className="flex items-center gap-2">
+                            <Button
+                                type="button"
+                                size="sm"
+                                onClick={() => {
+                                    onOpenChange(false);
+                                    navigate(`/basic-editor?presetId=${encodeURIComponent(preset?.id || '')}`);
+                                }}
+                                className="h-8 text-xs font-bold bg-primary hover:bg-primary/90 text-primary-foreground gap-1.5 shadow-xs cursor-pointer"
+                                title="현재 프리셋을 기본 에디터로 불러와서 타임라인과 캔버스에서 정밀하게 수정합니다"
+                            >
+                                <span>🎨</span>
+                                <span>기본 에디터에서 정밀 편집</span>
+                            </Button>
+                            <Badge variant="outline" className="text-xs bg-primary/10 text-primary border-primary/30">
+                                제작 가이드라인 연동
+                            </Badge>
+                        </div>
                     </div>
                     <DialogDescription className="text-xs text-muted-foreground">
                         상하단 레이아웃, 상단 헤더 타이틀, 컷 호흡, 오디오 사운드, 자막 스타일을 실시간으로 조율합니다.
@@ -1252,9 +1373,9 @@ export const PresetCustomizeModal: React.FC<PresetCustomizeModalProps> = ({
                                         <div className="col-span-3">
                                             <label className="text-[11px] text-muted-foreground block mb-0.5">크기 ({headerLine1Size}px)</label>
                                             <Slider
-                                                min={20}
-                                                max={40}
-                                                step={1}
+                                                min={40}
+                                                max={120}
+                                                step={2}
                                                 value={[headerLine1Size]}
                                                 onValueChange={([v]) => setHeaderLine1Size(v)}
                                             />
@@ -1283,9 +1404,9 @@ export const PresetCustomizeModal: React.FC<PresetCustomizeModalProps> = ({
                                         <div className="col-span-3">
                                             <label className="text-[11px] text-muted-foreground block mb-0.5">크기 ({headerLine2Size}px)</label>
                                             <Slider
-                                                min={24}
-                                                max={46}
-                                                step={1}
+                                                min={40}
+                                                max={120}
+                                                step={2}
                                                 value={[headerLine2Size]}
                                                 onValueChange={([v]) => setHeaderLine2Size(v)}
                                             />
@@ -1536,8 +1657,8 @@ export const PresetCustomizeModal: React.FC<PresetCustomizeModalProps> = ({
                                                 <span className="font-bold">{fontSize}px</span>
                                             </div>
                                             <Slider
-                                                min={20}
-                                                max={80}
+                                                min={30}
+                                                max={100}
                                                 step={2}
                                                 value={[fontSize]}
                                                 onValueChange={([v]) => setFontSize(v)}
@@ -2444,7 +2565,10 @@ export const PresetCustomizeModal: React.FC<PresetCustomizeModalProps> = ({
                         )}
 
                         {/* Smartphone Canvas Device Frame */}
-                        <div className="w-full max-w-[270px] aspect-[9/16] rounded-3xl bg-black border-4 border-neutral-800 shadow-2xl relative overflow-hidden flex flex-col justify-between select-none">
+                        <div 
+                            ref={phoneFrameRef}
+                            className="w-full max-w-[270px] aspect-[9/16] rounded-3xl bg-black border-4 border-neutral-800 shadow-2xl relative overflow-hidden flex flex-col justify-between select-none"
+                        >
                             {/* CASE A: 원본 레퍼런스 단독 보기 */}
                             {previewViewMode === 'original' ? (
                                 <div className="w-full h-full relative overflow-hidden bg-black flex items-center justify-center">
@@ -2489,486 +2613,147 @@ export const PresetCustomizeModal: React.FC<PresetCustomizeModalProps> = ({
                                         </div>
                                     )}
 
-                                    {/* 가상 렌더링 레이어 컨테이너 (오버레이 모드일 경우 opacity 적용) */}
+                                    {/* 🌟 표준 Blueprint v4.0 레이어 캔버스 엔진 (기본 에디터 CanvasKitStage와 100% 렌더링 일치) */}
                                     <div 
-                                        className="w-full h-full flex flex-col justify-between relative z-10"
+                                        className="w-full h-full relative z-10 overflow-hidden"
                                         style={{
                                             opacity: previewViewMode === 'overlay' ? overlayOpacity / 100 : 1.0,
                                         }}
                                     >
-                                        {containerType === 'floating_capsule' ? (
-                                            /* 🌟 FASHION DETECTIVE (패션탐정냥 Type B: 9:16 Fullscreen Video Canvas + Floating Capsule + Sub-tape + Pointer + Two-tone Caption) */
-                                            <div className="absolute inset-0 w-full h-full flex flex-col justify-between overflow-hidden">
-                                                {/* Fullscreen Background Video/Keyframe */}
-                                                <div className="absolute inset-0 w-full h-full bg-black z-0">
-                                                    {videoBgUrl ? (
-                                                        <img 
-                                                            src={videoBgUrl} 
-                                                            alt="Reference Keyframe" 
-                                                            className="w-full h-full object-cover transition-transform duration-500 select-none pointer-events-none"
-                                                            style={{ transform: `scale(${zoomPct / 100})` }}
-                                                        />
-                                                    ) : (
-                                                        <div className="w-full h-full bg-neutral-900 flex flex-col items-center justify-center p-3">
-                                                            <Film className="w-8 h-8 text-white/30 mb-2" />
-                                                            <span className="text-[11px] font-bold text-white/80 text-center">9:16 풀스크린 미디어 캔버스</span>
-                                                        </div>
-                                                    )}
-                                                    {/* Subtle Gradient Overlays */}
-                                                    <div className="absolute inset-x-0 top-0 h-32 pointer-events-none bg-gradient-to-b from-black/60 via-black/20 to-transparent" />
-                                                    <div className="absolute inset-x-0 bottom-0 h-40 pointer-events-none bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
-                                                </div>
-
-                                                {/* Top Section: Top Source & Floating Capsule & Sub-tape */}
-                                                <div className="w-full z-20 flex flex-col items-center px-3 pt-2">
-                                                    {/* Top Source Label */}
-                                                    {topSourceEnabled && (
-                                                        <span 
-                                                            className="text-[9px] font-medium tracking-tight mb-1 text-center"
-                                                            style={{ color: topSourceColor }}
-                                                        >
-                                                            {topSourceText}
-                                                        </span>
-                                                    )}
-
-                                                    {/* Floating Black Capsule Pill */}
-                                                    <div 
-                                                        className="px-3.5 py-1.5 shadow-2xl flex flex-col items-center justify-center border border-white/20 transition-all select-none"
-                                                        style={{
-                                                            backgroundColor: capsuleBgColor,
-                                                            borderRadius: `${capsuleBorderRadius}px`,
-                                                            maxWidth: `${capsuleWidthPct}%`,
-                                                            width: 'auto',
-                                                        }}
-                                                    >
-                                                        <span
-                                                            className="font-bold text-center leading-tight truncate w-full"
-                                                            style={{
-                                                                color: headerLine1Color,
-                                                                fontSize: `${Math.max(11, Math.round(headerLine1Size * 0.45))}px`,
-                                                                fontFamily: fontFamily === 'Black Han Sans' ? '"Black Han Sans", sans-serif' : 'Pretendard, -apple-system, sans-serif',
-                                                                textShadow: '0 1px 3px rgba(0,0,0,0.8)',
-                                                            }}
-                                                        >
-                                                            {headerLine1Text}
-                                                        </span>
-                                                        <span
-                                                            className="font-black text-center leading-tight truncate w-full mt-0.5"
-                                                            style={{
-                                                                color: headerLine2Color,
-                                                                fontSize: `${Math.max(13, Math.round(headerLine2Size * 0.48))}px`,
-                                                                fontFamily: fontFamily === 'Black Han Sans' ? '"Black Han Sans", sans-serif' : 'Pretendard, -apple-system, sans-serif',
-                                                                textShadow: '0 2px 5px rgba(0,0,0,0.9)',
-                                                            }}
-                                                        >
-                                                            {headerLine2Text}
-                                                        </span>
-                                                    </div>
-
-                                                    {/* Sub-tape Sticker Label right below capsule */}
-                                                    {subTapeEnabled && (
-                                                        <div 
-                                                            className="mt-1 px-2.5 py-0.5 rounded shadow-lg flex items-center justify-center gap-1 border border-amber-300 font-bold transition-all select-none"
-                                                            style={{
-                                                                backgroundColor: subTapeBgColor,
-                                                                color: subTapeTextColor,
-                                                            }}
-                                                        >
-                                                            <span className="text-[10px] font-black tracking-tight whitespace-nowrap">
-                                                                {subTapeText} {subTapeEmoji}
-                                                            </span>
-                                                        </div>
-                                                    )}
-                                                </div>
-
-                                                {/* Center Section: Visual Pointer (Red curved arrow & label) */}
-                                                {pointerEnabled && (
-                                                    <div 
-                                                        className="absolute z-30 flex items-center gap-1 pointer-events-none select-none"
-                                                        style={{
-                                                            left: `${pointerX}%`,
-                                                            top: `${pointerY}%`,
-                                                            transform: 'translate(-50%, -50%)',
-                                                        }}
-                                                    >
-                                                        {/* Curved Arrow SVG */}
-                                                        <svg className="w-6 h-6 -rotate-12 drop-shadow-md" viewBox="0 0 24 24" fill="none" stroke={pointerColor} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                                                            <path d="M14 9l6 6-6 6" />
-                                                            <path d="M4 4v7a4 4 0 0 0 4 4h11" />
-                                                        </svg>
-                                                        <Badge className="bg-red-600/90 text-white font-black text-[9px] px-1.5 py-0.2 shadow-md">
-                                                            {pointerLabel}
-                                                        </Badge>
-                                                    </div>
+                                        {/* Background Media / Subtle Grid if not in overlay mode */}
+                                        {previewViewMode !== 'overlay' && (
+                                            <div className="absolute inset-0 w-full h-full bg-black z-0 overflow-hidden">
+                                                {videoBgUrl || refThumbnailUrl ? (
+                                                    <img 
+                                                        src={videoBgUrl || refThumbnailUrl} 
+                                                        alt="Scene media" 
+                                                        className="w-full h-full object-cover select-none pointer-events-none"
+                                                    />
+                                                ) : (
+                                                    <div className="w-full h-full opacity-15 bg-[radial-gradient(#888_1px,transparent_1px)] [background-size:16px_16px]" />
                                                 )}
-
-                                                {/* Jab Hook in middle if enabled */}
-                                                {jabEnabled && (
-                                                    <div
-                                                        className="absolute top-[48%] left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-md shadow-xl transition-all z-30"
-                                                        style={{
-                                                            backgroundColor: '#000000',
-                                                            border: `1.5px solid ${jabColor}`,
-                                                            color: jabColor,
-                                                            transform: `translateX(-50%) rotate(${jabTilt}deg)`,
-                                                        }}
-                                                    >
-                                                        <span className="text-[10px] font-black tracking-tight flex items-center gap-1 whitespace-nowrap">
-                                                            {jabText}
-                                                        </span>
-                                                    </div>
-                                                )}
-
-                                                {/* Bottom Section: Two-Tone or Standard Captions */}
-                                                <div 
-                                                    className="w-full text-center px-2 z-20 pointer-events-none transition-all flex flex-col items-center justify-center"
-                                                    style={{
-                                                        marginBottom: `${captionMarginBottom * 0.45}%`,
-                                                    }}
-                                                >
-                                                    {twoToneEnabled ? (
-                                                        <div className="font-black leading-tight flex items-center justify-center gap-1 flex-wrap">
-                                                            <span
-                                                                style={{
-                                                                    color: twoToneHighlightColor,
-                                                                    fontSize: `${Math.max(13, Math.round(fontSize * 0.32))}px`,
-                                                                    fontFamily: fontFamily === 'Black Han Sans' ? '"Black Han Sans", sans-serif' : 'Pretendard, -apple-system, sans-serif',
-                                                                    WebkitTextStroke: `${Math.max(1, outlinePx * 0.22)}px ${outlineColor}`,
-                                                                    textShadow: `0 2px ${textShadowBlur}px ${outlineColor}`,
-                                                                }}
-                                                            >
-                                                                {twoToneHighlight}
-                                                            </span>
-                                                            <span
-                                                                style={{
-                                                                    color: twoToneBaseColor,
-                                                                    fontSize: `${Math.max(13, Math.round(fontSize * 0.32))}px`,
-                                                                    fontFamily: fontFamily === 'Black Han Sans' ? '"Black Han Sans", sans-serif' : 'Pretendard, -apple-system, sans-serif',
-                                                                    WebkitTextStroke: `${Math.max(1, outlinePx * 0.22)}px ${outlineColor}`,
-                                                                    textShadow: `0 2px ${textShadowBlur}px ${outlineColor}`,
-                                                                }}
-                                                            >
-                                                                {twoToneBaseText}
-                                                            </span>
-                                                        </div>
-                                                    ) : bilingualEnabled ? (
-                                                        <div className="flex flex-col items-center gap-0.5">
-                                                            <span 
-                                                                className="font-bold text-center leading-tight tracking-tight px-1"
-                                                                style={{
-                                                                    color: captionLine1Color,
-                                                                    fontSize: '12px',
-                                                                    fontFamily: fontFamily === 'Black Han Sans' ? '"Black Han Sans", sans-serif' : 'Pretendard, -apple-system, sans-serif',
-                                                                    textShadow: '0 2px 4px rgba(0,0,0,0.9), -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000',
-                                                                }}
-                                                            >
-                                                                {captionLine1En}
-                                                            </span>
-                                                            <span 
-                                                                className="font-black text-center leading-tight tracking-tight px-1 mt-0.5"
-                                                                style={{
-                                                                    color: captionLine2Color,
-                                                                    fontSize: '13px',
-                                                                    fontFamily: fontFamily === 'Black Han Sans' ? '"Black Han Sans", sans-serif' : 'Pretendard, -apple-system, sans-serif',
-                                                                    textShadow: '0 2px 4px rgba(0,0,0,0.9), -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000',
-                                                                }}
-                                                            >
-                                                                {captionLine2Ko}
-                                                            </span>
-                                                        </div>
-                                                    ) : (
-                                                        <span
-                                                            className="font-black leading-tight transition-all"
-                                                            style={{
-                                                                color: captionColor,
-                                                                fontSize: `${Math.max(12, Math.round(fontSize * 0.28))}px`,
-                                                                fontFamily: fontFamily === 'Black Han Sans' ? '"Black Han Sans", sans-serif' : fontFamily === 'Gmarket Sans' ? '"Gmarket Sans", sans-serif' : 'Pretendard, -apple-system, sans-serif',
-                                                                letterSpacing: `${letterSpacing}px`,
-                                                                lineHeight: lineHeight,
-                                                                WebkitTextStroke: `${Math.max(1, outlinePx * 0.22)}px ${outlineColor}`,
-                                                                textShadow: `0 2px ${textShadowBlur}px ${outlineColor}`,
-                                                                backgroundColor: captionBgBox ? captionBgBoxColor : 'transparent',
-                                                                padding: captionBgBox ? '2px 8px' : '0',
-                                                                borderRadius: captionBgBox ? '6px' : '0',
-                                                            }}
-                                                        >
-                                                            {captionText}
-                                                        </span>
-                                                    )}
-                                                </div>
+                                                {/* Subtle Cinematic Vignette */}
+                                                <div className="absolute inset-0 pointer-events-none bg-gradient-to-t from-black/50 via-transparent to-black/20" />
                                             </div>
+                                        )}
+
+                                        {/* Blueprint v4 Standard Global Layers Rendering (100% Locked Percentage Coordinate Space) */}
+                                        {blueprintV4 && blueprintV4.globalLayers ? (
+                                            blueprintV4.globalLayers.map((layer) => {
+                                                if (layer.hidden) return null;
+                                                const t = layer.transform;
+                                                const leftPct = ((t.x - t.width / 2) / 1080) * 100;
+                                                const topPct = ((t.y - t.height / 2) / 1920) * 100;
+                                                const widthPct = (t.width / 1080) * 100;
+                                                const heightPct = (t.height / 1920) * 100;
+
+                                                return (
+                                                    <div
+                                                        key={layer.id}
+                                                        className="absolute pointer-events-none select-none"
+                                                        style={{
+                                                            left: `${leftPct}%`,
+                                                            top: `${topPct}%`,
+                                                            width: `${widthPct}%`,
+                                                            height: `${heightPct}%`,
+                                                            transform: `rotate(${t.rotation || 0}deg) scale(${t.scale || 1})`,
+                                                            transformOrigin: 'center center',
+                                                            zIndex: t.zIndex,
+                                                            opacity: layer.opacity,
+                                                        }}
+                                                    >
+                                                        {layer.kind === 'text' && (
+                                                            <div
+                                                                className={`w-full h-full flex items-center font-bold break-keep select-none whitespace-pre-wrap ${
+                                                                    (layer as any).textAlign === 'left'
+                                                                        ? 'justify-start text-left'
+                                                                        : (layer as any).textAlign === 'right'
+                                                                        ? 'justify-end text-right'
+                                                                        : 'justify-center text-center'
+                                                                }`}
+                                                                style={{
+                                                                    fontSize: `${((layer as any).fontSize || 52) * previewScale}px`,
+                                                                    color: (layer as any).fontColor || '#FFFFFF',
+                                                                    fontFamily: resolveFontFamily((layer as any).fontFamily),
+                                                                    textAlign: (layer as any).textAlign || 'center',
+                                                                    letterSpacing: `${((layer as any).letterSpacing || 0) * previewScale}px`,
+                                                                    lineHeight: (layer as any).lineHeight || 1.15,
+                                                                    textShadow: (layer as any).shadow
+                                                                        ? `${(layer as any).shadow.offsetX * previewScale}px ${(layer as any).shadow.offsetY * previewScale}px ${(layer as any).shadow.blur * previewScale}px ${(layer as any).shadow.color}`
+                                                                        : ((layer as any).stroke?.width ? 'none' : '0 2px 6px rgba(0,0,0,0.85)'),
+                                                                    WebkitTextStroke: (layer as any).stroke?.width
+                                                                        ? `${Math.max(1, (layer as any).stroke.width * previewScale)}px ${(layer as any).stroke.color || '#000000'}`
+                                                                        : 'none',
+                                                                    backgroundColor: (layer as any).backgroundColor || 'transparent',
+                                                                    borderRadius: `${((layer as any).borderRadius || 0) * previewScale}px`,
+                                                                    padding: (layer as any).padding
+                                                                        ? `${(layer as any).padding[0] * previewScale}px ${(layer as any).padding[1] * previewScale}px ${(layer as any).padding[2] * previewScale}px ${(layer as any).padding[3] * previewScale}px`
+                                                                        : '0px',
+                                                                }}
+                                                            >
+                                                                {(layer as any).content}
+                                                            </div>
+                                                        )}
+                                                        {layer.kind === 'shape' && (
+                                                            <div
+                                                                className="w-full h-full transition-all"
+                                                                style={{
+                                                                    backgroundColor: (layer as any).fillColor || '#000000',
+                                                                    borderRadius: `${((layer as any).borderRadius || 0) * previewScale}px`,
+                                                                    border: (layer as any).borderWidth
+                                                                        ? `${Math.max(1, (layer as any).borderWidth * previewScale)}px solid ${(layer as any).borderColor || '#FFFFFF'}`
+                                                                        : 'none',
+                                                                }}
+                                                            />
+                                                        )}
+                                                    </div>
+                                                );
+                                            })
                                         ) : (
-                                            /* CASE: 정통 레터박스 샌드위치 / 상단 띠형 (Type A & Other Archetypes) */
-                                            <>
-                                                {/* Layer 1: Top Black Bar & 2-Tier Header (Burgundy Velvet Curtain if Theater Mode) */}
-                                                <div
-                                                    className="w-full z-20 flex flex-col items-center justify-center px-2 py-1 transition-all relative overflow-hidden"
+                                            /* Fallback Preview */
+                                            <div className="w-full h-full relative">
+                                                <div 
+                                                    className="w-full absolute top-0 left-0 flex flex-col items-center justify-center p-2"
                                                     style={{
                                                         backgroundColor: topBarBgColor,
-                                                        background: isTheaterMode 
-                                                            ? 'linear-gradient(180deg, #4A0E17 0%, #2A080D 75%, #150305 100%)' 
-                                                            : topBarBgColor,
                                                         minHeight: `${topBarHeightPct}%`,
                                                     }}
                                                 >
-                                                    {isTheaterMode && (
-                                                        <div className="absolute inset-x-0 top-0 h-full pointer-events-none opacity-40 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-amber-400/30 via-rose-950/20 to-transparent" />
-                                                    )}
-                                                    <span
-                                                        className="font-bold text-center leading-tight truncate w-full transition-all relative z-10"
+                                                    <span 
+                                                        className="font-bold text-center leading-tight truncate w-full"
                                                         style={{
                                                             color: headerLine1Color,
                                                             fontSize: `${Math.max(11, Math.round(headerLine1Size * 0.45))}px`,
-                                                            fontFamily: fontFamily === 'Black Han Sans' ? '"Black Han Sans", sans-serif' : fontFamily === 'Gmarket Sans' ? '"Gmarket Sans", sans-serif' : 'Pretendard, -apple-system, sans-serif',
-                                                            textShadow: '0 1px 3px rgba(0,0,0,0.8)',
+                                                            fontFamily: resolveFontFamily(fontFamily),
                                                         }}
                                                     >
                                                         {headerLine1Text}
                                                     </span>
-                                                    <span
-                                                        className="font-black text-center leading-tight truncate w-full transition-all mt-0.5 relative z-10"
+                                                    <span 
+                                                        className="font-black text-center leading-tight truncate w-full mt-0.5"
                                                         style={{
                                                             color: headerLine2Color,
                                                             fontSize: `${Math.max(13, Math.round(headerLine2Size * 0.48))}px`,
-                                                            fontFamily: fontFamily === 'Black Han Sans' ? '"Black Han Sans", sans-serif' : fontFamily === 'Gmarket Sans' ? '"Gmarket Sans", sans-serif' : 'Pretendard, -apple-system, sans-serif',
-                                                            textShadow: '0 2px 5px rgba(0,0,0,0.9)',
+                                                            fontFamily: resolveFontFamily(fontFamily),
                                                         }}
                                                     >
                                                         {headerLine2Text}
                                                     </span>
                                                 </div>
-
-                                                {/* 🌟 빵별 3단 상품 진행 바 (상단 탭 바) */}
-                                                {productTrackerEnabled && (
-                                                    <div className="w-full px-2 pt-1.5 pb-1 z-20 flex gap-1 bg-black/60 backdrop-blur-xs">
-                                                        {[
-                                                            { step: 1, label: productItem1 },
-                                                            { step: 2, label: productItem2 },
-                                                            { step: 3, label: productItem3 },
-                                                        ].map((item) => (
-                                                            <div 
-                                                                key={item.step}
-                                                                className={`flex-1 py-1 rounded text-center text-[9px] font-black transition-all ${
-                                                                    productCurrentStep === item.step
-                                                                        ? 'bg-amber-400 text-black shadow-md ring-1 ring-amber-300'
-                                                                        : 'bg-neutral-800/80 text-white/70'
-                                                                }`}
-                                                            >
-                                                                {item.label}
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                )}
-
-                                                {/* Layer 2: Center Sandwich Media Canvas (Real Reference Video / 16:9 Letterbox) */}
-                                                <div className="flex-1 w-full relative overflow-hidden flex items-center justify-center z-10 bg-black">
-                                                    {/* 🌟 꿀딸기 인터뷰 댓글 카드 */}
-                                                    {commentCardEnabled && (
-                                                        <div 
-                                                            className="absolute z-30 inset-x-3 p-2 rounded-xl bg-white/95 text-black shadow-2xl border border-white/60 flex items-start gap-2 select-none"
-                                                            style={{ top: `${commentTopY}%` }}
-                                                        >
-                                                            <div className="w-6 h-6 rounded-full bg-rose-500 text-white flex items-center justify-center text-[10px] font-black shrink-0">
-                                                                💬
-                                                            </div>
-                                                            <div className="flex-1 min-w-0">
-                                                                <div className="flex items-center justify-between">
-                                                                    <span className="text-[10px] font-black text-slate-800 truncate">{commentAuthor}</span>
-                                                                    <span className="text-[9px] text-rose-600 font-bold flex items-center gap-0.5">
-                                                                        ❤️ {commentLikes}
-                                                                    </span>
-                                                                </div>
-                                                                <p className="text-[10px] text-slate-900 font-bold leading-tight mt-0.5 line-clamp-2">
-                                                                    {commentText}
-                                                                </p>
-                                                            </div>
-                                                        </div>
-                                                    )}
-
-                                                    {/* 🌟 나 잘한다해짜나 퀴즈 카드 */}
-                                                    {quizCardEnabled && (
-                                                        <div className="absolute z-30 inset-x-3 top-[32%] p-2 rounded-xl bg-black/85 backdrop-blur-md border border-amber-400/80 shadow-2xl text-white select-none">
-                                                            <div className="text-[10.5px] font-black text-amber-300 text-center mb-1.5 flex items-center justify-center gap-1">
-                                                                <span>{quizQuestion}</span>
-                                                            </div>
-                                                            <div className="grid grid-cols-3 gap-1">
-                                                                {[quizOption1, quizOption2, quizOption3].map((opt, oIdx) => (
-                                                                    <div 
-                                                                        key={oIdx}
-                                                                        className={`py-1 px-1 rounded text-center text-[9px] font-black border transition-all ${
-                                                                            quizAnswerIdx === (oIdx + 1)
-                                                                                ? 'bg-amber-400 text-black border-amber-300 shadow-md font-black'
-                                                                                : 'bg-neutral-800/80 text-white/90 border-neutral-700'
-                                                                        }`}
-                                                                    >
-                                                                        {opt}
-                                                                    </div>
-                                                                ))}
-                                                            </div>
-                                                        </div>
-                                                    )}
-
-                                                    {videoBgUrl ? (
-                                                        <div className="w-full aspect-[16/9] relative overflow-hidden flex items-center justify-center bg-black">
-                                                            <img 
-                                                                src={videoBgUrl} 
-                                                                alt="Reference Keyframe" 
-                                                                className="w-full h-full object-cover transition-transform duration-500 select-none pointer-events-none"
-                                                                style={{ transform: `scale(${zoomPct / 100})` }}
-                                                            />
-                                                            {/* Subtle Vignette */}
-                                                            <div className="absolute inset-0 pointer-events-none bg-gradient-to-t from-black/60 via-transparent to-black/30" />
-                                                            
-                                                            {/* Bilingual Captions Overlay (In-Video Optimal Placement) */}
-                                                            {bilingualEnabled && (
-                                                                <div className="absolute bottom-2 inset-x-2 flex flex-col items-center justify-center gap-0.5 pointer-events-none select-none z-30">
-                                                                    <span 
-                                                                        className="font-bold text-center leading-tight tracking-tight px-1"
-                                                                        style={{
-                                                                            color: captionLine1Color,
-                                                                            fontSize: '12px',
-                                                                            fontFamily: fontFamily === 'Black Han Sans' ? '"Black Han Sans", sans-serif' : 'Pretendard, -apple-system, sans-serif',
-                                                                            textShadow: '0 2px 4px rgba(0,0,0,0.9), -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000',
-                                                                        }}
-                                                                    >
-                                                                        {captionLine1En}
-                                                                    </span>
-                                                                    <span 
-                                                                        className="font-black text-center leading-tight tracking-tight px-1 mt-0.5"
-                                                                        style={{
-                                                                            color: captionLine2Color,
-                                                                            fontSize: '13px',
-                                                                            fontFamily: fontFamily === 'Black Han Sans' ? '"Black Han Sans", sans-serif' : 'Pretendard, -apple-system, sans-serif',
-                                                                            textShadow: '0 2px 4px rgba(0,0,0,0.9), -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000',
-                                                                        }}
-                                                                    >
-                                                                        {captionLine2Ko}
-                                                                    </span>
-                                                                </div>
-                                                            )}
-
-                                                            {/* Jab Hook Overlay */}
-                                                            {jabEnabled && (
-                                                                <div
-                                                                    className="absolute top-[28%] left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-md shadow-xl transition-all z-30"
-                                                                    style={{
-                                                                        backgroundColor: '#000000',
-                                                                        border: `1.5px solid ${jabColor}`,
-                                                                        color: jabColor,
-                                                                        transform: `translateX(-50%) rotate(${jabTilt}deg)`,
-                                                                    }}
-                                                                >
-                                                                    <span className="text-[10px] font-black tracking-tight flex items-center gap-1 whitespace-nowrap">
-                                                                        {jabText}
-                                                                    </span>
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    ) : (
-                                                        <div className="w-full aspect-[16/9] bg-neutral-900 border-y border-neutral-800 flex flex-col items-center justify-center p-3 relative overflow-hidden">
-                                                            <Film className="w-8 h-8 text-white/30 mb-2" />
-                                                            <span className="text-[11px] font-bold text-white/80 text-center">
-                                                                16:9 와이드 미디어 샌드위치 캔버스
-                                                            </span>
-                                                            <span className="text-[9px] text-white/50 mt-1 font-mono">
-                                                                0초 훅 줌 {zoomPct}% • {avgCutSec}s 컷 리듬
-                                                            </span>
-                                                        </div>
-                                                    )}
+                                                <div className="w-full absolute bottom-8 left-0 text-center px-2">
+                                                    <span 
+                                                        className="font-black leading-tight"
+                                                        style={{
+                                                            color: captionColor,
+                                                            fontSize: `${Math.max(12, Math.round(fontSize * 0.28))}px`,
+                                                            fontFamily: resolveFontFamily(fontFamily),
+                                                            WebkitTextStroke: `${Math.max(1, outlinePx * 0.22)}px ${outlineColor}`,
+                                                        }}
+                                                    >
+                                                        {captionText}
+                                                    </span>
                                                 </div>
-
-                                                {/* Layer 4: Caption Subtitle (Single Line Mode when bilingual is disabled) */}
-                                                {!bilingualEnabled && (
-                                                    <div
-                                                        className="w-full text-center px-2 z-20 pointer-events-none transition-all flex flex-col items-center justify-center"
-                                                        style={{
-                                                            marginBottom: `${captionMarginBottom * 0.45}%`,
-                                                        }}
-                                                    >
-                                                        {speakerColorsEnabled && stepwiseExpansion ? (
-                                                            <div className="flex flex-col items-center gap-0.5">
-                                                                <span
-                                                                    className="font-black leading-tight tracking-tight px-1"
-                                                                    style={{
-                                                                        color: speakerAColor,
-                                                                        fontSize: `${Math.max(12, Math.round(fontSize * 0.28))}px`,
-                                                                        fontFamily: fontFamily === 'Black Han Sans' ? '"Black Han Sans", sans-serif' : 'Pretendard, -apple-system, sans-serif',
-                                                                        WebkitTextStroke: `${Math.max(1, outlinePx * 0.22)}px ${outlineColor}`,
-                                                                        textShadow: `0 2px ${textShadowBlur}px ${outlineColor}`,
-                                                                    }}
-                                                                >
-                                                                    Q. {headerLine1Text || captionText}
-                                                                </span>
-                                                                <span
-                                                                    className="font-black leading-tight tracking-tight px-1 mt-0.5"
-                                                                    style={{
-                                                                        color: speakerBColor,
-                                                                        fontSize: `${Math.max(13, Math.round(fontSize * 0.30))}px`,
-                                                                        fontFamily: fontFamily === 'Black Han Sans' ? '"Black Han Sans", sans-serif' : 'Pretendard, -apple-system, sans-serif',
-                                                                        WebkitTextStroke: `${Math.max(1, outlinePx * 0.22)}px ${outlineColor}`,
-                                                                        textShadow: `0 2px ${textShadowBlur}px ${outlineColor}`,
-                                                                    }}
-                                                                >
-                                                                    A. {captionText}
-                                                                </span>
-                                                            </div>
-                                                        ) : (
-                                                            <span
-                                                                className="font-black leading-tight transition-all"
-                                                                style={{
-                                                                    color: captionColor,
-                                                                    fontSize: `${Math.max(12, Math.round(fontSize * 0.28))}px`,
-                                                                    fontFamily: fontFamily === 'Black Han Sans' ? '"Black Han Sans", sans-serif' : fontFamily === 'Gmarket Sans' ? '"Gmarket Sans", sans-serif' : 'Pretendard, -apple-system, sans-serif',
-                                                                    letterSpacing: `${letterSpacing}px`,
-                                                                    lineHeight: lineHeight,
-                                                                    WebkitTextStroke: `${Math.max(1, outlinePx * 0.22)}px ${outlineColor}`,
-                                                                    textShadow: `0 2px ${textShadowBlur}px ${outlineColor}`,
-                                                                    backgroundColor: captionBgBox ? captionBgBoxColor : 'transparent',
-                                                                    padding: captionBgBox ? '2px 8px' : '0',
-                                                                    borderRadius: captionBgBox ? '6px' : '0',
-                                                                }}
-                                                            >
-                                                                {captionText}
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                )}
-
-                                                {/* Layer 5: Bottom Source Bar & Black Band (Or Cinema Seats Silhouette if Theater Mode) */}
-                                                {isTheaterMode ? (
-                                                    <div
-                                                        className="w-full z-20 flex flex-col items-center justify-end px-2 pt-1 pb-1 transition-all border-t border-rose-950/40 relative overflow-hidden"
-                                                        style={{
-                                                            minHeight: `${Math.max(10, bottomBarHeightPct)}%`,
-                                                            background: 'linear-gradient(0deg, #0A0203 0%, #1A0507 70%, transparent 100%)'
-                                                        }}
-                                                    >
-                                                        {/* Cinema Seats Silhouette */}
-                                                        <div className="w-full flex items-center justify-center gap-1 opacity-70 pb-0.5">
-                                                            {[...Array(6)].map((_, seatIdx) => (
-                                                                <div key={seatIdx} className="w-6 h-3.5 rounded-t-md bg-neutral-900 border-t border-rose-900/40 shadow-xs" />
-                                                            ))}
-                                                        </div>
-                                                        {bottomSourceEnabled && (
-                                                            <span className="text-[8.5px] text-neutral-400 truncate font-medium">
-                                                                {bottomSourceText}
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                ) : bottomSourceEnabled ? (
-                                                    <div
-                                                        className="w-full z-20 flex items-center justify-center px-2 transition-all border-t border-white/5"
-                                                        style={{
-                                                            backgroundColor: '#000000',
-                                                            minHeight: `${bottomBarHeightPct}%`,
-                                                        }}
-                                                    >
-                                                        <span className="text-[9px] text-neutral-400 truncate font-medium">
-                                                            {bottomSourceText}
-                                                        </span>
-                                                    </div>
-                                                ) : null}
-                                            </>
+                                            </div>
                                         )}
                                     </div>
 

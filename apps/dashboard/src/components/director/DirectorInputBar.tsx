@@ -1,12 +1,14 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { 
     Send, Square, Sliders, Paperclip, X, Plus, Link as LinkIcon, 
-    Mic, MicOff, Sparkles, Shield
+    Mic, MicOff, Sparkles, Shield, Bot
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { SovereignPreset } from '@/components/presets/PresetLibraryModal';
 import { ModelSelectorPopover, ReasoningEffort } from './ModelSelectorPopover';
+import { AgentMentionDropdown, AgentRosterItem } from './AgentMentionDropdown';
+import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
 export interface AttachedMedia {
@@ -14,6 +16,10 @@ export interface AttachedMedia {
     name: string;
     path: string;
     isUrl?: boolean;
+    isImage?: boolean;
+    previewUrl?: string;
+    dataUrl?: string;
+    serverPath?: string;
 }
 
 export interface QuickPromptItem {
@@ -79,6 +85,7 @@ export interface DirectorInputBarProps {
     onClearPreset?: () => void;
     onOpenCustomizeModal?: () => void;
     onOpenCloudMediaModal?: () => void;
+    onOpenAgentSoul?: (agentId?: string) => void;
     securityScope?: string;
     onChangeSecurityScope?: (scope: string) => void;
     isLiveVoiceActive?: boolean;
@@ -112,6 +119,7 @@ export const DirectorInputBar: React.FC<DirectorInputBarProps> = ({
     onClearPreset,
     onOpenCustomizeModal,
     onOpenCloudMediaModal,
+    onOpenAgentSoul,
     securityScope = '모두 허용',
     onChangeSecurityScope,
     isLiveVoiceActive,
@@ -127,16 +135,50 @@ export const DirectorInputBar: React.FC<DirectorInputBarProps> = ({
     placeholder
 }) => {
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const [showMentionDropdown, setShowMentionDropdown] = useState(false);
+    const [mentionQuery, setMentionQuery] = useState('');
+    const [mentionStartIndex, setMentionStartIndex] = useState(-1);
+    const [previewImageModalUrl, setPreviewImageModalUrl] = useState<string | null>(null);
+
+    const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+        const val = e.target.value;
+        onChangePrompt(val);
+        const cursor = e.target.selectionStart || 0;
+        const textBeforeCursor = val.slice(0, cursor);
+        const match = textBeforeCursor.match(/@([a-zA-Z0-9가-힣]*)$/);
+        if (match) {
+            setShowMentionDropdown(true);
+            setMentionQuery(match[1]);
+            setMentionStartIndex(cursor - match[0].length);
+        } else {
+            setShowMentionDropdown(false);
+        }
+    };
+
+    const handleSelectAgent = (agent: AgentRosterItem) => {
+        if (mentionStartIndex >= 0) {
+            const before = prompt.slice(0, mentionStartIndex);
+            const after = prompt.slice(mentionStartIndex + mentionQuery.length + 1);
+            const nextText = `${before}${agent.tag} ${after}`;
+            onChangePrompt(nextText);
+        } else {
+            onChangePrompt(`${agent.tag} ${prompt}`);
+        }
+        setShowMentionDropdown(false);
+        setMentionStartIndex(-1);
+        textareaRef?.current?.focus();
+        toast.success(`[${agent.tag}] ${agent.name} 하수인이 호출되었습니다.`);
+    };
 
     return (
-        <div className="p-3 sm:p-4 bg-gradient-to-t from-background via-background to-transparent shrink-0">
-            <div className="max-w-4xl mx-auto rounded-2xl border border-border/80 bg-card shadow-xl p-3 space-y-2">
+        <div className="p-2 sm:p-4 pb-2 sm:pb-3 bg-gradient-to-t from-background via-background to-transparent shrink-0">
+            <div className="max-w-4xl mx-auto rounded-xl sm:rounded-2xl border border-border/80 bg-card shadow-xl p-2 sm:p-3 space-y-1.5 sm:space-y-2">
                 {/* Top Chips Row: Preset Chip & Attached Files */}
                 {(activePreset || attachedFiles.length > 0) && (
                     <div className="flex flex-wrap items-center gap-1.5 px-1">
                         {/* Active Preset Chip */}
                         {activePreset && (
-                            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/30 text-xs font-semibold">
+                            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 sm:py-1 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/30 text-[11px] sm:text-xs font-semibold">
                                 <Sliders className="w-3 h-3 text-blue-500" />
                                 <span>프리셋: {activePreset.name}</span>
                                 {onClearPreset && (
@@ -151,48 +193,100 @@ export const DirectorInputBar: React.FC<DirectorInputBarProps> = ({
                             </div>
                         )}
 
-                        {/* Attached Files Chips */}
-                        {attachedFiles.map((f) => (
-                            <div
-                                key={f.id}
-                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-muted text-foreground border border-border text-xs font-medium"
-                            >
-                                <Paperclip className="w-3 h-3 text-muted-foreground" />
-                                <span className="truncate max-w-[140px]">{f.name}</span>
-                                <button
-                                    type="button"
-                                    onClick={() => onRemoveAttachedFile(f.id)}
-                                    className="text-muted-foreground hover:text-foreground ml-0.5 cursor-pointer"
+                        {/* Attached Files Preview - Compact Image Thumbnails without long filenames */}
+                        {attachedFiles.map((f) => {
+                            const isImg = f.isImage || /\.(jpg|jpeg|png|webp|gif|bmp)$/i.test(f.name) || !!f.previewUrl;
+                            const imgSrc = f.previewUrl || (f.path?.startsWith('blob:') || f.path?.startsWith('data:') || f.path?.startsWith('http') ? f.path : `/files/${f.path}`);
+                            
+                            if (isImg) {
+                                return (
+                                    <div
+                                        key={f.id}
+                                        className="relative group inline-block shrink-0"
+                                        title={f.name}
+                                    >
+                                        <div
+                                            onClick={() => setPreviewImageModalUrl(imgSrc)}
+                                            className="w-9 h-9 rounded-md overflow-hidden border border-border/80 bg-muted/80 flex items-center justify-center shadow-xs hover:border-primary/60 transition-colors cursor-zoom-in"
+                                            title="클릭하여 원본 크기로 보기"
+                                        >
+                                            <img
+                                                src={imgSrc}
+                                                alt={f.name}
+                                                className="w-full h-full object-cover"
+                                                onError={(e) => {
+                                                    (e.currentTarget as HTMLElement).style.display = 'none';
+                                                }}
+                                            />
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => onRemoveAttachedFile(f.id)}
+                                            className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-foreground/85 hover:bg-rose-600 text-background hover:text-white flex items-center justify-center transition-colors cursor-pointer shadow-xs"
+                                            title="첨부 해제"
+                                        >
+                                            <X className="w-2.5 h-2.5" />
+                                        </button>
+                                    </div>
+                                );
+                            }
+
+                            return (
+                                <div
+                                    key={f.id}
+                                    className="relative inline-flex items-center gap-1 px-2 py-1 rounded-md bg-muted/90 text-foreground border border-border/80 text-xs font-medium shadow-xs group hover:border-primary/50 transition-colors"
+                                    title={f.name}
                                 >
-                                    <X className="w-3 h-3" />
-                                </button>
-                            </div>
-                        ))}
+                                    <Paperclip className="w-3.5 h-3.5 text-primary shrink-0" />
+                                    <span className="text-[11px] text-muted-foreground uppercase font-semibold">{f.name.split('.').pop() || 'FILE'}</span>
+                                    <button
+                                        type="button"
+                                        onClick={() => onRemoveAttachedFile(f.id)}
+                                        className="text-muted-foreground hover:text-rose-500 ml-0.5 p-0.5 rounded-sm hover:bg-background cursor-pointer transition-colors"
+                                        title="첨부 해제"
+                                    >
+                                        <X className="w-3 h-3" />
+                                    </button>
+                                </div>
+                            );
+                        })}
                     </div>
                 )}
 
-                {/* Textarea Input with CJK IME guard */}
+                {/* Textarea Input with CJK IME guard and @mention popup */}
                 <div className="relative">
+                    {showMentionDropdown && (
+                        <AgentMentionDropdown
+                            query={mentionQuery}
+                            onSelectAgent={handleSelectAgent}
+                            onClose={() => setShowMentionDropdown(false)}
+                        />
+                    )}
                     <Textarea
                         ref={textareaRef}
                         autoFocus={autoFocus ?? true}
                         value={prompt}
-                        onChange={(e) => onChangePrompt(e.target.value)}
+                        onChange={handleTextChange}
                         onKeyDown={(e) => {
+                            if (showMentionDropdown && e.key === 'Escape') {
+                                e.preventDefault();
+                                setShowMentionDropdown(false);
+                                return;
+                            }
                             if (e.nativeEvent.isComposing) return;
                             if (e.key === 'Enter' && !e.shiftKey) {
                                 e.preventDefault();
                                 onSendMessage();
                             }
                         }}
-                        placeholder={placeholder || (hasMessages ? "이어서 요청하거나 궁금한 것을 물어보세요 (Shift+Enter 줄바꿈)" : "만들고 싶은 영상이나 맡기고 싶은 작업, 비즈니스 전략을 설명해 주세요...")}
-                        className="min-h-[64px] sm:min-h-[72px] max-h-44 resize-none border-0 shadow-none focus-visible:ring-0 p-2 pr-8 text-xs sm:text-sm leading-relaxed bg-transparent"
+                        placeholder={placeholder || (isLiveVoiceActive ? "🎙️ 루피와 실시간 음성 대화 중... (화면이나 캔버스를 보며 편하게 말씀하세요)" : hasMessages ? "이어서 요청하거나 궁금한 것을 물어보세요 (@멘션으로 하수인 직접 호출, Shift+Enter 줄바꿈)" : "만들고 싶은 영상이나 맡기고 싶은 작업, 비즈니스 전략을 설명해 주세요... (@ 입력 시 8대 하수인 호출)")}
+                        className="min-h-[48px] sm:min-h-[64px] max-h-40 resize-none border-0 shadow-none focus-visible:ring-0 p-1.5 sm:p-2 pr-7 sm:pr-8 text-xs sm:text-sm leading-relaxed bg-transparent"
                     />
                     {prompt && (
                         <button
                             type="button"
                             onClick={() => onChangePrompt('')}
-                            className="absolute top-2 right-2 p-1 text-muted-foreground hover:text-foreground rounded-full hover:bg-muted/80 transition-colors cursor-pointer"
+                            className="absolute top-1.5 right-1.5 p-1 text-muted-foreground hover:text-foreground rounded-full hover:bg-muted/80 transition-colors cursor-pointer"
                             title="입력 내용 지우기"
                         >
                             <X className="w-3.5 h-3.5" />
@@ -200,9 +294,10 @@ export const DirectorInputBar: React.FC<DirectorInputBarProps> = ({
                     )}
                 </div>
 
-                {/* Bottom Toolbar Row */}
-                <div className="flex items-center justify-between pt-1 border-t border-border/40 text-xs gap-2">
-                    <div className="flex items-center gap-1.5 py-0.5 min-w-0 pr-1 overflow-visible relative flex-wrap sm:flex-nowrap">
+                {/* Bottom Toolbar Row - Optimized for Mobile & Desktop */}
+                <div className="flex items-center justify-between pt-1 sm:pt-1.5 border-t border-border/40 text-xs gap-1 sm:gap-2">
+                    {/* Left Tools: Scrollable or Compact on mobile */}
+                    <div className="flex items-center gap-1 sm:gap-1.5 py-0.5 min-w-0 overflow-x-auto no-scrollbar">
                         {/* Attach File from PC */}
                         {onAttachFiles && (
                             <>
@@ -219,7 +314,7 @@ export const DirectorInputBar: React.FC<DirectorInputBarProps> = ({
                                     variant="ghost"
                                     size="sm"
                                     onClick={() => fileInputRef.current?.click()}
-                                    className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground rounded-full hover:bg-muted cursor-pointer shrink-0"
+                                    className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground rounded-xl hover:bg-muted cursor-pointer shrink-0"
                                     title="내 PC에서 미디어 파일 첨부 (+)"
                                 >
                                     <Plus className="w-4 h-4" />
@@ -242,6 +337,21 @@ export const DirectorInputBar: React.FC<DirectorInputBarProps> = ({
                             </Button>
                         )}
 
+                        {/* Bot Mode SOUL.md Inspector Modal Button */}
+                        {onOpenAgentSoul && (
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => onOpenAgentSoul()}
+                                className="h-8 px-2 text-xs font-semibold text-muted-foreground hover:text-foreground rounded-xl hover:bg-muted gap-1 border border-border/60 shadow-2xs cursor-pointer shrink-0"
+                                title="8대 전문 하수인 SOUL.md 페르소나 및 독립 메모리 관리"
+                            >
+                                <Bot className="w-3.5 h-3.5 text-purple-500 shrink-0" />
+                                <span className="hidden sm:inline">SOUL</span>
+                            </Button>
+                        )}
+
                         {/* AI Engine & Model Selector Popover */}
                         {selectedProvider && onSelectProvider && selectedModel && onSelectModel && (
                             <ModelSelectorPopover
@@ -255,13 +365,13 @@ export const DirectorInputBar: React.FC<DirectorInputBarProps> = ({
                             />
                         )}
 
-                        {/* Security Scope Selector */}
+                        {/* Security Scope Selector (Desktop / Tablet only to save mobile space) */}
                         {onChangeSecurityScope && (
-                            <div className="relative shrink-0">
+                            <div className="hidden md:block relative shrink-0">
                                 <select
                                     value={securityScope}
                                     onChange={(e) => onChangeSecurityScope(e.target.value)}
-                                    className="h-8 px-2.5 text-xs bg-muted/40 hover:bg-muted text-foreground font-medium rounded-xl border border-border/70 focus:outline-hidden cursor-pointer"
+                                    className="h-8 px-2 text-xs bg-muted/40 hover:bg-muted text-foreground font-medium rounded-xl border border-border/70 focus:outline-hidden cursor-pointer"
                                 >
                                     <option value="모두 허용">🛡️ 자동 승인</option>
                                     <option value="작업 폴더 허용">🛡️ 작업 폴더만</option>
@@ -276,11 +386,11 @@ export const DirectorInputBar: React.FC<DirectorInputBarProps> = ({
                                 <button
                                     type="button"
                                     onClick={onOpenCustomizeModal}
-                                    className="h-8 px-2.5 rounded-xl text-xs gap-1.5 font-semibold bg-primary/10 text-primary border border-primary/30 hover:bg-primary/20 transition-all flex items-center shadow-2xs cursor-pointer shrink-0"
+                                    className="h-8 px-2 sm:px-2.5 rounded-xl text-xs gap-1 sm:gap-1.5 font-semibold bg-primary/10 text-primary border border-primary/30 hover:bg-primary/20 transition-all flex items-center shadow-2xs cursor-pointer shrink-0"
                                     title="클릭하여 프리셋 스타일 상세 설정 열기"
                                 >
                                     <Sliders className="w-3.5 h-3.5 text-primary shrink-0" />
-                                    <span className="truncate max-w-[120px]">{activePreset.name}</span>
+                                    <span className="truncate max-w-[80px] sm:max-w-[100px]">{activePreset.name}</span>
                                 </button>
                                 {onClearPreset && (
                                     <button
@@ -299,17 +409,18 @@ export const DirectorInputBar: React.FC<DirectorInputBarProps> = ({
                                 variant="outline"
                                 size="sm"
                                 onClick={onOpenPresetModal}
-                                className="h-8 px-2.5 rounded-xl text-xs gap-1.5 font-medium border-border/80 hover:bg-muted text-foreground cursor-pointer shadow-2xs shrink-0"
+                                className="h-8 px-2 sm:px-2.5 rounded-xl text-xs gap-1 sm:gap-1.5 font-medium border-border/80 hover:bg-muted text-foreground cursor-pointer shadow-2xs shrink-0"
                                 title="프리셋 보관함에서 원하는 스타일 선택"
                             >
                                 <Sliders className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                                <span>프리셋</span>
+                                <span className="hidden xs:inline sm:inline">프리셋</span>
                             </Button>
                         )}
                     </div>
 
                     {/* Right Controls: Live Voice Toggle & Send/Stop Button */}
-                    <div className="flex items-center gap-1.5 shrink-0">
+                    <div className="flex items-center gap-1 sm:gap-1.5 shrink-0 ml-auto pl-1">
+
                         {onToggleLiveVoice && (
                             <Button
                                 type="button"
@@ -317,14 +428,14 @@ export const DirectorInputBar: React.FC<DirectorInputBarProps> = ({
                                 size="sm"
                                 onClick={onToggleLiveVoice}
                                 className={cn(
-                                    "h-8 px-2.5 rounded-xl text-xs font-bold gap-1 cursor-pointer transition-all",
+                                    "h-8 px-2 sm:px-2.5 rounded-xl text-xs font-bold gap-1 cursor-pointer transition-all shrink-0",
                                     isLiveVoiceActive
                                         ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/40 animate-pulse"
                                         : "text-muted-foreground hover:text-foreground hover:bg-muted"
                                 )}
                                 title={isLiveVoiceActive ? "Gemini 3.8 Live 음성 통화 끄기" : "Gemini 3.8 Live 실시간 마이크 켜기"}
                             >
-                                {isLiveVoiceActive ? <Mic className="w-3.5 h-3.5 text-emerald-500" /> : <MicOff className="w-3.5 h-3.5" />}
+                                {isLiveVoiceActive ? <Mic className="w-3.5 h-3.5 text-emerald-500 shrink-0" /> : <MicOff className="w-3.5 h-3.5 shrink-0" />}
                                 <span className="hidden md:inline">실시간 음성</span>
                             </Button>
                         )}
@@ -334,11 +445,11 @@ export const DirectorInputBar: React.FC<DirectorInputBarProps> = ({
                                 type="button"
                                 size="sm"
                                 onClick={onCancelStream}
-                                className="h-8 px-3 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold gap-1 cursor-pointer shadow-xs"
+                                className="h-8 px-2.5 sm:px-3 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold gap-1 cursor-pointer shadow-xs shrink-0"
                                 title="생성 중단"
                             >
-                                <Square className="w-3.5 h-3.5 fill-current" />
-                                <span>중단</span>
+                                <Square className="w-3.5 h-3.5 fill-current shrink-0" />
+                                <span className="hidden xs:inline">중단</span>
                             </Button>
                         ) : (
                             <Button
@@ -346,16 +457,43 @@ export const DirectorInputBar: React.FC<DirectorInputBarProps> = ({
                                 size="sm"
                                 disabled={!prompt.trim() && attachedFiles.length === 0}
                                 onClick={() => onSendMessage()}
-                                className="h-8 px-3 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold gap-1 cursor-pointer shadow-xs disabled:opacity-40"
+                                className="h-8 px-2.5 sm:px-3 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold gap-1 cursor-pointer shadow-xs disabled:opacity-40 shrink-0"
                                 title="메시지 전송 (Enter)"
                             >
-                                <Send className="w-3.5 h-3.5" />
+                                <Send className="w-3.5 h-3.5 shrink-0" />
                                 <span>전송</span>
                             </Button>
                         )}
                     </div>
                 </div>
             </div>
+
+            {/* Attached Image Zoom Lightbox Modal */}
+            {previewImageModalUrl && (
+                <div
+                    className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6"
+                    onClick={() => setPreviewImageModalUrl(null)}
+                >
+                    <div
+                        className="relative max-w-4xl max-h-[90vh] bg-card/95 rounded-2xl border border-border shadow-2xl p-2 flex flex-col items-center justify-center overflow-hidden"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <button
+                            type="button"
+                            onClick={() => setPreviewImageModalUrl(null)}
+                            className="absolute top-3 right-3 p-1.5 rounded-full bg-black/70 hover:bg-rose-600 text-white transition-colors cursor-pointer z-20 shadow-md"
+                            title="닫기"
+                        >
+                            <X className="w-5 h-5" />
+                        </button>
+                        <img
+                            src={previewImageModalUrl}
+                            alt="첨부 이미지 원본 미리보기"
+                            className="max-h-[82vh] w-auto max-w-full rounded-xl object-contain shadow-inner"
+                        />
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

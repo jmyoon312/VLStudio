@@ -293,8 +293,72 @@ def compile_ass_subtitles(
     w, h = dims["width"], dims["height"]
     margin_lr = round(w * 0.04)
 
-    # V2 Blueprint Compatibility Adapter
-    vg = style.get("visual_geometry", {})
+    # ★ [VLStandardBlueprint v4.0 대통합 어댑터]
+    bp_v4 = style.get("blueprint_v4") if isinstance(style, dict) else None
+    if not bp_v4 and isinstance(style, dict) and style.get("schemaVersion") == "viraloop-blueprint/v4.0":
+        bp_v4 = style
+
+    vg = dict(style.get("visual_geometry", {}))
+    if bp_v4:
+        gl = bp_v4.get("globalLayers", [])
+        tb_layer = next((l for l in gl if l.get("id") == "top_bar_bg"), None)
+        bb_layer = next((l for l in gl if l.get("id") == "bottom_bar_bg"), None)
+        t1_layer = next((l for l in gl if l.get("id") == "title_line1"), None)
+        t2_layer = next((l for l in gl if l.get("id") == "title_line2"), None)
+        sub_layer = next((l for l in gl if l.get("id") == "subtitle_main"), None)
+        src_layer = next((l for l in gl if l.get("id") == "bottom_source"), None)
+
+        if tb_layer and "top_bar" not in vg:
+            vg["top_bar"] = {
+                "enabled": not tb_layer.get("hidden", False),
+                "bg_color": tb_layer.get("fillColor", "#000000"),
+                "height_pct": round(tb_layer.get("transform", {}).get("height", 460) / 1920.0 * 100, 1),
+                "opacity": tb_layer.get("opacity", 1.0)
+            }
+        if bb_layer and "bottom_bar" not in vg:
+            vg["bottom_bar"] = {
+                "enabled": not bb_layer.get("hidden", False),
+                "bg_color": bb_layer.get("fillColor", "#000000"),
+                "height_pct": round(bb_layer.get("transform", {}).get("height", 460) / 1920.0 * 100, 1)
+            }
+        if sub_layer and "caption" not in vg:
+            sub_y = sub_layer.get("transform", {}).get("y", 1267)
+            vg["caption"] = {
+                "font_family": sub_layer.get("fontFamily", "Pretendard"),
+                "size_px": round(sub_layer.get("fontSize", 44) / 1.7),
+                "color": sub_layer.get("fontColor", "#FFFFFF"),
+                "outline_color": sub_layer.get("stroke", {}).get("color", "#000000"),
+                "outline_px": sub_layer.get("stroke", {}).get("width", 4),
+                "position": "bottom",
+                "margin_v_pct": round((1920 - sub_y) / 1920.0 * 100)
+            }
+        if (t1_layer or t2_layer) and "top_header_lines" not in vg:
+            lines = []
+            if t1_layer:
+                lines.append({
+                    "text_example": t1_layer.get("content", ""),
+                    "color": t1_layer.get("fontColor", "#FFE838"),
+                    "size_px": round(t1_layer.get("fontSize", 52) / 1.7),
+                    "font_family": t1_layer.get("fontFamily", "Pretendard")
+                })
+            if t2_layer:
+                lines.append({
+                    "text_example": t2_layer.get("content", ""),
+                    "color": t2_layer.get("fontColor", "#FFFFFF"),
+                    "size_px": round(t2_layer.get("fontSize", 58) / 1.7),
+                    "font_family": t2_layer.get("fontFamily", "Pretendard")
+                })
+            vg["top_header_lines"] = lines
+            if t1_layer:
+                vg["top_title_y_pct"] = round(t1_layer.get("transform", {}).get("y", 317) / 1920.0 * 100, 1)
+        if src_layer and "bottom_source" not in vg:
+            vg["bottom_source"] = {
+                "enabled": not src_layer.get("hidden", False),
+                "text": src_layer.get("content", ""),
+                "bottom_pct": round((1920 - src_layer.get("transform", {}).get("y", 1878)) / 1920.0 * 100, 1),
+                "color": src_layer.get("fontColor", "#94A3B8")
+            }
+
     top_header = style.get("top_header", {})
     container_type = vg.get("container_type", "letterbox_sandwich")
     is_floating_capsule = container_type == "floating_capsule"
@@ -391,6 +455,12 @@ def compile_ass_subtitles(
     two_tone_hi_color = hex_to_ass_color(two_tone.get("highlight_color", "#FFE500"))
     two_tone_base_color = hex_to_ass_color(two_tone.get("base_color", "#FFFFFF"))
 
+    # Bottom Source dialogue event and style configuration
+    bottom_source = vg.get("bottom_source", {})
+    bottom_source_enabled = bottom_source.get("enabled", True) and bool(bottom_source.get("text"))
+    bs_margin_v = round(h * (bottom_source.get("bottom_pct", 2.5)) / 100)
+    bs_color = hex_to_ass_color(bottom_source.get("color", "#94A3B8"))
+
     header = f"""[Script Info]
 ; ViraLoop Sovereign Preset Renderer
 ScriptType: v4.00+
@@ -406,6 +476,7 @@ Style: Caption,{cap_font},{cap_size},{cap_color},&H000000FF,{cap_outline_color},
 Style: Title,{title_font},{line1_size},{ass_l1_color},&H000000FF,{title_outline_color},&H00000000,{title_bold},0,0,0,100,100,0,0,{border_style},{title_outline},0,8,{margin_lr},{margin_lr},{title_margin_v},1
 Style: SubTape,{title_font},34,{tape_text_color},&H000000FF,&H00000000,{tape_bg_color},-1,0,0,0,100,100,0,0,3,10,0,8,{margin_lr},{margin_lr},{tape_margin_v},1
 Style: TopSource,{title_font},24,{source_color},&H000000FF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,2,0,8,{margin_lr},{margin_lr},{source_margin_v},1
+Style: BottomSource,{title_font},24,{bs_color},&H000000FF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,2,0,2,{margin_lr},{margin_lr},{bs_margin_v},1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
@@ -417,25 +488,37 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         s_text = top_source.get("text", "")
         events.append(f"Dialogue: 1,{format_ass_time(0)},{format_ass_time(duration_ms)},TopSource,,0,0,0,,{s_text}")
 
+    # Bottom Source dialogue event
+    if bottom_source_enabled:
+        bs_text = bottom_source.get("text", "")
+        events.append(f"Dialogue: 1,{format_ass_time(0)},{format_ass_time(duration_ms)},BottomSource,,0,0,0,,{bs_text}")
+
     # Title dialogue line (2단 텍스트 색상 및 폰트 크기 인라인 제어)
-    if title.get("enabled", True) and title_lines:
+    if title.get("enabled", True):
         cleaned_lines = []
-        for tl in title_lines:
-            for sub in tl.split("\n"):
-                if sub.strip():
-                    cleaned_lines.append(sub.strip())
+        effective_title_lines = title_lines
+        if not effective_title_lines and header_lines_cfg:
+            extracted_tl = [hl.get("text_example") for hl in header_lines_cfg if hl.get("text_example")]
+            if extracted_tl:
+                effective_title_lines = extracted_tl
 
-        if len(cleaned_lines) == 1:
-            title_text = cleaned_lines[0]
-        elif len(cleaned_lines) >= 2:
-            l1_text = cleaned_lines[0]
-            l2_text = cleaned_lines[1]
-            title_text = f"{l1_text}\\N{{\\c{ass_l2_color}&\\fs{line2_size}}}{l2_text}"
-        else:
-            title_text = ""
+        if effective_title_lines:
+            for tl in effective_title_lines:
+                for sub in tl.split("\n"):
+                    if sub.strip():
+                        cleaned_lines.append(sub.strip())
 
-        if title_text:
-            events.append(f"Dialogue: 2,{format_ass_time(0)},{format_ass_time(duration_ms)},Title,,0,0,0,,{title_text}")
+            if len(cleaned_lines) == 1:
+                title_text = cleaned_lines[0]
+            elif len(cleaned_lines) >= 2:
+                l1_text = cleaned_lines[0]
+                l2_text = cleaned_lines[1]
+                title_text = f"{l1_text}\\N{{\\c{ass_l2_color}&\\fs{line2_size}}}{l2_text}"
+            else:
+                title_text = ""
+
+            if title_text:
+                events.append(f"Dialogue: 2,{format_ass_time(0)},{format_ass_time(duration_ms)},Title,,0,0,0,,{title_text}")
 
     # Sub-tape sticker dialogue event
     if sub_tape_enabled:
@@ -527,6 +610,33 @@ class SovereignPresetEngine:
         w, h = dims["width"], dims["height"]
         fps = style.get("output", {}).get("fps", "30")
 
+        # ★ [VLStandardBlueprint v4.0 대통합 어댑터]
+        bp_v4 = style.get("blueprint_v4") if isinstance(style, dict) else None
+        if not bp_v4 and isinstance(style, dict) and style.get("schemaVersion") == "viraloop-blueprint/v4.0":
+            bp_v4 = style
+
+        # Fallback to scenes from blueprint_v4 if clips or cues are empty
+        if not clips and bp_v4 and bp_v4.get("scenes"):
+            clips = []
+            for sc in bp_v4.get("scenes", []):
+                media_path = sc.get("mediaUrl") or sc.get("source_path") or sc.get("videoUrl")
+                if media_path:
+                    clips.append({
+                        "source_path": media_path,
+                        "start_ms": round(float(sc.get("start", 0)) * 1000),
+                        "end_ms": round(float(sc.get("end", 0)) * 1000)
+                    })
+        if not cues and bp_v4 and bp_v4.get("scenes"):
+            cues = []
+            for sc in bp_v4.get("scenes", []):
+                text = sc.get("narration") or sc.get("text")
+                if text:
+                    cues.append({
+                        "text": text,
+                        "start_ms": round(float(sc.get("start", 0)) * 1000),
+                        "end_ms": round(float(sc.get("end", 0)) * 1000)
+                    })
+
         # 1. Calculate duration
         total_duration_ms = 0
         for clip in clips:
@@ -553,20 +663,41 @@ class SovereignPresetEngine:
         escaped_ass = str(ass_file).replace("\\", "/").replace(":", "\\:")
         video_zoom = style.get("video", {}).get("zoom_pct", 100)
         
-        vg = style.get("visual_geometry", {})
+        vg = dict(style.get("visual_geometry", {}))
+        if bp_v4:
+            gl = bp_v4.get("globalLayers", [])
+            tb_layer = next((l for l in gl if l.get("id") == "top_bar_bg"), None)
+            bb_layer = next((l for l in gl if l.get("id") == "bottom_bar_bg"), None)
+            if tb_layer and "top_bar" not in vg:
+                vg["top_bar"] = {
+                    "enabled": not tb_layer.get("hidden", False),
+                    "bg_color": tb_layer.get("fillColor", "#000000"),
+                    "height_pct": round(tb_layer.get("transform", {}).get("height", 460) / 1920.0 * 100, 1),
+                    "opacity": tb_layer.get("opacity", 1.0)
+                }
+            if bb_layer and "bottom_bar" not in vg:
+                vg["bottom_bar"] = {
+                    "enabled": not bb_layer.get("hidden", False),
+                    "bg_color": bb_layer.get("fillColor", "#000000"),
+                    "height_pct": round(bb_layer.get("transform", {}).get("height", 460) / 1920.0 * 100, 1)
+                }
+
         container_type = vg.get("container_type", "letterbox_sandwich")
         canvas_type = vg.get("canvas_type", "sandwich_1_1")
         is_fullscreen = container_type in ["floating_capsule", "full_width_band", "social_post_bar", "none"] or canvas_type == "fullscreen_overlay"
 
         if is_fullscreen:
-            vf_filters = [f"scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h}"]
+            vf_filters = [f"scale={w}:{h}:force_original_aspect_ratio=increase:flags=lanczos+accurate_rnd,crop={w}:{h}"]
         else:
-            vf_filters = [f"scale={w}:{h}:force_original_aspect_ratio=decrease,pad={w}:{h}:(ow-iw)/2:(oh-ih)/2"]
+            vf_filters = [f"scale={w}:{h}:force_original_aspect_ratio=decrease:flags=lanczos+accurate_rnd,pad={w}:{h}:(ow-iw)/2:(oh-ih)/2"]
+
+        # 🌟 Studio-Grade AI Edge Sharpening & Anti-Blur Filter (Unsharp Mask)
+        vf_filters.append("unsharp=5:5:0.8:3:3:0.4")
 
         if video_zoom > 100:
             crop_w = int(w * 100 / video_zoom)
             crop_h = int(h * 100 / video_zoom)
-            vf_filters.append(f"crop={crop_w}:{crop_h},scale={w}:{h}")
+            vf_filters.append(f"crop={crop_w}:{crop_h},scale={w}:{h}:flags=lanczos+accurate_rnd")
 
         # 🛡️ Universal Copyright Shield Middleware (Anti-Content ID Shield)
         cp_defense = style.get("copyright_defense", {}) or {}
@@ -575,7 +706,7 @@ class SovereignPresetEngine:
         scale_mult = float(cp_defense.get("scale_multiplier", 1.0) or 1.0)
         if scale_mult > 1.0:
             # Micro-zoom to break source video fingerprint
-            vf_filters.append(f"scale=trunc(iw*{scale_mult}/2)*2:trunc(ih*{scale_mult}/2)*2,crop={w}:{h}")
+            vf_filters.append(f"scale=trunc(iw*{scale_mult}/2)*2:trunc(ih*{scale_mult}/2)*2:flags=lanczos+accurate_rnd,crop={w}:{h}")
 
         # Top Bar & Bottom Bar Frame Injection (Only when letterbox is active)
         if not is_fullscreen:
@@ -607,6 +738,19 @@ class SovereignPresetEngine:
         input_clip = clips[0].get("source_path") if clips else None
         has_custom_audio = audio_path and os.path.exists(audio_path)
 
+        # YouTube Shorts Studio Master Encoding Parameters (CRF 17, 8~12Mbps)
+        encoding_args = [
+            "-c:v", "libx264",
+            "-preset", "fast",
+            "-crf", "17",
+            "-b:v", "8M",
+            "-maxrate", "12M",
+            "-bufsize", "16M",
+            "-pix_fmt", "yuv420p",
+            "-c:a", "aac",
+            "-b:a", "192k"
+        ]
+
         if not input_clip or not os.path.exists(input_clip):
             # Generate canvas with custom audio or silence
             duration_s = total_duration_ms / 1000.0 if total_duration_ms else 10.0
@@ -621,7 +765,7 @@ class SovereignPresetEngine:
 
             cmd.extend([
                 "-vf", vf_string,
-                "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac",
+                *encoding_args,
                 "-shortest", output_path
             ])
         else:
@@ -640,14 +784,14 @@ class SovereignPresetEngine:
                     "-vf", vf_string,
                     "-map", "0:v", "-map", "1:a",
                     "-r", str(fps),
-                    "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac",
+                    *encoding_args,
                     "-shortest", output_path
                 ])
             else:
                 cmd.extend([
                     "-vf", vf_string,
                     "-r", str(fps),
-                    "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac",
+                    *encoding_args,
                     output_path
                 ])
 
@@ -867,5 +1011,38 @@ Dialogue: 1,0:00:01.00,0:00:15.00,QuizBox,,0,0,0,,{{\\c&HFFE500&\\fs36\\b1}}❓ 
             }
 
 
+    def atomic_write_json(self, file_path: Path | str, data: Any) -> Path:
+        """원자적 임시 파일 생성 및 교체 (Atomic os.replace) - 동시성 락 및 손상 방지"""
+        target = Path(file_path)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        temp_file = target.with_suffix(f".tmp_{os.getpid()}_{int(datetime.now().timestamp() * 1000)}")
+        with open(temp_file, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
+        os.replace(temp_file, target)
+        return target
+
+    def save_blueprint_v4(self, blueprint_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
+        """VLStandardBlueprint v4.0 원자적 디스크 저장"""
+        preset_dir = self.workspace_dir / "presets"
+        preset_dir.mkdir(parents=True, exist_ok=True)
+        target_file = preset_dir / f"{blueprint_id}.blueprint_v4.json"
+        saved_path = self.atomic_write_json(target_file, data)
+        return {
+            "success": True,
+            "blueprint_id": blueprint_id,
+            "file_path": str(saved_path),
+            "updated_at": datetime.now().isoformat()
+        }
+
+    def load_blueprint_v4(self, blueprint_id: str) -> Optional[Dict[str, Any]]:
+        """VLStandardBlueprint v4.0 디스크 로드"""
+        target_file = self.workspace_dir / "presets" / f"{blueprint_id}.blueprint_v4.json"
+        if not target_file.exists():
+            return None
+        with open(target_file, "r", encoding="utf-8") as f:
+            return json.load(f)
+
+
 sovereign_preset_engine = SovereignPresetEngine()
+
 

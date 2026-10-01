@@ -1521,12 +1521,12 @@ def get_loopie_components_status():
         hermes_core_dir = os.path.join(project_root, "apps", "api", "app", "agent", "hermes_core")
         hermes_installed = os.path.exists(hermes_core_dir)
 
-        local_version = "v0.11.0"
+        local_version = "Hermes Agent v0.21.3 (v2026.9.14)"
         version_file = os.path.join(hermes_core_dir, ".version") if hermes_installed else None
         if version_file and os.path.exists(version_file):
             try:
                 with open(version_file, "r", encoding="utf-8") as f:
-                    local_version = f.read().strip() or "v0.11.0"
+                    local_version = f.read().strip() or "Hermes Agent v0.21.3 (v2026.9.14)"
             except Exception:
                 pass
 
@@ -1534,23 +1534,27 @@ def get_loopie_components_status():
         global _hermes_release_cache
         now = time.time()
         if '_hermes_release_cache' not in globals() or (now - _hermes_release_cache.get("timestamp", 0) > 3600):
+            fallback_ver = "Hermes Agent v0.21.5 (v2026.9.24)"
             _hermes_release_cache = {
-                "data": {"name": "v0.11.0", "tag": "v0.11.0", "has_update": False},
+                "data": {"name": fallback_ver, "tag": "v2026.9.24", "has_update": (fallback_ver != local_version)},
                 "timestamp": now
             }
             try:
                 from .hermes import fetch_latest_release_info
-                rel_info = fetch_latest_release_info("NousResearch/hermes-agent", "v0.11.0")
+                rel_info = fetch_latest_release_info("NousResearch/hermes-agent", fallback_ver)
                 if rel_info and rel_info.get("name"):
+                    latest_name = rel_info["name"].strip()
+                    latest_tag = (rel_info.get("tag") or latest_name).strip()
+                    is_updated = (latest_name != local_version.strip() and latest_tag != local_version.strip())
                     _hermes_release_cache["data"] = {
-                        "name": rel_info["name"],
-                        "tag": rel_info.get("tag") or rel_info["name"],
-                        "has_update": (rel_info["name"] != local_version)
+                        "name": latest_name,
+                        "tag": latest_tag,
+                        "has_update": is_updated
                     }
             except Exception as e:
                 logger.warning(f"[HermesStatus] Release check warning: {e}")
 
-        hermes_latest = _hermes_release_cache.get("data", {"name": "v0.11.0", "tag": "v0.11.0", "has_update": False})
+        hermes_latest = _hermes_release_cache.get("data", {"name": "Hermes Agent v0.21.5 (v2026.9.24)", "tag": "v2026.9.24", "has_update": (local_version != "Hermes Agent v0.21.5 (v2026.9.24)")})
 
         return {
             "success": True,
@@ -1702,12 +1706,24 @@ async def sync_hermes_from_nousresearch():
 
     try:
         from .hermes import fetch_latest_release_info
-        hermes_latest = fetch_latest_release_info("NousResearch/hermes-agent", "v0.11.0")
-        latest_version = hermes_latest.get("name", "v0.11.0")
+        fallback_ver = "Hermes Agent v0.21.5 (v2026.9.24)"
+        hermes_latest = fetch_latest_release_info("NousResearch/hermes-agent", fallback_ver, force_refresh=True)
+        latest_version = hermes_latest.get("name", fallback_ver)
 
         version_file = os.path.join(target_dir, ".version")
         with open(version_file, "w", encoding="utf-8") as f:
             f.write(latest_version)
+
+        # Invalidate in-memory cache so status endpoint reflects latest state immediately
+        global _hermes_release_cache
+        _hermes_release_cache = {
+            "data": {
+                "name": latest_version,
+                "tag": hermes_latest.get("tag") or latest_version,
+                "has_update": False
+            },
+            "timestamp": time.time()
+        }
 
         return {
             "success": True,

@@ -26,14 +26,14 @@ Google Flow AI 영상 생성, 4대 폼팩터 NLE 엔진, 모바일 USB LTE 다�
 ## 🎯 전역 인공지능 엔진 절대 규칙: 프로바이더 직접 연결(Direct Native Connection) 및 선택 모델 주권 보장
 - **절대 원칙 (프로바이더별 100% 직접 연결 및 모델 주권 - Direct Native Provider Sovereignty)**:
   1. **프로바이더별 공식 직접 연결 원칙 (Zero OmniRoute Forcing Law)**:
-     - **OpenAI Codex (Astra) 선택 시**: OpenAI 공식 Codex CLI OAuth 세션(`tokens.access_token`, ChatGPT Plus/Pro 구독)으로 직결하며, 사용자가 선택한 모델(Codex Astra 6.0, GPT-5.6 Sol High 등)을 직접 호출한다. OmniRoute로 강제 우회시키지 않는다.
+     - **OpenAI Codex (Astra) 선택 시**: OpenAI 공식 Codex CLI OAuth 세션(`tokens.access_token`, ChatGPT Plus/Pro 구독)으로 직결하며, 사용자가 선택한 모델(Codex Astra 6.1, GPT-5.6 Sol High 등)을 직접 호출한다. OmniRoute로 강제 우회시키지 않는다.
      - **OpenAI (ChatGPT API) 선택 시**: OpenAI 공식 종량제 API Key(`sk-...`)로 직결하며, 사용자가 선택한 공식 모델(GPT-4o, o3-mini, GPT-4.5-preview 등)을 직접 호출한다. OmniRoute로 강제 우회시키지 않는다.
-     - **Google Gemini 선택 시**: Google Gemini 공식 직접 API(`generativelanguage.googleapis.com`)로 직결하며, 사용자가 선택한 최신 모델(Gemini 2.5 Flash, Pro, Thinking 등)을 직접 호출한다.
+     - **Google Gemini 선택 시**: Google Gemini 공식 직접 API(`generativelanguage.googleapis.com`)로 직결하며, 사용자가 선택한 최신 모델(Gemini 3.8 Flash, Gemini 3.1 Pro, Thinking 등)을 직접 호출한다.
      - **Claude / Grok 선택 시**: Anthropic / xAI 공식 직접 API로 직결한다.
      - **OmniRoute 선택 시**: 사용자가 명시적으로 OmniRoute 프로바이더를 선택했을 때만 로컬 20128 게이트웨이를 사용하며, viraloop1은 유일한 모델이 아닌 OmniRoute 게이트웨이 내의 가용 모델 중 하나일 뿐이다.
   2. **사용자 지정 DB Settings 및 직접 인증 단일 진실 공급원**: 모든 AI 생성, 대본 분석, 대화는 시스템에 등록된 해당 프로바이더의 직접 자격 증명(API Key 또는 웹 세션) 및 사용자가 선택한 모델을 단일 진실 공급원으로 동적 연동한다.
   3. **임의 모델 강제 변환/단일 모델 덮어쓰기 영구 전면 금지**: 사용자가 선택한 프로바이더와 모델을 개발자 임의로 가로채거나, 타 프로바이더/타 모델(예: viraloop1, auto 등)로 덮어쓰거나 우회시키는 행위를 영구 금지한다.
-  4. **처리 상태 표기 정직성 (Zero Fake Title Law)**: 내부 처리 로그나 타이틀에 무조건 'Hermes Core 지능 분석' 등의 획일적인 문구를 붙이지 않고, 실제 호출된 프로바이더 및 모델명(예: `OpenAI Codex Astra 분석`, `Gemini 2.5 Flash 분석`, `OpenAI GPT-4o 분석`)을 정직하게 표기한다.
+  4. **처리 상태 표기 정직성 (Zero Fake Title Law)**: 내부 처리 로그나 타이틀에 무조건 'Hermes Core 지능 분석' 등의 획일적인 문구를 붙이지 않고, 실제 호출된 프로바이더 및 모델명(예: `OpenAI Codex Astra 분석`, `Gemini 3.8 Flash 분석`, `OpenAI GPT-4o 분석`)을 정직하게 표기한다.
   5. **정적 검증 게이트키퍼 강제**: `contract-checker.js` Step 13에서 AI 모델명 하드코딩 및 Gemini/Codex/OpenAI의 OmniRoute(20128) 강제 우회를 정적으로 자동 검사하여 위반 시 빌드를 즉시 차단한다.
   6. **대화 파이프라인 CLI 서브프로세스 호출 영구 전면 금지 (Zero CLI Subprocess Law for Conversational AI)**:
      - Google Gemini 및 Antigravity 토큰 기반 실시간 대화(`conversational_director.py`)에서 `agy.exe` 등 CLI 실행 파일을 서브프로세스(`subprocess.Popen`)로 기동하는 행위를 영구 금지한다.

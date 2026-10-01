@@ -123,7 +123,8 @@ else:
                     "ALTER TABLE sns_trend_items ADD COLUMN category VARCHAR;",
                     "ALTER TABLE sns_trend_items ADD COLUMN country VARCHAR;",
                     "ALTER TABLE sns_trend_items ADD COLUMN outlier_ratio FLOAT DEFAULT 1.0;",
-                    "ALTER TABLE sns_trend_items ADD COLUMN velocity_score FLOAT DEFAULT 0.0;"
+                    "ALTER TABLE sns_trend_items ADD COLUMN velocity_score FLOAT DEFAULT 0.0;",
+                    "ALTER TABLE shorts_templates ADD COLUMN blueprint_v4 TEXT;"
                 ]:
                     try:
                         cursor.execute(col_stmt)

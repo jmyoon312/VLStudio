@@ -879,8 +879,10 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
                   location.pathname === '/creative-studio' || 
                   location.pathname.startsWith('/shorts-editor') || 
                   location.pathname.startsWith('/shorts-template') ||
+                  location.pathname.startsWith('/basic-editor') ||
+                  location.pathname.startsWith('/pro-editor') ||
                   location.pathname.startsWith('/director')) ? (
-                    <div className="flex-1 flex flex-col min-h-0 overflow-hidden w-full h-full pb-16 md:pb-0 box-border">
+                    <div className="flex-1 flex flex-col min-h-0 overflow-hidden w-full h-full pb-[calc(4rem+env(safe-area-inset-bottom,0px))] md:pb-0 box-border">
                         {children}
                     </div>
                 ) : (
@@ -903,7 +905,7 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
                 <button 
                     onClick={() => { navigate('/'); setMobileMenuOpen(false); }} 
                     className={cn(
-                        "flex flex-col items-center justify-center flex-1 py-1.5 px-2 rounded-xl gap-0.5 text-[11px] font-medium transition-all duration-150 active:scale-95", 
+                        "flex flex-col items-center justify-center flex-1 py-1.5 px-1 rounded-xl gap-0.5 text-[11px] font-medium transition-all duration-150 active:scale-95", 
                         location.pathname === '/' 
                             ? "bg-primary/10 text-primary font-bold shadow-2xs" 
                             : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
@@ -913,9 +915,21 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
                     <span>홈</span>
                 </button>
                 <button 
+                    onClick={() => { navigate('/director'); setMobileMenuOpen(false); }} 
+                    className={cn(
+                        "flex flex-col items-center justify-center flex-1 py-1.5 px-1 rounded-xl gap-0.5 text-[11px] font-medium transition-all duration-150 active:scale-95", 
+                        location.pathname.startsWith('/director') 
+                            ? "bg-primary/10 text-primary font-bold shadow-2xs" 
+                            : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
+                    )}
+                >
+                    <Sparkles className="w-5 h-5 text-amber-500" strokeWidth={location.pathname.startsWith('/director') ? 2.5 : 2} />
+                    <span>AI디렉터</span>
+                </button>
+                <button 
                     onClick={() => { navigate('/work-queue'); setMobileMenuOpen(false); }} 
                     className={cn(
-                        "flex flex-col items-center justify-center flex-1 py-1.5 px-2 rounded-xl gap-0.5 text-[11px] font-medium transition-all duration-150 active:scale-95", 
+                        "flex flex-col items-center justify-center flex-1 py-1.5 px-1 rounded-xl gap-0.5 text-[11px] font-medium transition-all duration-150 active:scale-95", 
                         location.pathname === '/work-queue' 
                             ? "bg-primary/10 text-primary font-bold shadow-2xs" 
                             : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
@@ -927,7 +941,7 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
                 <button 
                     onClick={() => { navigate('/incubator'); setMobileMenuOpen(false); }} 
                     className={cn(
-                        "flex flex-col items-center justify-center flex-1 py-1.5 px-2 rounded-xl gap-0.5 text-[11px] font-medium transition-all duration-150 active:scale-95", 
+                        "flex flex-col items-center justify-center flex-1 py-1.5 px-1 rounded-xl gap-0.5 text-[11px] font-medium transition-all duration-150 active:scale-95", 
                         location.pathname.startsWith('/incubator') 
                             ? "bg-primary/10 text-primary font-bold shadow-2xs" 
                             : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
@@ -937,21 +951,9 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
                     <span>육성관리</span>
                 </button>
                 <button 
-                    onClick={() => { navigate('/gallery'); setMobileMenuOpen(false); }} 
-                    className={cn(
-                        "flex flex-col items-center justify-center flex-1 py-1.5 px-2 rounded-xl gap-0.5 text-[11px] font-medium transition-all duration-150 active:scale-95", 
-                        location.pathname === '/gallery' 
-                            ? "bg-primary/10 text-primary font-bold shadow-2xs" 
-                            : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
-                    )}
-                >
-                    <Image className="w-5 h-5" strokeWidth={location.pathname === '/gallery' ? 2.5 : 2} />
-                    <span>보관함</span>
-                </button>
-                <button 
                     onClick={() => setMobileMenuOpen(true)} 
                     className={cn(
-                        "flex flex-col items-center justify-center flex-1 py-1.5 px-2 rounded-xl gap-0.5 text-[11px] font-medium transition-all duration-150 active:scale-95", 
+                        "flex flex-col items-center justify-center flex-1 py-1.5 px-1 rounded-xl gap-0.5 text-[11px] font-medium transition-all duration-150 active:scale-95", 
                         mobileMenuOpen 
                             ? "bg-primary/10 text-primary font-bold shadow-2xs" 
                             : "text-muted-foreground hover:text-foreground hover:bg-muted/40"

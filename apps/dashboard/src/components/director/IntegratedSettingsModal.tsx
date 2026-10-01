@@ -74,7 +74,7 @@ export const IntegratedSettingsModal: React.FC<IntegratedSettingsModalProps> = (
     };
 
     const providerList = [
-        { key: 'codex', icon: '⚡', title: 'OpenAI Codex (CLI 웹 세션)', desc: 'ChatGPT Plus/Pro 세션 기반 Codex Astra 6.0 및 Sol 엔진 직접 실행' },
+        { key: 'codex', icon: '⚡', title: 'OpenAI Codex (CLI 웹 세션)', desc: 'ChatGPT Plus/Pro 세션 기반 Codex Astra 6.1 및 Sol 엔진 직접 실행' },
         { key: 'chatgpt_web', icon: '🌐', title: 'ChatGPT Web (웹 세션 쿼터)', desc: '포트 20128 chatgpt-web 연동 (슬라이딩 윈도우 쿼터로 Astra/Sol 토큰 확보)' },
         { key: 'gemini', icon: '🔷', title: 'Gemini (Google & Antigravity)', desc: 'Google Gemini 및 Antigravity 2.0 구독 연동' },
         { key: 'omniroute', icon: '🛰️', title: 'OmniRoute (로컬 지능 게이트웨이)', desc: '포트 20128 스마트 콤보 라우터 (비용 0원, 무제한)' },
