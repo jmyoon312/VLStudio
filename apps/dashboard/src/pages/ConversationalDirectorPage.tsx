@@ -53,7 +53,9 @@ import {
     RotateCcw,
     Volume2,
     FileText,
-    Rocket
+    Rocket,
+    Mic,
+    MicOff
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
