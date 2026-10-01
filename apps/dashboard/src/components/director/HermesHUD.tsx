@@ -57,19 +57,20 @@ export const HermesHUD: React.FC<HermesHUDProps> = ({
     const fetchStatus = async () => {
         try {
             const rosterRes = await api.get('/harness/bot-crew/roster');
-            if (rosterRes.data?.bots) {
-                setBots(rosterRes.data.bots.map((b: any) => ({
-                    id: b.id,
+            const botList = rosterRes.data?.bots || rosterRes.data?.roster;
+            if (Array.isArray(botList) && botList.length > 0) {
+                setBots(botList.map((b: any) => ({
+                    id: b.id || b.name,
                     name: b.name,
                     role: b.role,
-                    emoji: b.avatar_emoji || '🤖',
+                    emoji: b.avatar_emoji || b.avatar || '🤖',
                     status: b.status || 'idle',
                     currentTask: b.current_task || '대기 중',
                     learningsCount: b.canonical_memory?.episodic_learnings?.length || 0
                 })));
             }
         } catch {
-            // Fallback gracefully without breaking UI
+            // Keep default bots on backend startup or network retry
         }
 
         try {

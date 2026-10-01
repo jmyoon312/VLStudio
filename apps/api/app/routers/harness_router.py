@@ -107,7 +107,25 @@ async def patch_scene_delta(req: DeltaPatchReq):
 @router.get("/bot-crew/roster")
 def get_bot_roster():
     """8대 봇 크루 목록 및 상태 반환"""
-    return {"success": True, "roster": BOT_ROSTER}
+    enriched_bots = []
+    for idx, b in enumerate(BOT_ROSTER):
+        bot_id = b.get("name", "").lower().replace("-", "_")
+        enriched_bots.append({
+            "id": bot_id,
+            "name": b.get("name"),
+            "role": b.get("role"),
+            "avatar_emoji": b.get("avatar", "🤖"),
+            "avatar": b.get("avatar", "🤖"),
+            "model": b.get("model"),
+            "status": "idle",
+            "current_task": "대기 중",
+            "canonical_memory": {
+                "episodic_learnings": [
+                    {"rule": "3초 이탈 방지 훅 우선", "confidence": 0.9}
+                ]
+            }
+        })
+    return {"success": True, "roster": enriched_bots, "bots": enriched_bots}
 
 @router.get("/bot-crew/history")
 def get_bot_dialogue_history(limit: int = 50):
