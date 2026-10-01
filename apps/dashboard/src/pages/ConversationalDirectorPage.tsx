@@ -879,6 +879,22 @@ export const ConversationalDirectorPage: React.FC = () => {
     };
 
     useEffect(() => {
+        const handleToggleLive = () => {
+            toggleGeminiLive();
+        };
+        window.addEventListener('TOGGLE_GEMINI_LIVE', handleToggleLive);
+        return () => window.removeEventListener('TOGGLE_GEMINI_LIVE', handleToggleLive);
+    }, [toggleGeminiLive]);
+
+    useEffect(() => {
+        if (location.search.includes('live=1') || window.location.hash.includes('live=1')) {
+            if (!isGeminiLiveActive && !isConnectingLive) {
+                toggleGeminiLive();
+            }
+        }
+    }, [location]);
+
+    useEffect(() => {
         return () => {
             if (liveServiceRef.current) {
                 liveServiceRef.current.disconnect();
@@ -1849,15 +1865,40 @@ export const ConversationalDirectorPage: React.FC = () => {
 
             {/* Center Chat & Studio Canvas */}
             <main className="flex-1 flex flex-col h-full min-w-0 bg-background overflow-hidden relative">
+                {/* 🎙️ Gemini 3.8 Live Active Floating Call HUD */}
+                {isGeminiLiveActive && (
+                    <div className="absolute top-16 left-1/2 -translate-x-1/2 z-40 px-5 py-2.5 rounded-full bg-slate-900/95 dark:bg-card/95 border border-emerald-500/60 shadow-2xl backdrop-blur-md flex items-center gap-3 animate-in slide-in-from-top-4 duration-300">
+                        <div className="relative">
+                            <LoopieIcon className="w-8 h-8" isTalking={isTalking} isLive={true} isSmall={true} />
+                            <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
+                        </div>
+                        <div className="flex flex-col text-left">
+                            <div className="flex items-center gap-1.5">
+                                <span className="text-xs font-black text-emerald-400">Gemini 3.8 Live 실시간 음성 통화 중</span>
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                            </div>
+                            <span className="text-[11px] text-muted-foreground">루피가 듣고 있습니다. 음성으로 기획·대본·연출을 지시하세요.</span>
+                        </div>
+                        <button
+                            onClick={toggleGeminiLive}
+                            className="ml-2 px-3 py-1 text-xs font-bold rounded-full bg-rose-500/20 hover:bg-rose-500 text-rose-300 hover:text-white border border-rose-500/40 transition-all flex items-center gap-1 shadow-xs cursor-pointer"
+                        >
+                            <MicOff className="w-3.5 h-3.5" />
+                            <span>종료</span>
+                        </button>
+                    </div>
+                )}
+
                 <DirectorHeader
                     title="루피 AI 디렉터"
                     leadingElement={
                         <div className="flex items-center mr-1">
                             <LoopieIcon 
-                                className="w-8 h-8" 
+                                className="w-8 h-8 cursor-pointer hover:scale-110 active:scale-95 transition-transform" 
                                 isTalking={isTalking} 
                                 isLive={isGeminiLiveActive} 
                                 isSmall={false} 
+                                onClick={toggleGeminiLive}
                             />
                         </div>
                     }
@@ -1928,7 +1969,38 @@ export const ConversationalDirectorPage: React.FC = () => {
                         setPrompt(text);
                         textareaRef.current?.focus();
                     }}
-                    avatarElement={() => <LoopieIcon className="w-16 h-16" isTalking={isTalking} isLive={isGeminiLiveActive} isSmall={false} />}
+                    avatarElement={() => (
+                        <div className="relative group flex flex-col items-center">
+                            <LoopieIcon 
+                                className="w-24 h-24 sm:w-28 sm:h-28 cursor-pointer hover:scale-110 active:scale-95 transition-transform drop-shadow-[0_12px_24px_rgba(56,189,248,0.35)]" 
+                                isTalking={isTalking} 
+                                isLive={isGeminiLiveActive} 
+                                isSmall={false} 
+                                onClick={toggleGeminiLive}
+                            />
+                            <button
+                                onClick={toggleGeminiLive}
+                                className={cn(
+                                    "mt-3 px-4 py-1.5 rounded-full text-xs font-bold transition-all shadow-md flex items-center gap-2 cursor-pointer",
+                                    isGeminiLiveActive 
+                                        ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 animate-pulse" 
+                                        : "bg-gradient-to-r from-cyan-500/15 to-blue-500/15 hover:from-cyan-500/25 hover:to-blue-500/25 text-primary border border-primary/30 hover:border-primary/60 hover:scale-105 active:scale-95"
+                                )}
+                            >
+                                {isGeminiLiveActive ? (
+                                    <>
+                                        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                                        <span>Gemini 3.8 Live 통화 중 (클릭 시 종료)</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <span className="text-base">🎙️</span>
+                                        <span>루피 클릭 시 Gemini 3.8 Live 실시간 음성 대화 시작</span>
+                                    </>
+                                )}
+                            </button>
+                        </div>
+                    )}
                     emptyStateTitle="루피 AI 디렉터"
                     emptyStateSubtitle="4대 쇼츠(클래식, 인스타, 군림보, 썰형) 제작 총괄 연출뿐 아니라, 채널 성장 로드맵과 Gemini 3.8 Live 실시간 음성까지 무엇이든 명령해 주세요."
                 />

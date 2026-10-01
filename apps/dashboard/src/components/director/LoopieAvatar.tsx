@@ -8,6 +8,7 @@ export interface LoopieIconProps {
     isLive?: boolean;
     /** '3d' uses the transparent 3D render without any background box; 'vector' uses the procedural 3D SVG */
     variant?: '3d' | 'vector';
+    onClick?: (e: React.MouseEvent) => void;
 }
 
 export const LoopieIcon: React.FC<LoopieIconProps> = ({ 
@@ -15,7 +16,8 @@ export const LoopieIcon: React.FC<LoopieIconProps> = ({
     isTalking, 
     isSmall, 
     isLive,
-    variant = '3d'
+    variant = '3d',
+    onClick
 }) => {
     const hasExplicitSize = className && (/\b[wh]-\d+|\b[wh]-\[/.test(className));
     const sizeClasses = hasExplicitSize ? "" : (isSmall ? "w-8 h-8" : "w-12 h-12");
@@ -24,8 +26,20 @@ export const LoopieIcon: React.FC<LoopieIconProps> = ({
 
     const use3DImage = variant === '3d' && !imgError;
 
+    const handleClick = (e: React.MouseEvent) => {
+        if (onClick) {
+            onClick(e);
+        } else {
+            window.dispatchEvent(new CustomEvent('OPEN_LOOPIE_SPOTLIGHT'));
+        }
+    };
+
     return (
-        <div className={cn("relative inline-flex items-center justify-center shrink-0 overflow-visible select-none group cursor-pointer", sizeClasses, className)}>
+        <div 
+            onClick={handleClick}
+            className={cn("relative inline-flex items-center justify-center shrink-0 overflow-visible select-none group cursor-pointer", sizeClasses, className)}
+            title="루피 AI 디렉터 (클릭 시 라이브 음성 대화)"
+        >
             <style>
             {`
                 /* 🌊 1. Dynamic Organic Jelly Breathing & Floating Motion for Loopie Body (박스 없이 루피 본체만 유기적으로 움직임) */
@@ -284,21 +298,36 @@ export const LoopieIcon: React.FC<LoopieIconProps> = ({
  */
 export interface LoopieNavIconProps {
     className?: string;
+    onClick?: (e: React.MouseEvent) => void;
 }
 
-export const LoopieNavIcon: React.FC<LoopieNavIconProps> = ({ className }) => (
-    <div className={cn("relative w-5 h-5 flex items-center justify-center shrink-0 group select-none overflow-visible", className)}>
-        <img 
-            src="/assets/loopie_avatar.png?v=3" 
-            alt="Loopie" 
-            className="w-full h-full object-contain filter drop-shadow-xs transition-transform duration-200 group-hover:scale-125"
-            onError={(e) => {
-                e.currentTarget.style.display = 'none';
-            }}
-        />
-        {/* Fallback stylized badge if image fails */}
-        <div className="absolute inset-0 bg-gradient-to-tr from-blue-600 via-indigo-600 to-cyan-400 rounded-full flex items-center justify-center -z-10 hidden">
-            <span className="text-[10px] font-black text-white">L</span>
+export const LoopieNavIcon: React.FC<LoopieNavIconProps> = ({ className, onClick }) => {
+    const handleClick = (e: React.MouseEvent) => {
+        if (onClick) {
+            onClick(e);
+        } else {
+            window.dispatchEvent(new CustomEvent('OPEN_LOOPIE_SPOTLIGHT'));
+        }
+    };
+
+    return (
+        <div 
+            onClick={handleClick}
+            className={cn("relative w-5 h-5 flex items-center justify-center shrink-0 group select-none overflow-visible cursor-pointer", className)}
+            title="루피 AI 디렉터 (클릭 시 라이브 음성 대화)"
+        >
+            <img 
+                src="/assets/loopie_avatar.png?v=3" 
+                alt="Loopie" 
+                className="w-full h-full object-contain filter drop-shadow-xs transition-transform duration-200 group-hover:scale-125"
+                onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                }}
+            />
+            {/* Fallback stylized badge if image fails */}
+            <div className="absolute inset-0 bg-gradient-to-tr from-blue-600 via-indigo-600 to-cyan-400 rounded-full flex items-center justify-center -z-10 hidden">
+                <span className="text-[10px] font-black text-white">L</span>
+            </div>
         </div>
-    </div>
-);
+    );
+};
