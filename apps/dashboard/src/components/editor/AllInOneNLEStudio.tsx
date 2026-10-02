@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { EditorStateManager } from "./core/EditorStateManager";
 import { HotkeyProvider } from "./core/HotkeyProvider";
 import { StudioErrorBoundary } from "./core/StudioErrorBoundary";
@@ -9,8 +9,10 @@ import { MultiTrackTimeline } from "./timeline/MultiTrackTimeline";
 import { TransformInspectorPanel } from "./inspector/TransformInspectorPanel";
 import { TextInspectorPanel } from "./inspector/TextInspectorPanel";
 import { ShapeInspectorPanel } from "./inspector/ShapeInspectorPanel";
+import { CommentCardInspector } from "./inspector/CommentCardInspector";
+import { LayerQuickSwitcher } from "./inspector/LayerQuickSwitcher";
+import { PixelingMasterInspector } from "./inspector/PixelingMasterInspector";
 import { AudioDuckingInspector } from "./inspector/AudioDuckingInspector";
-import { CanvasGlobalInspector } from "./inspector/CanvasGlobalInspector";
 import { formatTimecode } from "./timeline/TimelineRuler";
 import { VLStandardBlueprintV4, LayerObject } from "../../types/blueprintV4";
 
@@ -36,6 +38,7 @@ const EditorInnerLayout: React.FC<{
     updateLayerStyle,
     setBlueprint,
     currentTimeMs,
+    setCurrentTimeMs,
     isPlaying,
     setIsPlaying,
   } = useBlueprint();
@@ -45,6 +48,15 @@ const EditorInnerLayout: React.FC<{
   const [timelineHeight, setTimelineHeight] = useState<number>(360);
   const [isDraggingTimeline, setIsDraggingTimeline] = useState<boolean>(false);
   const [nleInspectorTab, setNleInspectorTab] = useState<"audio" | "layers">("layers");
+  const [isSixSecLoop, setIsSixSecLoop] = useState<boolean>(false);
+
+  // 6초 무한 루프 모드 (0.0초 ~ 6.0초 자동 리셋)
+  useEffect(() => {
+    if (!isSixSecLoop || !isPlaying) return;
+    if (currentTimeMs >= 6000) {
+      setCurrentTimeMs(0);
+    }
+  }, [isSixSecLoop, isPlaying, currentTimeMs, setCurrentTimeMs]);
 
   // 타임라인 높이 마우스 드래그 조절 (220px ~ 650px)
   const handleTimelineResizeStart = (e: React.MouseEvent) => {
@@ -92,71 +104,48 @@ const EditorInnerLayout: React.FC<{
           </StudioErrorBoundary>
         </div>
 
-        {/* 우측 인스펙터 패널 (선택 레이어 속성 / 글로벌 오디오 덕킹) */}
-        <div className="w-84 h-full bg-card border-l border-border overflow-y-auto p-3 pb-12 space-y-4 shrink-0 select-none custom-scrollbar">
+        {/* 우측 인스펙터 패널 (픽셀링 1:1 완벽 대응 마스터 인스펙터) */}
+        <div className="w-84 h-full bg-card border-l border-border p-3 shrink-0 select-none">
           <StudioErrorBoundary sectionName="Inspector">
-            {/* 스튜디오 모드 토글 (디자인 모드 vs 타임라인 모드) */}
-            <div className="flex items-center justify-between p-1 bg-muted/60 rounded-xl border border-border text-xs">
-              <button
-                onClick={() => {
-                  setStudioMode("design");
-                  setIsTimelineCollapsed(true);
+            {studioMode === "design" ? (
+              <PixelingMasterInspector
+                studioMode={studioMode}
+                onStudioModeChange={(m) => {
+                  setStudioMode(m);
+                  if (m === "nle") {
+                    setIsTimelineCollapsed(false);
+                    setTimelineHeight(360);
+                  } else {
+                    setIsTimelineCollapsed(true);
+                  }
                 }}
-                className={`flex-1 py-1 rounded-lg font-semibold transition-all cursor-pointer ${
-                  studioMode === "design"
-                    ? "bg-background text-primary shadow-xs font-bold"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                🎨 디자인 모드
-              </button>
-              <button
-                onClick={() => {
-                  setStudioMode("nle");
-                  setIsTimelineCollapsed(false);
-                  setTimelineHeight(360);
-                }}
-                className={`flex-1 py-1 rounded-lg font-semibold transition-all cursor-pointer ${
-                  studioMode === "nle"
-                    ? "bg-background text-primary shadow-xs font-bold"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                🎛️ NLE 편집 모드
-              </button>
-            </div>
-
-            {/* 선택된 레이어가 있을 때: 레이어 변형 & 텍스트 패널 */}
-            {selectedLayer ? (
-              <div className="space-y-4">
-                <TransformInspectorPanel
-                  transform={selectedLayer.transform}
-                  onChange={(newT) => updateLayerTransform(selectedLayer.id, newT)}
-                  canvasWidth={blueprint.canvas.width}
-                  canvasHeight={blueprint.canvas.height}
-                />
-
-                {selectedLayer.kind === "text" && (
-                  <TextInspectorPanel
-                    layer={selectedLayer as any}
-                    onChange={(patch) => updateLayerStyle(selectedLayer.id, patch as any)}
-                  />
-                )}
-
-                {selectedLayer.kind === "shape" && (
-                  <ShapeInspectorPanel
-                    layer={selectedLayer as any}
-                    onChange={(patch) => updateLayerStyle(selectedLayer.id, patch as any)}
-                  />
-                )}
-              </div>
-            ) : studioMode === "design" ? (
-              /* 디자인 모드 레이어 미선택: 캔버스 글로벌 설정 및 레이어 트리 */
-              <CanvasGlobalInspector />
+              />
             ) : (
-              /* NLE 모드 레이어 미선택: 레이어 목록 및 오디오 덕킹 탭 */
-              <div className="space-y-3">
-                <div className="flex items-center p-0.5 bg-muted/60 rounded-lg border border-border text-xs">
+              /* NLE 편집 모드 */
+              <div className="flex flex-col h-full space-y-3">
+                <div className="flex items-center justify-between p-1 bg-muted/60 rounded-xl border border-border text-xs mb-1 shrink-0">
+                  <button
+                    onClick={() => {
+                      setStudioMode("design");
+                      setIsTimelineCollapsed(true);
+                    }}
+                    className="flex-1 py-1 rounded-lg font-semibold transition-all cursor-pointer text-muted-foreground hover:text-foreground"
+                  >
+                    🎨 디자인 모드
+                  </button>
+                  <button
+                    onClick={() => {
+                      setStudioMode("nle");
+                      setIsTimelineCollapsed(false);
+                      setTimelineHeight(360);
+                    }}
+                    className="flex-1 py-1 rounded-lg font-semibold transition-all cursor-pointer bg-background text-primary shadow-xs font-bold"
+                  >
+                    🎛️ NLE 편집 모드
+                  </button>
+                </div>
+
+                <div className="flex items-center p-0.5 bg-muted/60 rounded-lg border border-border text-xs shrink-0">
                   <button
                     onClick={() => setNleInspectorTab("layers")}
                     className={`flex-1 py-1 rounded-md font-semibold transition-all cursor-pointer ${
@@ -165,7 +154,7 @@ const EditorInnerLayout: React.FC<{
                         : "text-muted-foreground hover:text-foreground"
                     }`}
                   >
-                    📋 레이어 목록
+                    📋 레이어 속성
                   </button>
                   <button
                     onClick={() => setNleInspectorTab("audio")}
@@ -180,16 +169,12 @@ const EditorInnerLayout: React.FC<{
                 </div>
 
                 {nleInspectorTab === "layers" ? (
-                  <CanvasGlobalInspector />
+                  <PixelingMasterInspector
+                    studioMode={studioMode}
+                    onStudioModeChange={setStudioMode}
+                  />
                 ) : (
-                  <div className="space-y-4">
-                    <div className="p-3 bg-muted/40 rounded-xl border border-border text-xs text-muted-foreground space-y-2">
-                      <div className="font-semibold text-foreground">ℹ️ 레이어 미선택</div>
-                      <p className="text-[11px] leading-relaxed text-muted-foreground">
-                        캔버스에서 텍스트나 쉐이프를 클릭하면 피그마급 8방향 기즈모와 상세 인스펙터가 활성화됩니다.
-                      </p>
-                    </div>
-
+                  <div className="flex-1 overflow-y-auto space-y-4 custom-scrollbar pb-12">
                     <AudioDuckingInspector
                       audioDSP={blueprint.audioDSP}
                       onChange={(patch) =>
@@ -241,15 +226,25 @@ const EditorInnerLayout: React.FC<{
                 </button>
                 <div className="w-px h-4 bg-border" />
                 <button
-                  onClick={() => setIsPlaying(!isPlaying)}
-                  className="p-1 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-                  title={isPlaying ? "일시정지 (Space)" : "재생 (Space)"}
+                  type="button"
+                  onClick={() => {
+                    const next = !isSixSecLoop;
+                    setIsSixSecLoop(next);
+                    if (next) {
+                      if (currentTimeMs >= 6000) setCurrentTimeMs(0);
+                      setIsPlaying(true);
+                    }
+                  }}
+                  className={`flex items-center space-x-1 px-2 py-1 rounded-md text-[11px] font-semibold border transition-all cursor-pointer ${
+                    isSixSecLoop
+                      ? "bg-amber-500/20 text-amber-500 border-amber-500/40 shadow-xs"
+                      : "bg-muted/60 text-muted-foreground border-border hover:text-foreground"
+                  }`}
+                  title="0초~6초 무한 루프 미리보기 토글"
                 >
-                  {isPlaying ? "⏸" : "▶"}
+                  <span>🔁</span>
+                  <span>6초 루프 {isSixSecLoop ? "ON" : "OFF"}</span>
                 </button>
-                <span className="font-mono text-muted-foreground text-[11px]">
-                  {formatTimecode(currentTimeMs)} / {formatTimecode(totalDurationMs)}
-                </span>
               </div>
               <div className="flex items-center space-x-2 text-muted-foreground">
                 <span className="text-[11px] bg-muted px-2 py-0.5 rounded border border-border">

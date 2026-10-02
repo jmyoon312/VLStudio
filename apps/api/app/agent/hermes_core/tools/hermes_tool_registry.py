@@ -552,6 +552,40 @@ HERMES_OPENAI_TOOLS: List[Dict[str, Any]] = [
                 "required": ["image_path", "prompt"]
             }
         }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "montage_diagnose_and_mine_source",
+            "description": "[OpenMontage 500+ 스킬] 유튜브/소스 영상의 최고 공감 댓글(반론/후일담/호기심)을 고속 마이닝하고, 5대 심층 포렌식 진단을 거쳐 최소 개입 수준(Level 0~3)과 플러스 알파 전략을 자율 수립합니다.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "source_url": {"type": "string", "description": "유튜브 영상 URL 또는 미디어 스트림 주소"},
+                    "source_media_path": {"type": "string", "description": "로컬 원본 비디오 파일 절대경로"},
+                    "archetype": {"type": "string", "enum": ["classic", "ssul", "instagram", "gunlimbo"], "default": "classic"},
+                    "raw_script": {"type": "string", "description": "입력 기사 또는 커뮤니티 대본 텍스트"}
+                }
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "montage_assemble_full_production",
+            "description": "[OpenMontage 500+ 자율 팩토리] 선택된 프리셋의 채널 DNA와 소스 영상/글을 바탕으로 진단, 댓글 마이닝, 플러스 알파 시나리오 합성, 2트랙 미디어 래더 소싱을 거쳐 NLE 작업실(AllInOneNLEStudio)에서 즉시 실시간 렌더링 가능한 단일 표준 청사진(VLStandardBlueprint v4.0)을 일괄 조립합니다.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "topic": {"type": "string", "description": "영상 주제 또는 스토리 핵심"},
+                    "source_url": {"type": "string", "description": "유튜브 또는 영상 링크"},
+                    "source_media_path": {"type": "string", "description": "로컬 비디오 파일 경로"},
+                    "archetype": {"type": "string", "enum": ["classic", "ssul", "instagram", "gunlimbo"], "default": "classic"},
+                    "aspect_ratio": {"type": "string", "enum": ["9:16", "16:9", "1:1"], "default": "9:16"}
+                },
+                "required": ["topic"]
+            }
+        }
     }
 ]
 
@@ -560,6 +594,8 @@ HERMES_OPENAI_TOOLS: List[Dict[str, Any]] = [
 TOOL_DOMAINS: Dict[str, List[str]] = {
     "PLAN_SCRIPT": [
         "montage_create_production_plan",
+        "montage_diagnose_and_mine_source",
+        "montage_assemble_full_production",
         "gemini_tts_optimize_guide",
         "synthesize_voice_speech",
         "web_search_and_trends",
@@ -1390,6 +1426,35 @@ class HermesToolDispatcher:
                 "engine": res.get("engine"),
                 "fallback": res.get("fallback", False),
                 "message": f"Kling O3 시네마틱 비디오 생성이 완료되었습니다! (엔진: {res.get('engine')})" if res.get("success") else f"Kling 비디오 생성 실패: {res.get('error')}"
+            }
+
+        # 26. OpenMontage Source Diagnosis & Comment Mining (Level 0~3)
+        elif tool_name == "montage_diagnose_and_mine_source":
+            from app.services.montage_agent_bridge import montage_agent_bridge
+            res = await montage_agent_bridge.tool_vl_diagnose_and_mine_source(arguments)
+            return {
+                "success": res.get("success", False),
+                "tool_name": tool_name,
+                "diagnosis": res.get("diagnosis"),
+                "prescription": res.get("prescription"),
+                "interventionLevel": res.get("interventionLevel", 1),
+                "strategySummary": res.get("strategySummary", ""),
+                "plusAlphaStrategy": res.get("plusAlphaStrategy"),
+                "message": f"[OpenMontage] 심층 진단 완료 (개입 수준: Level {res.get('interventionLevel')}) - {res.get('strategySummary')}"
+            }
+
+        # 27. OpenMontage Turnkey Autonomous Production Blueprint Assembly
+        elif tool_name == "montage_assemble_full_production":
+            from app.services.montage_agent_bridge import montage_agent_bridge
+            res = await montage_agent_bridge.tool_vl_assemble_full_production(arguments)
+            return {
+                "success": res.get("success", False),
+                "tool_name": tool_name,
+                "blueprint": res.get("blueprint"),
+                "diagnosis": res.get("diagnosis"),
+                "interventionLevel": res.get("interventionLevel", 1),
+                "criticAudit": res.get("criticAudit"),
+                "message": res.get("message", "지능형 청사진 조립이 완료되었습니다.")
             }
 
         # Check Live Hot-Plug Tool Mesh (Hermes v0.21.5 Connectors)

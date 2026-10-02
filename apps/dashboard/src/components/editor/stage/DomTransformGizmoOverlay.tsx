@@ -78,9 +78,10 @@ export const DomTransformGizmoOverlay: React.FC<DomTransformGizmoOverlayProps> =
 
   const t = selectedLayer.transform;
 
-  // 1080x1920 캔버스 좌표계 ➔ 캔버스 컨테이너 내 픽셀 좌표
+  // 1080x1920 캔버스 좌표계 ➔ 캔버스 컨테이너 내 픽셀 좌표 (세로 위치 오프셋 일치)
+  const vOffset = (selectedLayer as any).verticalPosition || 0;
   const posX = (t.x - t.width / 2) * canvasScale;
-  const posY = (t.y - t.height / 2) * canvasScale;
+  const posY = (t.y - t.height / 2 + vOffset) * canvasScale;
   const posW = t.width * canvasScale;
   const posH = t.height * canvasScale;
 

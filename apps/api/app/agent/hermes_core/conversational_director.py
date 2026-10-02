@@ -490,6 +490,16 @@ class ConversationalDirector:
                 "title": "⚖️ 아스트라 ⊕ 제미나이 크로스 체킹",
                 "detail": "두 AI의 지능과 물리 계측을 교차 비교하여 하이브리드 프리셋을 합성하고 있습니다...",
                 "is_auto": False
+            },
+            "montage_diagnose_and_mine_source": {
+                "title": "🔬 소스 영상 포렌식 진단 & 시청자 댓글 마이닝",
+                "detail": "최고 공감 댓글의 반론/후일담을 분석하고 영상의 결을 진단하여 맞춤형 플러스 알파 전략을 수립하고 있습니다...",
+                "is_auto": False
+            },
+            "montage_assemble_full_production": {
+                "title": "🎬 자율 팩토리 지능형 청사진(v4.0) 일괄 조립",
+                "detail": "채널 DNA, 플러스 알파 서사, 2트랙 미디어 래더를 종합하여 작업실 NLE 타임라인으로 송출하고 있습니다...",
+                "is_auto": False
             }
         }
         return mapping.get(fn_name, {

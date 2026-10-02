@@ -50,6 +50,35 @@ export const BaseLayerSchema = z.object({
   opacity: z.number().min(0).max(1).default(1.0),
 });
 
+// 개별 줄(1·2·3) 스타일 스펙
+export const LineStyleSpecSchema = z.object({
+  fontSize: z.number().positive().optional(),
+  fontColor: z.string().optional(),
+  fontWeight: z.string().optional(),
+});
+export type LineStyleSpec = z.infer<typeof LineStyleSpecSchema>;
+
+// 댓글 카드 전용 스타일 스펙
+export const CommentCardStyleSchema = z.object({
+  presetId: z.string().default("default-dark"),
+  theme: z.enum(["dark", "light", "custom"]).default("dark"),
+  cardWidth: z.number().default(600),
+  paddingY: z.number().default(24),
+  borderRadius: z.number().default(16),
+  opacity: z.number().min(0).max(100).default(100),
+  backgroundColor: z.string().default("#1e1e1e"),
+  textColor: z.string().default("#ffffff"),
+  accentColor: z.string().default("#ef4444"),
+  showShadow: z.boolean().default(false),
+  showBorder: z.boolean().default(false),
+  borderColor: z.string().default("#00000000"),
+  transparentExport: z.boolean().default(false),
+  showAuthorBadge: z.boolean().default(true),
+  authorBlur: z.boolean().default(false),
+  avatarInitial: z.boolean().default(false),
+});
+export type CommentCardStyle = z.infer<typeof CommentCardStyleSchema>;
+
 // 텍스트 레이어
 export const TextLayerSchema = BaseLayerSchema.extend({
   kind: z.literal("text"),
@@ -68,6 +97,8 @@ export const TextLayerSchema = BaseLayerSchema.extend({
   padding: z.tuple([z.number(), z.number(), z.number(), z.number()]).default([0, 0, 0, 0]),
   emojiSlot: EmotionEmojiSlotSchema.optional(),
   accumulateMode: z.boolean().default(false).describe("썰형 자막 순차 누적 모드"),
+  multiLineStyles: z.array(LineStyleSpecSchema).default([]).describe("줄별(1~3줄) 차등 크기 및 색상"),
+  verticalPosition: z.number().default(0).describe("세로 위치 오프셋"),
 });
 
 // 미디어 레이어
@@ -94,6 +125,11 @@ export const ShapeLayerSchema = BaseLayerSchema.extend({
   borderRadius: z.number().default(0),
   borderColor: z.string().optional(),
   borderWidth: z.number().default(0),
+  commentCardStyle: CommentCardStyleSchema.optional().describe("댓글형 카드 세부 스타일"),
+  gradientEffect: z.object({
+    enabled: z.boolean().default(false),
+    stops: z.array(z.string()).default(["#00000000", "#000000B3"]),
+  }).optional().describe("군림보형/인스타형 그라데이션"),
 });
 
 export const LayerObjectSchema = z.discriminatedUnion("kind", [

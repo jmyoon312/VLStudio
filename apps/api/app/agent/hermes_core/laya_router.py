@@ -241,6 +241,10 @@ class HermesLayaRouter:
 6. **내레이션 스타일 가이드**: '선언(강)'과 '연결(약)' 의도적 교차, 절대 금지 5대 어미(~고요, ~겁니다, ~까요, ~네요, ~는요) 원천 배제.
 7. **[V6.0 FPS-Free 다이내믹 멀티-컷 편집 프로토콜]**: 2.5초 초과 시 1문장 2컷 의무화(나노 분절 a/b), 절대 시간 타임코드(MM:SS.ms).
 8. **2-Tone 키워드 대본 규칙**: 핵심 감정/충격 단어는 [대괄호]로 표기.
+9. **[OpenMontage 500+ 자율 팩토리 & 플러스 알파 전략 지침]**:
+   - 영상 URL/파일 첨부 시: 원본 영상을 베이스 앵커로 보존하며, `montage_diagnose_and_mine_source`로 시청자 최고 공감 댓글의 반론/후일담/호기심을 마이닝하고 최소 개입 수준(Level 0~3)을 자율 판단할 것.
+   - 글/기사/키워드만 입력 시: 2트랙 미디어 래더(실물 뉴스/미디어 ➔ 4K 무료 스톡 Pexels/Wikimedia/Archive ➔ Gemini Web Imagen 3/Google Flow AI) 순차 소싱을 적용할 것.
+   - 전체 청사진 일괄 조립 시: `montage_assemble_full_production`을 호출하여 작업실(AllInOneNLEStudio) 멀티트랙 NLE 타임라인으로 단일 표준 청사진(VLStandardBlueprint v4.0)을 즉시 송출할 것.
 
 {auto_skills}{preset_str}{search_str}{mem_str}"""
             return f"{base}\n\n{ext}", True

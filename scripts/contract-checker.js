@@ -437,6 +437,62 @@ if (fs.existsSync(directorPy)) {
     }
 }
 
+// 16. [Gemini 3.8 Live & Flash TTS Immutability Law (Rule 8)]
+console.log('🎙️ [Contract-Checker] Validating Gemini 3.8 Live & Flash TTS Immutability Law (Rule 8)...');
+const liveRouterPy = path.join(rootDir, 'apps', 'api', 'app', 'routers', 'gemini_live_router.py');
+if (fs.existsSync(liveRouterPy)) {
+    const liveContent = fs.readFileSync(liveRouterPy, 'utf-8');
+    if (!liveContent.includes('google_account_pool') || !liveContent.includes('/live-session') || !liveContent.includes('gemini-3.8-live')) {
+        console.error('❌ [Contract-Checker] VIOLATION (Rule 8-1): gemini_live_router.py missing live WebSocket or google_account_pool binding!');
+        hasErrors = true;
+    }
+    if (liveContent.includes('import edge_tts') || liveContent.includes('edge_tts.')) {
+        console.error('❌ [Contract-Checker] VIOLATION (Zero Edge TTS Law): edge_tts detected in gemini_live_router.py!');
+        hasErrors = true;
+    }
+    if (liveContent.includes('GEMINI_API_KEY =') || liveContent.includes('GOOGLE_API_KEY =')) {
+        console.error('❌ [Contract-Checker] VIOLATION (Rule 8-3): Hardcoded paid API keys detected in gemini_live_router.py! Must use sovereign account pool.');
+        hasErrors = true;
+    }
+}
+
+const charTtsPy = path.join(rootDir, 'apps', 'api', 'app', 'services', 'character_voice_tts.py');
+if (fs.existsSync(charTtsPy)) {
+    const charContent = fs.readFileSync(charTtsPy, 'utf-8');
+    const requiredVoices = ['Puck', 'Charon', 'Kore', 'Fenrir', 'Aoede'];
+    for (const v of requiredVoices) {
+        if (!charContent.includes(v)) {
+            console.error(`❌ [Contract-Checker] VIOLATION (Rule 8-2): character_voice_tts.py missing essential Gemini 3.8 voice '${v}'!`);
+            hasErrors = true;
+        }
+    }
+    const requiredProfiles = ['grandfather', 'grandmother', 'middle_man', 'middle_woman', 'young_woman', 'young_man', 'child_girl', 'child_boy', 'toddler', 'villain', 'narrator'];
+    for (const p of requiredProfiles) {
+        if (!charContent.includes(`"${p}":`)) {
+            console.error(`❌ [Contract-Checker] VIOLATION (Rule 8-2): character_voice_tts.py missing essential character profile '${p}'!`);
+            hasErrors = true;
+        }
+    }
+    if (charContent.includes('import edge_tts') || charContent.includes('edge_tts.')) {
+        console.error('❌ [Contract-Checker] VIOLATION (Zero Edge TTS Law): edge_tts detected in character_voice_tts.py!');
+        hasErrors = true;
+    }
+}
+
+const ttsEnginePy = path.join(rootDir, 'apps', 'api', 'app', 'tts_engine.py');
+if (fs.existsSync(ttsEnginePy)) {
+    const ttsContent = fs.readFileSync(ttsEnginePy, 'utf-8');
+    if (!ttsContent.includes('_generate_google_sovereign') || !ttsContent.includes('_generate_gemini')) {
+        console.error('❌ [Contract-Checker] VIOLATION (Rule 8-3): tts_engine.py missing _generate_google_sovereign or _generate_gemini pipeline!');
+        hasErrors = true;
+    }
+    if (ttsContent.includes('import edge_tts') || ttsContent.includes('edge_tts.')) {
+        console.error('❌ [Contract-Checker] VIOLATION (Zero Edge TTS Law): edge_tts detected in tts_engine.py!');
+        hasErrors = true;
+    }
+}
+
+
 if (hasErrors) {
     console.error('❌ [Contract-Checker] Integrity check FAILED.');
     process.exit(1);

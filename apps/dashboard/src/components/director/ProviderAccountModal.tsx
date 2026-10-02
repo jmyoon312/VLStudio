@@ -97,7 +97,7 @@ export const ProviderAccountModal: React.FC<ProviderAccountModalProps> = ({
     const [searchQuery, setSearchQuery] = useState('');
 
     // Gemini 3-Tier Mode: 'tier1_antigravity' | 'tier2_aistudio' | 'tier3_web'
-    const [geminiTier, setGeminiTier] = useState<'tier1_antigravity' | 'tier2_aistudio' | 'tier3_web'>('tier1_antigravity');
+    const [geminiTier, setGeminiTier] = useState<'tier1_antigravity' | 'tier3_web'>('tier1_antigravity');
     const [apiKeysList, setApiKeysList] = useState<ApiKeyItem[]>([]);
 
     // Gemini Tier 3 Web Session States
@@ -1115,13 +1115,12 @@ export const ProviderAccountModal: React.FC<ProviderAccountModalProps> = ({
                         </div>
                     )}
 
-                    {/* 3-Tier Multi-Quota Selector for Google Gemini */}
+                    {/* 2-Tier Multi-Quota Selector for Google Gemini */}
                     {activeProviderKey === 'gemini' && (
                         <div className="flex items-center gap-1.5 p-1 bg-muted/40 rounded-xl mt-2 border border-border/60">
                             {[
-                                { key: 'tier1_antigravity', label: '🌐 1순위: Google 웹 로그인 (통합 연동 - 권장)', desc: 'Antigravity + Web 원클릭 통합' },
-                                { key: 'tier2_aistudio', label: '🔑 2순위: AI Studio (다중 키 풀)', desc: '429 자동 우회' },
-                                { key: 'tier3_web', label: '⚙️ 3순위: 세션 관리 & 고급 도구', desc: '쿠키 수동 등록 및 Keyring' },
+                                { key: 'tier1_antigravity', label: '⚡ 1순위: Google Antigravity 2.0 (초고속 스트리밍)', desc: '네이티브 세션 100% 무인' },
+                                { key: 'tier3_web', label: '🌐 2순위: 세션 관리 & 고급 도구', desc: '쿠키 및 Keyring 관리' },
                             ].map((tier) => (
                                 <button
                                     key={tier.key}
@@ -1143,8 +1142,6 @@ export const ProviderAccountModal: React.FC<ProviderAccountModalProps> = ({
                         {activeProviderKey === 'gemini'
                             ? geminiTier === 'tier1_antigravity'
                                 ? 'Google 공식 웹 브라우저 인증을 통해 Antigravity 2.0 고속 모델과 웹 쿠키 세션을 계정별 독립 프로필로 동시에 연동합니다. 429 한도 도달 시 등록된 계정으로 자동 로테이션됩니다.'
-                                : geminiTier === 'tier2_aistudio'
-                                ? 'Google AI Studio 공식 API 키 다중 풀입니다. 수십 개의 키를 등록하여 HTTP 429 한도 도달 시 다음 키로 무중단 자동 백업 전환됩니다.'
                                 : 'Windows Keyring 동기화, __Secure-1PSID 쿠키 직접 입력, 세션 스냅샷 관리 등 파워유저용 고급 설정 도구입니다.'
                             : activeProviderKey === 'omniroute'
                             ? '로컬 포트 20128 스마트 콤보 라우터입니다. 외부 API 요금 없이 무제한으로 비전 및 고품질 생성을 지원합니다.'
@@ -1614,23 +1611,7 @@ export const ProviderAccountModal: React.FC<ProviderAccountModalProps> = ({
                                                             웹 쿠키 연동
                                                         </Button>
                                                     )}
-                                                    {(acc as any).has_api_key ? (
-                                                        <Badge variant="outline" className="text-[10px] text-sky-600 dark:text-sky-400 border-sky-500/30 bg-sky-500/10 font-bold" title={`AI Studio 키: ${(acc as any).api_key_masked}`}>
-                                                            🔑 AI Studio 연동됨
-                                                        </Badge>
-                                                    ) : (
-                                                        <Button
-                                                            size="sm"
-                                                            variant="ghost"
-                                                            onClick={() => handleOpenAiStudioWindow(acc.email)}
-                                                            disabled={issuingKeyForEmail === acc.email}
-                                                            className="h-5.5 px-1.5 text-[10px] text-muted-foreground hover:text-sky-600 hover:bg-sky-500/10 cursor-pointer gap-0.5"
-                                                            title="Google AI Studio에서 API 키 발급"
-                                                        >
-                                                            <Key className="w-3 h-3 text-sky-500" />
-                                                            AI Studio 키 발급
-                                                        </Button>
-                                                    )}
+
                                                     {acc.has_keyring ? (
                                                         <div className="flex items-center gap-1">
                                                             <Badge variant="outline" className="text-[10px] text-indigo-600 dark:text-indigo-400 border-indigo-500/30 bg-indigo-500/10 font-bold" title="독립 Antigravity OAuth 세션 완비">
@@ -1663,21 +1644,21 @@ export const ProviderAccountModal: React.FC<ProviderAccountModalProps> = ({
                                                 </div>
                                             </div>
 
-                                            {/* 3대 독립 엔진별 쿼터 및 연동 상태 (Antigravity / AI Studio / Gemini Web) */}
+                                            {/* 2대 독립 주권 엔진별 쿼터 및 연동 상태 (Antigravity 2.0 / Gemini 공식 웹 세션) */}
                                             {activeProviderKey === 'gemini' ? (
                                                 <div className="mt-2.5 pt-2.5 border-t border-border/50 space-y-2">
                                                     <div className="flex items-center justify-between">
                                                         <span className="text-[11px] font-bold text-foreground flex items-center gap-1.5">
                                                             <Layers className="w-3.5 h-3.5 text-primary" />
-                                                            3대 독립 엔진별 잔여 한도 & 가용 상태
+                                                            2대 독립 주권 엔진별 잔여 한도 & 가용 상태
                                                         </span>
                                                         <span className="text-[10px] text-muted-foreground">
                                                             한도 소진 시 다중 계정 무중단 자동 전환
                                                         </span>
                                                     </div>
 
-                                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                                                        {/* 1. Antigravity 2.0 (CLI / OAuth Keyring) */}
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                                        {/* 1. Antigravity 2.0 (OAuth Keyring & 세션) */}
                                                         <div className="p-2 rounded-lg bg-muted/30 border border-border/60 space-y-1.5">
                                                             <div className="flex items-center justify-between">
                                                                 <span className="text-[10.5px] font-bold text-foreground flex items-center gap-1">
@@ -1715,46 +1696,7 @@ export const ProviderAccountModal: React.FC<ProviderAccountModalProps> = ({
                                                             </div>
                                                         </div>
 
-                                                        {/* 2. Google AI Studio (공식 직접 REST API) */}
-                                                        <div className="p-2 rounded-lg bg-muted/30 border border-border/60 space-y-1.5">
-                                                            <div className="flex items-center justify-between">
-                                                                <span className="text-[10.5px] font-bold text-foreground flex items-center gap-1">
-                                                                    🔑 Google AI Studio
-                                                                </span>
-                                                                {(acc as any).has_api_key ? (
-                                                                    <Badge variant="outline" className="text-[9px] px-1.5 py-0 border-sky-500/30 text-sky-600 dark:text-sky-400 bg-sky-500/10 font-bold">
-                                                                        키 연동 완료
-                                                                    </Badge>
-                                                                ) : (
-                                                                    <Badge variant="outline" className="text-[9px] px-1.5 py-0 border-amber-500/30 text-amber-600 dark:text-amber-400 bg-amber-500/10">
-                                                                        키 미등록
-                                                                    </Badge>
-                                                                )}
-                                                            </div>
-                                                            <div className="space-y-1 text-[10px]">
-                                                                <div className="flex justify-between items-center">
-                                                                    <span className="text-muted-foreground">일일 무료 한도</span>
-                                                                    <span className="font-bold text-sky-600 dark:text-sky-400">
-                                                                        {(acc as any).has_api_key ? '1,500 RPD' : '미연동'}
-                                                                    </span>
-                                                                </div>
-                                                                <p className="text-[9.5px] text-muted-foreground truncate" title={(acc as any).api_key_masked || '키 발급 시 1,500회 무료'}>
-                                                                    {(acc as any).has_api_key ? `키: ${(acc as any).api_key_masked}` : 'AI Studio 키 발급 시 1,500회 무료'}
-                                                                </p>
-                                                                {!(acc as any).has_api_key && (
-                                                                    <Button
-                                                                        size="sm"
-                                                                        variant="ghost"
-                                                                        onClick={() => handleOpenAiStudioWindow(acc.email)}
-                                                                        className="w-full h-5 text-[9.5px] p-0 text-sky-600 dark:text-sky-400 hover:text-sky-500 cursor-pointer font-medium"
-                                                                    >
-                                                                        + 원클릭 무료 키 발급
-                                                                    </Button>
-                                                                )}
-                                                            </div>
-                                                        </div>
-
-                                                        {/* 3. Gemini 공식 웹 세션 (Browser Web Cookies) */}
+                                                        {/* 2. Gemini 공식 웹 세션 (Browser Web Cookies) */}
                                                         <div className="p-2 rounded-lg bg-muted/30 border border-border/60 space-y-1.5">
                                                             <div className="flex items-center justify-between">
                                                                 <span className="text-[10.5px] font-bold text-foreground flex items-center gap-1">
@@ -1852,244 +1794,6 @@ export const ProviderAccountModal: React.FC<ProviderAccountModalProps> = ({
                 )}
 
                 {/* ========================================================================= */}
-                {/* 🔑 GEMINI TIER 2: AI Studio Multi-Key Pool                               */}
-                {/* ========================================================================= */}
-                {activeProviderKey === 'gemini' && geminiTier === 'tier2_aistudio' && (
-                    <div className="flex flex-col flex-1 min-h-0 mt-2 space-y-2.5">
-                        <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-400 flex items-center justify-between text-xs font-medium">
-                            <div className="flex items-center gap-2">
-                                <Key className="w-4 h-4 shrink-0 text-amber-500" />
-                                <span><strong>다중 API Key 자동 우회 풀:</strong> 429 한도 도달 시 다음 등록된 API Key로 자동 전환</span>
-                            </div>
-                            <Badge variant="outline" className="text-[10px] bg-amber-500/10 border-amber-500/30 font-bold shrink-0">
-                                총 {apiKeysList.length}개 키
-                            </Badge>
-                        </div>
-
-                        {/* 1. Account-Linked 1:1 AI Studio Key Issuance (Recommended & Secure) */}
-                        <div className="p-3 rounded-xl border border-sky-500/30 bg-sky-500/5 space-y-2.5">
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                    <div className="w-7 h-7 rounded-lg bg-sky-500/20 text-sky-600 dark:text-sky-400 flex items-center justify-center font-bold text-xs">
-                                        🔑
-                                    </div>
-                                    <div>
-                                        <h4 className="text-xs font-bold text-foreground">Google 계정별 1:1 AI Studio 키 발급 (권장 · 보안 준수)</h4>
-                                        <p className="text-[11px] text-muted-foreground">로그인된 구글 세션으로 공식 AI Studio를 열어 API 키를 안전하게 발급받고 1:1 매핑합니다.</p>
-                                    </div>
-                                </div>
-                                <Button
-                                    size="sm"
-                                    onClick={() => handleOpenAiStudioWindow()}
-                                    disabled={issuingKeyForEmail !== null}
-                                    className="h-7 text-xs px-2.5 bg-sky-600 hover:bg-sky-700 text-white font-semibold cursor-pointer gap-1"
-                                >
-                                    <Plus className="w-3.5 h-3.5" />
-                                    새 구글 계정으로 키 발급
-                                </Button>
-                            </div>
-
-                            {/* Registered Accounts 1:1 Key Mapping List */}
-                            <div className="space-y-1.5 pt-1">
-                                {providerData.accounts.length === 0 ? (
-                                    <div className="p-3 text-center rounded-lg border border-dashed border-border bg-background/50 text-xs text-muted-foreground">
-                                        연동된 Google 계정이 없습니다. 먼저 <strong>1순위: Google 웹 로그인</strong>에서 계정을 연결해 주세요.
-                                    </div>
-                                ) : (
-                                    providerData.accounts.map((acc: any) => {
-                                        const isLinked = Boolean(acc.has_api_key);
-                                        const isIssuing = issuingKeyForEmail === acc.email;
-
-                                        return (
-                                            <div
-                                                key={acc.id}
-                                                className="p-2.5 rounded-lg border border-border/70 bg-background/90 flex items-center justify-between gap-2 text-xs"
-                                            >
-                                                <div className="flex items-center gap-2 min-w-0">
-                                                    <div className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-[10px] shrink-0">
-                                                        {acc.email.slice(0, 1).toUpperCase()}
-                                                    </div>
-                                                    <div className="flex flex-col min-w-0">
-                                                        <div className="flex items-center gap-1.5">
-                                                            <span className="font-semibold text-foreground truncate">{acc.email}</span>
-                                                            {acc.is_active && (
-                                                                <Badge className="bg-emerald-500 text-white text-[9px] px-1 py-0 font-bold shrink-0">활성</Badge>
-                                                            )}
-                                                        </div>
-                                                        <div className="text-[10px] mt-0.5">
-                                                            {isLinked ? (
-                                                                <span className="text-emerald-600 dark:text-emerald-400 font-mono font-medium flex items-center gap-1">
-                                                                    <Check className="w-3 h-3 stroke-[3]" /> 연동 키: {acc.api_key_masked || '등록됨'}
-                                                                </span>
-                                                            ) : (
-                                                                <span className="text-muted-foreground">API 키 미연동 (한도 확장을 위해 키 발급 권장)</span>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                </div>
-
-                                                <div className="flex items-center gap-1.5 shrink-0">
-                                                    <Button
-                                                        size="sm"
-                                                        variant={isLinked ? "outline" : "default"}
-                                                        onClick={() => handleOpenAiStudioWindow(acc.email)}
-                                                        disabled={isIssuing}
-                                                        className={`h-7 px-2.5 text-xs font-semibold cursor-pointer gap-1 ${
-                                                            isLinked
-                                                                ? 'text-muted-foreground hover:text-foreground border-border'
-                                                                : 'bg-primary text-primary-foreground hover:bg-primary/90'
-                                                        }`}
-                                                    >
-                                                        {isIssuing ? (
-                                                            <>
-                                                                <RefreshCw className="w-3 h-3 animate-spin" />
-                                                                발급 대기 중...
-                                                            </>
-                                                        ) : isLinked ? (
-                                                            <>
-                                                                <RefreshCw className="w-3 h-3" />
-                                                                키 갱신/재발급
-                                                            </>
-                                                        ) : (
-                                                            <>
-                                                                <Zap className="w-3 h-3" />
-                                                                AI Studio 키 발급
-                                                            </>
-                                                        )}
-                                                    </Button>
-                                                </div>
-                                            </div>
-                                        );
-                                    })
-                                )}
-                            </div>
-
-                            {/* Cloud Console Fallback Guidance Note */}
-                            <div className="p-2 rounded-lg bg-background/60 border border-sky-500/20 text-[11px] text-muted-foreground leading-relaxed flex items-start gap-1.5">
-                                <span className="text-sky-500 font-bold shrink-0">💡</span>
-                                <div>
-                                    <strong className="text-foreground">Google Cloud 콘솔 우회 발급 안내:</strong> AI Studio에서 계정 상태에 따라 프로젝트 생성을 요구하거나 키 발급이 차단될 경우, 열린 발급 창 하단의 <span className="text-sky-600 dark:text-sky-400 font-semibold">[☁️ Cloud 콘솔로 전환]</span> 버튼을 누르면 구글 클라우드 콘솔(credentials) 화면으로 바로 이동하여 API 키를 발급받으실 수 있습니다. 생성된 키는 동일하게 자동 감지 및 연동됩니다.
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Bulk Keys Drawer & Action Bar */}
-                        <div className="flex items-center justify-between gap-2 pt-1">
-                            <div className="flex items-center gap-2">
-                                <span className="text-xs font-bold text-foreground">전체 등록된 API Key 라운드로빈 풀</span>
-                                <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={handleValidateAllKeys}
-                                    disabled={validatingKeys || apiKeysList.length === 0}
-                                    className="h-7 text-[11px] gap-1 cursor-pointer"
-                                >
-                                    <RefreshCw className={`w-3 h-3 ${validatingKeys ? 'animate-spin' : ''}`} />
-                                    {validatingKeys ? '구글 서버 검증 중...' : '전체 키 실시간 검증'}
-                                </Button>
-                            </div>
-                            <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => setShowBulkApiKeys(!showBulkApiKeys)}
-                                className="h-7 text-xs gap-1 cursor-pointer"
-                            >
-                                <Plus className="w-3.5 h-3.5" />
-                                {showBulkApiKeys ? '텍스트 입력 닫기' : '수동 텍스트 일괄 등록'}
-                            </Button>
-                        </div>
-
-                        {showBulkApiKeys && (
-                            <div className="p-3 rounded-xl border border-primary/40 bg-muted/30 space-y-2">
-                                <div className="flex items-center justify-between">
-                                    <span className="text-xs font-bold text-foreground">Gemini API 키 수동 일괄 추가</span>
-                                    <span className="text-[10px] text-muted-foreground">한 줄에 하나씩 붙여넣기 (AIzaSy...)</span>
-                                </div>
-                                <textarea
-                                    rows={4}
-                                    placeholder={"AIzaSyB1234567890abcdefghijklmnopqr\nAIzaSyC9876543210zyxwvutsrqponmlkj\nAIzaSyD..."}
-                                    value={bulkKeysText}
-                                    onChange={(e) => setBulkKeysText(e.target.value)}
-                                    className="w-full text-xs font-mono p-2 rounded-lg bg-background text-foreground border border-border focus:outline-hidden resize-none"
-                                />
-                                <div className="flex justify-end">
-                                    <Button size="sm" onClick={handleBulkAddApiKeys} className="h-7 text-xs px-3 cursor-pointer">
-                                        API 키 풀에 저장
-                                    </Button>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* API Keys List */}
-                        <div className="space-y-1.5 flex-1 overflow-y-auto max-h-[46vh] pr-1 scrollbar-thin">
-                            {apiKeysList.length === 0 ? (
-                                <div className="py-8 text-center border border-dashed border-border rounded-xl">
-                                    <p className="text-xs text-muted-foreground">등록된 API 키가 없습니다.</p>
-                                    <p className="text-[11px] text-muted-foreground/70 mt-0.5">상단 [API 키 일괄 등록] 버튼을 눌러 Google AI Studio 키를 추가해 주세요.</p>
-                                </div>
-                            ) : (
-                                apiKeysList.map((k, idx) => (
-                                    <div
-                                        key={k.id || idx}
-                                        className="p-2.5 rounded-xl border border-border/70 bg-card flex items-center justify-between gap-2 hover:border-border/90"
-                                    >
-                                        <div className="flex items-center gap-2 min-w-0">
-                                            <Key className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                                            <div className="flex flex-col min-w-0">
-                                                <div className="flex items-center gap-1.5">
-                                                    <span className="text-xs font-mono font-semibold text-foreground truncate">
-                                                        {k.masked || (k.key ? k.key.slice(0, 8) + '...' + k.key.slice(-4) : 'API Key')}
-                                                    </span>
-                                                    {k.status === 'healthy' ? (
-                                                        <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-[10px] px-1.5 py-0.2 shrink-0">
-                                                            🟢 가용 (구글 검증 완료)
-                                                        </Badge>
-                                                    ) : k.status === 'invalid' ? (
-                                                        <Badge className="bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 text-[10px] px-1.5 py-0.2 shrink-0">
-                                                            ❌ 인증 실패 (무효 키)
-                                                        </Badge>
-                                                    ) : (
-                                                        <Badge className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 text-[10px] px-1.5 py-0.2 shrink-0">
-                                                            ⏳ 429 쿨다운
-                                                        </Badge>
-                                                    )}
-                                                </div>
-                                                {k.validation_message && (
-                                                    <span className="text-[10px] text-muted-foreground truncate">
-                                                        {k.validation_message}
-                                                    </span>
-                                                )}
-                                            </div>
-                                        </div>
-
-                                        <div className="flex items-center gap-1 shrink-0">
-                                            <Button
-                                                size="sm"
-                                                variant="outline"
-                                                onClick={() => handleValidateSingleKey(k.key)}
-                                                className="h-6.5 px-2 text-[10px] text-muted-foreground hover:text-foreground cursor-pointer"
-                                                title="구글 서버 즉시 테스트"
-                                            >
-                                                단일 테스트
-                                            </Button>
-                                            <Button
-                                                size="sm"
-                                                variant="ghost"
-                                                onClick={() => handleDeleteApiKey(k.id || k.key)}
-                                                className="h-6.5 w-6.5 p-0 text-muted-foreground hover:text-destructive cursor-pointer"
-                                                title="API 키 삭제"
-                                            >
-                                                <Trash2 className="w-3 h-3" />
-                                            </Button>
-                                        </div>
-                                    </div>
-                                ))
-                            )}
-                        </div>
-                    </div>
-                )}
-
-                {/* ========================================================================= */}
                 {/* ⚙️ GEMINI TIER 3: Antigravity CLI & Advanced Tools                       */}
                 {/* ========================================================================= */}
                 {activeProviderKey === 'gemini' && geminiTier === 'tier3_web' && (
@@ -2174,11 +1878,10 @@ export const ProviderAccountModal: React.FC<ProviderAccountModalProps> = ({
 
                         {/* 4. Comparison Guide */}
                         <div className="p-3 rounded-xl border border-border/60 bg-card text-xs text-muted-foreground space-y-2">
-                            <p className="font-semibold text-foreground">💡 3대 로그인 방식 핵심 차이 안내:</p>
+                            <p className="font-semibold text-foreground">💡 2대 독립 주권 로그인 및 엔진 안내:</p>
                             <div className="space-y-1 text-[11px] leading-relaxed">
-                                <p>• <strong className="text-foreground">🌐 Tier 1: Google 웹 로그인 (통합 연동):</strong> 브라우저 로그인 1회로 Antigravity 2.0 고속 모델과 웹 쿠키 세션을 계정별 독립 프로필에 동시에 연결하는 가장 간편한 방식입니다.</p>
-                                <p>• <strong className="text-foreground">🔑 Tier 2: Google AI Studio (다중 API 키 풀):</strong> 10개, 30개, 50개 등 대량 계정 등록에 가장 적합한 방식입니다. 무료 발급받은 API 키들을 일괄 등록하여 HTTP 429 한도 도달 시 무중단 자동 백업 전환됩니다.</p>
-                                <p>• <strong className="text-foreground">⚙️ Tier 3: Antigravity CLI 및 고급 설정:</strong> Windows Keyring 연동, JSON 스냅샷 수동 백업 등 개발자 및 파워유저용 관리 도구입니다.</p>
+                                <p>• <strong className="text-foreground">⚡ 1순위: Google Antigravity 2.0 (초고속 스트리밍):</strong> Google Antigravity IDE 2.0 세션 기반 0.1~0.3초대 초저지연 네이티브 스트리밍, 대화형 디렉터, 10대 도구 실행을 100% 무인 자동 로테이션으로 처리합니다.</p>
+                                <p>• <strong className="text-foreground">🌐 2순위: Gemini 공식 웹 세션 (비용 0원 멀티모달):</strong> Imagen 3 비주얼 생성, 음성 TTS, 실시간 최신 트렌드 웹 그라운딩을 API 비용 0원의 주권 웹 세션으로 전담 운영합니다.</p>
                             </div>
                         </div>
                     </div>

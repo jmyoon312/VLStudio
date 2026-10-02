@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AllInOneNLEStudio } from '@/components/editor/AllInOneNLEStudio';
-import { createDefaultBlueprintV4 } from '@/lib/blueprintV4Migrator';
+import { createDefaultBlueprintV4, migrateToBlueprintV4 } from '@/lib/blueprintV4Migrator';
 import { Archetype, VLStandardBlueprintV4 } from '@/types/blueprintV4';
 
 // 🎨 캡컷 10대 인기 시네마틱 필터 & 영화 노이즈 FX 정의 (하위 호환성 보장)

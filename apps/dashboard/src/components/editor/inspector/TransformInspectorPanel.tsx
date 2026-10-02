@@ -99,19 +99,27 @@ export const TransformInspectorPanel: React.FC<TransformInspectorPanelProps> = (
         </button>
       </div>
 
-      {/* X, Y 좌표 스크럽 인풋 */}
+      {/* X, Y 좌표 스크럽 인풋 (1080x1920 캔버스 정밀 바운드) */}
       <div className="grid grid-cols-2 gap-2">
         <ScrubInput
           label="X"
           value={transform.x}
           onChange={(val) => onChange({ ...transform, x: val })}
+          min={-200}
+          max={1280}
+          step={1}
           unit="px"
+          defaultValue={540}
         />
         <ScrubInput
           label="Y"
           value={transform.y}
           onChange={(val) => onChange({ ...transform, y: val })}
+          min={-200}
+          max={2120}
+          step={1}
           unit="px"
+          defaultValue={960}
         />
       </div>
 
@@ -121,15 +129,21 @@ export const TransformInspectorPanel: React.FC<TransformInspectorPanelProps> = (
           label="폭"
           value={transform.width}
           onChange={(val) => onChange({ ...transform, width: val })}
-          min={20}
+          min={10}
+          max={2500}
+          step={1}
           unit="px"
+          defaultValue={1080}
         />
         <ScrubInput
           label="높이"
           value={transform.height}
           onChange={(val) => onChange({ ...transform, height: val })}
-          min={20}
+          min={10}
+          max={2500}
+          step={1}
           unit="px"
+          defaultValue={240}
         />
       </div>
 

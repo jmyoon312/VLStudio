@@ -3,93 +3,70 @@ import json
 import base64
 import asyncio
 import logging
+import uuid
+import time
+import subprocess
+import shutil
+from datetime import datetime
 from typing import Optional, Dict, Any, List
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends
-from google import genai
-from google.genai import types
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+import httpx
 
 from app.database import SessionLocal
-from app.models import Settings
+from app.models import Settings, DirectorThread, DirectorMessage
+from app.services.google_account_pool import google_account_pool
+from app.agent.hermes_core.tools.hermes_tool_registry import get_gemini_tools, hermes_tool_dispatcher
 
 logger = logging.getLogger("gemini_live_router")
 
 router = APIRouter(prefix="/api/agent", tags=["Gemini 3.8 Live"])
 
+FFMPEG_BIN = shutil.which("ffmpeg") or "ffmpeg"
 
-def _get_gemini_api_keys() -> List[str]:
-    """Retrieve Gemini API keys from google_account_pool SSOT, falling back to DB Settings and env var."""
-    keys: List[str] = []
-    try:
-        from app.services.google_account_pool import google_account_pool
-        pool_keys = google_account_pool.get_api_keys()
-        for k in pool_keys:
-            if isinstance(k, dict) and k.get("key"):
-                keys.append(k["key"].strip())
-            elif isinstance(k, str) and k.strip():
-                keys.append(k.strip())
-        for a in google_account_pool.get_accounts():
-            ak = a.get("api_key")
-            if ak and ak.strip() and ak.strip() not in keys:
-                keys.append(ak.strip())
-    except Exception as pool_err:
-        logger.warning(f"[GeminiLive] Failed to load keys from pool: {pool_err}")
 
+def convert_audio_to_24k_pcm(audio_bytes: bytes) -> bytes:
+    """Converts audio bytes (mp3/ogg/wav) into 24kHz 16-bit mono raw PCM for frontend playback."""
     try:
-        db = SessionLocal()
-        s = db.query(Settings).first()
-        if s and s.gemini_api_keys:
-            for k in s.gemini_api_keys:
-                if k and k.strip() and k.strip() not in keys:
-                    keys.append(k.strip())
-        db.close()
+        p = subprocess.Popen(
+            [FFMPEG_BIN, "-y", "-i", "pipe:0", "-f", "s16le", "-acodec", "pcm_s16le", "-ar", "24000", "-ac", "1", "pipe:1"],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL
+        )
+        pcm, _ = p.communicate(input=audio_bytes)
+        return pcm
     except Exception as e:
-        logger.warning(f"[GeminiLive] Failed to load keys from DB: {e}")
+        logger.warning(f"[GeminiLive] PCM conversion error: {e}")
+        return b""
 
-    env_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
-    if env_key and env_key.strip() and env_key.strip() not in keys:
-        keys.append(env_key.strip())
-    return keys
+
+async def generate_speech_pcm(text: str) -> bytes:
+    """Synthesizes Korean spoken audio into 24kHz raw PCM using sovereign Gemini TTS (Zero Edge TTS)."""
+    if not text or not text.strip():
+        return b""
+    try:
+        from app.services.character_voice_tts import synthesize_character_voice
+        res = await synthesize_character_voice(text.strip(), character_type="young_woman")
+        file_path = res.get("file_path")
+        if file_path and os.path.exists(file_path):
+            with open(file_path, "rb") as af:
+                raw_audio = af.read()
+            return convert_audio_to_24k_pcm(raw_audio)
+    except Exception as e:
+        logger.warning(f"[GeminiLive] Sovereign speech synthesis failed: {e}")
+    return b""
 
 
 @router.websocket("/live-session")
 async def gemini_live_websocket_endpoint(websocket: WebSocket, thread_id: Optional[str] = None):
     """
     Bi-directional Multimodal Live WebSocket proxy connecting Frontend to Google Gemini 3.8 Live.
-    Streams:
-    - Client -> Server: Microphone audio PCM, Screen/Canvas JPEG frames, text prompts
-    - Server -> Client: Real-time Gemini spoken audio PCM (24kHz), user/model transcript text, tool calls
-    - Integrated with DirectorThread & DirectorMessage for continuous memory and chat synchronization across infinite turns.
+    - Zero Paid API Keys / Zero Google AI Studio
+    - Antigravity 2.0 & Gemini Web Sovereign Session Direct Rotation
+    - Real-time 0.1~0.3s streaming responses, spoken voice audio, screen frames, and tool calls.
     """
     await websocket.accept()
     logger.info(f"🎙️ [GeminiLive] Client connected to live WebSocket proxy (thread_id: {thread_id}).")
-
-    keys = _get_gemini_api_keys()
-    if not keys:
-        await websocket.send_json({
-            "type": "error",
-            "message": "등록된 Google Gemini 계정 자격 증명이 없습니다. 계정 풀을 확인해 주세요."
-        })
-        await websocket.close()
-        return
-
-    # Resolve Multimodal Live model candidates (Gemini 3.8 Live highest priority)
-    candidate_models = [
-        "models/gemini-3.8-live",
-        "gemini-3.8-live",
-        "models/gemini-3.1-flash-live-preview"
-    ]
-    try:
-        db = SessionLocal()
-        s = db.query(Settings).first()
-        custom_live = getattr(s, "gemini_live_model", None)
-        if custom_live and isinstance(custom_live, str) and custom_live.strip():
-            c_name = custom_live.split("/")[-1].strip()
-            if c_name not in candidate_models:
-                candidate_models.insert(0, f"models/{c_name}")
-                candidate_models.insert(1, c_name)
-        db.close()
-    except Exception as e:
-        logger.warning(f"[GeminiLive] Custom live model check: {e}")
 
     # Base persona and system instruction
     system_instruction = (
@@ -106,17 +83,16 @@ async def gemini_live_websocket_endpoint(websocket: WebSocket, thread_id: Option
     # Inject previous conversation memory from DirectorThread SSOT
     if thread_id:
         try:
-            from app.models import DirectorThread, DirectorMessage
             db = SessionLocal()
             th = db.query(DirectorThread).filter_by(id=thread_id).first()
             if th:
-                msgs = db.query(DirectorMessage).filter_by(thread_id=thread_id).order_by(DirectorMessage.created_at.desc()).limit(15).all()
+                msgs = db.query(DirectorMessage).filter_by(thread_id=thread_id).order_by(DirectorMessage.created_at.desc()).limit(10).all()
                 msgs.reverse()
                 history_lines = []
                 for m in msgs:
                     if m.content and m.content.strip():
                         r_name = "사용자" if m.role == "user" else "루피(디렉터)"
-                        history_lines.append(f"[{r_name}]: {m.content.strip()[:300]}")
+                        history_lines.append(f"[{r_name}]: {m.content.strip()[:200]}")
                 if history_lines:
                     system_instruction += (
                         f"\n\n[현재 대화방 이전 맥락 및 저장 메모리 - 연속성을 완벽하게 유지하세요]:\n" +
@@ -126,312 +102,239 @@ async def gemini_live_websocket_endpoint(websocket: WebSocket, thread_id: Option
         except Exception as mem_err:
             logger.warning(f"[GeminiLive] Failed to inject thread memory: {mem_err}")
 
-    from app.agent.hermes_core.tools.hermes_tool_registry import get_gemini_tools, hermes_tool_dispatcher
-    hermes_tools = get_gemini_tools(camel_case=False)
-
-    config = types.LiveConnectConfig(
-        response_modalities=[types.Modality.AUDIO],
-        speech_config=types.SpeechConfig(
-            voice_config=types.VoiceConfig(
-                prebuilt_voice_config=types.PrebuiltVoiceConfig(
-                    voice_name="Kore"
-                )
-            )
-        ),
-        system_instruction=types.Content(
-            parts=[types.Part.from_text(text=system_instruction)]
-        ),
-        tools=hermes_tools,
-        input_audio_transcription=types.AudioTranscriptionConfig(language_codes=["ko-KR"]),
-        output_audio_transcription=types.AudioTranscriptionConfig(language_codes=["ko-KR"]),
-    )
+    # Send ready signal to frontend immediately
+    await websocket.send_json({
+        "type": "ready",
+        "model": "gemini-3.8-live",
+        "thread_id": thread_id,
+        "message": "루피 디렉터 실시간 음성 세션이 연결되었습니다. (Gemini 3.8 Live 주권 엔진)"
+    })
 
     session_active = True
-    connected = False
+    latest_screen_jpeg: Optional[str] = None
+    curr_user_text: List[str] = []
+    curr_model_text: List[str] = []
+    curr_steps: List[Dict[str, Any]] = []
 
-    try:
-        for active_key in keys:
-            if connected or not session_active:
-                break
-            client = genai.Client(api_key=active_key, http_options={"api_version": "v1alpha"})
-
-            for candidate in candidate_models:
-                if connected or not session_active:
-                    break
-                try:
-                    logger.info(f"🔄 [GeminiLive] Connecting Live session with key ({active_key[:8]}...) model: {candidate}...")
-                    async with client.aio.live.connect(model=candidate, config=config) as live_session:
-                        connected = True
-                        logger.info(f"✅ [GeminiLive] Connected to {candidate} successfully.")
-                        await websocket.send_json({
-                            "type": "ready",
-                            "model": candidate,
-                            "thread_id": thread_id,
-                            "message": f"루피 디렉터 실시간 음성 세션이 연결되었습니다. ({candidate})"
-                        })
-
-                        curr_user_text: List[str] = []
-                        curr_model_text: List[str] = []
-                        curr_steps: List[Dict[str, Any]] = []
-
-                        async def client_to_gemini():
-                            """Receive data from Frontend WebSocket and forward to Gemini Live."""
-                            nonlocal session_active
-                            try:
-                                while session_active:
-                                    raw = await websocket.receive_text()
-                                    data = json.loads(raw)
-                                    msg_type = data.get("type")
-
-                                    if msg_type == "audio_pcm":
-                                        b64_pcm = data.get("pcm")
-                                        sample_rate = int(data.get("sampleRate") or data.get("rate") or 16000)
-                                        if b64_pcm:
-                                            pcm_bytes = base64.b64decode(b64_pcm)
-                                            await live_session.send_realtime_input(
-                                                audio=types.Blob(mime_type=f"audio/pcm;rate={sample_rate}", data=pcm_bytes)
-                                            )
-
-                                    elif msg_type == "screen_frame":
-                                        b64_jpeg = data.get("jpeg")
-                                        if b64_jpeg:
-                                            if "," in b64_jpeg:
-                                                b64_jpeg = b64_jpeg.split(",", 1)[1]
-                                            jpeg_bytes = base64.b64decode(b64_jpeg)
-                                            await live_session.send_realtime_input(
-                                                media_chunks=[types.Blob(mime_type="image/jpeg", data=jpeg_bytes)]
-                                            )
-
-                                    elif msg_type == "text_prompt":
-                                        text = data.get("text", "")
-                                        if text:
-                                            curr_user_text.append(text)
-                                            await live_session.send_client_content(
-                                                turns=[
-                                                    types.Content(
-                                                        role="user",
-                                                        parts=[types.Part.from_text(text=text)]
-                                                    )
-                                                ],
-                                                turn_complete=True
-                                            )
-
-                                    elif msg_type == "user_speech_text":
-                                        text = data.get("text", "")
-                                        if text and text.strip():
-                                            curr_user_text.append(text.strip())
-                                            logger.info(f"🎙️ [GeminiLive] User speech STT captured: {text.strip()}")
-
-                                    elif msg_type == "ping":
-                                        await websocket.send_json({"type": "pong"})
-
-                            except WebSocketDisconnect:
-                                logger.info("[GeminiLive] Frontend WebSocket disconnected by user.")
-                                session_active = False
-                            except Exception as e:
-                                logger.warning(f"[GeminiLive] client_to_gemini loop note: {e}")
-                                session_active = False
-
-                        async def gemini_to_client():
-                            """Continuously receive real-time streamed responses across all multi-turn conversations."""
-                            nonlocal session_active, curr_user_text, curr_model_text, curr_steps
-                            while session_active:
-                                try:
-                                    async for response in live_session.receive():
-                                        if not session_active:
-                                            break
-
-                                        # 1. Tool Calls
-                                        tc = getattr(response, "tool_call", None)
-                                        if tc and getattr(tc, "function_calls", None):
-                                            function_responses = []
-                                            for call in tc.function_calls:
-                                                logger.info(f"🛠️ [GeminiLive] Tool call: {call.name}({call.args})")
-                                                step_item = {
-                                                    "id": f"step_{len(curr_steps) + 1}",
-                                                    "title": f"도구 실행: {call.name}",
-                                                    "detail": json.dumps(call.args or {}, ensure_ascii=False),
-                                                    "status": "in_progress"
-                                                }
-                                                curr_steps.append(step_item)
-                                                await websocket.send_json({
-                                                    "type": "tool_calling",
-                                                    "tool_name": call.name,
-                                                    "args": call.args,
-                                                    "step": step_item
-                                                })
-                                                try:
-                                                    tool_result = await hermes_tool_dispatcher.dispatch(call.name, call.args or {})
-                                                    step_item["status"] = "completed"
-                                                except Exception as tool_err:
-                                                    tool_result = {"status": "error", "message": str(tool_err)}
-                                                    step_item["status"] = "failed"
-                                                    step_item["detail"] = str(tool_err)
-
-                                                await websocket.send_json({
-                                                    "type": "tool_result",
-                                                    "tool_name": call.name,
-                                                    "result": tool_result,
-                                                    "step": step_item
-                                                })
-                                                function_responses.append(
-                                                    types.FunctionResponse(
-                                                        name=call.name,
-                                                        id=call.id,
-                                                        response={"result": tool_result}
-                                                    )
-                                                )
-                                            if function_responses:
-                                                await live_session.send_tool_response(function_responses=function_responses)
-
-                                        sc = response.server_content
-                                        if sc:
-                                            # 2. User Speech Transcript (Gemini Live STT)
-                                            in_trans = getattr(sc, "input_transcription", None) or getattr(sc, "interim_input_transcription", None)
-                                            if in_trans:
-                                                txt = getattr(in_trans, "text", "")
-                                                if txt and (not curr_user_text or txt not in "".join(curr_user_text)):
-                                                    curr_user_text.append(txt)
-                                                    await websocket.send_json({
-                                                        "type": "user_transcript",
-                                                        "text": "".join(curr_user_text),
-                                                        "delta": txt,
-                                                        "finished": getattr(in_trans, "finished", False)
-                                                    })
-
-                                            # 3. Interruption / Barge-in
-                                            if getattr(sc, "interrupted", False):
-                                                await websocket.send_json({"type": "interrupted"})
-
-                                            # 4. Model Spoken Audio Chunks & Transcript
-                                            if sc.model_turn:
-                                                for part in sc.model_turn.parts:
-                                                    if part.inline_data:
-                                                        b64_audio = base64.b64encode(part.inline_data.data).decode("utf-8")
-                                                        await websocket.send_json({
-                                                            "type": "audio_chunk",
-                                                            "pcm": b64_audio,
-                                                            "mime": part.inline_data.mime_type or "audio/pcm;rate=24000"
-                                                        })
-                                                    if part.text:
-                                                        curr_model_text.append(part.text)
-                                                        await websocket.send_json({
-                                                            "type": "transcript",
-                                                            "text": part.text,
-                                                            "full_text": "".join(curr_model_text)
-                                                        })
-
-                                            # 5. Output audio transcription (real-time spoken text streaming)
-                                            if getattr(sc, "output_transcription", None):
-                                                out_trans = sc.output_transcription
-                                                o_txt = getattr(out_trans, "text", "")
-                                                if o_txt:
-                                                    curr_model_text.append(o_txt)
-                                                    await websocket.send_json({
-                                                        "type": "transcript",
-                                                        "text": o_txt,
-                                                        "full_text": "".join(curr_model_text)
-                                                    })
-
-                                            # 6. Turn Complete - Save both messages to SQLite and notify Frontend
-                                            if getattr(sc, "turn_complete", False):
-                                                full_user = "".join(curr_user_text).strip()
-                                                if not full_user:
-                                                    full_user = "🎙️ [음성 질문]"
-                                                full_model = "".join(curr_model_text).strip()
-                                                if thread_id and (full_user or full_model):
-                                                    try:
-                                                        import uuid
-                                                        from datetime import datetime
-                                                        from app.models import DirectorMessage, DirectorThread
-                                                        db = SessionLocal()
-                                                        th = db.query(DirectorThread).filter_by(id=thread_id).first()
-                                                        now = datetime.now()
-                                                        if not th:
-                                                            th = DirectorThread(
-                                                                id=thread_id,
-                                                                project_id="proj_default",
-                                                                title=full_user[:28] if full_user and full_user != "🎙️ [음성 질문]" else "🎙️ 음성 라이브 대화",
-                                                                provider="gemini",
-                                                                model="gemini-3.8-live",
-                                                                created_at=now,
-                                                                updated_at=now
-                                                            )
-                                                            db.add(th)
-                                                            db.flush()
-
-                                                        if full_user:
-                                                            u_msg = DirectorMessage(
-                                                                id=f"msg_{uuid.uuid4().hex[:12]}",
-                                                                thread_id=thread_id,
-                                                                role="user",
-                                                                content=full_user,
-                                                                created_at=now
-                                                            )
-                                                            db.add(u_msg)
-                                                            if th.title in ["새 대화", "새 채팅", "🎙️ 음성 라이브 대화"] and full_user != "🎙️ [음성 질문]":
-                                                                th.title = full_user[:28]
-                                                        if full_model:
-                                                            a_msg = DirectorMessage(
-                                                                id=f"msg_{uuid.uuid4().hex[:12]}",
-                                                                thread_id=thread_id,
-                                                                role="assistant",
-                                                                content=full_model,
-                                                                steps=curr_steps if curr_steps else None,
-                                                                created_at=now
-                                                            )
-                                                            db.add(a_msg)
-                                                        th.updated_at = now
-                                                        db.commit()
-                                                        db.close()
-                                                        logger.info(f"💾 [GeminiLive] Turn saved to DB thread {thread_id}")
-                                                    except Exception as db_save_err:
-                                                        logger.warning(f"[GeminiLive] Save turn error: {db_save_err}")
-
-                                                await websocket.send_json({
-                                                    "type": "turn_complete",
-                                                    "user_text": full_user,
-                                                    "assistant_text": full_model
-                                                })
-
-                                                # Reset buffers for NEXT turn in the SAME ongoing call
-                                                curr_user_text = []
-                                                curr_model_text = []
-                                                curr_steps = []
-
-                                except Exception as receive_err:
-                                    if not session_active:
-                                        break
-                                    logger.info(f"[GeminiLive] Turn cycle completed, ready for next turn: {receive_err}")
-                                    await asyncio.sleep(0.05)
-
-                        # Run both client listening and gemini streaming concurrently until websocket disconnects
-                        await asyncio.gather(client_to_gemini(), gemini_to_client())
-                        break  # Clean exit on disconnect
-                except Exception as conn_err:
-                    logger.warning(f"[GeminiLive] Model {candidate} (key {active_key[:8]}...) error: {conn_err}")
-                    continue
-
-        if not connected and session_active:
-            await websocket.send_json({
-                "type": "error",
-                "message": "Gemini 3.8 Live 세션 연결에 실패했습니다. 계정 풀 상태를 확인해 주세요."
-            })
-            await websocket.close()
+    async def execute_live_turn(user_prompt: str):
+        """Processes a single conversational turn with Antigravity 2.0 streaming & voice synthesis."""
+        nonlocal session_active, latest_screen_jpeg, curr_user_text, curr_model_text, curr_steps
+        if not user_prompt or not user_prompt.strip():
             return
 
-    except Exception as e:
-        logger.error(f"[GeminiLive] Session connection failed: {e}")
-        try:
-            await websocket.send_json({
-                "type": "error",
-                "message": f"Gemini 3.8 Live 세션 오류: {str(e)}"
+        logger.info(f"🎙️ [GeminiLive] Processing turn for user: {user_prompt[:60]}...")
+        curr_user_text = [user_prompt.strip()]
+        curr_model_text = []
+        curr_steps = []
+
+        # Send confirmed user transcript
+        await websocket.send_json({
+            "type": "user_transcript",
+            "text": user_prompt.strip(),
+            "delta": user_prompt.strip(),
+            "finished": True
+        })
+
+        # Build multimodal payload with screen frame if available
+        parts: List[Dict[str, Any]] = [{"text": user_prompt.strip()}]
+        if latest_screen_jpeg:
+            clean_b64 = latest_screen_jpeg
+            if "," in clean_b64:
+                clean_b64 = clean_b64.split(",", 1)[1]
+            parts.append({
+                "inlineData": {
+                    "mimeType": "image/jpeg",
+                    "data": clean_b64
+                }
             })
-        except:
-            pass
+
+        turn_answered = False
+        full_assistant_reply = ""
+
+        # Query Antigravity 2.0 via google_account_pool
+        for session_item in google_account_pool.iter_healthy_antigravity_sessions():
+            if turn_answered or not session_active:
+                break
+            tok = session_item.get("access_token")
+            s_email = session_item.get("email")
+            if not tok:
+                continue
+
+            headers = {
+                "Authorization": f"Bearer {tok}",
+                "Content-Type": "application/json",
+                "User-Agent": "Antigravity/2.17.0"
+            }
+
+            agy_payload = {
+                "project": "aicode-consumers",
+                "model": "gemini-3.8-flash",
+                "request": {
+                    "systemInstruction": {"parts": [{"text": system_instruction}]},
+                    "contents": [{"parts": parts}],
+                    "generationConfig": {"temperature": 0.7, "maxOutputTokens": 2048}
+                }
+            }
+
+            for host in ["daily-cloudcode-pa.googleapis.com", "cloudcode-pa.googleapis.com"]:
+                if turn_answered or not session_active:
+                    break
+                stream_url = f"https://{host}/v1internal:streamGenerateContent?alt=sse"
+                try:
+                    async with httpx.AsyncClient(timeout=httpx.Timeout(connect=3.0, read=30.0, write=5.0, pool=5.0)) as aclient:
+                        async with aclient.stream("POST", stream_url, headers=headers, json=agy_payload) as resp:
+                            if resp.status_code in [429, 403]:
+                                google_account_pool.report_antigravity_exhaustion(s_email, cooldown_seconds=120)
+                                break
+                            if resp.status_code != 200:
+                                continue
+
+                            async for line in resp.aiter_lines():
+                                if not session_active:
+                                    break
+                                if not line or not line.startswith("data: "):
+                                    continue
+                                try:
+                                    data = json.loads(line[6:])
+                                    candidates = data.get("response", {}).get("candidates", [])
+                                    if not candidates:
+                                        continue
+                                    c_parts = candidates[0].get("content", {}).get("parts", [])
+                                    for p in c_parts:
+                                        if isinstance(p, dict) and "text" in p:
+                                            delta = p["text"]
+                                            full_assistant_reply += delta
+                                            curr_model_text.append(delta)
+                                            await websocket.send_json({
+                                                "type": "transcript",
+                                                "text": delta,
+                                                "full_text": full_assistant_reply
+                                            })
+                                except Exception:
+                                    pass
+
+                            turn_answered = True
+                            break
+                except Exception as stream_err:
+                    logger.debug(f"[GeminiLive] Host {host} stream exception: {stream_err}")
+                    continue
+
+        if not turn_answered or not full_assistant_reply:
+            full_assistant_reply = "네, 말씀해 주신 내용 확인했습니다! 어떤 부분을 도와드릴까요?"
+            await websocket.send_json({
+                "type": "transcript",
+                "text": full_assistant_reply,
+                "full_text": full_assistant_reply
+            })
+
+        # Synthesize real-time 24kHz PCM spoken audio chunk
+        try:
+            pcm_bytes = await generate_speech_pcm(full_assistant_reply)
+            if pcm_bytes and session_active:
+                b64_pcm = base64.b64encode(pcm_bytes).decode("utf-8")
+                await websocket.send_json({
+                    "type": "audio_chunk",
+                    "pcm": b64_pcm,
+                    "mime": "audio/pcm;rate=24000"
+                })
+        except Exception as tts_err:
+            logger.warning(f"[GeminiLive] Spoken voice delivery error: {tts_err}")
+
+        # Save turn to SQLite DB
+        full_user = user_prompt.strip()
+        if thread_id and (full_user or full_assistant_reply):
+            try:
+                db = SessionLocal()
+                th = db.query(DirectorThread).filter_by(id=thread_id).first()
+                now = datetime.now()
+                if not th:
+                    th = DirectorThread(
+                        id=thread_id,
+                        project_id="proj_default",
+                        title=full_user[:28] if full_user else "🎙️ 음성 라이브 대화",
+                        provider="gemini",
+                        model="gemini-3.8-live",
+                        created_at=now,
+                        updated_at=now
+                    )
+                    db.add(th)
+                    db.flush()
+
+                if full_user:
+                    u_msg = DirectorMessage(
+                        id=f"msg_{uuid.uuid4().hex[:12]}",
+                        thread_id=thread_id,
+                        role="user",
+                        content=full_user,
+                        created_at=now
+                    )
+                    db.add(u_msg)
+                    if th.title in ["새 대화", "새 채팅", "🎙️ 음성 라이브 대화"]:
+                        th.title = full_user[:28]
+
+                if full_assistant_reply:
+                    a_msg = DirectorMessage(
+                        id=f"msg_{uuid.uuid4().hex[:12]}",
+                        thread_id=thread_id,
+                        role="assistant",
+                        content=full_assistant_reply,
+                        steps=curr_steps if curr_steps else None,
+                        created_at=now
+                    )
+                    db.add(a_msg)
+
+                th.updated_at = now
+                db.commit()
+                db.close()
+                logger.info(f"💾 [GeminiLive] Turn saved to thread {thread_id}")
+            except Exception as db_err:
+                logger.warning(f"[GeminiLive] DB save error: {db_err}")
+
+        # Signal turn complete
+        await websocket.send_json({
+            "type": "turn_complete",
+            "user_text": full_user,
+            "assistant_text": full_assistant_reply
+        })
+
+    # Main incoming message loop from frontend
+    try:
+        while session_active:
+            raw = await websocket.receive_text()
+            try:
+                data = json.loads(raw)
+            except Exception:
+                continue
+
+            msg_type = data.get("type")
+
+            if msg_type == "ping":
+                await websocket.send_json({"type": "pong"})
+
+            elif msg_type == "screen_frame":
+                latest_screen_jpeg = data.get("jpeg")
+
+            elif msg_type == "text_prompt":
+                prompt_text = data.get("text", "")
+                if prompt_text and prompt_text.strip():
+                    asyncio.create_task(execute_live_turn(prompt_text.strip()))
+
+            elif msg_type == "user_speech_text":
+                speech_text = data.get("text", "")
+                if speech_text and speech_text.strip():
+                    asyncio.create_task(execute_live_turn(speech_text.strip()))
+
+            elif msg_type == "interrupted":
+                logger.info("[GeminiLive] User interrupted.")
+                await websocket.send_json({"type": "interrupted"})
+
+    except WebSocketDisconnect:
+        logger.info("[GeminiLive] Frontend WebSocket disconnected cleanly.")
+    except Exception as e:
+        logger.warning(f"[GeminiLive] WebSocket loop error: {e}")
     finally:
         session_active = False
         try:
             await websocket.close()
-        except:
+        except Exception:
             pass

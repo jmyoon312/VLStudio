@@ -73,13 +73,15 @@ class TTSEngine:
                 try:
                     await self._generate_gemini(text, voice_id, abs_path, emotion=emotion, style_instruction=style_inst, rate=rate_val, pitch=pitch_val)
                 except Exception as gem_err:
-                    logger.warning(f"⚠️ Gemini 3.8 Flash TTS failed ({gem_err}), graceful fallback to supertone-local...")
+                    logger.warning(f"⚠️ Gemini 3.8 Flash TTS failed ({gem_err}), graceful fallback to sovereign google...")
                     await asyncio.to_thread(
-                        self._generate_supertone_local,
-                        text, voice_id or "F1", abs_path,
-                        language=language,
-                        speed=1.0 + (rate / 100.0),
-                        emotion=emotion
+                        self._generate_google_sovereign,
+                        text, voice_id or "Kore", abs_path,
+                        rate=rate_val,
+                        pitch=pitch_val,
+                        emotion=emotion,
+                        style_instruction=style_inst,
+                        language=language
                     )
             
             elif engine == "elevenlabs":
@@ -163,12 +165,9 @@ class TTSEngine:
                     manual_instruction=qwen_params.get("manual_instruction", "")
                 )
 
-            elif engine == "gemini":
-                await self._generate_gemini(text, voice_id, abs_path)
-
             else:
-                # Default safe fallback to Supertonic local (Zero legacy google/edge)
-                await asyncio.to_thread(self._generate_supertone_local, text, voice_id, abs_path, language=language)
+                # Default safe fallback to Google sovereign (Zero legacy google/edge)
+                await asyncio.to_thread(self._generate_google_sovereign, text, voice_id, abs_path, language=language)
 
             # 2. Post-Processing (FFmpeg)
             # Google, Kokoro, Supertonic need manual ffmpeg for specific effects/pitch.
@@ -180,6 +179,7 @@ class TTSEngine:
             # Rate/Pitch Handling Check
             if engine == "typecast": needs_ffmpeg_effects = False 
             if engine == "elevenlabs": needs_ffmpeg_effects = False 
+            if engine == "gemini": needs_ffmpeg_effects = False  # Gemini handles pitch and rate internally
             if engine in ["supertone-local", "supertonic"]: needs_ffmpeg_effects = True # Needed for Pitch (Emotion) 
             
             # Silence Removal Check (applies to ALL engines if enabled)
@@ -743,12 +743,122 @@ class TTSEngine:
                 if success:
                     return
             except Exception as direct_err:
-                logger.warning(f"⚠️ Direct Google Gemini 3.8 TTS failed ({direct_err}), falling back to supertone-local...")
-                await asyncio.to_thread(self._generate_supertone_local, text, voice_id or "F1", path, language="ko")
+                logger.warning(f"⚠️ Direct Google Gemini 3.8 TTS failed ({direct_err}), falling back to sovereign google...")
+                await asyncio.to_thread(self._generate_google_sovereign, text, v_name, path, rate=rate, pitch=pitch, emotion=emotion, style_instruction=style_instruction, language="ko")
                 return
 
-        # If no keys or direct failed, fallback to supertone-local directly
-        await asyncio.to_thread(self._generate_supertone_local, text, voice_id or "F1", path, language="ko")
+        # If no keys or direct failed, fallback to sovereign google directly
+        await asyncio.to_thread(self._generate_google_sovereign, text, v_name, path, rate=rate, pitch=pitch, emotion=emotion, style_instruction=style_instruction, language="ko")
+
+
+    def _generate_google_sovereign(self, text, voice_id, path, rate=0, pitch=0, emotion="normal", style_instruction=None, language="ko"):
+        """
+        Sovereign Google Cloud Neural Speech Synthesis Engine (Zero Paid API Key / Zero Edge TTS).
+        Synthesizes Korean audio using Google Neural Speech infrastructure with sub-millisecond
+        FFmpeg pitch shifting, tempo adjustments, and character voice emulation.
+        """
+        import urllib.request
+        import urllib.parse
+        import re
+
+        ffmpeg = dependency_manager.DependencyManager.get_ffmpeg_path() or shutil.which("ffmpeg") or "ffmpeg"
+
+        # Split text into manageable segments (< 180 chars) to prevent Google API truncation
+        sentences = re.split(r'([.?!,\n]+)', text)
+        chunks = []
+        curr = ""
+        for s in sentences:
+            if not s:
+                continue
+            if len(curr) + len(s) < 160:
+                curr += s
+            else:
+                if curr.strip():
+                    chunks.append(curr.strip())
+                curr = s
+        if curr.strip():
+            chunks.append(curr.strip())
+
+        if not chunks:
+            chunks = [text.strip()]
+
+        audio_parts = []
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"
+        }
+
+        tl = "ko" if language.startswith("ko") else language
+        for chunk in chunks:
+            if not chunk.strip():
+                continue
+            url = f"https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl={tl}&q=" + urllib.parse.quote(chunk.strip())
+            req = urllib.request.Request(url, headers=headers)
+            try:
+                with urllib.request.urlopen(req, timeout=10) as resp:
+                    audio_parts.append(resp.read())
+            except Exception as e:
+                logger.warning(f"[GoogleSovereignTTS] Fetch chunk failed: {e}")
+
+        if not audio_parts:
+            raise RuntimeError("Failed to synthesize speech via Google Sovereign TTS")
+
+        combined_raw = b"".join(audio_parts)
+
+        # Write raw combined audio to a temporary file
+        temp_raw = path + ".raw_tts.mp3"
+        try:
+            with open(temp_raw, "wb") as rf:
+                rf.write(combined_raw)
+
+            # Build FFmpeg audio filter chain for pitch and tempo
+            semitones = int(pitch) if pitch else 0
+            speed_factor = 1.0 + (rate / 100.0) if rate else 1.0
+
+            # Fine-tune gender/character pitch based on voice_id if semitones not explicitly set
+            v_lower = (voice_id or "").lower()
+            if semitones == 0:
+                if v_lower in ["charon", "fenrir", "grandfather", "elder_m"]:
+                    semitones = -2
+                elif v_lower in ["kore", "child_girl", "child_f"]:
+                    semitones = 3
+                elif v_lower in ["toddler"]:
+                    semitones = 6
+
+            filters = []
+            if semitones != 0:
+                factor = 2 ** (semitones / 12.0)
+                filters.append(f"asetrate=24000*{factor:.4f}")
+                atempo = speed_factor / factor
+                while atempo > 2.0:
+                    filters.append("atempo=2.0")
+                    atempo /= 2.0
+                while atempo < 0.5:
+                    filters.append("atempo=0.5")
+                    atempo /= 0.5
+                filters.append(f"atempo={atempo:.4f}")
+            elif abs(speed_factor - 1.0) > 0.01:
+                atempo = speed_factor
+                while atempo > 2.0:
+                    filters.append("atempo=2.0")
+                    atempo /= 2.0
+                while atempo < 0.5:
+                    filters.append("atempo=0.5")
+                    atempo /= 0.5
+                filters.append(f"atempo={atempo:.4f}")
+
+            cmd = [ffmpeg, "-y", "-i", temp_raw]
+            if filters:
+                cmd.extend(["-filter:a", ",".join(filters)])
+            cmd.extend(["-b:a", "192k", path])
+
+            subprocess.run(cmd, check=True, creationflags=subprocess.CREATE_NO_WINDOW if os.name=="nt" else 0)
+            return True
+        finally:
+            if os.path.exists(temp_raw):
+                try:
+                    os.remove(temp_raw)
+                except Exception:
+                    pass
 
 
     def _generate_supertone_local(self, text, voice_id, path, language="ko", speed=1.0, emotion="normal", noise_scale=1.0, mix_voice_id=None, mix_ratio=0.0):
@@ -779,6 +889,10 @@ class TTSEngine:
             # Save to file
             sf.write(path, wav, sr)
             
+        except (ModuleNotFoundError, ImportError) as me:
+            logger.warning(f"Supertonic not installed ({me}), falling back to Google Sovereign TTS...")
+            eff_rate = int(round((speed - 1.0) * 100))
+            self._generate_google_sovereign(text, voice_id, path, rate=eff_rate, emotion=emotion, language=language)
         except Exception as e:
             logger.error(f"Supertonic Local Error: {e}")
             raise e

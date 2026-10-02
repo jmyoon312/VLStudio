@@ -56,6 +56,15 @@ Google Flow AI 영상 생성, 4대 폼팩터 NLE 엔진, 모바일 USB LTE 다�
      - **(5) 계정 풀 그룹핑 및 무임의 수정 영구 금지 (Zero Arbitrary Mutation Gatekeeper)**:
        - Antigravity 텍스트 그룹과 Gemini Web 미디어 그룹은 상호 침범 없이 독립적 우선순위 체계로 운영되며, 개발자 임의로 CLI 서브프로세스로 회귀시키거나 단일 웹 스크래퍼로 융합하거나 로테이션 정책을 축소하는 행위를 영구 금지한다.
        - `contract-checker.js` Step 15에서 동적 계정 감지 및 듀얼 엔진 정책 준수 여부를 정적으로 검사하여 위반 시 빌드를 즉시 차단한다.
+  8. **Gemini 3.8 Live & Flash TTS 주권 엔진 임의 수정/변경 영구 전면 금지 및 불변 보존 절대 규칙 (Immutability of Gemini 3.8 Live & Flash TTS Engine Law)**:
+     - **(1) Gemini 3.8 Live 실시간 양방향 대화 세션 불변 보장**:
+       - `apps/api/app/routers/gemini_live_router.py`의 실시간 웹소켓(`/api/agent/live-session`), Antigravity 2.0 공식 스트리밍 직결, 실시간 24kHz 16-bit Mono PCM 음성 청크 추출, 화면 프레임 멀티모달 분석 파이프라인을 임의로 타 엔진/타 모델로 변경하거나 축소·변조하는 행위를 영구 금지한다.
+     - **(2) Gemini 3.8 Flash TTS 캐릭터 멀티 보이스 엔진 불변 보장**:
+       - `apps/api/app/services/character_voice_tts.py`, `apps/api/app/services/gemini_tts_optimizer.py`, `apps/api/app/tts_engine.py`에 구축된 5대 핵심 보이스(`Puck`, `Charon`, `Kore`, `Fenrir`, `Aoede`)와 11대 캐릭터 프로필(`grandfather`, `grandmother`, `middle_man`, `middle_woman`, `young_woman`, `young_man`, `child_girl`, `child_boy`, `toddler`, `villain`, `narrator`)의 다연령대 피치 시프트 및 성우 연기 파이프라인을 임의로 수정하거나 변경하는 것을 전면 금지한다.
+     - **(3) Zero Edge TTS & Zero Paid API Key 철저 수호**:
+       - 마이크로소프트 Edge TTS 및 잔재 패키지/모듈로의 역행이나 의존성 주입을 영구 금지하며, 유료 AI Studio 키 없이도 구글 주권 음성 엔진(`_generate_google_sovereign`)으로 무중단 고품질 합성이 상시 보장되어야 한다.
+     - **(4) 정적 검증 게이트키퍼 강제 (`contract-checker.js` Step 16)**:
+       - `contract-checker.js` Step 16에서 `gemini_live_router.py`와 `character_voice_tts.py`, `tts_engine.py`의 5대 보이스 및 11대 캐릭터 프로필, Live WebSocket 무결성, Edge TTS 0% 존재 여부를 정적 검사하여 위반 시 빌드를 즉시 차단한다.
 
 ## 🔤 Windows 콘솔 및 Python UTF-8 인코딩 절대 강제 규칙 (Zero CP949 UnicodeEncodeError Law)
 - **1. 파이썬 표준 입출력 UTF-8 강제 (Strict UTF-8 IO Reconfiguration)**:
