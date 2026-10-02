@@ -398,6 +398,33 @@ export const CanvasKitStage: React.FC<CanvasKitStageProps> = ({
                   const multiStyles = (layer as any).multiLineStyles || [];
                   const hasMultiStyles = multiStyles.length > 0 && lines.length > 1;
 
+                  const rawFont = (layer as any).fontFamily || "";
+                  const isDoHyeon =
+                    rawFont.toLowerCase().includes("dohyeon") ||
+                    rawFont.toLowerCase().includes("do hyeon") ||
+                    rawFont.includes("도현");
+                  const resolvedLetterSpacing = isDoHyeon
+                    ? Math.max(0, (layer as any).letterSpacing || 0)
+                    : ((layer as any).letterSpacing || 0);
+                  const resolvedLineHeight = isDoHyeon
+                    ? Math.max(1.3, (layer as any).lineHeight || 1.3)
+                    : ((layer as any).lineHeight || 1.2);
+
+                  const strokeWidth = (layer as any).stroke?.width || 0;
+                  const strokeColor = (layer as any).stroke?.color || "#000000";
+                  const shadow = (layer as any).shadow;
+
+                  const textStrokeCss = strokeWidth > 0 ? `${strokeWidth * scale}px ${strokeColor}` : "none";
+                  const textShadowCss = shadow
+                    ? `${(shadow.offsetX || 0) * scale}px ${(shadow.offsetY || 0) * scale}px ${(shadow.blur || 0) * scale}px ${shadow.color || "rgba(0,0,0,0.8)"}`
+                    : "none";
+
+                  const textEffectStyle: React.CSSProperties = {
+                    paintOrder: "stroke fill",
+                    WebkitTextStroke: textStrokeCss,
+                    textShadow: textShadowCss,
+                  };
+
                   return (
                     <div
                       className={`w-full h-full flex flex-col justify-center font-bold break-keep select-none whitespace-pre-wrap ${
@@ -408,15 +435,10 @@ export const CanvasKitStage: React.FC<CanvasKitStageProps> = ({
                           : "items-center text-center"
                       }`}
                       style={{
-                        fontFamily: resolveFontFamily((layer as any).fontFamily),
-                        letterSpacing: `${((layer as any).letterSpacing || 0) * scale}px`,
-                        lineHeight: (layer as any).lineHeight || 1.2,
-                        textShadow: (layer as any).shadow
-                          ? `${(layer as any).shadow.offsetX * scale}px ${(layer as any).shadow.offsetY * scale}px ${(layer as any).shadow.blur * scale}px ${(layer as any).shadow.color}`
-                          : "none",
-                        WebkitTextStroke: (layer as any).stroke?.width
-                          ? `${(layer as any).stroke.width * scale}px ${(layer as any).stroke.color || "#000000"}`
-                          : "none",
+                        fontFamily: resolveFontFamily(rawFont),
+                        letterSpacing: `${resolvedLetterSpacing * scale}px`,
+                        lineHeight: resolvedLineHeight,
+                        paintOrder: "stroke fill",
                         backgroundColor: (layer as any).backgroundColor || "transparent",
                         borderRadius: `${((layer as any).borderRadius || 0) * scale}px`,
                         padding: (layer as any).padding
@@ -433,10 +455,12 @@ export const CanvasKitStage: React.FC<CanvasKitStageProps> = ({
                             <span
                               key={lineIdx}
                               style={{
+                                ...textEffectStyle,
                                 fontSize: `${lineSize * scale}px`,
-                                color: isSubtitle && (isPlaying || studioMode === "nle") && activeWord
-                                  ? (activeWord.highlightColor || "#FFE600")
-                                  : lineColor,
+                                color:
+                                  isSubtitle && (isPlaying || studioMode === "nle") && activeWord
+                                    ? activeWord.highlightColor || "#FFE600"
+                                    : lineColor,
                                 display: "block",
                               }}
                             >
@@ -447,10 +471,12 @@ export const CanvasKitStage: React.FC<CanvasKitStageProps> = ({
                       ) : (
                         <span
                           style={{
+                            ...textEffectStyle,
                             fontSize: `${((layer as any).fontSize || 52) * scale}px`,
-                            color: isSubtitle && (isPlaying || studioMode === "nle") && activeWord
-                              ? (activeWord.highlightColor || "#FFE600")
-                              : ((layer as any).fontColor || "#FFFFFF"),
+                            color:
+                              isSubtitle && (isPlaying || studioMode === "nle") && activeWord
+                                ? activeWord.highlightColor || "#FFE600"
+                                : (layer as any).fontColor || "#FFFFFF",
                           }}
                         >
                           {content}

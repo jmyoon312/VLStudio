@@ -61,9 +61,9 @@ const TEMPLATE_GALLERY_PRESETS: Record<string, GalleryPresetItem[]> = {
       apply: (bp) => ({
         ...bp,
         globalLayers: bp.globalLayers.map((l: LayerObject) =>
-          l.id === "header_bar"
+          l.id === "header_bar" || l.id === "article_card"
             ? { ...l, fillColor: "#03C75A", borderColor: "#029E47" }
-            : l.id === "header_title"
+            : l.id === "header_title" || l.id === "article_title"
             ? { ...l, fontColor: "#FFFFFF" }
             : l
         ),
@@ -79,9 +79,9 @@ const TEMPLATE_GALLERY_PRESETS: Record<string, GalleryPresetItem[]> = {
       apply: (bp) => ({
         ...bp,
         globalLayers: bp.globalLayers.map((l: LayerObject) =>
-          l.id === "header_bar"
+          l.id === "header_bar" || l.id === "article_card"
             ? { ...l, fillColor: "#FEE500", borderColor: "#E5CE00" }
-            : l.id === "header_title"
+            : l.id === "header_title" || l.id === "article_title"
             ? { ...l, fontColor: "#191919" }
             : l
         ),
@@ -96,9 +96,9 @@ const TEMPLATE_GALLERY_PRESETS: Record<string, GalleryPresetItem[]> = {
       apply: (bp) => ({
         ...bp,
         globalLayers: bp.globalLayers.map((l: LayerObject) =>
-          l.id === "header_bar"
+          l.id === "header_bar" || l.id === "article_card"
             ? { ...l, fillColor: "#1D9BF0", borderColor: "#1A8CD8" }
-            : l.id === "header_title"
+            : l.id === "header_title" || l.id === "article_title"
             ? { ...l, fontColor: "#FFFFFF" }
             : l
         ),
@@ -113,9 +113,9 @@ const TEMPLATE_GALLERY_PRESETS: Record<string, GalleryPresetItem[]> = {
       apply: (bp) => ({
         ...bp,
         globalLayers: bp.globalLayers.map((l: LayerObject) =>
-          l.id === "header_bar"
+          l.id === "header_bar" || l.id === "article_card"
             ? { ...l, fillColor: "#1877F2", borderColor: "#166FE5" }
-            : l.id === "header_title"
+            : l.id === "header_title" || l.id === "article_title"
             ? { ...l, fontColor: "#FFFFFF" }
             : l
         ),
@@ -130,9 +130,9 @@ const TEMPLATE_GALLERY_PRESETS: Record<string, GalleryPresetItem[]> = {
       apply: (bp) => ({
         ...bp,
         globalLayers: bp.globalLayers.map((l: LayerObject) =>
-          l.id === "header_bar"
+          l.id === "header_bar" || l.id === "article_card"
             ? { ...l, fillColor: "#DD2A7B", borderColor: "#C13584" }
-            : l.id === "header_title"
+            : l.id === "header_title" || l.id === "article_title"
             ? { ...l, fontColor: "#FFFFFF" }
             : l
         ),
@@ -147,9 +147,9 @@ const TEMPLATE_GALLERY_PRESETS: Record<string, GalleryPresetItem[]> = {
       apply: (bp) => ({
         ...bp,
         globalLayers: bp.globalLayers.map((l: LayerObject) =>
-          l.id === "header_bar"
+          l.id === "header_bar" || l.id === "article_card"
             ? { ...l, fillColor: "#18181B", borderColor: "#27272A" }
-            : l.id === "header_title"
+            : l.id === "header_title" || l.id === "article_title"
             ? { ...l, fontColor: "#F4F4F5" }
             : l
         ),
@@ -164,9 +164,9 @@ const TEMPLATE_GALLERY_PRESETS: Record<string, GalleryPresetItem[]> = {
       apply: (bp) => ({
         ...bp,
         globalLayers: bp.globalLayers.map((l: LayerObject) =>
-          l.id === "header_bar"
+          l.id === "header_bar" || l.id === "article_card"
             ? { ...l, fillColor: "#FFFFFF", borderColor: "#E4E4E7" }
-            : l.id === "header_title"
+            : l.id === "header_title" || l.id === "article_title"
             ? { ...l, fontColor: "#09090B" }
             : l
         ),
@@ -181,9 +181,9 @@ const TEMPLATE_GALLERY_PRESETS: Record<string, GalleryPresetItem[]> = {
       apply: (bp) => ({
         ...bp,
         globalLayers: bp.globalLayers.map((l: LayerObject) =>
-          l.id === "header_bar"
+          l.id === "header_bar" || l.id === "article_card"
             ? { ...l, fillColor: "#EF4444", borderColor: "#DC2626" }
-            : l.id === "header_title"
+            : l.id === "header_title" || l.id === "article_title"
             ? { ...l, fontColor: "#FFFFFF" }
             : l
         ),
@@ -274,69 +274,116 @@ const TEMPLATE_GALLERY_PRESETS: Record<string, GalleryPresetItem[]> = {
       }),
     },
   ],
-  comments: [
+  instagram: [
     {
-      id: "card_white",
-      name: "화이트 모던",
-      badge: "추천",
+      id: "insta_white_clean",
+      name: "화이트 클린",
+      badge: "표준",
       previewBg: "#FFFFFF",
-      textColor: "#09090B",
+      textColor: "#0F172A",
       accentColor: "#2563EB",
       apply: (bp) => ({
         ...bp,
+        canvas: { ...bp.canvas, backgroundColor: "#F8FAFC" },
         globalLayers: bp.globalLayers.map((l: LayerObject) =>
-          l.kind === "shape" && (l as ShapeLayer).shapeRole === "comment_card"
-            ? { ...l, fillColor: "#FFFFFF", borderColor: "#E4E4E7", borderWidth: 1 }
+          l.id === "insta_profile_card" || (l.kind === "shape" && (l as ShapeLayer).shapeRole === "urgent_banner")
+            ? { ...l, fillColor: "#FFFFFF", borderColor: "#E2E8F0", borderWidth: 1 }
+            : l.id === "insta_author_text"
+            ? { ...l, fontColor: "#2563EB" }
+            : l.id === "comment_card" || (l.kind === "shape" && (l as ShapeLayer).shapeRole === "comment_card")
+            ? { ...l, fillColor: "#FFFFFF", borderColor: "#E2E8F0", borderWidth: 1 }
+            : l.id === "comment_body"
+            ? { ...l, fontColor: "#0F172A" }
+            : l.id === "comment_meta"
+            ? { ...l, fontColor: "#64748B" }
+            : l.id === "subtitle_anchor"
+            ? { ...l, fontColor: "#0F172A" }
             : l
         ),
       }),
     },
     {
-      id: "card_dark",
-      name: "다크 엘레강스",
+      id: "insta_dark_elegance",
+      name: "다크 모드",
+      badge: "추천",
       previewBg: "#18181B",
       textColor: "#F4F4F5",
       accentColor: "#38BDF8",
       apply: (bp) => ({
         ...bp,
+        canvas: { ...bp.canvas, backgroundColor: "#09090B" },
         globalLayers: bp.globalLayers.map((l: LayerObject) =>
-          l.kind === "shape" && (l as ShapeLayer).shapeRole === "comment_card"
+          l.id === "insta_profile_card" || (l.kind === "shape" && (l as ShapeLayer).shapeRole === "urgent_banner")
             ? { ...l, fillColor: "#18181B", borderColor: "#27272A", borderWidth: 1 }
+            : l.id === "insta_author_text"
+            ? { ...l, fontColor: "#38BDF8" }
+            : l.id === "comment_card" || (l.kind === "shape" && (l as ShapeLayer).shapeRole === "comment_card")
+            ? { ...l, fillColor: "#18181B", borderColor: "#27272A", borderWidth: 1 }
+            : l.id === "comment_body"
+            ? { ...l, fontColor: "#F4F4F5" }
+            : l.id === "comment_meta"
+            ? { ...l, fontColor: "#A1A1AA" }
+            : l.id === "subtitle_anchor"
+            ? { ...l, fontColor: "#FFFFFF" }
             : l
         ),
       }),
     },
     {
-      id: "card_glass",
-      name: "글래스모피즘",
-      previewBg: "rgba(255, 255, 255, 0.2)",
+      id: "insta_pink_gradient",
+      name: "인스타 핑크",
+      badge: "시그니처",
+      previewBg: "linear-gradient(45deg, #F58529, #DD2A7B, #8134AF)",
       textColor: "#FFFFFF",
-      accentColor: "#60A5FA",
+      accentColor: "#DD2A7B",
       apply: (bp) => ({
         ...bp,
+        canvas: { ...bp.canvas, backgroundColor: "#0F172A" },
         globalLayers: bp.globalLayers.map((l: LayerObject) =>
-          l.kind === "shape" && (l as ShapeLayer).shapeRole === "comment_card"
-            ? { ...l, fillColor: "rgba(255, 255, 255, 0.15)", borderColor: "rgba(255, 255, 255, 0.3)", borderWidth: 1 }
+          l.id === "insta_profile_card" || (l.kind === "shape" && (l as ShapeLayer).shapeRole === "urgent_banner")
+            ? { ...l, fillColor: "#1E293B", borderColor: "#DD2A7B", borderWidth: 2 }
+            : l.id === "insta_author_text"
+            ? { ...l, fontColor: "#E1306C" }
+            : l.id === "comment_card" || (l.kind === "shape" && (l as ShapeLayer).shapeRole === "comment_card")
+            ? { ...l, fillColor: "#1E293B", borderColor: "#DD2A7B", borderWidth: 2 }
+            : l.id === "comment_body"
+            ? { ...l, fontColor: "#FFFFFF" }
+            : l.id === "comment_meta"
+            ? { ...l, fontColor: "#F43F5E" }
+            : l.id === "subtitle_anchor"
+            ? { ...l, fontColor: "#FFE4E6" }
             : l
         ),
       }),
     },
     {
-      id: "card_neon",
-      name: "네온 사이버",
-      previewBg: "#09090B",
-      textColor: "#22C55E",
-      accentColor: "#22C55E",
+      id: "insta_gold_vip",
+      name: "골드 VIP",
+      previewBg: "#1A1A1A",
+      textColor: "#FBBF24",
+      accentColor: "#F59E0B",
       apply: (bp) => ({
         ...bp,
+        canvas: { ...bp.canvas, backgroundColor: "#000000" },
         globalLayers: bp.globalLayers.map((l: LayerObject) =>
-          l.kind === "shape" && (l as ShapeLayer).shapeRole === "comment_card"
-            ? { ...l, fillColor: "#09090B", borderColor: "#22C55E", borderWidth: 2 }
+          l.id === "insta_profile_card" || (l.kind === "shape" && (l as ShapeLayer).shapeRole === "urgent_banner")
+            ? { ...l, fillColor: "#18181B", borderColor: "#F59E0B", borderWidth: 2 }
+            : l.id === "insta_author_text"
+            ? { ...l, fontColor: "#FBBF24" }
+            : l.id === "comment_card" || (l.kind === "shape" && (l as ShapeLayer).shapeRole === "comment_card")
+            ? { ...l, fillColor: "#18181B", borderColor: "#F59E0B", borderWidth: 2 }
+            : l.id === "comment_body"
+            ? { ...l, fontColor: "#FEF08A" }
+            : l.id === "comment_meta"
+            ? { ...l, fontColor: "#F59E0B" }
+            : l.id === "subtitle_anchor"
+            ? { ...l, fontColor: "#FFFFFF" }
             : l
         ),
       }),
     },
   ],
+  comments: [], // Will be mirrored below
   classic: [
     {
       id: "classic_standard",
@@ -349,10 +396,10 @@ const TEMPLATE_GALLERY_PRESETS: Record<string, GalleryPresetItem[]> = {
         ...bp,
         canvas: { ...bp.canvas, backgroundColor: "#000000" },
         globalLayers: bp.globalLayers.map((l: LayerObject) =>
-          l.id === "headline_text"
-            ? { ...l, fontColor: "#FBBF24", fontSize: 58 }
-            : l.id === "subtitle_text"
-            ? { ...l, fontColor: "#FFFFFF", fontSize: 44 }
+          l.id === "headline_text" || l.id === "title_line1" || (l.kind === "text" && (l as any).textRole === "title_header")
+            ? { ...l, fontColor: "#FBBF24" }
+            : l.id === "subtitle_anchor" || l.id === "subtitle_text" || (l.kind === "text" && (l as any).textRole === "subtitle_narrative")
+            ? { ...l, fontColor: "#FFFFFF" }
             : l
         ),
       }),
@@ -367,10 +414,10 @@ const TEMPLATE_GALLERY_PRESETS: Record<string, GalleryPresetItem[]> = {
         ...bp,
         canvas: { ...bp.canvas, backgroundColor: "#09090B" },
         globalLayers: bp.globalLayers.map((l: LayerObject) =>
-          l.id === "headline_text"
-            ? { ...l, fontColor: "#FFFFFF", fontSize: 56 }
-            : l.id === "subtitle_text"
-            ? { ...l, fontColor: "#E4E4E7", fontSize: 44 }
+          l.id === "headline_text" || l.id === "title_line1" || (l.kind === "text" && (l as any).textRole === "title_header")
+            ? { ...l, fontColor: "#FFFFFF" }
+            : l.id === "subtitle_anchor" || l.id === "subtitle_text" || (l.kind === "text" && (l as any).textRole === "subtitle_narrative")
+            ? { ...l, fontColor: "#E4E4E7" }
             : l
         ),
       }),
@@ -385,10 +432,10 @@ const TEMPLATE_GALLERY_PRESETS: Record<string, GalleryPresetItem[]> = {
         ...bp,
         canvas: { ...bp.canvas, backgroundColor: "#000000" },
         globalLayers: bp.globalLayers.map((l: LayerObject) =>
-          l.id === "headline_text"
-            ? { ...l, fontColor: "#38BDF8", fontSize: 58 }
-            : l.id === "subtitle_text"
-            ? { ...l, fontColor: "#FFFFFF", fontSize: 44 }
+          l.id === "headline_text" || l.id === "title_line1" || (l.kind === "text" && (l as any).textRole === "title_header")
+            ? { ...l, fontColor: "#38BDF8" }
+            : l.id === "subtitle_anchor" || l.id === "subtitle_text" || (l.kind === "text" && (l as any).textRole === "subtitle_narrative")
+            ? { ...l, fontColor: "#FFFFFF" }
             : l
         ),
       }),
@@ -403,16 +450,17 @@ const TEMPLATE_GALLERY_PRESETS: Record<string, GalleryPresetItem[]> = {
         ...bp,
         canvas: { ...bp.canvas, backgroundColor: "#000000" },
         globalLayers: bp.globalLayers.map((l: LayerObject) =>
-          l.id === "headline_text"
-            ? { ...l, fontColor: "#EF4444", fontSize: 58 }
-            : l.id === "subtitle_text"
-            ? { ...l, fontColor: "#FFFFFF", fontSize: 44 }
+          l.id === "headline_text" || l.id === "title_line1" || (l.kind === "text" && (l as any).textRole === "title_header")
+            ? { ...l, fontColor: "#EF4444" }
+            : l.id === "subtitle_anchor" || l.id === "subtitle_text" || (l.kind === "text" && (l as any).textRole === "subtitle_narrative")
+            ? { ...l, fontColor: "#FFFFFF" }
             : l
         ),
       }),
     },
   ],
 };
+TEMPLATE_GALLERY_PRESETS.comments = TEMPLATE_GALLERY_PRESETS.instagram;
 
 const AVAILABLE_FONTS = [
   { id: "NotoSansKR-Bold", label: "Noto Sans KR (안정형 고딕)", weight: "Bold" },
@@ -745,50 +793,38 @@ export const PixelingMasterInspector: React.FC<PixelingMasterInspectorProps> = (
                 클릭 즉시 추천 색상, 폰트 조화, 배경 스타일이 일괄 적용됩니다.
               </p>
 
-              <div className="grid grid-cols-2 gap-2 pt-1">
+              <div className="grid grid-cols-2 gap-1.5 pt-1">
                 {currentPresets.map((preset) => {
                   const isSelected = selectedGalleryPreset === preset.id;
                   return (
                     <button
                       key={preset.id}
                       onClick={() => handleApplyGalleryPreset(preset)}
-                      className={`relative p-2.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between h-20 ${
+                      className={`relative px-2.5 py-1.5 rounded-xl border text-left transition-all cursor-pointer flex items-center space-x-2 h-11 ${
                         isSelected
-                          ? "ring-2 ring-primary border-primary shadow-sm"
-                          : "border-border/80 hover:border-border hover:shadow-xs"
+                          ? "ring-2 ring-primary border-primary bg-primary/10 shadow-xs"
+                          : "border-border/70 hover:border-border hover:bg-muted/40"
                       }`}
-                      style={{
-                        background: preset.previewBg.startsWith("linear")
-                          ? preset.previewBg
-                          : `${preset.previewBg}15`,
-                      }}
                     >
-                      <div className="flex items-center justify-between w-full">
-                        <span
-                          className="w-3.5 h-3.5 rounded-full border border-border/40 shrink-0"
-                          style={{
-                            background: preset.previewBg,
-                          }}
-                        />
-                        {preset.badge && (
-                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-primary/20 text-primary border border-primary/30">
-                            {preset.badge}
+                      <span
+                        className="w-4 h-4 rounded-full border border-black/20 dark:border-white/20 shrink-0 shadow-2xs"
+                        style={{
+                          background: preset.previewBg,
+                        }}
+                      />
+                      <div className="min-w-0 flex-1 flex flex-col justify-center">
+                        <div className="flex items-center space-x-1">
+                          <span className="text-[11px] font-bold text-foreground truncate">
+                            {preset.name}
                           </span>
-                        )}
-                        {isSelected && <Check className="w-3.5 h-3.5 text-primary ml-auto" />}
-                      </div>
-
-                      <div className="mt-auto">
-                        <div className="text-[11px] font-bold text-foreground truncate">
-                          {preset.name}
-                        </div>
-                        <div
-                          className="text-[10px] font-medium opacity-80 truncate"
-                          style={{ color: preset.textColor }}
-                        >
-                          Aa 미리보기
+                          {preset.badge && (
+                            <span className="text-[8px] font-extrabold px-1 py-0.2 rounded bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30 shrink-0">
+                              {preset.badge}
+                            </span>
+                          )}
                         </div>
                       </div>
+                      {isSelected && <Check className="w-3.5 h-3.5 text-primary shrink-0" />}
                     </button>
                   );
                 })}

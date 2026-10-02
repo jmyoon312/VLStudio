@@ -28,51 +28,14 @@ export function createDefaultBlueprintV4(
   const canvasBgColor = archetype === "instagram" ? "#F8FAFC" : archetype === "bespoke" ? "#05050A" : "#000000";
 
   if (archetype === "ssul") {
-    // 💬 [1] 썰형 (디시/펨코 상단 헤더 + 작성자 메타 + 실시간 누적 본문 + 페페 밈 짤 프레임)
+    // 💬 [1] 썰형 (커뮤니티 토크 표준: 상단 라운드 카드 + 실시간 누적 본문)
     globalLayers.push({
       id: "header_bar",
-      name: "썰형 상단 헤더바",
+      name: "상단 커뮤니티 카드",
       kind: "shape",
-      locked: true,
-      hidden: false,
-      transform: { x: 540, y: 100, width: 1080, height: 120, rotation: 0, scale: 1, origin: "center", zIndex: 10 },
-      inMs: 0,
-      outMs: null,
-      opacity: 1,
-      shapeRole: "urgent_banner",
-      fillColor: "#F5D058",
-      borderRadius: 0,
-      borderWidth: 0,
-    });
-    globalLayers.push({
-      id: "header_text",
-      name: "커뮤니티 헤더 타이틀",
-      kind: "text",
       locked: false,
       hidden: false,
-      transform: { x: 540, y: 100, width: 1000, height: 70, rotation: 0, scale: 1, origin: "center", zIndex: 11 },
-      inMs: 0,
-      outMs: null,
-      opacity: 1,
-      textRole: "title_header",
-      content: "←   🔥 썰연구소 실시간 인기글   ⋮",
-      fontFamily: "NotoSansKR-Bold",
-      fontSize: 34,
-      fontColor: "#1F2937",
-      letterSpacing: -1,
-      lineHeight: 1.1,
-      textAlign: "center",
-      borderRadius: 0,
-      padding: [0, 0, 0, 0],
-      accumulateMode: false,
-    });
-    globalLayers.push({
-      id: "article_card",
-      name: "게시글 카드 배경",
-      kind: "shape",
-      locked: true,
-      hidden: false,
-      transform: { x: 540, y: 270, width: 980, height: 180, rotation: 0, scale: 1, origin: "center", zIndex: 10 },
+      transform: { x: 540, y: 190, width: 980, height: 160, rotation: 0, scale: 1, origin: "center", zIndex: 10 },
       inMs: 0,
       outMs: null,
       opacity: 0.95,
@@ -83,135 +46,50 @@ export function createDefaultBlueprintV4(
       borderWidth: 1,
     });
     globalLayers.push({
-      id: "article_title",
-      name: "썰 제목",
+      id: "header_title",
+      name: "썰 제목 텍스트",
       kind: "text",
       locked: false,
       hidden: false,
-      transform: { x: 540, y: 235, width: 920, height: 60, rotation: 0, scale: 1, origin: "center", zIndex: 12 },
+      transform: { x: 540, y: 190, width: 920, height: 80, rotation: 0, scale: 1, origin: "center", zIndex: 12 },
       inMs: 0,
       outMs: null,
       opacity: 1,
       textRole: "title_header",
       content: "오늘자 역대급 실화 사건 🔥",
       fontFamily: "NotoSansKR-Bold",
-      fontSize: 38,
+      fontSize: 42,
       fontColor: "#FFFFFF",
       letterSpacing: -1,
       lineHeight: 1.2,
-      textAlign: "left",
+      textAlign: "center",
       borderRadius: 0,
       padding: [0, 0, 0, 0],
       accumulateMode: false,
     });
     globalLayers.push({
-      id: "article_meta",
-      name: "작성자 및 조회 메타",
-      kind: "text",
-      locked: false,
-      hidden: false,
-      transform: { x: 540, y: 295, width: 920, height: 40, rotation: 0, scale: 1, origin: "center", zIndex: 12 },
-      inMs: 0,
-      outMs: null,
-      opacity: 0.9,
-      textRole: "author_meta",
-      content: "익명  •  10분 전  •  조회 3.8만  •  추천 412",
-      fontFamily: "NotoSansKR-Medium",
-      fontSize: 24,
-      fontColor: "#94A3B8",
-      letterSpacing: 0,
-      lineHeight: 1.1,
-      textAlign: "left",
-      borderRadius: 0,
-      padding: [0, 0, 0, 0],
-      accumulateMode: false,
-    });
-    globalLayers.push({
-      id: "subtitle_accumulate",
+      id: "subtitle_anchor",
       name: "썰 자막 실시간 누적 본문",
       kind: "text",
       locked: false,
       hidden: false,
-      transform: { x: 540, y: 750, width: 960, height: 480, rotation: 0, scale: 1, origin: "center", zIndex: 15 },
+      transform: { x: 540, y: 1050, width: 960, height: 400, rotation: 0, scale: 1, origin: "center", zIndex: 15 },
       inMs: 0,
       outMs: null,
       opacity: 1,
       textRole: "subtitle_narrative",
-      content: "친구랑 여행 갔다가 겪은 일인데\n진짜 다시 생각해도 등골이 오싹함\n지금부터 그 전말을 낱낱이 풀어봄",
-      multiLineStyles: [
-        { fontSize: 44, fontColor: "#FFE500" },
-        { fontSize: 40, fontColor: "#FFFFFF" },
-        { fontSize: 40, fontColor: "#E2E8F0" },
-      ],
-      fontFamily: "NotoSansKR-Medium",
-      fontSize: 42,
+      content: "썰 자막이 실시간으로 누적되는 본문 영역입니다",
+      fontFamily: "NotoSansKR-Bold",
+      fontSize: 46,
       fontColor: "#FFFFFF",
+      stroke: { width: 4, color: "#000000" },
+      shadow: { blur: 8, color: "rgba(0,0,0,0.8)", offsetX: 0, offsetY: 2 },
       letterSpacing: -1,
-      lineHeight: 1.5,
-      textAlign: "left",
+      lineHeight: 1.4,
+      textAlign: "center",
       borderRadius: 0,
       padding: [0, 0, 0, 0],
       accumulateMode: true,
-    });
-    globalLayers.push({
-      id: "meme_reaction_box",
-      name: "밈 리액션 짤 프레임",
-      kind: "shape",
-      locked: false,
-      hidden: false,
-      transform: { x: 540, y: 1360, width: 520, height: 400, rotation: 0, scale: 1, origin: "center", zIndex: 11 },
-      inMs: 0,
-      outMs: null,
-      opacity: 0.95,
-      shapeRole: "dimmed_overlay",
-      fillColor: "#0F172A",
-      borderRadius: 20,
-      borderColor: "#334155",
-      borderWidth: 2,
-    });
-    globalLayers.push({
-      id: "meme_caption",
-      name: "밈 캡션 텍스트",
-      kind: "text",
-      locked: false,
-      hidden: false,
-      transform: { x: 540, y: 1360, width: 480, height: 60, rotation: 0, scale: 1, origin: "center", zIndex: 12 },
-      inMs: 0,
-      outMs: null,
-      opacity: 0.8,
-      textRole: "author_meta",
-      content: "🐸 (충격받은 페페 리액션 짤)",
-      fontFamily: "NotoSansKR-Bold",
-      fontSize: 28,
-      fontColor: "#64748B",
-      letterSpacing: 0,
-      lineHeight: 1.1,
-      textAlign: "center",
-      borderRadius: 0,
-      padding: [0, 0, 0, 0],
-      accumulateMode: false,
-    });
-    globalLayers.push({
-      id: "source_credit",
-      name: "하단 출처 바",
-      kind: "text",
-      locked: true,
-      hidden: false,
-      transform: { x: 540, y: 1840, width: 600, height: 40, rotation: 0, scale: 1, origin: "center", zIndex: 12 },
-      inMs: 0,
-      outMs: null,
-      opacity: 0.7,
-      textRole: "author_meta",
-      content: "출처: 온라인 커뮤니티 톡선",
-      fontFamily: "NotoSansKR-Regular",
-      fontSize: 24,
-      fontColor: "#64748B",
-      letterSpacing: 0,
-      lineHeight: 1.1,
-      textAlign: "center",
-      borderRadius: 0,
-      padding: [0, 0, 0, 0],
-      accumulateMode: false,
     });
   } else if (archetype === "gunlimbo") {
     // ⚡ [2] 군림보 (상단 24% 2줄 속보 대제목 + 24~34% 와이드 순백 훅 밴드 + 0초 펀치라인 자막)
@@ -829,18 +707,26 @@ export function createDefaultBlueprintV4(
 export function resolveFontFamily(font?: string): string {
   if (!font) return "Pretendard, sans-serif";
   const f = font.toLowerCase();
+  if (f.includes("dohyeon") || f.includes("do hyeon") || f.includes("도현")) {
+    return "'Do Hyeon', sans-serif";
+  }
   if (f.includes("notosans") || f.includes("noto sans")) return "'Noto Sans KR', sans-serif";
   if (f.includes("pretendard")) return "Pretendard, sans-serif";
-  if (f.includes("blackhan") || f.includes("black han")) return "'Black Han Sans', sans-serif";
+  if (f.includes("blackhan") || f.includes("black han") || f.includes("검은고딕")) return "'Black Han Sans', sans-serif";
   if (f.includes("gmarket")) return "'GmarketSans', sans-serif";
-  if (f.includes("aggro") || f.includes("sbaggro")) return "'SBAggro', sans-serif";
-  if (f.includes("jalnan")) return "'Jalnan', sans-serif";
-  if (f.includes("cookierun")) return "'CookieRun', sans-serif";
-  if (f.includes("cafe24")) return "'Cafe24Ssurround', sans-serif";
-  if (f.includes("tmoney")) return "'TmoneyRoundWind', sans-serif";
-  if (f.includes("pyeongchang")) return "'PyeongChangPeace', sans-serif";
-  if (f.includes("chosunilbo") || f.includes("chosun_ilbo") || f.includes("chosunnm")) return "'Chosunilbo_myungjo', serif";
-  if (f.includes("chosunkg") || f.includes("chosun_kg")) return "'ChosunKg', sans-serif";
+  if (f.includes("aggro") || f.includes("sbaggro") || f.includes("어그로")) return "'SBAggro', sans-serif";
+  if (f.includes("jalnan") || f.includes("잘난")) return "'Jalnan', sans-serif";
+  if (f.includes("cookierun") || f.includes("쿠키런")) return "'CookieRun', sans-serif";
+  if (f.includes("cafe24") || f.includes("써라운드")) return "'Cafe24Ssurround', sans-serif";
+  if (f.includes("tmoney") || f.includes("티머니")) return "'TmoneyRoundWind', sans-serif";
+  if (f.includes("pyeongchang") || f.includes("평창")) return "'PyeongChangPeace', sans-serif";
+  if (f.includes("chosunilbo") || f.includes("chosun_ilbo") || f.includes("chosunnm") || f.includes("조선일보")) return "'Chosunilbo_myungjo', serif";
+  if (f.includes("chosunkg") || f.includes("chosun_kg") || f.includes("조선굵은")) return "'ChosunKg', sans-serif";
+  if (f.includes("jua") || f.includes("주아")) return "'Jua', sans-serif";
+  if (f.includes("nanumgothic") || f.includes("나눔고딕")) return "'Nanum Gothic', sans-serif";
+  if (f.includes("nanummyeongjo") || f.includes("나눔명조")) return "'Nanum Myeongjo', serif";
+  if (f.includes("gowun") || f.includes("고운")) return "'Gowun Batang', serif";
+  if (f.includes("wanted") || f.includes("원티드")) return "'Wanted Sans', sans-serif";
   return font;
 }
 

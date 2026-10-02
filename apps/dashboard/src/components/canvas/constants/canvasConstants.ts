@@ -147,6 +147,9 @@ export const resolveFontFamily = (font?: string): string => {
       return "'CookieRun', sans-serif";
     case 'Do Hyeon':
     case 'DoHyeon':
+    case 'DoHyeon-Regular':
+    case '도현':
+    case '도현체':
       return "'Do Hyeon', sans-serif";
     case 'Jua':
       return "'Jua', sans-serif";
