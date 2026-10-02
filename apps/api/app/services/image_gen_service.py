@@ -25,17 +25,23 @@ class ImageGenService:
         return self._generate_via_api(final_prompt)
             
     def _generate_via_api(self, prompt: str) -> str:
-        # Tries Gemini first (free), then DALL-E (paid)
+        # 1. Tier 1: Sovereign Google Account Pool (Direct Gemini Image Generator - Nano Banana Pro / Imagen 3)
         try:
-             # Force provider to Google for cost saving if keys exist
-             if self.settings.gemini_api_keys:
-                 return self.llm_client.generate_image(prompt, provider="google")
-             elif self.settings.openai_api_key:
-                 return self.llm_client.generate_image(prompt, provider="openai")
-             else:
-                 logger.warning("No image API keys available. Mocking image generation for testing.")
-                 return "https://dummyimage.com/1024x1024/000/fff&text=Mock+Image"
+            from app.services.direct_gemini_image_generator import direct_gemini_image_generator
+            res = direct_gemini_image_generator.generate_image(prompt, aspect_ratio="9:16")
+            if res.get("success") and res.get("image_path"):
+                return res["image_path"]
+        except Exception as sovereign_err:
+            logger.warning(f"⚠️ Sovereign Gemini Image Generator error ({sovereign_err}), attempting API key fallback...")
+
+        # 2. Tier 2: Paid API Keys (if explicitly provided in DB settings)
+        try:
+            if self.settings.gemini_api_keys:
+                return self.llm_client.generate_image(prompt, provider="google")
+            elif self.settings.openai_api_key:
+                return self.llm_client.generate_image(prompt, provider="openai")
         except Exception as e:
             logger.error(f"[FAIL] API Gen Failed: {e}")
-            logger.warning("Falling back to mock image due to API error...")
-            return "https://dummyimage.com/1024x1024/000/fff&text=Mock+Image"
+
+        logger.warning("Falling back to mock image due to all image generation methods failing...")
+        return "https://dummyimage.com/1024x1024/000/fff&text=Mock+Image"
