@@ -318,11 +318,16 @@ export const CanvasKitStage: React.FC<CanvasKitStageProps> = ({
         ) : (
           /* 물리 캔버스 컨테이너 (스크린 스페이스 배치) */
           <div
-            className="relative shadow-2xl transition-all border border-border/80 ring-1 ring-black/5 dark:ring-white/10 rounded-sm shrink-0"
+            className="relative shadow-2xl transition-all border border-border/80 ring-1 ring-black/5 dark:ring-white/10 rounded-sm shrink-0 overflow-hidden"
             style={{
               width: `${canvasWidth * scale}px`,
               height: `${canvasHeight * scale}px`,
-              ...BACKDROP_CONFIGS[backdrop].style,
+              backgroundColor: blueprint.canvas.backgroundColor || "#000000",
+              ...(backdrop === "transparent"
+                ? BACKDROP_CONFIGS.transparent.style
+                : backdrop !== "studio"
+                ? BACKDROP_CONFIGS[backdrop].style
+                : {}),
               boxShadow: "0 25px 60px -15px rgba(0, 0, 0, 0.9), 0 0 40px rgba(6, 182, 212, 0.08)",
             }}
             onClick={(e) => e.stopPropagation()}
@@ -456,15 +461,21 @@ export const CanvasKitStage: React.FC<CanvasKitStageProps> = ({
                 })()}
                 {layer.kind === "shape" && (
                   <div
-                    className="w-full h-full"
+                    className="w-full h-full flex items-center justify-center text-center overflow-hidden"
                     style={{
-                      backgroundColor: (layer as any).fillColor || "#000000",
+                      backgroundColor: (layer as any).fillColor || "transparent",
                       borderRadius: `${((layer as any).borderRadius || 0) * scale}px`,
                       border: (layer as any).borderWidth
                         ? `${(layer as any).borderWidth * scale}px solid ${(layer as any).borderColor || "#FFFFFF"}`
                         : "none",
                     }}
-                  />
+                  >
+                    {(layer as any).shapeRole === "hole_mask" && (
+                      <span className="text-zinc-500/70 font-mono pointer-events-none select-none font-medium" style={{ fontSize: `${22 * scale}px` }}>
+                        🎬 영상 재생 프레임
+                      </span>
+                    )}
+                  </div>
                 )}
               </div>
             );

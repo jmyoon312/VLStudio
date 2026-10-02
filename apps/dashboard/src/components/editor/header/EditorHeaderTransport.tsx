@@ -60,6 +60,10 @@ export const EditorHeaderTransport: React.FC<EditorHeaderTransportProps> = ({
       ...blueprint,
       name: newName,
       archetype: arch,
+      canvas: {
+        ...blueprint.canvas,
+        backgroundColor: defaultBp.canvas.backgroundColor,
+      },
       globalLayers: defaultBp.globalLayers,
     });
   };

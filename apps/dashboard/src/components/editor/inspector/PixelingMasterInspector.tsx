@@ -206,8 +206,8 @@ const TEMPLATE_GALLERY_PRESETS: Record<string, GalleryPresetItem[]> = {
             ? { ...l, fillColor: "#FFE600" }
             : l.id === "hook_text"
             ? { ...l, fontColor: "#000000" }
-            : l.id === "subtitle_punch"
-            ? { ...l, fontColor: "#FFFFFF", outlineColor: "#000000", outlineWidth: 8 }
+            : l.id === "subtitle_punch" || l.id === "subtitle_anchor" || (l.kind === "text" && (l as any).textRole === "subtitle_narrative")
+            ? { ...l, fontColor: "#FFFFFF", stroke: { width: 8, color: "#000000" } }
             : l
         ),
       }),
@@ -226,8 +226,8 @@ const TEMPLATE_GALLERY_PRESETS: Record<string, GalleryPresetItem[]> = {
             ? { ...l, fillColor: "#06B6D4" }
             : l.id === "hook_text"
             ? { ...l, fontColor: "#0F172A" }
-            : l.id === "subtitle_punch"
-            ? { ...l, fontColor: "#FFFFFF", outlineColor: "#0F172A", outlineWidth: 8 }
+            : l.id === "subtitle_punch" || l.id === "subtitle_anchor" || (l.kind === "text" && (l as any).textRole === "subtitle_narrative")
+            ? { ...l, fontColor: "#FFFFFF", stroke: { width: 8, color: "#0F172A" } }
             : l
         ),
       }),
@@ -247,8 +247,8 @@ const TEMPLATE_GALLERY_PRESETS: Record<string, GalleryPresetItem[]> = {
             ? { ...l, fillColor: "#EF4444" }
             : l.id === "hook_text"
             ? { ...l, fontColor: "#FFFFFF" }
-            : l.id === "subtitle_punch"
-            ? { ...l, fontColor: "#FFE600", outlineColor: "#450A0A", outlineWidth: 8 }
+            : l.id === "subtitle_punch" || l.id === "subtitle_anchor" || (l.kind === "text" && (l as any).textRole === "subtitle_narrative")
+            ? { ...l, fontColor: "#FFE600", stroke: { width: 8, color: "#450A0A" } }
             : l
         ),
       }),
@@ -267,8 +267,8 @@ const TEMPLATE_GALLERY_PRESETS: Record<string, GalleryPresetItem[]> = {
             ? { ...l, fillColor: "#A855F7" }
             : l.id === "hook_text"
             ? { ...l, fontColor: "#FFFFFF" }
-            : l.id === "subtitle_punch"
-            ? { ...l, fontColor: "#38BDF8", outlineColor: "#1E1B4B", outlineWidth: 8 }
+            : l.id === "subtitle_punch" || l.id === "subtitle_anchor" || (l.kind === "text" && (l as any).textRole === "subtitle_narrative")
+            ? { ...l, fontColor: "#38BDF8", stroke: { width: 8, color: "#1E1B4B" } }
             : l
         ),
       }),
