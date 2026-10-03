@@ -3233,3 +3233,85 @@ def get_channel_sovereign_preset(channel_name_or_id: str) -> Dict[str, Any]:
         }
     except Exception as e:
         return {"success": False, "error": str(e)}
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# § 10. SOVEREIGN GEMINI & INTELLIGENCE TOOLS (Universal Access)
+# ══════════════════════════════════════════════════════════════════════════════
+
+@mcp.tool()
+async def gemini_analyze_youtube_video(
+    video_url: str,
+    custom_focus: Optional[str] = None
+) -> Dict[str, Any]:
+    """
+    [SOVEREIGN YOUTUBE] 구글 주권 지능(Gemini 3.8 Flash)으로 유튜브 영상 URL을 초고속 분석하여
+    3초 훅 점수, 서사 구조, 바이럴 트리거 및 숏폼 재가공 구간을 JSON으로 추출합니다.
+    """
+    from app.services.gemini_web_agent import gemini_web_agent
+    logger.info(f"🎬 [MCP:GEMINI] gemini_analyze_youtube_video | url={video_url}")
+    return await gemini_web_agent.analyze_youtube_video(video_url, custom_focus)
+
+
+@mcp.tool()
+async def gemini_live_web_search(
+    query: str,
+    search_depth: str = "deep"
+) -> Dict[str, Any]:
+    """
+    [SOVEREIGN SEARCH] 구글 실시간 검색 그라운딩(Google Search Grounding)을 활용하여
+    최신 팩트체크, 대중 반응, 숏폼 콘텐츠 기획 앵글을 도출합니다.
+    """
+    from app.services.gemini_web_agent import gemini_web_agent
+    logger.info(f"🌐 [MCP:GEMINI] gemini_live_web_search | query={query}")
+    return await gemini_web_agent.live_web_search(query, search_depth)
+
+
+@mcp.tool()
+async def gemini_character_prompt_continuation(
+    character_description: str,
+    scene_action: str,
+    base_style: str = "cinematic_photorealism"
+) -> Dict[str, Any]:
+    """
+    [SOVEREIGN VISUAL] Nano Banana Pro(Gemini 3.1 Flash Image)에서 여러 컷의 씬 간
+    캐릭터 외모/의상/스타일 왜곡을 원천 차단하는 제로-드리프트(Zero-Drift) 프롬프트를 자동 생성합니다.
+    """
+    from app.services.gemini_web_agent import gemini_web_agent
+    logger.info("🎨 [MCP:GEMINI] gemini_character_prompt_continuation")
+    return await gemini_web_agent.generate_character_continuation_prompt(
+        character_description,
+        scene_action,
+        base_style
+    )
+
+
+@mcp.tool()
+async def gemini_generate_image(
+    prompt: str,
+    aspect_ratio: str = "9:16",
+    style_preset: str = "cinematic_photorealism"
+) -> Dict[str, Any]:
+    """
+    [SOVEREIGN IMAGE] Google Gemini 3.1 Flash Image (Nano Banana Pro) 엔진으로
+    비용 0원, 최고 화질의 9:16 쇼츠/16:9 롱폼 이미지를 즉시 생성합니다.
+    """
+    from app.services.gemini_web_agent import gemini_web_agent
+    logger.info(f"🖼️ [MCP:GEMINI] gemini_generate_image | ratio={aspect_ratio}")
+    return await gemini_web_agent.generate_image(prompt, aspect_ratio, style_preset)
+
+
+@mcp.tool()
+async def gemini_synthesize_character_voice(
+    text: str,
+    character_profile: str = "narrator"
+) -> Dict[str, Any]:
+    """
+    [SOVEREIGN VOICE] Google Gemini 3.8 Flash TTS 캐릭터 멀티 보이스 엔진으로
+    11대 캐릭터 프로필(할아버지, 할머니, 중년남, 중년여, 청년남, 청년여, 여아, 남아, 유아, 악당, 내레이터)
+    맞춤 음성을 고품질로 합성합니다. (Zero Edge TTS, 비용 0원)
+    """
+    from app.services.gemini_web_agent import gemini_web_agent
+    logger.info(f"🎙️ [MCP:GEMINI] gemini_synthesize_character_voice | profile={character_profile}")
+    return await gemini_web_agent.synthesize_character_voice(text, character_profile)
+

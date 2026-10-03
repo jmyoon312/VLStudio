@@ -421,6 +421,26 @@ class ConversationalDirector:
         Follows Zero Jargon & 1-Second Comprehension Law.
         """
         mapping = {
+            "gemini_analyze_youtube_video": {
+                "title": "🎬 유튜브 영상 정밀 바이럴 역공학 분석",
+                "detail": "3초 훅 점수, 서사 구조, 바이럴 트리거 및 숏폼 재가공 구간을 분석하고 있습니다...",
+                "is_auto": False
+            },
+            "gemini_live_web_search": {
+                "title": "🌐 구글 실시간 지능 검색 & 팩트체크",
+                "detail": "최신 팩트와 대중 반응, 숏폼 기획 앵글을 실시간 검색·그라운딩하고 있습니다...",
+                "is_auto": False
+            },
+            "gemini_character_prompt_continuation": {
+                "title": "🎨 캐릭터 제로-드리프트 프롬프트 조율",
+                "detail": "씬 간 외모 왜곡 없는 캐릭터 연속성 프롬프트를 생성하고 있습니다...",
+                "is_auto": False
+            },
+            "gemini_synthesize_character_voice": {
+                "title": "🎙️ 캐릭터 멀티 보이스 음성 합성",
+                "detail": "Gemini 3.8 Flash TTS 캐릭터 맞춤 페르소나 음성을 생성하고 있습니다...",
+                "is_auto": False
+            },
             "synthesize_voice_speech": {
                 "title": "🎙️ AI 감성 음성 녹음 (Gemini 3.8 Flash TTS)",
                 "detail": "선택하신 목소리로 대본에 감정을 실어 고음질 오디오를 합성하고 있습니다...",

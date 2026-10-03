@@ -12,6 +12,8 @@ import { ShapeInspectorPanel } from "./inspector/ShapeInspectorPanel";
 import { CommentCardInspector } from "./inspector/CommentCardInspector";
 import { LayerQuickSwitcher } from "./inspector/LayerQuickSwitcher";
 import { PixelingMasterInspector } from "./inspector/PixelingMasterInspector";
+import { SovereignMasterInspector } from "./inspector/SovereignMasterInspector";
+import { SovereignStudioProvider } from "./core/SovereignStudioContext";
 import { AudioDuckingInspector } from "./inspector/AudioDuckingInspector";
 import { formatTimecode } from "./timeline/TimelineRuler";
 import { VLStandardBlueprintV4, LayerObject } from "../../types/blueprintV4";
@@ -104,11 +106,11 @@ const EditorInnerLayout: React.FC<{
           </StudioErrorBoundary>
         </div>
 
-        {/* 우측 인스펙터 패널 (픽셀링 1:1 완벽 대응 마스터 인스펙터) */}
-        <div className="w-84 h-full bg-card border-l border-border p-3 shrink-0 select-none">
+        {/* 우측 인스펙터 패널 (4대 마스터 그룹 + 폼팩터 전용 2계층 주권 인스펙터) */}
+        <div className="w-96 h-full bg-card border-l border-border p-3 shrink-0 select-none">
           <StudioErrorBoundary sectionName="Inspector">
             {studioMode === "design" ? (
-              <PixelingMasterInspector
+              <SovereignMasterInspector
                 studioMode={studioMode}
                 onStudioModeChange={(m) => {
                   setStudioMode(m);
@@ -169,7 +171,7 @@ const EditorInnerLayout: React.FC<{
                 </div>
 
                 {nleInspectorTab === "layers" ? (
-                  <PixelingMasterInspector
+                  <SovereignMasterInspector
                     studioMode={studioMode}
                     onStudioModeChange={setStudioMode}
                   />
@@ -277,9 +279,11 @@ export const AllInOneNLEStudio: React.FC<AllInOneNLEStudioProps> = ({
   return (
     <StudioErrorBoundary sectionName="StudioGlobal">
       <EditorStateManager initialBlueprint={initialBlueprint} onSave={onSave}>
-        <HotkeyProvider>
-          <EditorInnerLayout onBack={onBack} defaultStudioMode={defaultStudioMode} />
-        </HotkeyProvider>
+        <SovereignStudioProvider>
+          <HotkeyProvider>
+            <EditorInnerLayout onBack={onBack} defaultStudioMode={defaultStudioMode} />
+          </HotkeyProvider>
+        </SovereignStudioProvider>
       </EditorStateManager>
     </StudioErrorBoundary>
   );

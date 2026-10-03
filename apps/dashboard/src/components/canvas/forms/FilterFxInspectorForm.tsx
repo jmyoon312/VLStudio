@@ -19,15 +19,29 @@ export interface VideoFilterConfig {
 }
 
 export interface FilterFxInspectorFormProps {
-  videoFilter: VideoFilterConfig;
-  setVideoFilter: React.Dispatch<React.SetStateAction<VideoFilterConfig>>;
+  videoFilter?: VideoFilterConfig;
+  setVideoFilter?: React.Dispatch<React.SetStateAction<VideoFilterConfig>> | ((fn: any) => void);
 }
 
+export const DEFAULT_VIDEO_FILTER: VideoFilterConfig = {
+  preset: 'none',
+  intensity: 100,
+  filmGrain: 0,
+  vignette: 0,
+  brightness: 100,
+  contrast: 100,
+  saturation: 100,
+  temperature: 0,
+};
+
 export const FilterFxInspectorForm: React.FC<FilterFxInspectorFormProps> = ({
-  videoFilter,
-  setVideoFilter,
+  videoFilter: rawFilter,
+  setVideoFilter: rawSetFilter,
 }) => {
   const { toast } = useToast();
+  const [internalFilter, setInternalFilter] = React.useState<VideoFilterConfig>(DEFAULT_VIDEO_FILTER);
+  const videoFilter = rawFilter || internalFilter;
+  const setVideoFilter = rawSetFilter || setInternalFilter;
   return (
 <div className="space-y-3">
                 <div className="p-2.5 border border-border bg-card rounded-[2px] space-y-3 shadow-2xs">

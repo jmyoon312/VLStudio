@@ -10,6 +10,7 @@ import { CommentCardInspector } from "./CommentCardInspector";
 import { ScrubInput } from "./ScrubInput";
 import { ColorPalettePicker } from "./ColorPalettePicker";
 import { CanvasGlobalInspector } from "./CanvasGlobalInspector";
+import { FormFactorSuiteInspector } from "./FormFactorSuiteInspector";
 import {
   Type,
   Palette,
@@ -732,6 +733,9 @@ export const PixelingMasterInspector: React.FC<PixelingMasterInspectorProps> = (
           <div className="space-y-4">
             {/* 상시 레이어 퀵 스위처 */}
             <LayerQuickSwitcher />
+
+            {/* 4대 폼팩터 전용 특화 도구 (인스타 프로필/베댓, 군림보 2줄대제목/후킹바, 썰형 풍자메타/누적모드) */}
+            <FormFactorSuiteInspector />
 
             {/* 선택된 레이어가 있을 때: 고른 요소 도구 (Transform & Specific Inspector) */}
             {selectedLayer ? (

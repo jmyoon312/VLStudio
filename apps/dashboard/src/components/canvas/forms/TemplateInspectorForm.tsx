@@ -35,19 +35,12 @@ export const TemplateInspectorForm: React.FC<TemplateInspectorFormProps> = (prop
     layoutTemplateMode,
     handleSelectTemplateMode,
     handleOpenTemplateLibrary,
-    instaConfig,
-    gunlimboConfig,
-    ssulConfig,
-    profileTransform,
     topTitleText,
     setTopTitleText,
-    titleTransform,
     topTitleFontSize,
     setTopTitleFontSize,
     topTitleColor,
     setTopTitleColor,
-    commentCard,
-    commentTransform,
     hasCommentCard,
     setHasCommentCard,
     handleInsertMeme,
@@ -85,7 +78,38 @@ export const TemplateInspectorForm: React.FC<TemplateInspectorFormProps> = (prop
   const setTopTitleYPct = props.setTopTitleYPct || (() => {});
   const titleFontFamily = props.titleFontFamily || 'Pretendard';
   const setTitleFontFamily = props.setTitleFontFamily || (() => {});
-  const subTransform = props.subTransform || { xPct: 50, yPct: 75, scale: 1.0, rotationDeg: 0, zIndex: 30 };
+  const instaConfig = props.instaConfig || {};
+  const gunlimboConfig = props.gunlimboConfig || {};
+  const ssulConfig = props.ssulConfig || {};
+  const commentCard = props.commentCard || {};
+  const profileTransform = {
+    xPct: props.profileTransform?.xPct ?? 6.0,
+    yPct: props.profileTransform?.yPct ?? 5.5,
+    scale: props.profileTransform?.scale ?? 1.0,
+    rotationDeg: props.profileTransform?.rotationDeg ?? 0,
+    zIndex: props.profileTransform?.zIndex ?? 45,
+  };
+  const titleTransform = {
+    xPct: props.titleTransform?.xPct ?? 50,
+    yPct: props.titleTransform?.yPct ?? 15,
+    scale: props.titleTransform?.scale ?? 1.0,
+    rotationDeg: props.titleTransform?.rotationDeg ?? 0,
+    zIndex: props.titleTransform?.zIndex ?? 40,
+  };
+  const commentTransform = {
+    xPct: props.commentTransform?.xPct ?? 50,
+    yPct: props.commentTransform?.yPct ?? 82,
+    scale: props.commentTransform?.scale ?? 0.95,
+    rotationDeg: props.commentTransform?.rotationDeg ?? 0,
+    zIndex: props.commentTransform?.zIndex ?? 45,
+  };
+  const subTransform = {
+    xPct: props.subTransform?.xPct ?? 50,
+    yPct: props.subTransform?.yPct ?? 75,
+    scale: props.subTransform?.scale ?? 1.0,
+    rotationDeg: props.subTransform?.rotationDeg ?? 0,
+    zIndex: props.subTransform?.zIndex ?? 30,
+  };
   const setSubTransform = props.setSubTransform || (() => {});
   const setSubtitleYPercent = props.setSubtitleYPercent || (() => {});
   const setWebImageQuery = props.setWebImageQuery || (() => {});
@@ -1078,7 +1102,7 @@ export const TemplateInspectorForm: React.FC<TemplateInspectorFormProps> = (prop
                               onClick={() => setInstaConfig(prev => ({ ...prev, bgColor: chip.val }))}
                               className={cn(
                                 "px-1.5 py-0.5 text-[9px] rounded border transition-colors",
-                                instaConfig.bgColor.toUpperCase() === chip.val
+                                (instaConfig.bgColor || '#FFFFFF').toUpperCase() === chip.val
                                   ? "border-primary font-bold ring-1 ring-primary"
                                   : "border-border text-muted-foreground"
                               )}

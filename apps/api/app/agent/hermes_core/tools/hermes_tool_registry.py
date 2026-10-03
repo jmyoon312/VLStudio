@@ -586,6 +586,75 @@ HERMES_OPENAI_TOOLS: List[Dict[str, Any]] = [
                 "required": ["topic"]
             }
         }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "gemini_analyze_youtube_video",
+            "description": "구글 주권 지능(Gemini 3.8 Flash)으로 유튜브 영상 URL을 초고속 분석하여 3초 훅 점수, 기승전결 서사 구조, 바이럴 트리거 및 숏폼 재가공 구간을 JSON으로 추출합니다.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "video_url": {"type": "string", "description": "분석할 유튜브 동영상 URL (예: https://www.youtube.com/watch?v=...)"},
+                    "custom_focus": {"type": "string", "description": "특별 집중 분석 요청 (예: 반전 포인트 중심, 유머 컷 추출)"}
+                },
+                "required": ["video_url"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "gemini_live_web_search",
+            "description": "구글 주권 지능의 실시간 검색 그라운딩(Google Search Grounding)을 활용하여 최신 팩트체크, 대중 반응, 숏폼 콘텐츠 기획 앵글을 도출합니다.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "검색 및 분석할 키워드 또는 질문"},
+                    "search_depth": {"type": "string", "enum": ["fast", "deep"], "default": "deep", "description": "검색 분석 심도"}
+                },
+                "required": ["query"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "gemini_character_prompt_continuation",
+            "description": "Nano Banana Pro(Gemini 3.1 Flash Image)에서 여러 컷의 씬 간 캐릭터 외모/의상/스타일 왜곡을 원천 차단하는 제로-드리프트(Zero-Drift) 프롬프트를 자동 생성합니다.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "character_description": {"type": "string", "description": "캐릭터 고정 외모/특징 (연령, 머리스타일, 얼굴, 의상 등)"},
+                    "scene_action": {"type": "string", "description": "해당 씬에서의 구체적 행동, 표정, 조명, 카메라 앵글"},
+                    "base_style": {"type": "string", "default": "cinematic_photorealism", "description": "기본 시각 스타일"}
+                },
+                "required": ["character_description", "scene_action"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "gemini_synthesize_character_voice",
+            "description": "Google Gemini 3.8 Flash TTS 캐릭터 멀티 보이스 엔진으로 11대 캐릭터 프로필(할아버지, 할머니, 중년남, 중년여, 청년남, 청년여, 여아, 남아, 유아, 악당, 내레이터) 음성을 고품질로 합성합니다. (Zero Edge TTS, 비용 0원)",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "text": {"type": "string", "description": "음성으로 합성할 대본 문장"},
+                    "character_profile": {
+                        "type": "string",
+                        "enum": [
+                            "narrator", "young_man", "young_woman", "middle_man", "middle_woman",
+                            "grandfather", "grandmother", "child_boy", "child_girl", "toddler", "villain"
+                        ],
+                        "default": "narrator",
+                        "description": "11대 캐릭터 페르소나"
+                    }
+                },
+                "required": ["text"]
+            }
+        }
     }
 ]
 
@@ -598,12 +667,16 @@ TOOL_DOMAINS: Dict[str, List[str]] = {
         "montage_assemble_full_production",
         "gemini_tts_optimize_guide",
         "synthesize_voice_speech",
+        "gemini_synthesize_character_voice",
+        "gemini_analyze_youtube_video",
+        "gemini_live_web_search",
         "web_search_and_trends",
         "search_youtube_reference_videos",
     ],
     "VISUAL_SYNTHESIS": [
         "generate_scene_image",
         "enhance_image_prompt",
+        "gemini_character_prompt_continuation",
         "generate_wan21_ai_video",
         "generate_ltx_video",
         "generate_kling_video",
@@ -620,6 +693,8 @@ TOOL_DOMAINS: Dict[str, List[str]] = {
         "pixeling_capture_template_draft",
     ],
     "INTELLIGENCE_INSPECTION": [
+        "gemini_analyze_youtube_video",
+        "gemini_live_web_search",
         "vision_inspect_media",
         "browser_search_and_browse",
         "cross_verify_channel_dna",
@@ -1456,6 +1531,43 @@ class HermesToolDispatcher:
                 "criticAudit": res.get("criticAudit"),
                 "message": res.get("message", "지능형 청사진 조립이 완료되었습니다.")
             }
+
+        # 28. Gemini Analyze YouTube Video
+        elif tool_name == "gemini_analyze_youtube_video":
+            from app.services.gemini_web_agent import gemini_web_agent
+            res = await gemini_web_agent.analyze_youtube_video(
+                video_url=arguments.get("video_url", ""),
+                custom_focus=arguments.get("custom_focus")
+            )
+            return res
+
+        # 29. Gemini Live Web Search
+        elif tool_name == "gemini_live_web_search":
+            from app.services.gemini_web_agent import gemini_web_agent
+            res = await gemini_web_agent.live_web_search(
+                query=arguments.get("query", ""),
+                search_depth=arguments.get("search_depth", "deep")
+            )
+            return res
+
+        # 30. Gemini Character Prompt Continuation
+        elif tool_name == "gemini_character_prompt_continuation":
+            from app.services.gemini_web_agent import gemini_web_agent
+            res = await gemini_web_agent.generate_character_continuation_prompt(
+                character_description=arguments.get("character_description", ""),
+                scene_action=arguments.get("scene_action", ""),
+                base_style=arguments.get("base_style", "cinematic_photorealism")
+            )
+            return res
+
+        # 31. Gemini Synthesize Character Voice
+        elif tool_name == "gemini_synthesize_character_voice":
+            from app.services.gemini_web_agent import gemini_web_agent
+            res = await gemini_web_agent.synthesize_character_voice(
+                text=arguments.get("text", ""),
+                character_profile=arguments.get("character_profile", "narrator")
+            )
+            return res
 
         # Check Live Hot-Plug Tool Mesh (Hermes v0.21.5 Connectors)
         from app.agent.hermes_core.tools.hermes_hotplug_mesh import hermes_hotplug_mesh

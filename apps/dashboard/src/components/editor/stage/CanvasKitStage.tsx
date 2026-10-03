@@ -1,9 +1,28 @@
 import React, { useRef, useEffect, useState, useCallback } from "react";
 import { useBlueprint } from "../core/BlueprintContext";
+import { useSovereignStudio } from "../core/SovereignStudioContext";
 import { DomTransformGizmoOverlay } from "./DomTransformGizmoOverlay";
 import { SafeZoneOverhangGuard } from "./SafeZoneOverhangGuard";
 import { MockupBackdropSelector, BackdropType, BACKDROP_CONFIGS } from "./MockupBackdropSelector";
 import { resolveFontFamily } from "../../../lib/blueprintV4Migrator";
+import {
+  TitleFloatingInspector,
+  CommentCardFloatingInspector,
+  InstaProfileFloatingInspector,
+  GunlimboHookBandFloatingInspector,
+  BadgeTagFloatingInspector,
+  JabHookFloatingInspector,
+  SourceCreditFloatingInspector,
+  TopBottomBarFloatingInspector,
+  VideoCropFloatingInspector,
+  SubtitleFloatingInspector,
+  SsulHeaderFloatingInspector,
+  PostTitleFloatingInspector,
+  MetadataFloatingInspector,
+  DividerFloatingInspector,
+  SsulSubtitleFloatingInspector,
+} from "../../canvas/floating";
+import { Maximize2, ZoomIn, ZoomOut, Check, ChevronDown } from "lucide-react";
 
 export interface CanvasKitStageProps {
   className?: string;
@@ -33,6 +52,8 @@ export const CanvasKitStage: React.FC<CanvasKitStageProps> = ({
     updateLayerContent,
     updateLayerStyle,
   } = useBlueprint();
+
+  const sovereign = useSovereignStudio();
 
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -71,12 +92,12 @@ export const CanvasKitStage: React.FC<CanvasKitStageProps> = ({
 
   // 줌 조절 핸들러
   const handleZoomIn = () => {
-    const next = Math.min(2.0, Math.round((scale + 0.1) * 10) / 10);
+    const next = Math.min(4.0, Math.round((scale + 0.1) * 10) / 10);
     setUserZoom(next);
   };
 
   const handleZoomOut = () => {
-    const next = Math.max(0.15, Math.round((scale - 0.1) * 10) / 10);
+    const next = Math.max(0.2, Math.round((scale - 0.1) * 10) / 10);
     setUserZoom(next);
   };
 
@@ -84,15 +105,38 @@ export const CanvasKitStage: React.FC<CanvasKitStageProps> = ({
     setUserZoom(null);
   };
 
-  // Ctrl + 마우스 휠 줌 핸들러
-  const handleWheel = (e: React.WheelEvent) => {
-    if (e.ctrlKey || e.metaKey) {
+  // 🎯 마우스 휠 줌 (0.2x ~ 4.0x 부드러운 줌)
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const onWheel = (e: WheelEvent) => {
+      // 플로팅 인스펙터 팝업창 및 내부 스크롤 영역 조작 시 캔버스 줌인/줌아웃 방지
+      const rawTarget = e.target as Node | null;
+      const target = rawTarget instanceof HTMLElement ? rawTarget : rawTarget?.parentElement;
+      if (
+        target?.closest?.(
+          ".floating-inspector-card, [data-no-canvas-zoom='true'], .custom-scrollbar, select, input, textarea, [role='slider']"
+        )
+      ) {
+        return;
+      }
+
       e.preventDefault();
-      const delta = e.deltaY < 0 ? 0.05 : -0.05;
-      const next = Math.min(2.0, Math.max(0.15, Math.round((scale + delta) * 100) / 100));
-      setUserZoom(next);
-    }
-  };
+      e.stopPropagation();
+      const zoomDelta = -e.deltaY * 0.0015;
+      setUserZoom((prev) => {
+        const current = prev ?? fitScale;
+        const next = Math.max(0.2, Math.min(4.0, current + zoomDelta));
+        return parseFloat(next.toFixed(3));
+      });
+    };
+
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => {
+      el.removeEventListener("wheel", onWheel);
+    };
+  }, [fitScale]);
 
   // 2. 컨테이너 크기 변경 감지 (타임라인 펼침/접힘 및 윈도우 리사이즈 즉각 반응)
   useEffect(() => {
@@ -221,45 +265,88 @@ export const CanvasKitStage: React.FC<CanvasKitStageProps> = ({
           {studioMode === "design" ? "🎨 디자인 템플릿 뷰포트" : "🎛️ NLE 실시간 프리뷰"}
         </div>
 
-        {/* 캔버스 줌 도구 모음 */}
-        <div className="flex items-center space-x-1 bg-card border border-border px-1.5 py-0.5 rounded shadow-xs text-xs">
+        {/* 캔버스 줌 도구 모음 (맞춤 버튼 + 배율 드롭다운 + 마우스 휠 줌) */}
+        <div className="flex items-center space-x-1.5 bg-card border border-border px-1.5 py-0.5 rounded shadow-xs text-xs">
+          {/* 화면 맞춤 버튼 */}
+          <button
+            onClick={handleZoomReset}
+            className={`px-2 py-0.5 rounded text-[11px] font-semibold flex items-center gap-1 cursor-pointer transition-colors ${
+              userZoom === null
+                ? "bg-primary/10 text-primary border border-primary/30"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted"
+            }`}
+            title="화면 크기에 맞춤 (Fit)"
+          >
+            <Maximize2 className="w-3 h-3" />
+            <span>맞춤</span>
+          </button>
+
+          {/* 배율 프리셋 드롭다운 */}
+          <div className="relative inline-flex items-center">
+            <select
+              value={
+                userZoom === null
+                  ? "fit"
+                  : Math.abs(scale - 0.5) < 0.05
+                  ? "50"
+                  : Math.abs(scale - 0.75) < 0.05
+                  ? "75"
+                  : Math.abs(scale - 1.0) < 0.05
+                  ? "100"
+                  : Math.abs(scale - 1.5) < 0.05
+                  ? "150"
+                  : Math.abs(scale - 2.0) < 0.05
+                  ? "200"
+                  : "custom"
+              }
+              onChange={(e) => {
+                const val = e.target.value;
+                if (val === "fit") handleZoomReset();
+                else if (val === "50") setUserZoom(0.5);
+                else if (val === "75") setUserZoom(0.75);
+                else if (val === "100") setUserZoom(1.0);
+                else if (val === "150") setUserZoom(1.5);
+                else if (val === "200") setUserZoom(2.0);
+              }}
+              className="h-6 px-1.5 pr-5 text-[11px] font-mono font-medium bg-muted/60 text-foreground border border-border/80 rounded cursor-pointer appearance-none hover:bg-muted transition-colors"
+              title="배율 선택 또는 마우스 휠로 자유 줌"
+            >
+              <option value="fit">맞춤 ({Math.round(fitScale * 100)}%)</option>
+              <option value="50">50%</option>
+              <option value="75">75%</option>
+              <option value="100">100%</option>
+              <option value="150">150%</option>
+              <option value="200">200%</option>
+              {userZoom !== null && (
+                <option value="custom">
+                  {Math.round(scale * 100)}% (휠 줌)
+                </option>
+              )}
+            </select>
+            <ChevronDown className="w-2.5 h-2.5 absolute right-1.5 pointer-events-none text-muted-foreground" />
+          </div>
+
+          {/* 축소/확대 버튼 */}
           <button
             onClick={handleZoomOut}
             className="w-5 h-5 flex items-center justify-center rounded hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer font-bold"
-            title="축소 (Ctrl + 휠 아래)"
+            title="축소 (마우스 휠 아래)"
           >
             -
           </button>
           <button
-            onClick={handleZoomReset}
-            className="px-1.5 py-0.5 font-mono text-[11px] text-foreground hover:bg-muted rounded cursor-pointer transition-colors"
-            title="클릭 시 화면 맞춤으로 초기화"
-          >
-            {Math.round(scale * 100)}%{userZoom === null ? " (맞춤)" : ""}
-          </button>
-          <button
             onClick={handleZoomIn}
             className="w-5 h-5 flex items-center justify-center rounded hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer font-bold"
-            title="확대 (Ctrl + 휠 위)"
+            title="확대 (마우스 휠 위)"
           >
             +
           </button>
-          {userZoom !== null && (
-            <button
-              onClick={handleZoomReset}
-              className="text-[10px] text-primary px-1.5 py-0.5 hover:bg-primary/10 rounded cursor-pointer font-semibold"
-              title="화면 크기에 맞춤"
-            >
-              화면 맞춤
-            </button>
-          )}
         </div>
       </div>
 
       {/* 2. 중앙 캔버스 뷰포트 (스크롤 및 중앙 정렬) */}
       <div
         ref={containerRef}
-        onWheel={handleWheel}
         className="relative flex-1 w-full h-full flex items-center justify-center overflow-auto p-4 select-none"
         onClick={() => setSelectedLayerId(null)}
       >
@@ -301,14 +388,34 @@ export const CanvasKitStage: React.FC<CanvasKitStageProps> = ({
                       </div>
                     ) : (
                       <div
-                        className="h-14 rounded-xl flex items-center justify-center text-xs text-muted-foreground border border-dashed border-border"
+                        className="p-3 rounded-xl flex items-center justify-between text-xs text-foreground/80 border border-border/60"
                         style={{
-                          backgroundColor: (layer as any).fillColor || "transparent",
+                          backgroundColor:
+                            (layer as any).fillColor === "transparent"
+                              ? "rgba(128,128,128,0.08)"
+                              : (layer as any).fillColor || "rgba(128,128,128,0.08)",
+                          borderRadius: `${Math.min(16, (layer as any).borderRadius || 8)}px`,
                         }}
                       >
-                        {(layer as any).shapeRole === "comment_card"
-                          ? "💬 댓글 카드 프레임 (우측 인스펙터에서 12종 갤러리/투명도 조절)"
-                          : "▢ 그래픽 쉐이프 바"}
+                        <span className="font-medium flex items-center space-x-1.5">
+                          <span>
+                            {(layer as any).shapeRole === "comment_card"
+                              ? "💬"
+                              : (layer as any).shapeRole === "hole_mask"
+                              ? "🎬"
+                              : "🎨"}
+                          </span>
+                          <span>
+                            {(layer as any).shapeRole === "comment_card"
+                              ? "인스타/유튜브 베댓 카드 프레임"
+                              : (layer as any).shapeRole === "hole_mask"
+                              ? "비디오 영상 재생 프레임"
+                              : layer.name}
+                          </span>
+                        </span>
+                        <span className="text-[10px] text-muted-foreground font-mono">
+                          W: {layer.transform.width}px × H: {layer.transform.height}px
+                        </span>
                       </div>
                     )}
                   </div>
@@ -374,7 +481,17 @@ export const CanvasKitStage: React.FC<CanvasKitStageProps> = ({
                 key={layer.id}
                 onClick={(e) => {
                   e.stopPropagation();
-                  setSelectedLayerId(layer.id);
+                  if (sovereign) {
+                    sovereign.handleLayerSingleClick(layer);
+                  } else {
+                    setSelectedLayerId(layer.id);
+                  }
+                }}
+                onDoubleClick={(e) => {
+                  e.stopPropagation();
+                  if (sovereign) {
+                    sovereign.handleLayerDoubleClick(layer);
+                  }
                 }}
                 className={`absolute cursor-pointer transition-shadow ${
                   isSelected ? "" : "hover:ring-1 hover:ring-cyan-500/50"
@@ -558,6 +675,299 @@ export const CanvasKitStage: React.FC<CanvasKitStageProps> = ({
         </div>
         )}
       </div>
+
+      {/* 3. 더블 클릭 시 나타나는 좌측 전용 플로팅 인스펙터 (14종 완비) */}
+      {sovereign && sovereign.activeFloatingInspector !== "none" && (
+        <div className="absolute left-4 top-12 z-50 pointer-events-auto shadow-2xl floating-inspector-card">
+          {sovereign.activeFloatingInspector === "title" && (
+            <TitleFloatingInspector
+              isOpen={true}
+              onClose={() => sovereign.setActiveFloatingInspector("none")}
+              config={sovereign.titleConfig}
+              onChange={sovereign.updateTitleConfig}
+              onReset={() => sovereign.updateTitleConfig({})}
+            />
+          )}
+          {sovereign.activeFloatingInspector === "commentCard" && (
+            <CommentCardFloatingInspector
+              isOpen={true}
+              onClose={() => sovereign.setActiveFloatingInspector("none")}
+              config={sovereign.commentCardConfig}
+              onChange={sovereign.updateCommentCardConfig}
+              onReset={() => sovereign.updateCommentCardConfig({})}
+            />
+          )}
+          {sovereign.activeFloatingInspector === "instaProfile" && (
+            <InstaProfileFloatingInspector
+              isOpen={true}
+              onClose={() => sovereign.setActiveFloatingInspector("none")}
+              config={sovereign.instaConfig}
+              onChange={sovereign.updateInstaConfig}
+              onReset={() => sovereign.updateInstaConfig({})}
+            />
+          )}
+          {sovereign.activeFloatingInspector === "gunlimboHookBand" && (
+            <GunlimboHookBandFloatingInspector
+              isOpen={true}
+              onClose={() => sovereign.setActiveFloatingInspector("none")}
+              config={{
+                enabled: true,
+                hookPhrase: sovereign.gunlimboConfig?.hookPhrase || "1초 훅킹 문구",
+                hookBgColor: sovereign.gunlimboConfig?.hookBgColor || "#000000",
+                hookTextColor: sovereign.gunlimboConfig?.hookTextColor || "#FFFFFF",
+                hookFontSize: sovereign.gunlimboConfig?.hookFontSize || 36,
+                ...sovereign.gunlimboConfig,
+              }}
+              onChange={sovereign.updateGunlimboConfig}
+              onReset={() => {}}
+            />
+          )}
+          {sovereign.activeFloatingInspector === "badgeTag" && (
+            <BadgeTagFloatingInspector
+              isOpen={true}
+              onClose={() => sovereign.setActiveFloatingInspector("none")}
+              config={{
+                enabled: true,
+                text: sovereign.titleConfig?.titleBadgeText || "속보",
+                bgColor: sovereign.titleConfig?.titleBadgeBg || "#EF4444",
+                textColor: sovereign.titleConfig?.titleBadgeColor || "#FFFFFF",
+                fontSize: sovereign.titleConfig?.titleBadgeSizePx || 12,
+                borderRadius: sovereign.titleConfig?.titleBadgeRadius || 4,
+                paddingX: 8,
+                paddingY: 4,
+                offsetX: 0,
+                offsetY: 0,
+                ...sovereign.titleConfig,
+              }}
+              onChange={sovereign.updateTitleConfig}
+              onReset={() => {}}
+            />
+          )}
+          {sovereign.activeFloatingInspector === "jabHook" && (
+            <JabHookFloatingInspector
+              isOpen={true}
+              onClose={() => sovereign.setActiveFloatingInspector("none")}
+              config={{
+                enabled: true,
+                text: sovereign.gunlimboConfig?.hookPhrase || "쨉 훅 텍스트",
+                bgColor: sovereign.gunlimboConfig?.hookBgColor || "#000000",
+                textColor: sovereign.gunlimboConfig?.hookTextColor || "#FFFFFF",
+                fontSize: sovereign.gunlimboConfig?.hookFontSize || 32,
+                font: sovereign.gunlimboConfig?.hookFont || "Pretendard",
+                bold: sovereign.gunlimboConfig?.hookBold ?? true,
+                italic: sovereign.gunlimboConfig?.hookItalic ?? false,
+                tiltDeg: 0,
+                borderRadius: 4,
+                paddingX: 12,
+                paddingY: 6,
+                offsetX: 0,
+                offsetY: 0,
+                strokeEnabled: false,
+                strokeColor: "#000000",
+                strokeWidth: 2,
+                shadowEnabled: false,
+                shadowColor: "#000000",
+                shadowBlur: 4,
+                ...sovereign.gunlimboConfig,
+              }}
+              onChange={sovereign.updateGunlimboConfig}
+              onReset={() => {}}
+            />
+          )}
+          {sovereign.activeFloatingInspector === "sourceCredit" && (
+            <SourceCreditFloatingInspector
+              isOpen={true}
+              onClose={() => sovereign.setActiveFloatingInspector("none")}
+              config={{
+                enabled: true,
+                text: "출처: 유튜브 @채널명",
+                color: "#CCCCCC",
+                fontSize: 14,
+                font: "Pretendard",
+                bgEnabled: true,
+                bgColor: "rgba(0,0,0,0.6)",
+                borderRadius: 4,
+                strokeEnabled: false,
+                strokeColor: "#000000",
+                strokeWidth: 1,
+              }}
+              onChange={() => {}}
+              onReset={() => {}}
+            />
+          )}
+          {sovereign.activeFloatingInspector === "topBottomBar" && (
+            <TopBottomBarFloatingInspector
+              isOpen={true}
+              onClose={() => sovereign.setActiveFloatingInspector("none")}
+              config={{
+                hasTopBarBg: true,
+                topBarHeightPct: 18,
+                topBarBg: "#000000",
+                topBarOpacity: 1,
+                topBarRadius: 0,
+                hasBottomBarBg: true,
+                bottomBarHeightPct: 15,
+                bottomBarBg: "#000000",
+                bottomBarOpacity: 1,
+                bottomBarRadius: 0,
+              }}
+              onChange={() => {}}
+              onReset={() => {}}
+            />
+          )}
+          {sovereign.activeFloatingInspector === "videoCrop" && (
+            <VideoCropFloatingInspector
+              isOpen={true}
+              onClose={() => sovereign.setActiveFloatingInspector("none")}
+              config={{
+                fitMode: "cover",
+                blurBg: false,
+                zoomScale: 1,
+                focusXPct: 50,
+                focusYPct: 50,
+                rotationDeg: 0,
+                horizontalFlip: false,
+                verticalFlip: false,
+              }}
+              onChange={() => {}}
+              onReset={() => {}}
+              layoutTemplateMode={blueprint.archetype as any}
+              instaConfig={sovereign.instaConfig}
+              setInstaConfig={sovereign.updateInstaConfig}
+            />
+          )}
+          {sovereign.activeFloatingInspector === "subtitle" && (
+            <SubtitleFloatingInspector
+              isOpen={true}
+              onClose={() => sovereign.setActiveFloatingInspector("none")}
+              config={sovereign.subtitleConfig}
+              onChange={sovereign.updateSubtitleConfig}
+              onReset={() => {}}
+            />
+          )}
+          {sovereign.activeFloatingInspector === "ssulHeader" && (
+            <SsulHeaderFloatingInspector
+              isOpen={true}
+              onClose={() => sovereign.setActiveFloatingInspector("none")}
+              config={{
+                enabled: true,
+                bgColor: "#FFFFFF",
+                heightMultiplier: 1.0,
+                text: "실시간 인기글",
+                textColor: "#000000",
+                font: "Pretendard",
+                fontSizeMultiplier: 1.0,
+                bold: true,
+                italic: false,
+                leftIcon: "arrow_back",
+                rightIcon: "menu",
+                ...sovereign.ssulConfig,
+              }}
+              onChange={sovereign.updateSsulConfig}
+              onReset={() => {}}
+            />
+          )}
+          {sovereign.activeFloatingInspector === "postTitle" && (
+            <PostTitleFloatingInspector
+              isOpen={true}
+              onClose={() => sovereign.setActiveFloatingInspector("none")}
+              config={{
+                text: sovereign.titleConfig?.titleLine1 || "게시글 본문 제목",
+                color: sovereign.titleConfig?.titleLine1Color || "#000000",
+                font: sovereign.titleConfig?.titleFontFamily || "Pretendard",
+                fontSizeMultiplier: 1.0,
+                align: sovereign.titleConfig?.titleAlign || "left",
+                bold: true,
+                italic: false,
+                strokeEnabled: false,
+                strokeColor: "#000000",
+                strokeWidth: 2,
+                shadowEnabled: false,
+                shadowColor: "#000000",
+                shadowBlur: 4,
+                offsetX: 0,
+                offsetY: 0,
+                letterSpacing: 0,
+                lineHeight: 1.3,
+                ...sovereign.titleConfig,
+              }}
+              onChange={sovereign.updateTitleConfig}
+              onReset={() => sovereign.updateTitleConfig({})}
+            />
+          )}
+          {sovereign.activeFloatingInspector === "metadata" && (
+            <MetadataFloatingInspector
+              isOpen={true}
+              onClose={() => sovereign.setActiveFloatingInspector("none")}
+              config={{
+                nickname: "익명",
+                timeText: "방금 전",
+                views: "조회 1.2만",
+                likes: "추천 348",
+                comments: "댓글 89",
+                color: "#666666",
+                font: "Pretendard",
+                fontSizeMultiplier: 1.0,
+                offsetX: 0,
+                offsetY: 0,
+                letterSpacing: 0,
+                lineHeight: 1.2,
+                showViews: true,
+                showLikes: true,
+                showComments: true,
+                ...sovereign.ssulConfig,
+              }}
+              onChange={sovereign.updateSsulConfig}
+              onReset={() => {}}
+            />
+          )}
+          {sovereign.activeFloatingInspector === "divider" && (
+            <DividerFloatingInspector
+              isOpen={true}
+              onClose={() => sovereign.setActiveFloatingInspector("none")}
+              config={{
+                enabled: true,
+                color: "#E5E7EB",
+                thickness: 1,
+                offsetX: 0,
+                offsetY: 0,
+                ...sovereign.ssulConfig,
+              }}
+              onChange={sovereign.updateSsulConfig}
+              onReset={() => {}}
+            />
+          )}
+          {sovereign.activeFloatingInspector === "ssulSubtitle" && (
+            <SsulSubtitleFloatingInspector
+              isOpen={true}
+              onClose={() => sovereign.setActiveFloatingInspector("none")}
+              config={{
+                bubbleStyle: "box",
+                bgColor: "rgba(0,0,0,0.85)",
+                textColor: "#FFFFFF",
+                fontSizeMultiplier: 1.0,
+                borderRadius: 8,
+                paddingX: 16,
+                paddingY: 10,
+                font: "Pretendard",
+                bold: true,
+                italic: false,
+                strokeEnabled: false,
+                strokeColor: "#000000",
+                strokeWidth: 2,
+                shadowEnabled: true,
+                shadowColor: "rgba(0,0,0,0.5)",
+                shadowBlur: 6,
+                letterSpacing: 0,
+                lineHeight: 1.3,
+                ...sovereign.subtitleConfig,
+              }}
+              onChange={sovereign.updateSubtitleConfig}
+              onReset={() => {}}
+            />
+          )}
+        </div>
+      )}
     </div>
   );
 };

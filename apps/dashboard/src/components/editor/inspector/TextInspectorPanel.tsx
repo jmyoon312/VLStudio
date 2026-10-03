@@ -42,23 +42,65 @@ export const TextInspectorPanel: React.FC<TextInspectorPanelProps> = ({
   const [activeTab, setActiveTab] = useState<TextTab>("style");
   const currentFont = resolveFontFamily(layer.fontFamily);
 
-  // 텍스트 내용 기반 줄(Line) 분할 (\n 줄바꿈 기준)
+  // 텍스트 내용 기반 줄(Line) 분할 (줄바꿈 기준)
   const contentText = layer.content || "";
   const rawLines = contentText.split("\n");
   const lines = rawLines.length > 0 ? rawLines : [contentText];
-  const isMultiLine = lines.length > 1 || Boolean(layer.multiLineStyles && layer.multiLineStyles.length > 1);
+  const activeLineCount = Math.min(3, Math.max(1, lines.length));
+  const isMultiLine = activeLineCount > 1;
 
-  // 1·2·3 줄 스타일 기본값 구성 (군림보/쇼츠 표준: 1줄 58px #FBBF24, 2줄 54px #FFFFFF, 3줄 54px #FFFFFF)
-  const lineStyles: LineStyleSpec[] = [
-    layer.multiLineStyles?.[0] || { fontSize: layer.fontSize, fontColor: layer.fontColor || "#FBBF24" },
-    layer.multiLineStyles?.[1] || { fontSize: Math.max(16, layer.fontSize - 4), fontColor: "#FFFFFF" },
-    layer.multiLineStyles?.[2] || { fontSize: Math.max(16, layer.fontSize - 4), fontColor: "#FFFFFF" },
-  ];
+  // 줄 수 변경 핸들러 (1줄 / 2줄 / 3줄 모드 원클릭 전환)
+  const handleSetLineCount = (targetCount: number) => {
+    let newLines = [...lines];
+    if (targetCount === 1) {
+      newLines = [lines[0] || contentText];
+    } else if (targetCount === 2) {
+      if (newLines.length < 2) {
+        newLines = [newLines[0] || "1번째 줄 대제목", "2번째 줄 강조 카피"];
+      } else {
+        newLines = [newLines[0], newLines[1]];
+      }
+    } else if (targetCount === 3) {
+      if (newLines.length === 1) {
+        newLines = [newLines[0], "2번째 줄 강조 카피", "3번째 줄 마무리 펀치"];
+      } else if (newLines.length === 2) {
+        newLines = [newLines[0], newLines[1], "3번째 줄 마무리 펀치"];
+      } else {
+        newLines = [newLines[0], newLines[1], newLines[2]];
+      }
+    }
 
-  // 특정 줄의 스타일 패치
+    const defaultColors = ["#FFE500", "#FFFFFF", "#FFFFFF"];
+    const defaultSizes = [layer.fontSize, Math.max(16, layer.fontSize - 6), Math.max(16, layer.fontSize - 6)];
+
+    const newMultiStyles: LineStyleSpec[] = Array.from({ length: targetCount }, (_, idx) => {
+      return (
+        layer.multiLineStyles?.[idx] || {
+          fontSize: defaultSizes[idx],
+          fontColor: defaultColors[idx],
+        }
+      );
+    });
+
+    onChange({
+      content: newLines.join("\n"),
+      multiLineStyles: newMultiStyles,
+    });
+  };
+
+  // 현재 실제 줄 수(1~3)에 엄격하게 맞춘 슬라이더 바운딩
+  const lineStyles: LineStyleSpec[] = Array.from({ length: activeLineCount }, (_, idx) => {
+    return (
+      layer.multiLineStyles?.[idx] || {
+        fontSize: idx === 0 ? layer.fontSize : Math.max(16, layer.fontSize - 6),
+        fontColor: idx === 0 ? layer.fontColor || "#FFE500" : "#FFFFFF",
+      }
+    );
+  });
+
+  // 특정 줄의 스타일 패치 (현재 줄 수를 초과하여 저장되지 않도록 철저히 가드)
   const updateLineStyle = (index: number, patch: Partial<LineStyleSpec>) => {
-    const nextStyles = [...lineStyles];
-    nextStyles[index] = { ...nextStyles[index], ...patch };
+    const nextStyles = lineStyles.map((s, idx) => (idx === index ? { ...s, ...patch } : s));
     onChange({ multiLineStyles: nextStyles });
   };
 
@@ -104,108 +146,76 @@ export const TextInspectorPanel: React.FC<TextInspectorPanelProps> = ({
       {/* 2. [스타일] 탭: 줄별 크기/색상 및 정밀 위치·효과 */}
       {activeTab === "style" && (
         <div className="space-y-3.5 animate-in fade-in-50 duration-150">
-          {/* 글자 크기: 1줄 vs 1·2·3줄 개별 제어 슬라이더 바 */}
-          {isMultiLine ? (
-            <div className="space-y-2.5 p-2.5 bg-muted/30 rounded-xl border border-border/60">
-              <span className="text-[11px] font-bold text-foreground block">
-                줄별 글자 크기 (1·2·3)
-              </span>
-              <div className="space-y-2">
+          {/* 줄 수 구성 스위처 (1줄 / 2줄 / 3줄) */}
+          <div className="flex items-center justify-between p-2 bg-muted/30 rounded-xl border border-border/60">
+            <span className="text-[11px] font-bold text-foreground">
+              줄 수 구성
+            </span>
+            <div className="flex items-center space-x-1 bg-muted/60 p-0.5 rounded-lg border border-border">
+              {[1, 2, 3].map((cnt) => (
+                <button
+                  key={cnt}
+                  type="button"
+                  onClick={() => handleSetLineCount(cnt)}
+                  className={`px-2.5 py-0.5 rounded-md text-[11px] font-bold cursor-pointer transition-all ${
+                    activeLineCount === cnt
+                      ? "bg-primary text-primary-foreground shadow-2xs"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {cnt}줄
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* 줄별 글자 크기 슬라이더 바 (실제 줄 수와 1:1 완벽 연동) */}
+          <div className="space-y-2.5 p-2.5 bg-muted/30 rounded-xl border border-border/60">
+            <span className="text-[11px] font-bold text-foreground block">
+              {isMultiLine ? `줄별 글자 크기 (${activeLineCount}줄)` : "글자 크기"}
+            </span>
+            <div className="space-y-2">
+              {lineStyles.map((style, idx) => (
                 <ScrubInput
-                  label="1줄 크기"
-                  value={lineStyles[0]?.fontSize || layer.fontSize}
+                  key={idx}
+                  label={isMultiLine ? `${idx + 1}줄 크기` : "글자 크기"}
+                  value={style.fontSize || layer.fontSize}
                   onChange={(val) => {
-                    updateLineStyle(0, { fontSize: val });
-                    onChange({ fontSize: val });
+                    updateLineStyle(idx, { fontSize: val });
+                    if (idx === 0) onChange({ fontSize: val });
                   }}
                   min={16}
                   max={160}
                   unit="px"
-                  defaultValue={58}
+                  defaultValue={idx === 0 ? 58 : 50}
                 />
-                <ScrubInput
-                  label="2줄 크기"
-                  value={lineStyles[1]?.fontSize || layer.fontSize}
-                  onChange={(val) => updateLineStyle(1, { fontSize: val })}
-                  min={16}
-                  max={160}
-                  unit="px"
-                  defaultValue={54}
-                />
-                {(lines.length > 2 || (layer.multiLineStyles && layer.multiLineStyles.length > 2)) && (
-                  <ScrubInput
-                    label="3줄 크기"
-                    value={lineStyles[2]?.fontSize || layer.fontSize}
-                    onChange={(val) => updateLineStyle(2, { fontSize: val })}
-                    min={16}
-                    max={160}
-                    unit="px"
-                    defaultValue={54}
-                  />
-                )}
-              </div>
+              ))}
             </div>
-          ) : (
-            <div className="p-2.5 bg-muted/30 rounded-xl border border-border/60">
-              <ScrubInput
-                label="글자 크기"
-                value={layer.fontSize}
-                onChange={(val) => onChange({ fontSize: val })}
-                min={16}
-                max={200}
-                unit="px"
-                defaultValue={48}
-              />
-            </div>
-          )}
+          </div>
 
-          {/* 줄 색 (1·2·3) 개별 제어 */}
-          {isMultiLine ? (
-            <div className="space-y-2 p-2.5 bg-muted/30 rounded-xl border border-border/60">
-              <span className="text-[11px] font-bold text-foreground block">
-                줄별 색상 (1·2·3)
-              </span>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-medium text-muted-foreground">1줄 색</span>
+          {/* 줄별 색상 피커 (실제 줄 수와 1:1 완벽 연동) */}
+          <div className="space-y-2 p-2.5 bg-muted/30 rounded-xl border border-border/60">
+            <span className="text-[11px] font-bold text-foreground block">
+              {isMultiLine ? `줄별 색상 (${activeLineCount}줄)` : "글자 색상"}
+            </span>
+            <div className="space-y-2">
+              {lineStyles.map((style, idx) => (
+                <div key={idx} className="flex items-center justify-between">
+                  <span className="text-[11px] font-medium text-muted-foreground">
+                    {isMultiLine ? `${idx + 1}줄 색` : "글자 색"}
+                  </span>
                   <ColorPalettePicker
                     label=""
-                    color={lineStyles[0]?.fontColor || layer.fontColor || "#FBBF24"}
+                    color={style.fontColor || (idx === 0 ? layer.fontColor || "#FFE500" : "#FFFFFF")}
                     onChange={(color) => {
-                      updateLineStyle(0, { fontColor: color });
-                      onChange({ fontColor: color });
+                      updateLineStyle(idx, { fontColor: color });
+                      if (idx === 0) onChange({ fontColor: color });
                     }}
                   />
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-medium text-muted-foreground">2줄 색</span>
-                  <ColorPalettePicker
-                    label=""
-                    color={lineStyles[1]?.fontColor || "#FFFFFF"}
-                    onChange={(color) => updateLineStyle(1, { fontColor: color })}
-                  />
-                </div>
-                {(lines.length > 2 || (layer.multiLineStyles && layer.multiLineStyles.length > 2)) && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-medium text-muted-foreground">3줄 색</span>
-                    <ColorPalettePicker
-                      label=""
-                      color={lineStyles[2]?.fontColor || "#FFFFFF"}
-                      onChange={(color) => updateLineStyle(2, { fontColor: color })}
-                    />
-                  </div>
-                )}
-              </div>
+              ))}
             </div>
-          ) : (
-            <div className="p-2.5 bg-muted/30 rounded-xl border border-border/60">
-              <ColorPalettePicker
-                label="글자 색상"
-                color={layer.fontColor || "#FFFFFF"}
-                onChange={(fontColor) => onChange({ fontColor })}
-              />
-            </div>
-          )}
+          </div>
 
           {/* 세로 위치, 줄간격, 자간 슬라이더 바 (픽셀링 1:1 완비) */}
           <div className="space-y-2.5 p-2.5 bg-muted/20 rounded-xl border border-border/50">
