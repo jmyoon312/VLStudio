@@ -37,9 +37,12 @@ import {
     List,
     Music,
     Filter,
-    Calendar
+    Calendar,
+    Layout,
+    Palette
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { SovereignPreset } from '@/components/presets/PresetLibraryModal';
 
 import {
     CommandLogItem,
@@ -77,9 +80,11 @@ interface DirectorRightPanelProps {
     onTabChange?: (tab: DockTab) => void;
     threadId?: string;
     activeBrowserUrl?: string;
+    activePreset?: SovereignPreset | null;
+    onUpdatePresetVisual?: (visualPatch: any) => void;
 }
 
-export type DockTab = 'menu' | 'board' | 'preview' | 'files' | 'browser' | 'vision' | 'local_pc' | 'terminal' | 'backlot' | 'cross_diff';
+export type DockTab = 'menu' | 'board' | 'preview' | 'template' | 'files' | 'browser' | 'vision' | 'local_pc' | 'terminal' | 'backlot' | 'cross_diff';
 
 export const TAB_DEFINITIONS: Record<DockTab, {
     label: string;
@@ -90,11 +95,12 @@ export const TAB_DEFINITIONS: Record<DockTab, {
 }> = {
     menu: { label: '홈', shortLabel: '홈', icon: Home, color: 'text-primary', description: '실시간 AI 작업 관찰 데스크 & 퀵 액션' },
     board: { label: '자율 보드', shortLabel: '보드', icon: LayoutGrid, color: 'text-violet-500', description: '8대 하수인 실시간 파이프라인 관제 보드' },
+    template: { label: '템플릿 캔버스', shortLabel: '템플릿', icon: Layout, color: 'text-indigo-500', description: '9:16 라이브 화면 템플릿 실시간 렌더링' },
+    preview: { label: '영상 재생', shortLabel: '영상 재생', icon: Play, color: 'text-rose-500', description: '9:16 화면 꽉 찬 쇼츠 플레이어' },
     browser: { label: '브라우저', shortLabel: '브라우저', icon: Globe, color: 'text-cyan-500', description: 'AI 실시간 웹 탐색 & 9:16 모바일 뷰' },
     vision: { label: '비전 실측', shortLabel: '비전 실측', icon: Eye, color: 'text-amber-500', description: 'OmniRoute 키프레임 & 시각 요소 실측' },
     files: { label: '작업 파일', shortLabel: '작업 파일', icon: FileText, color: 'text-blue-500', description: '02_Operations 작업 디렉토리 탐색기' },
     backlot: { label: '완성 영상', shortLabel: '완성 영상', icon: Film, color: 'text-purple-500', description: '05_Exports 최종 완성본 영상 보관함' },
-    preview: { label: '영상 재생', shortLabel: '영상 재생', icon: Play, color: 'text-rose-500', description: '9:16 화면 꽉 찬 쇼츠 플레이어' },
     // Retained for backward-compatibility if programmatically triggered
     terminal: { label: '인터랙션', shortLabel: '인터랙션', icon: Terminal, color: 'text-emerald-500', description: '로컬 OS 커맨드 & 인터랙티브 콘솔' },
     cross_diff: { label: 'AI 크로스', shortLabel: '크로스', icon: Sparkles, color: 'text-purple-500', description: '아스트라 지능 + 제미나이 물리 교차 검증' },
@@ -120,6 +126,8 @@ export const DirectorRightPanel: React.FC<DirectorRightPanelProps> = ({
     onTabChange,
     threadId,
     activeBrowserUrl,
+    activePreset,
+    onUpdatePresetVisual,
 }) => {
     const [fileScope, setFileScope] = useState<'thread' | 'all'>('thread');
     const [internalDockTab, setInternalDockTab] = useState<DockTab>(defaultTab);
@@ -1915,6 +1923,164 @@ export const DirectorRightPanel: React.FC<DirectorRightPanelProps> = ({
                                 </div>
                             );
                         })()}
+                    </div>
+                )}
+
+                {/* 5.5 Template (9:16 라이브 화면 템플릿 실시간 캔버스) Tab */}
+                {activeDockTab === 'template' && (
+                    <div className="flex-1 flex flex-col h-full min-h-0 bg-background/50 p-4 space-y-3 overflow-y-auto">
+                        {/* Header bar: Preset Info & SafeZone toggle */}
+                        <div className="flex items-center justify-between bg-card/80 p-3 rounded-2xl border border-border/80 shadow-2xs">
+                            <div className="flex items-center gap-2 min-w-0">
+                                <span className="text-base">🎨</span>
+                                <div className="min-w-0">
+                                    <div className="text-xs font-bold text-foreground truncate">
+                                        {activePreset?.name || '활성 프리셋 없음 (기본 템플릿)'}
+                                    </div>
+                                    <div className="text-[10px] text-muted-foreground flex items-center gap-1.5 mt-0.5">
+                                        <span className="capitalize">{activePreset?.category || 'classic'}</span>
+                                        <span>•</span>
+                                        <span className="text-indigo-500 font-medium">9:16 실시간 캔버스 동기화 중</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                                <button
+                                    type="button"
+                                    onClick={() => toast.info('AI 디렉터와 대화하며 헤더바나 자막 수정을 요청하시면 즉시 반영됩니다.')}
+                                    className="p-1.5 rounded-lg border border-border/80 hover:bg-muted/50 text-muted-foreground hover:text-foreground text-xs"
+                                    title="도움말"
+                                >
+                                    💡
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* 9:16 Phone Canvas Display */}
+                        <div className="flex-1 flex items-center justify-center p-2 min-h-[460px]">
+                            {(() => {
+                                const style = activePreset?.style || {};
+                                const vg = style.visual_geometry || (activePreset as any)?.visual_geometry || {};
+                                const containerType = vg.container_type || 'letterbox_sandwich';
+                                const topBar = vg.top_bar || {};
+                                const topHeader = vg.top_header_lines || [];
+                                const cap = vg.caption || style.caption || {};
+                                const subTape = vg.sub_tape_label || {};
+                                const twoTone = vg.two_tone_caption || {};
+                                const jab = vg.jab_hook || {};
+                                const interactive = vg.interactive_layer || {};
+
+                                const line1 = topHeader[0]?.text || '핵심 훅 질문';
+                                const line2 = topHeader[1]?.text || activePreset?.name || 'ViraLoop 시그니처';
+
+                                return (
+                                    <div className="relative w-[260px] h-[462px] rounded-[36px] bg-neutral-900 border-[6px] border-neutral-800 shadow-2xl overflow-hidden flex flex-col justify-between select-none">
+                                        {/* Camera Notch */}
+                                        <div className="absolute top-2 left-1/2 -translate-x-1/2 w-20 h-4 bg-neutral-800 rounded-full z-40 pointer-events-none" />
+
+                                        {/* Video Background Layer */}
+                                        <div className="absolute inset-0 bg-gradient-to-b from-neutral-800 via-neutral-900 to-black z-0 flex items-center justify-center">
+                                            {activePreset?.thumbnail_url ? (
+                                                <img 
+                                                    src={activePreset.thumbnail_url} 
+                                                    alt="Thumbnail" 
+                                                    className="w-full h-full object-cover opacity-60"
+                                                />
+                                            ) : (
+                                                <div className="text-neutral-700 text-xs font-mono font-bold tracking-widest uppercase">
+                                                    9:16 VIDEO CANVAS
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* Layer 1 & 2: Top Header Bar / Floating Capsule */}
+                                        <div className="relative z-20 w-full pt-6">
+                                            {containerType === 'floating_capsule' ? (
+                                                <div className="mx-auto w-[88%] bg-black/90 backdrop-blur-md py-2 px-3 rounded-2xl border border-white/10 text-center shadow-lg">
+                                                    <div className="text-[10px] text-zinc-400 font-medium truncate">{line1}</div>
+                                                    <div className="text-xs text-amber-400 font-black truncate mt-0.5">{line2}</div>
+                                                </div>
+                                            ) : containerType === 'letterbox_sandwich' || containerType === 'full_width_band' ? (
+                                                <div 
+                                                    className="w-full py-2.5 px-3 text-center shadow-md border-b border-white/10"
+                                                    style={{ backgroundColor: topBar.bg_color || '#000000' }}
+                                                >
+                                                    <div className="text-[10px] text-zinc-400 font-medium truncate">{line1}</div>
+                                                    <div className="text-xs text-amber-400 font-black truncate mt-0.5">{line2}</div>
+                                                </div>
+                                            ) : containerType === 'social_post_bar' ? (
+                                                <div className="w-full bg-slate-900/90 py-2 px-3 flex items-center gap-2 border-b border-white/10">
+                                                    <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center text-[10px]">🔥</div>
+                                                    <div className="text-[11px] font-bold text-white truncate">{line2}</div>
+                                                </div>
+                                            ) : null}
+
+                                            {/* Sub-tape Label */}
+                                            {subTape.enabled && (
+                                                <div className="mt-2 mx-auto w-max px-2.5 py-0.5 rounded-md bg-amber-200 text-slate-900 text-[10px] font-black shadow-md flex items-center gap-1">
+                                                    <span>{subTape.emoji || '📌'}</span>
+                                                    <span>{subTape.text || '실시간 쟁점 요약'}</span>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* Center: Interactive Overlay (Comment Card or Jab Hook) */}
+                                        <div className="relative z-20 px-3 space-y-2">
+                                            {interactive.type === 'comment_card' && interactive.comment_card?.enabled && (
+                                                <div className="p-2 rounded-xl bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md shadow-lg border border-border/60 text-foreground">
+                                                    <div className="text-[9px] font-bold text-primary">{interactive.comment_card.author || '@베댓_러버'}</div>
+                                                    <div className="text-[10px] font-medium leading-tight mt-0.5">{interactive.comment_card.text || '이 영상 진짜 소름 돋음 ㄷㄷ'}</div>
+                                                </div>
+                                            )}
+
+                                            {jab.enabled && (
+                                                <div className="mx-auto w-max px-2 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-400 text-[9px] font-bold animate-pulse">
+                                                    {jab.text || '⚡ 핵심 강조 포인트 ⚡'}
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* Bottom Layer: Main Caption & Shorts UI Overlay */}
+                                        <div className="relative z-20 w-full pb-8 px-3 text-center">
+                                            {/* Main Caption Box */}
+                                            {twoTone.enabled ? (
+                                                <div className="inline-block px-2.5 py-1 rounded-lg bg-black/60 backdrop-blur-xs font-black text-xs">
+                                                    <span className="text-amber-400">{twoTone.highlight_text || '핵심 팩트'} </span>
+                                                    <span className="text-white">{twoTone.base_text || '전격 공개'}</span>
+                                                </div>
+                                            ) : cap.bilingual_enabled ? (
+                                                <div className="space-y-0.5">
+                                                    <div className="text-[10px] font-bold text-amber-400">{cap.en_text || 'THE HIDDEN TRUTH'}</div>
+                                                    <div className="text-xs font-black text-white">{cap.ko_text || '숨겨진 진실이 밝혀졌습니다'}</div>
+                                                </div>
+                                            ) : (
+                                                <div 
+                                                    className="font-black text-xs tracking-tight"
+                                                    style={{ 
+                                                        color: cap.color || '#FFFFFF',
+                                                        textShadow: `0 0 ${cap.outline_px || 5}px ${cap.outline_color || '#000000'}`
+                                                    }}
+                                                >
+                                                    {cap.sample_text || `${activePreset?.name || 'ViraLoop'} 본문 자막`}
+                                                </div>
+                                            )}
+
+                                            {/* Simulated YouTube Shorts Right UI Elements */}
+                                            <div className="absolute right-2 bottom-8 flex flex-col items-center gap-2.5 text-white/80">
+                                                <div className="flex flex-col items-center"><span className="text-xs">👍</span><span className="text-[8px]">1.2만</span></div>
+                                                <div className="flex flex-col items-center"><span className="text-xs">💬</span><span className="text-[8px]">480</span></div>
+                                                <div className="flex flex-col items-center"><span className="text-xs">↗️</span><span className="text-[8px]">공유</span></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })()}
+                        </div>
+
+                        {/* Bottom Instruction Alert */}
+                        <div className="p-3 rounded-xl bg-card border border-border/80 text-[11px] text-muted-foreground leading-relaxed">
+                            💡 **대화형 템플릿 제어 팁**: 대화창에서 *"상단 바를 레터박스로 바꿔줘"*, *"자막 글자색을 네온 옐로우로 하고 2톤 강조 넣어줘"*, *"댓글 카드 띄워줘"*라고 말씀하시면 우측 캔버스가 실시간으로 업데이트됩니다.
+                        </div>
                     </div>
                 )}
 

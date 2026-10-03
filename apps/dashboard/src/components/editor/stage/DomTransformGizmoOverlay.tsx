@@ -6,6 +6,7 @@ export interface DomTransformGizmoOverlayProps {
   canvasScale: number; // 뷰포트 확대 축소 비율 (화면 픽셀 / 1080)
   onTransformChange: (newTransform: TransformSpec) => void;
   onTextContentChange?: (newContent: string) => void;
+  onSingleClick?: () => void;
   onDoubleClick?: () => void;
   otherLayers?: LayerObject[];
   disabled?: boolean;
@@ -31,6 +32,7 @@ export const DomTransformGizmoOverlay: React.FC<DomTransformGizmoOverlayProps> =
   canvasScale,
   onTransformChange,
   onTextContentChange,
+  onSingleClick,
   onDoubleClick,
   otherLayers = [],
   disabled = false,
@@ -46,6 +48,7 @@ export const DomTransformGizmoOverlay: React.FC<DomTransformGizmoOverlayProps> =
     clientY: number;
     initialTransform: TransformSpec;
   } | null>(null);
+  const lastGizmoClickTimeRef = useRef<number>(0);
 
   useEffect(() => {
     if (selectedLayer && selectedLayer.kind === "text") {
@@ -124,7 +127,9 @@ export const DomTransformGizmoOverlay: React.FC<DomTransformGizmoOverlayProps> =
 
   const startDrag = (e: React.MouseEvent, handle: HandleDirection) => {
     e.stopPropagation();
-    e.preventDefault();
+    if (handle !== "move") {
+      e.preventDefault();
+    }
     setActiveHandle(handle);
     startDragRef.current = {
       clientX: e.clientX,
@@ -218,13 +223,27 @@ export const DomTransformGizmoOverlay: React.FC<DomTransformGizmoOverlayProps> =
     window.addEventListener("mouseup", handleMouseUp);
   };
 
-  const handleDoubleClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleDoubleClick = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
     if (onDoubleClick) {
       onDoubleClick();
-    } else if (selectedLayer.kind === "text") {
+    }
+    if (selectedLayer.kind === "text") {
       setIsInlineEditing(true);
     }
+  };
+
+  const handleGizmoClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const now = Date.now();
+    if (now - lastGizmoClickTimeRef.current < 380) {
+      handleDoubleClick(e);
+    } else {
+      if (onSingleClick) {
+        onSingleClick();
+      }
+    }
+    lastGizmoClickTimeRef.current = now;
   };
 
   const handleInlineBlur = () => {
@@ -290,6 +309,8 @@ export const DomTransformGizmoOverlay: React.FC<DomTransformGizmoOverlayProps> =
         <div
           className="absolute inset-0 border-2 border-cyan-400 shadow-xs cursor-move"
           onMouseDown={(e) => startDrag(e, "move")}
+          onClick={handleGizmoClick}
+          onDoubleClick={handleDoubleClick}
         />
 
         {/* 상단 돌출 회전 노브 */}

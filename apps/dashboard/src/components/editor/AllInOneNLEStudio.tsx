@@ -83,12 +83,12 @@ const EditorInnerLayout: React.FC<{
     window.addEventListener("mouseup", onMouseUp);
   };
 
-  const totalDurationMs = blueprint.scenes.reduce(
-    (acc, sc) => acc + (sc.actualDurationMs || sc.targetDurationMs),
+  const totalDurationMs = (blueprint?.scenes || []).reduce(
+    (acc, sc) => acc + (sc.actualDurationMs || sc.targetDurationMs || 4000),
     0
   );
 
-  const selectedLayer = blueprint.globalLayers.find((l) => l.id === selectedLayerId) || null;
+  const selectedLayer = (blueprint?.globalLayers || []).find((l) => l.id === selectedLayerId) || null;
 
   return (
     <div className="flex flex-col w-full h-full flex-1 min-h-0 bg-background text-foreground overflow-hidden font-sans">

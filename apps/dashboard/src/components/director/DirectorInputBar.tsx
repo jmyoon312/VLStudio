@@ -86,6 +86,7 @@ export interface DirectorInputBarProps {
     onOpenCustomizeModal?: () => void;
     onOpenCloudMediaModal?: () => void;
     onOpenAgentSoul?: (agentId?: string) => void;
+    onOpenCompileCustom?: () => void;
     securityScope?: string;
     onChangeSecurityScope?: (scope: string) => void;
     isLiveVoiceActive?: boolean;
@@ -120,6 +121,7 @@ export const DirectorInputBar: React.FC<DirectorInputBarProps> = ({
     onOpenCustomizeModal,
     onOpenCloudMediaModal,
     onOpenAgentSoul,
+    onOpenCompileCustom,
     securityScope = '모두 허용',
     onChangeSecurityScope,
     isLiveVoiceActive,
@@ -178,16 +180,28 @@ export const DirectorInputBar: React.FC<DirectorInputBarProps> = ({
                     <div className="flex flex-wrap items-center gap-1.5 px-1">
                         {/* Active Preset Chip */}
                         {activePreset && (
-                            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 sm:py-1 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/30 text-[11px] sm:text-xs font-semibold">
-                                <Sliders className="w-3 h-3 text-blue-500" />
-                                <span>프리셋: {activePreset.name}</span>
-                                {onClearPreset && (
+                            <div className="inline-flex items-center gap-1.5">
+                                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 sm:py-1 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/30 text-[11px] sm:text-xs font-semibold">
+                                    <Sliders className="w-3 h-3 text-blue-500" />
+                                    <span>프리셋: {activePreset.name}</span>
+                                    {onClearPreset && (
+                                        <button
+                                            type="button"
+                                            onClick={onClearPreset}
+                                            className="hover:text-foreground ml-0.5 cursor-pointer"
+                                        >
+                                            <X className="w-3 h-3" />
+                                        </button>
+                                    )}
+                                </div>
+                                {onOpenCompileCustom && (
                                     <button
                                         type="button"
-                                        onClick={onClearPreset}
-                                        className="hover:text-foreground ml-0.5 cursor-pointer"
+                                        onClick={onOpenCompileCustom}
+                                        className="inline-flex items-center gap-1 px-2.5 py-0.5 sm:py-1 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/20 text-[11px] sm:text-xs font-semibold cursor-pointer transition-colors shadow-xs"
+                                        title="현재 튜닝된 대본과 화면 템플릿을 새로운 프리셋으로 영구 저장"
                                     >
-                                        <X className="w-3 h-3" />
+                                        <span>💾 커스텀 저장</span>
                                     </button>
                                 )}
                             </div>

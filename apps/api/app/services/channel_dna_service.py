@@ -2336,4 +2336,6 @@ class ChannelDNAService:
         finally:
             db.close()
 
+channel_dna_service = ChannelDNAService()
+
 

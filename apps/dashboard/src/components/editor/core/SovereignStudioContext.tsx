@@ -118,15 +118,17 @@ export const SovereignStudioProvider: React.FC<{ children: React.ReactNode }> = 
     else if (canvasZoom === "200") setCanvasScale(2.0);
   }, [canvasZoom]);
 
-  // 레이어 검색 및 업데이트 헬퍼
+  // 레이어 검색 및 업데이트 헬퍼 (전역 Null Safety 보장)
+  const layers = useMemo(() => blueprint?.globalLayers || [], [blueprint?.globalLayers]);
+
   const findLayerById = (id: string): LayerObject | undefined => {
-    return blueprint.globalLayers.find((l) => l.id === id);
+    return layers.find((l) => l.id === id);
   };
 
   const updateLayerById = (id: string, patch: Partial<LayerObject>) => {
     setBlueprint((prev) => ({
       ...prev,
-      globalLayers: prev.globalLayers.map((l) =>
+      globalLayers: (prev?.globalLayers || []).map((l) =>
         l.id === id ? ({ ...l, ...patch } as LayerObject) : l
       ),
     }));
@@ -142,11 +144,21 @@ export const SovereignStudioProvider: React.FC<{ children: React.ReactNode }> = 
   };
 
   // -------------------------------------------------------------
-  // 1. 대제목 (titleConfig) 반응형 상태 및 동기화
+  // 1. 대제목 (titleConfig) 반응형 상태 및 동기화 (아키타입별 정밀 타겟팅)
   // -------------------------------------------------------------
-  const titleLayer = blueprint.globalLayers.find(
-    (l) => l.kind === "text" && (l.id.includes("title") || l.id.includes("headline") || l.id.includes("breaking"))
-  ) as TextLayer | undefined;
+  const titleLayer = useMemo(() => {
+    if (currentArchetype === "ssul") {
+      return (layers.find((l) => l.id === "article_title") ||
+              layers.find((l) => l.kind === "text" && !l.id.includes("subtitle") && l.id.includes("article")) ||
+              layers.find((l) => l.kind === "text" && !l.id.includes("subtitle") && l.id.includes("title") && !l.id.includes("header"))) as TextLayer | undefined;
+    }
+    if (currentArchetype === "gunlimbo") {
+      return (layers.find((l) => l.id === "breaking_title") ||
+              layers.find((l) => l.kind === "text" && !l.id.includes("subtitle") && (l.id.includes("breaking") || l.id.includes("headline")))) as TextLayer | undefined;
+    }
+    return (layers.find((l) => l.id === "headline_text") ||
+            layers.find((l) => l.kind === "text" && !l.id.includes("subtitle") && (l.id.includes("title") || l.id.includes("headline")))) as TextLayer | undefined;
+  }, [layers, currentArchetype]);
 
   const [titleTransform, setTitleTransformState] = useState({
     xPct: 50,
@@ -230,56 +242,57 @@ export const SovereignStudioProvider: React.FC<{ children: React.ReactNode }> = 
   const updateTitleConfig = (patchOrUpdater: any) => {
     setRawTitleConfig((prev: any) => {
       const patch = typeof patchOrUpdater === "function" ? patchOrUpdater(prev) : patchOrUpdater;
-      const next = { ...prev, ...patch };
-
-      if (titleLayer) {
-        const curLines = (titleLayer.content || "").split("\n");
-        const l1 = next.titleLine1 !== undefined ? next.titleLine1 : curLines[0] || "";
-        const l2 = next.titleLine2 !== undefined ? next.titleLine2 : curLines[1] || "";
-        const isDouble = next.titleLinesMode === "double" || (next.titleLinesMode === undefined && l2.length > 0);
-        const newContent = isDouble && l2 ? `${l1}\n${l2}` : l1;
-
-        const newMulti = [
-          {
-            fontSize: next.titleLine1SizePx || 38,
-            fontColor: next.titleLine1Color || "#FFFFFF",
-          },
-          {
-            fontSize: next.titleLine2SizePx || 48,
-            fontColor: next.titleLine2Color || "#FFE500",
-          },
-        ];
-
-        updateLayerById(titleLayer.id, {
-          hidden: next.hasTopTitle !== undefined ? !next.hasTopTitle : titleLayer.hidden,
-          content: newContent,
-          fontFamily: next.titleFontFamily || titleLayer.fontFamily,
-          textAlign: next.titleAlign || titleLayer.textAlign,
-          letterSpacing: next.titleLetterSpacing !== undefined ? next.titleLetterSpacing : titleLayer.letterSpacing,
-          lineHeight: next.titleLineHeight !== undefined ? next.titleLineHeight : titleLayer.lineHeight,
-          multiLineStyles: newMulti,
-          stroke: next.titleStroke !== undefined
-            ? next.titleStroke
-              ? { width: next.titleStrokeWidth || 2, color: next.titleStrokeColor || "#000000" }
-              : undefined
-            : titleLayer.stroke,
-          shadow: next.titleShadow !== undefined
-            ? next.titleShadow
-              ? { blur: next.titleShadowBlur || 8, color: next.titleShadowColor || "rgba(0,0,0,0.9)", offsetX: 0, offsetY: 2 }
-              : undefined
-            : titleLayer.shadow,
-        });
-      }
-      return next;
+      return { ...prev, ...patch };
     });
+
+    if (titleLayer) {
+      const patch = typeof patchOrUpdater === "function" ? patchOrUpdater(rawTitleConfig) : patchOrUpdater;
+      const next = { ...rawTitleConfig, ...patch };
+      const curLines = (titleLayer.content || "").split("\n");
+      const l1 = next.titleLine1 !== undefined ? next.titleLine1 : curLines[0] || "";
+      const l2 = next.titleLine2 !== undefined ? next.titleLine2 : curLines[1] || "";
+      const isDouble = next.titleLinesMode === "double" || (next.titleLinesMode === undefined && l2.length > 0);
+      const newContent = isDouble && l2 ? `${l1}\n${l2}` : l1;
+
+      const newMulti = [
+        {
+          fontSize: next.titleLine1SizePx || 38,
+          fontColor: next.titleLine1Color || "#FFFFFF",
+        },
+        {
+          fontSize: next.titleLine2SizePx || 48,
+          fontColor: next.titleLine2Color || "#FFE500",
+        },
+      ];
+
+      updateLayerById(titleLayer.id, {
+        hidden: next.hasTopTitle !== undefined ? !next.hasTopTitle : titleLayer.hidden,
+        content: newContent,
+        fontFamily: next.titleFontFamily || titleLayer.fontFamily,
+        textAlign: next.titleAlign || titleLayer.textAlign,
+        letterSpacing: next.titleLetterSpacing !== undefined ? next.titleLetterSpacing : titleLayer.letterSpacing,
+        lineHeight: next.titleLineHeight !== undefined ? next.titleLineHeight : titleLayer.lineHeight,
+        multiLineStyles: newMulti,
+        stroke: next.titleStroke !== undefined
+          ? next.titleStroke
+            ? { width: next.titleStrokeWidth || 2, color: next.titleStrokeColor || "#000000" }
+            : undefined
+          : titleLayer.stroke,
+        shadow: next.titleShadow !== undefined
+          ? next.titleShadow
+            ? { blur: next.titleShadowBlur || 8, color: next.titleShadowColor || "rgba(0,0,0,0.9)", offsetX: 0, offsetY: 2 }
+            : undefined
+          : titleLayer.shadow,
+      });
+    }
   };
 
   // -------------------------------------------------------------
   // 2. 인스타 프로필 (instaConfig) 반응형 상태 및 동기화
   // -------------------------------------------------------------
-  const profileHeader = blueprint.globalLayers.find((l) => l.id.includes("profile")) as ShapeLayer | undefined;
-  const profileText = blueprint.globalLayers.find((l) => l.kind === "text" && l.id.includes("profile")) as TextLayer | undefined;
-  const holeMaskLayer = blueprint.globalLayers.find((l) => l.id.includes("hole") || l.id.includes("guide")) as ShapeLayer | undefined;
+  const profileHeader = layers.find((l) => l.id.includes("profile")) as ShapeLayer | undefined;
+  const profileText = layers.find((l) => l.kind === "text" && l.id.includes("profile")) as TextLayer | undefined;
+  const holeMaskLayer = layers.find((l) => l.id.includes("hole") || l.id.includes("guide")) as ShapeLayer | undefined;
 
   const [profileTransform, setProfileTransformState] = useState({
     xPct: 6.0,
@@ -333,29 +346,31 @@ export const SovereignStudioProvider: React.FC<{ children: React.ReactNode }> = 
   const updateInstaConfig = (patchOrUpdater: any) => {
     setRawInstaConfig((prev: any) => {
       const patch = typeof patchOrUpdater === "function" ? patchOrUpdater(prev) : patchOrUpdater;
-      const next = { ...prev, ...patch };
-
-      if (profileText && next.profileHandle) {
-        updateLayerById(profileText.id, {
-          content: `📸 ${next.profileHandle}  ✓  •  추천 베스트 댓글`,
-        });
-      }
-      if (profileHeader && next.bgColor) {
-        updateLayerById(profileHeader.id, { fillColor: next.bgColor });
-      }
-      if (holeMaskLayer && next.holeRoundness !== undefined) {
-        updateLayerById(holeMaskLayer.id, { borderRadius: next.holeRoundness });
-      }
-      return next;
+      return { ...prev, ...patch };
     });
+
+    const patch = typeof patchOrUpdater === "function" ? patchOrUpdater(rawInstaConfig) : patchOrUpdater;
+    const next = { ...rawInstaConfig, ...patch };
+
+    if (profileText && next.profileHandle) {
+      updateLayerById(profileText.id, {
+        content: `📸 ${next.profileHandle}  ✓  •  추천 베스트 댓글`,
+      });
+    }
+    if (profileHeader && next.bgColor) {
+      updateLayerById(profileHeader.id, { fillColor: next.bgColor });
+    }
+    if (holeMaskLayer && next.holeRoundness !== undefined) {
+      updateLayerById(holeMaskLayer.id, { borderRadius: next.holeRoundness });
+    }
   };
 
   // -------------------------------------------------------------
   // 3. 댓글 카드 (commentCardConfig) 반응형 상태 및 동기화
   // -------------------------------------------------------------
-  const commentCardLayer = blueprint.globalLayers.find((l) => l.id.includes("comment_card")) as ShapeLayer | undefined;
-  const commentBodyLayer = blueprint.globalLayers.find((l) => l.id.includes("comment_body")) as TextLayer | undefined;
-  const commentMetaLayer = blueprint.globalLayers.find((l) => l.id.includes("comment_meta")) as TextLayer | undefined;
+  const commentCardLayer = layers.find((l) => l.id.includes("comment_card")) as ShapeLayer | undefined;
+  const commentBodyLayer = layers.find((l) => l.id.includes("comment_body")) as TextLayer | undefined;
+  const commentMetaLayer = layers.find((l) => l.id.includes("comment_meta")) as TextLayer | undefined;
 
   const [hasCommentCard, setHasCommentCardState] = useState(true);
 
@@ -422,36 +437,38 @@ export const SovereignStudioProvider: React.FC<{ children: React.ReactNode }> = 
   const updateCommentCardConfig = (patchOrUpdater: any) => {
     setRawCommentCardConfig((prev: any) => {
       const patch = typeof patchOrUpdater === "function" ? patchOrUpdater(prev) : patchOrUpdater;
-      const next = { ...prev, ...patch };
-
-      if (commentBodyLayer && next.text !== undefined) {
-        updateLayerById(commentBodyLayer.id, {
-          content: next.text,
-          fontColor: next.textColor || commentBodyLayer.fontColor,
-        });
-      }
-      if (commentMetaLayer && next.likes !== undefined) {
-        updateLayerById(commentMetaLayer.id, {
-          content: `❤️ ${next.likes}  •  답글 1,420개  •  공유`,
-        });
-      }
-      if (commentCardLayer) {
-        updateLayerById(commentCardLayer.id, {
-          fillColor: next.bgColor || commentCardLayer.fillColor,
-          borderRadius: next.borderRadius || commentCardLayer.borderRadius,
-          borderColor: next.borderColor || commentCardLayer.borderColor,
-          borderWidth: next.borderWidth || commentCardLayer.borderWidth,
-        });
-      }
-      return next;
+      return { ...prev, ...patch };
     });
+
+    const patch = typeof patchOrUpdater === "function" ? patchOrUpdater(rawCommentCardConfig) : patchOrUpdater;
+    const next = { ...rawCommentCardConfig, ...patch };
+
+    if (commentBodyLayer && next.text !== undefined) {
+      updateLayerById(commentBodyLayer.id, {
+        content: next.text,
+        fontColor: next.textColor || commentBodyLayer.fontColor,
+      });
+    }
+    if (commentMetaLayer && next.likes !== undefined) {
+      updateLayerById(commentMetaLayer.id, {
+        content: `❤️ ${next.likes}  •  답글 1,420개  •  공유`,
+      });
+    }
+    if (commentCardLayer) {
+      updateLayerById(commentCardLayer.id, {
+        fillColor: next.bgColor || commentCardLayer.fillColor,
+        borderRadius: next.borderRadius || commentCardLayer.borderRadius,
+        borderColor: next.borderColor || commentCardLayer.borderColor,
+        borderWidth: next.borderWidth || commentCardLayer.borderWidth,
+      });
+    }
   };
 
   // -------------------------------------------------------------
   // 4. 군림보 훅 밴드 (gunlimboConfig) 반응형 상태 및 동기화
   // -------------------------------------------------------------
-  const hookBandLayer = blueprint.globalLayers.find((l) => l.id.includes("hook_band")) as ShapeLayer | undefined;
-  const hookTextLayer = blueprint.globalLayers.find((l) => l.id.includes("hook_text")) as TextLayer | undefined;
+  const hookBandLayer = layers.find((l) => l.id.includes("hook_band")) as ShapeLayer | undefined;
+  const hookTextLayer = layers.find((l) => l.id.includes("hook_text")) as TextLayer | undefined;
 
   const [hasJab, setHasJabState] = useState(true);
 
@@ -508,30 +525,32 @@ export const SovereignStudioProvider: React.FC<{ children: React.ReactNode }> = 
   const updateGunlimboConfig = (patchOrUpdater: any) => {
     setRawGunlimboConfig((prev: any) => {
       const patch = typeof patchOrUpdater === "function" ? patchOrUpdater(prev) : patchOrUpdater;
-      const next = { ...prev, ...patch };
-
-      if (hookTextLayer && next.hookPhrase !== undefined) {
-        updateLayerById(hookTextLayer.id, {
-          content: next.hookPhrase,
-          fontColor: next.hookTextColor || hookTextLayer.fontColor,
-          fontSize: next.hookFontSize || hookTextLayer.fontSize,
-          fontFamily: next.hookFont || hookTextLayer.fontFamily,
-        });
-      }
-      if (hookBandLayer && next.hookBgColor !== undefined) {
-        updateLayerById(hookBandLayer.id, { fillColor: next.hookBgColor });
-      }
-      return next;
+      return { ...prev, ...patch };
     });
+
+    const patch = typeof patchOrUpdater === "function" ? patchOrUpdater(rawGunlimboConfig) : patchOrUpdater;
+    const next = { ...rawGunlimboConfig, ...patch };
+
+    if (hookTextLayer && next.hookPhrase !== undefined) {
+      updateLayerById(hookTextLayer.id, {
+        content: next.hookPhrase,
+        fontColor: next.hookTextColor || hookTextLayer.fontColor,
+        fontSize: next.hookFontSize || hookTextLayer.fontSize,
+        fontFamily: next.hookFont || hookTextLayer.fontFamily,
+      });
+    }
+    if (hookBandLayer && next.hookBgColor !== undefined) {
+      updateLayerById(hookBandLayer.id, { fillColor: next.hookBgColor });
+    }
   };
 
   // -------------------------------------------------------------
   // 5. 썰형 객체 (ssulConfig: 헤더, 메타, 구분선, 페페 밈)
   // -------------------------------------------------------------
-  const ssulHeaderBar = blueprint.globalLayers.find((l) => l.id.includes("header_bar")) as ShapeLayer | undefined;
-  const ssulHeaderTitle = blueprint.globalLayers.find((l) => l.id.includes("header_title")) as TextLayer | undefined;
-  const ssulMetaLayer = blueprint.globalLayers.find((l) => l.id.includes("meta")) as TextLayer | undefined;
-  const ssulMemeFrame = blueprint.globalLayers.find((l) => l.id.includes("meme")) as ShapeLayer | undefined;
+  const ssulHeaderBar = layers.find((l) => l.id.includes("header_bar")) as ShapeLayer | undefined;
+  const ssulHeaderTitle = layers.find((l) => l.id.includes("header_title")) as TextLayer | undefined;
+  const ssulMetaLayer = layers.find((l) => l.id.includes("meta")) as TextLayer | undefined;
+  const ssulMemeFrame = layers.find((l) => l.id.includes("meme")) as ShapeLayer | undefined;
 
   const [rawSsulConfig, setRawSsulConfig] = useState<any>({
     ssulHeader: {
@@ -608,29 +627,31 @@ export const SovereignStudioProvider: React.FC<{ children: React.ReactNode }> = 
   const updateSsulConfig = (patchOrUpdater: any) => {
     setRawSsulConfig((prev: any) => {
       const patch = typeof patchOrUpdater === "function" ? patchOrUpdater(prev) : patchOrUpdater;
-      const next = { ...prev, ...patch };
-
-      if (ssulHeaderTitle && next.ssulHeader?.text) {
-        updateLayerById(ssulHeaderTitle.id, {
-          content: `←   🔥 ${next.ssulHeader.text}   ⋮`,
-        });
-      }
-      if (ssulHeaderBar && next.ssulHeader?.bgColor) {
-        updateLayerById(ssulHeaderBar.id, { fillColor: next.ssulHeader.bgColor });
-      }
-      if (ssulMetaLayer && next.metadata) {
-        updateLayerById(ssulMetaLayer.id, {
-          content: `${next.metadata.authorText || "익명"}  •  ${next.metadata.timeText || "방금 전"}  •  ${next.metadata.viewsText || "조회 3.8만"}`,
-        });
-      }
-      return next;
+      return { ...prev, ...patch };
     });
+
+    const patch = typeof patchOrUpdater === "function" ? patchOrUpdater(rawSsulConfig) : patchOrUpdater;
+    const next = { ...rawSsulConfig, ...patch };
+
+    if (ssulHeaderTitle && next.ssulHeader?.text) {
+      updateLayerById(ssulHeaderTitle.id, {
+        content: `←   🔥 ${next.ssulHeader.text}   ⋮`,
+      });
+    }
+    if (ssulHeaderBar && next.ssulHeader?.bgColor) {
+      updateLayerById(ssulHeaderBar.id, { fillColor: next.ssulHeader.bgColor });
+    }
+    if (ssulMetaLayer && next.metadata) {
+      updateLayerById(ssulMetaLayer.id, {
+        content: `${next.metadata.authorText || "익명"}  •  ${next.metadata.timeText || "방금 전"}  •  ${next.metadata.viewsText || "조회 3.8만"}`,
+      });
+    }
   };
 
   // -------------------------------------------------------------
   // 6. 자막 (subtitleConfig) 반응형 상태 및 동기화
   // -------------------------------------------------------------
-  const subtitleLayer = blueprint.globalLayers.find((l) => l.id.includes("subtitle")) as TextLayer | undefined;
+  const subtitleLayer = layers.find((l) => l.id.includes("subtitle")) as TextLayer | undefined;
 
   const [subTransform, setSubTransformState] = useState({
     xPct: 50,
@@ -681,31 +702,33 @@ export const SovereignStudioProvider: React.FC<{ children: React.ReactNode }> = 
   const updateSubtitleConfig = (patchOrUpdater: any) => {
     setRawSubtitleConfig((prev: any) => {
       const patch = typeof patchOrUpdater === "function" ? patchOrUpdater(prev) : patchOrUpdater;
-      const next = { ...prev, ...patch };
-
-      if (subtitleLayer) {
-        updateLayerById(subtitleLayer.id, {
-          fontColor: next.textColor || subtitleLayer.fontColor,
-          fontSize: next.fontSize || subtitleLayer.fontSize,
-          fontFamily: next.fontFamily || subtitleLayer.fontFamily,
-          accumulateMode: next.accumulateMode ?? subtitleLayer.accumulateMode,
-          stroke: next.strokeWidth
-            ? { width: next.strokeWidth, color: next.strokeColor || "#000000" }
-            : subtitleLayer.stroke,
-          shadow: next.shadowBlur
-            ? { blur: next.shadowBlur, color: next.shadowColor || "rgba(0,0,0,0.8)", offsetX: 0, offsetY: 2 }
-            : subtitleLayer.shadow,
-        });
-      }
-      return next;
+      return { ...prev, ...patch };
     });
+
+    if (subtitleLayer) {
+      const patch = typeof patchOrUpdater === "function" ? patchOrUpdater(rawSubtitleConfig) : patchOrUpdater;
+      const next = { ...rawSubtitleConfig, ...patch };
+
+      updateLayerById(subtitleLayer.id, {
+        fontColor: next.textColor || subtitleLayer.fontColor,
+        fontSize: next.fontSize || subtitleLayer.fontSize,
+        fontFamily: next.fontFamily || subtitleLayer.fontFamily,
+        accumulateMode: next.accumulateMode ?? subtitleLayer.accumulateMode,
+        stroke: next.strokeWidth
+          ? { width: next.strokeWidth, color: next.strokeColor || "#000000" }
+          : subtitleLayer.stroke,
+        shadow: next.shadowBlur
+          ? { blur: next.shadowBlur, color: next.shadowColor || "rgba(0,0,0,0.8)", offsetX: 0, offsetY: 2 }
+          : subtitleLayer.shadow,
+      });
+    }
   };
 
   // -------------------------------------------------------------
   // 7. 상하단바 (topBottomBarConfig)
   // -------------------------------------------------------------
-  const topBarLayer = blueprint.globalLayers.find((l) => l.id.includes("top_letterbox") || l.id.includes("top_bar")) as ShapeLayer | undefined;
-  const bottomBarLayer = blueprint.globalLayers.find((l) => l.id.includes("bottom_letterbox") || l.id.includes("bottom_bar")) as ShapeLayer | undefined;
+  const topBarLayer = layers.find((l) => l.id.includes("top_letterbox") || l.id.includes("top_bar")) as ShapeLayer | undefined;
+  const bottomBarLayer = layers.find((l) => l.id.includes("bottom_letterbox") || l.id.includes("bottom_bar")) as ShapeLayer | undefined;
 
   const [topBottomBarConfig, setTopBottomBarConfig] = useState({
     hasTopBarBg: true,
@@ -737,7 +760,7 @@ export const SovereignStudioProvider: React.FC<{ children: React.ReactNode }> = 
   // -------------------------------------------------------------
   // 8. 하단 출처 (sourceCreditConfig)
   // -------------------------------------------------------------
-  const sourceLayer = blueprint.globalLayers.find((l) => l.id.includes("source_credit")) as TextLayer | undefined;
+  const sourceLayer = layers.find((l) => l.id.includes("source_credit")) as TextLayer | undefined;
   const [hasBottomSource, setHasBottomSourceState] = useState(true);
 
   const setHasBottomSource = (val: boolean) => {
@@ -823,39 +846,51 @@ export const SovereignStudioProvider: React.FC<{ children: React.ReactNode }> = 
   };
 
   // -------------------------------------------------------------
-  // 10. 단일 클릭: 우측 인스펙터 해당 탭으로 자동 포커스
+  // 10. 단일 클릭: 우측 인스펙터 해당 탭 및 마스터 그룹으로 자동 동기화 포커스
   // -------------------------------------------------------------
   const handleLayerSingleClick = (layer: LayerObject) => {
     setSelectedLayerId(layer.id);
     const id = layer.id.toLowerCase();
-    setActiveMasterGroup("text");
+    let targetTab = "title";
 
     if (id.includes("profile")) {
-      setActiveInspectorTab("profile");
+      targetTab = "profile";
     } else if (id.includes("comment")) {
-      setActiveInspectorTab("commentCard");
+      targetTab = "commentCard";
     } else if (id.includes("header")) {
-      setActiveInspectorTab("ssulHeader");
+      targetTab = "ssulHeader";
     } else if (id.includes("meta")) {
-      setActiveInspectorTab("metadata");
+      targetTab = "metadata";
     } else if (id.includes("divider")) {
-      setActiveInspectorTab("divider");
+      targetTab = "divider";
     } else if (id.includes("hook")) {
-      setActiveInspectorTab("jabHook");
+      targetTab = "jabHook";
     } else if (id.includes("subtitle")) {
-      setActiveInspectorTab("style");
+      targetTab = "style";
     } else if (id.includes("source")) {
-      setActiveInspectorTab("sourceCredit");
+      targetTab = "sourceCredit";
     } else if (id.includes("bar") || id.includes("letterbox")) {
-      setActiveInspectorTab("topBottomBar");
+      targetTab = "topBottomBar";
     } else if (id.includes("video") || id.includes("hole") || id.includes("guide")) {
-      setActiveInspectorTab("videoCrop");
+      targetTab = "videoCrop";
     } else if (id.includes("meme")) {
-      setActiveInspectorTab(currentArchetype === "ssul" ? "metadata" : "template");
+      targetTab = currentArchetype === "ssul" ? "metadata" : "template";
     } else if (id.includes("title") || id.includes("headline") || id.includes("breaking") || id.includes("article")) {
-      setActiveInspectorTab(currentArchetype === "ssul" ? "postTitle" : "title");
+      targetTab = currentArchetype === "ssul" ? "postTitle" : "title";
     } else {
-      setActiveInspectorTab("title");
+      targetTab = "title";
+    }
+
+    setActiveInspectorTab(targetTab);
+
+    // 해당 서브탭이 속한 마스터 그룹을 inspectorGroups에서 자동 역추적하여 활성화
+    const matchedGroup = inspectorGroups.find((g: any) =>
+      g.subTabs.some((t: any) => t.id === targetTab || (t.id === "title" && targetTab === "postTitle"))
+    );
+    if (matchedGroup) {
+      setActiveMasterGroup(matchedGroup.id as any);
+    } else {
+      setActiveMasterGroup("text");
     }
   };
 

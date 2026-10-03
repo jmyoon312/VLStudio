@@ -40,8 +40,8 @@ export const MultiTrackTimeline: React.FC<MultiTrackTimelineProps> = ({
   const headerContainerRef = useRef<HTMLDivElement>(null);
 
   // 총 길이 계산 (씬 길이의 합)
-  const totalDurationMs = blueprint.scenes.reduce(
-    (acc, sc) => acc + (sc.actualDurationMs || sc.targetDurationMs),
+  const totalDurationMs = (blueprint?.scenes || []).reduce(
+    (acc, sc) => acc + (sc.actualDurationMs || sc.targetDurationMs || 4000),
     0
   );
 
@@ -174,8 +174,8 @@ export const MultiTrackTimeline: React.FC<MultiTrackTimelineProps> = ({
             <div className="h-14 border-b border-border/40 relative bg-background/50">
               {(() => {
                 let startAcc = 0;
-                return blueprint.scenes.map((sc, idx) => {
-                  const dur = sc.actualDurationMs || sc.targetDurationMs;
+                return (blueprint?.scenes || []).map((sc, idx) => {
+                  const dur = sc.actualDurationMs || sc.targetDurationMs || 4000;
                   const itemStart = startAcc;
                   const item = (
                     <ClipTrackItem
@@ -209,7 +209,7 @@ export const MultiTrackTimeline: React.FC<MultiTrackTimelineProps> = ({
 
             {/* 트랙 2: T1 글로벌 쉐이프 레이어 */}
             <div className="h-12 border-b border-border/40 relative bg-muted/20">
-              {blueprint.globalLayers
+              {(blueprint?.globalLayers || [])
                 .filter((l) => l.kind === "shape")
                 .map((layer) => (
                   <ClipTrackItem
@@ -233,8 +233,8 @@ export const MultiTrackTimeline: React.FC<MultiTrackTimelineProps> = ({
             <div className="h-12 border-b border-border/40 relative bg-background/50">
               {(() => {
                 let startAcc = 0;
-                return blueprint.scenes.map((sc) => {
-                  const dur = sc.actualDurationMs || sc.targetDurationMs;
+                return (blueprint?.scenes || []).map((sc) => {
+                  const dur = sc.actualDurationMs || sc.targetDurationMs || 4000;
                   const sceneStart = startAcc;
                   startAcc += dur;
 
@@ -267,7 +267,7 @@ export const MultiTrackTimeline: React.FC<MultiTrackTimelineProps> = ({
             <div className="h-14 border-b border-border/40 relative bg-muted/20">
               {(() => {
                 let startAcc = 0;
-                return blueprint.scenes.map((sc, idx) => {
+                return (blueprint?.scenes || []).map((sc, idx) => {
                   const dur = sc.actualDurationMs || sc.targetDurationMs;
                   const voxStart = startAcc;
                   const wPx = Math.max(20, (dur / 1000) * zoomLevel);

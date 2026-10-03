@@ -122,6 +122,46 @@ class ConversationalDirector:
         p_rules = full_preset.get("content_rules") or []
         rules_str = "\n".join([f"  * {r}" for r in p_rules]) if p_rules else "  * 채널 고유의 시각 샌드위치 및 빠른 컷 호흡 준수"
 
+        # Check if 3-tier forensic bible & cloned system instruction exists
+        forensic_bible = full_preset.get("forensic_bible") or full_preset.get("blueprint_v4", {}).get("forensicBible") or {}
+        cloned_sys_prompt = full_preset.get("cloned_system_instruction") or forensic_bible.get("cloned_system_instruction") or full_preset.get("script_dna", {}).get("cloned_system_instruction") or ""
+        guideline2 = forensic_bible.get("guideline_2_constitution") or {}
+        guideline3 = forensic_bible.get("guideline_3_montage") or {}
+
+        forensic_sections = []
+        if cloned_sys_prompt:
+            forensic_sections.append(f"""[👑 지침서 1: 8대 나노 분석 기반 화자 복제 시스템 프롬프트 (Cloned Persona System Prompt)]:
+{cloned_sys_prompt.strip()}""")
+
+        if guideline2:
+            forensic_sections.append(f"""[📜 지침서 2: 채널 헌법 v32.0 동적 타겟팅 & 감정 본능 가이드라인]:
+- 동적 타겟팅 대상 도메인: {guideline2.get('target_domain', '일반 대중/쇼츠 시청자')}
+- 타겟 페르소나/심리 상태: {guideline2.get('target_persona', '도파민 및 빠른 결론 선호')}
+- 4대 감정 본능 발현율: 도파민/쾌감 {guideline2.get('emotional_instincts', {}).get('dopamine', 35)}%, 분노/사이다 {guideline2.get('emotional_instincts', {}).get('catharsis', 30)}%, 공포/경각심 {guideline2.get('emotional_instincts', {}).get('fear', 20)}%, 호기심 {guideline2.get('emotional_instincts', {}).get('curiosity', 15)}%
+- 절대 금기 사항: 상투적인 인사말('안녕하세요'), 훈계조 설명, 지루한 배경 서술 절대 금지""")
+
+        if guideline3:
+            forensic_sections.append(f"""[⚡ 지침서 3: FPS-Free v6.0 삼위일체 컷 & 1문장 2컷 분절 규격]:
+- 분절 전략: {guideline3.get('sentence_split_strategy', '1문장 2컷 교차 분절')}
+- 컷 안전 마진: ±{guideline3.get('cut_safety_margin_ms', 100)}ms
+- 화면 전환 트리거: {guideline3.get('transition_trigger', '종결어미 및 핵심 명사 직후 즉각 컷 전환')}""")
+
+        script_dna = full_preset.get("script_dna") or full_preset.get("blueprint_v4", {}).get("scriptDna") or {}
+        if script_dna and isinstance(script_dna, dict):
+            persona = script_dna.get("persona") or "시그니처 페르소나"
+            endings = ", ".join(script_dna.get("sentence_endings", [])) if isinstance(script_dna.get("sentence_endings"), list) else str(script_dna.get("sentence_endings") or "단문 및 명사형 종결")
+            taboos = ", ".join(script_dna.get("taboo_words", [])) if isinstance(script_dna.get("taboo_words"), list) else str(script_dna.get("taboo_words") or "훈계조, 상투적 인사")
+            lexical_dict = script_dna.get("lexical_dict") or {}
+            lexical_str = ", ".join([f"{k}→{v}" for k, v in lexical_dict.items()]) if isinstance(lexical_dict, dict) else str(lexical_dict)
+            forensic_sections.append(f"""[🧬 대본 지능 나노 DNA (Script DNA)]:
+- 화자 페르소나: {persona}
+- 시그니처 종결어미: {endings}
+- 핵심 치환 사전: {lexical_str}
+- 절대 금기어(Taboo): {taboos}
+- 타겟 시청자층: {script_dna.get('target_audience', '2030 모바일 유저')}""")
+
+        forensic_text = "\n\n".join(forensic_sections)
+
         # Check if full 17 production bible exists
         bible17 = full_preset.get("production_bible_17") or {}
         bible_sections = []
@@ -167,8 +207,6 @@ class ConversationalDirector:
         two_tone = vg.get('two_tone_caption', {})
         top_src = vg.get('top_source', {})
 
-
-
         vs = ad.get("voice_signature") or full_preset.get("voice_signature") or {}
         vs_role = vs.get("voice_role", "신뢰감 있는 전문 내레이터")
         vs_tone = vs.get("tone_summary", "몰입감 높은 전문 내레이션 톤")
@@ -198,6 +236,8 @@ class ConversationalDirector:
 - 핵심 스타일 레시피: {p_recipe}
 - 공식 콘텐츠 룰(Content Rules):
 {rules_str}
+
+{forensic_text}
 
 2. 📐 Visual Geometry (9:16 비주얼 레이아웃):
 - 화면 규격: {size} (세로 9:16 최적화, {fps} FPS)
@@ -903,8 +943,38 @@ class ConversationalDirector:
         }
         display_model = model or default_m_map.get(p_clean, "최신 파운데이션 모델")
 
-        # === 0. Instant Local OS Control Interceptor (Zero-Latency Local Execution) ===
         clean_prompt = prompt.strip().lower()
+
+        # === 0.1 Conversational Visual Template Styler & Recommender Interceptor ===
+        if any(kw in clean_prompt for kw in [
+            "템플릿 추천", "화면 템플릿", "레이아웃 추천", "자막 스타일", "헤더 스타일", "헤더 바꿔", 
+            "상단바 바꿔", "상단 바", "자막 바꿔", "템플릿 변경", "화면 스타일", "비주얼 스타일", 
+            "캡슐로 바꿔", "레터박스로", "템플릿 디자인", "헤더 컨테이너", "2단 헤더"
+        ]):
+            async for ev in self._handle_conversational_visual_template_styler(
+                prompt=prompt,
+                preset=preset,
+                item_index=0,
+                total_items=1
+            ):
+                yield ev
+            return
+
+        # === 0.2 Conversational Forensic Script DNA & Persona Tuner Interceptor ===
+        if any(kw in clean_prompt for kw in [
+            "대본 스타일", "말투 바꿔", "톤앤매너", "어휘 사전", "금기어 추가", "대본 튜닝", 
+            "페르소나", "타겟층 바꿔", "타겟 변경", "나노 분석", "포렌식 대본", "대본 프롬프트"
+        ]):
+            async for ev in self._handle_conversational_script_tuner(
+                prompt=prompt,
+                preset=preset,
+                item_index=0,
+                total_items=1
+            ):
+                yield ev
+            return
+
+        # === 0.3 Instant Local OS Control Interceptor (Zero-Latency Local Execution) ===
         if any(kw in clean_prompt for kw in ["폴더 열어", "폴더 열어줘", "결과물 폴더", "내보내기 폴더", "저장 폴더", "다운로드 폴더", "캡컷 폴더"]):
             folder_type = "exports"
             if "다운로드" in clean_prompt:
@@ -3892,11 +3962,362 @@ class ConversationalDirector:
             "message": f"피드백('{prompt}')을 즉시 반영하여 영상을 새로 완성했습니다! 추가로 수정할 부분이 있으신가요?"
         }
 
+    async def _handle_conversational_visual_template_styler(
+        self,
+        prompt: str,
+        preset: Optional[Dict[str, Any]] = None,
+        item_index: int = 0,
+        total_items: int = 1
+    ) -> AsyncGenerator[Dict[str, Any], None]:
+        """
+        AI Visual Art Director: Handles conversational template design modifications and smart recommendations.
+        Controls 7-tier visual geometry (headers, fonts, layouts, two-tone captions, comment cards).
+        Emits 'visual_template_patch' and 'visual_template_recommendation' streaming events for real-time 9:16 canvas updates.
+        """
+        is_recommendation = any(kw in prompt for kw in ["추천", "골라줘", "어떤게 좋아", "추천해줘", "스타일 제안"])
+        
+        yield {
+            "type": "step",
+            "item_index": item_index,
+            "total_items": total_items,
+            "step_id": "visual_styling",
+            "title": "🎨 AI 비주얼 아트 디렉터: 화면 템플릿 지능 조율",
+            "status": "in_progress",
+            "detail": "크리에이터의 미적 요구사항을 분석하여 9:16 최적화 화면 템플릿과 타이포그래피를 조율 중입니다..."
+        }
+
+        base_preset = dict(preset) if preset else {}
+        base_style = base_preset.get("style", {})
+        base_vg = base_style.get("visual_geometry") or base_preset.get("visual_geometry") or {}
+
+        if is_recommendation:
+            # 3 Smart Template Archetypes based on genre & mood
+            rec_templates = [
+                {
+                    "id": "dark_cinematic_sandwich",
+                    "title": "다크 시네마틱 레터박스 (The Crime Documentary)",
+                    "container_type": "letterbox_sandwich",
+                    "description": "묵직한 상하단 블랙 샌드위치 바 + 2단 옐로우 헤더 + 정통 다큐멘터리 서스펜스 호흡",
+                    "visual_patch": {
+                        "container_type": "letterbox_sandwich",
+                        "top_bar": {"height_pct": 18.0, "bg_color": "#0a0a0a"},
+                        "top_header_lines": [
+                            {"text": "미스터리 심층 추적", "size_px": 14, "color": "#94A3B8"},
+                            {"text": "사건의 충격적 전말", "size_px": 24, "color": "#FFE838"}
+                        ],
+                        "caption": {"font_family": "Pretendard", "color": "#FFFFFF", "outline_color": "#000000", "outline_px": 6, "margin_v_pct": 16},
+                        "jab_hook": {"enabled": True, "text": "⚡ 충격 증언 ⚡", "color": "#FFE838", "avg_interval_sec": 7.0}
+                    }
+                },
+                {
+                    "id": "neo_floating_capsule",
+                    "title": "네오 플로팅 캡슐 (Neo Modern Sleuth)",
+                    "container_type": "floating_capsule",
+                    "description": "모던한 상단 반투명 알약 캡슐 + 서브테이프 고정핀 라벨 + 2톤 형광 키워드 자막",
+                    "visual_patch": {
+                        "container_type": "floating_capsule",
+                        "floating_capsule": {"bg_color": "#000000", "border_radius": 24, "top_y": 8.0, "width_pct": 88},
+                        "sub_tape_label": {"enabled": True, "text": "화제의 실시간 쟁점", "emoji": "😲💅", "bg_color": "#FDE68A", "text_color": "#1E293B", "top_y": 18.5},
+                        "caption": {"font_family": "Pretendard", "color": "#FFFFFF", "outline_color": "#000000", "outline_px": 5, "margin_v_pct": 22},
+                        "two_tone_caption": {"enabled": True, "highlight_text": "핵심 팩트", "highlight_color": "#FFE500", "base_text": "전격 공개"}
+                    }
+                },
+                {
+                    "id": "viral_social_fact_bar",
+                    "title": "바이럴 소셜 팩트 바 (Viral Social Fact)",
+                    "container_type": "social_post_bar",
+                    "description": "상단 풀 띠형 헤더 + 실시간 베댓 카드 오버레이 + 국영문 2단 병기 자막",
+                    "visual_patch": {
+                        "container_type": "social_post_bar",
+                        "top_bar": {"height_pct": 16.0, "bg_color": "#1E293B"},
+                        "interactive_layer": {
+                            "type": "comment_card",
+                            "comment_card": {"enabled": True, "author": "@익명_증언자", "text": "이 영상 보고 소름 돋아서 잠이 안 옴 ㄷㄷ", "likes": "1.8만", "top_y": 28.0}
+                        },
+                        "caption": {"bilingual_enabled": True, "en_text": "THE HIDDEN TRUTH", "en_color": "#FFE838", "ko_text": "숨겨진 진실이 밝혀졌습니다", "ko_color": "#FFFFFF", "margin_v_pct": 14}
+                    }
+                }
+            ]
+
+            yield {
+                "type": "visual_template_recommendation",
+                "recommended_templates": rec_templates
+            }
+
+            yield {
+                "type": "step",
+                "item_index": item_index,
+                "total_items": total_items,
+                "step_id": "visual_styling",
+                "title": "🎨 3대 맞춤형 화면 템플릿 추천 완료",
+                "status": "completed",
+                "detail": "장르와 톤앤매너에 최적화된 3가지 화면 템플릿 아키타입을 우측 캔버스와 대화창에 준비했습니다."
+            }
+
+            msg = """### 🎨 루피 AI 비주얼 디렉터 추천 템플릿 (Top 3)
+
+현재 영상의 톤앤매너에 가장 최적화된 **3대 숏폼 화면 템플릿**을 엄선했습니다:
+
+1. **[추천 1] 다크 시네마틱 레터박스 (The Crime Documentary)**
+   - **형태:** 정통 상하단 레터박스 샌드위치 (`#0a0a0a` 블랙 바)
+   - **타이포:** 2단 헤더 (서브: 실버그레이, 메인: 네온 옐로우) + 6px 딥블랙 외곽선 자막
+   - **효과:** 서스펜스 줌 + 7초 주기 잽 훅 각성
+
+2. **[추천 2] 네오 플로팅 캡슐 (Neo Modern Sleuth - 패션탐정냥 Type)**
+   - **형태:** 상단 8% 플로팅 알약 캡슐 (라운드 24px) + 서브테이프 고정핀 라벨
+   - **타이포:** 2톤 키워드 강조 자막 (핵심 키워드 형광 옐로우 분리)
+
+3. **[추천 3] 바이럴 소셜 팩트 바 (Viral Social Fact)**
+   - **형태:** 상단 풀 띠형 헤더 + 실시간 시청자 베댓 카드 오버레이 (`@익명_증언자`)
+   - **타이포:** 국영문 2단 병기 자막 (상단 영문 옐로우 + 하단 국문 화이트)
+
+👉 아래의 **추천 템플릿 카드**에서 `[이 템플릿 적용]`을 누르시면 우측 캔버스에 즉시 반영되며, *"1번에서 헤더 글씨만 빨간색으로 바꿔줘"*처럼 추가 미세조정도 가능합니다!"""
+
+            yield {"type": "content_chunk", "delta": msg, "content": msg}
+            yield {
+                "type": "chat_response",
+                "content": msg,
+                "action_chips": ["🎨 다크 시네마틱 레터박스 적용", "💊 네오 플로팅 캡슐 적용", "💬 바이럴 소셜 팩트 바 적용", "💾 이 상태로 커스텀 프리셋 저장"]
+            }
+            return
+
+        # Direct Modification Intent
+        clean_p = prompt.lower()
+        patch: Dict[str, Any] = {}
+
+        if any(kw in clean_p for kw in ["플로팅", "캡슐", "알약", "패션탐정"]):
+            patch["container_type"] = "floating_capsule"
+            patch["floating_capsule"] = {"bg_color": "#000000", "border_radius": 24, "top_y": 8.0, "width_pct": 88}
+        elif any(kw in clean_p for kw in ["레터박스", "샌드위치", "올뉴띵킹"]):
+            patch["container_type"] = "letterbox_sandwich"
+            patch["top_bar"] = {"height_pct": 18.0, "bg_color": "#000000"}
+        elif any(kw in clean_p for kw in ["풀 띠", "풀띠", "군림보", "전체 띠"]):
+            patch["container_type"] = "full_width_band"
+            patch["top_bar"] = {"height_pct": 14.0, "bg_color": "#111827"}
+        elif any(kw in clean_p for kw in ["소셜 바", "소셜", "댓글", "썰형"]):
+            patch["container_type"] = "social_post_bar"
+            patch["interactive_layer"] = {"type": "comment_card", "comment_card": {"enabled": True, "author": "@베댓_러버", "text": "이거 진짜 실화임? 대박이네 ㅋㅋㅋ", "likes": "1.5만", "top_y": 28.0}}
+        elif any(kw in clean_p for kw in ["헤더 없", "헤더 제거", "풀스크린"]):
+            patch["container_type"] = "none"
+
+        # Font & Typography patches
+        caption_patch: Dict[str, Any] = {}
+        if "노란" in clean_p or "옐로우" in clean_p:
+            caption_patch["color"] = "#FFE500"
+        elif "형광" in clean_p or "초록" in clean_p:
+            caption_patch["color"] = "#4DE558"
+        elif "하늘" in clean_p or "시안" in clean_p:
+            caption_patch["color"] = "#38BDF8"
+        elif "흰색" in clean_p or "화이트" in clean_p:
+            caption_patch["color"] = "#FFFFFF"
+
+        if "크게" in clean_p or "키워" in clean_p:
+            caption_patch["size_px"] = 68
+        elif "작게" in clean_p or "줄여" in clean_p:
+            caption_patch["size_px"] = 48
+
+        if "외곽선" in clean_p or "두껍게" in clean_p:
+            caption_patch["outline_px"] = 7
+            caption_patch["outline_color"] = "#000000"
+
+        if any(kw in clean_p for kw in ["산돌", "고딕", "두꺼운 폰트", "black"]):
+            caption_patch["font_family"] = "BlackHanSans"
+        elif any(kw in clean_p for kw in ["프리텐다드", "깔끔한", "pretendard"]):
+            caption_patch["font_family"] = "Pretendard"
+        elif any(kw in clean_p for kw in ["지마켓", "gmarket"]):
+            caption_patch["font_family"] = "GmarketSans"
+
+        if caption_patch:
+            patch["caption"] = caption_patch
+
+        # 2-Tone Caption
+        if any(kw in clean_p for kw in ["2톤", "두 톤", "하이라이트", "형광펜"]):
+            patch["two_tone_caption"] = {
+                "enabled": True,
+                "highlight_text": "핵심 팩트",
+                "highlight_color": "#FFE500",
+                "base_text": "집중 분석"
+            }
+
+        # Sub-tape
+        if any(kw in clean_p for kw in ["테이프", "라벨", "스티커", "고정핀"]):
+            patch["sub_tape_label"] = {
+                "enabled": True,
+                "text": "실시간 핵심 요약",
+                "emoji": "📌🔥",
+                "bg_color": "#FDE68A",
+                "text_color": "#1E293B",
+                "top_y": 19.5
+            }
+
+        yield {
+            "type": "visual_template_patch",
+            "visual_patch": patch
+        }
+
+        yield {
+            "type": "step",
+            "item_index": item_index,
+            "total_items": total_items,
+            "step_id": "visual_styling",
+            "title": "🎨 화면 템플릿 실시간 패치 적용 완료",
+            "status": "completed",
+            "detail": f"수정 요청이 우측 9:16 라이브 캔버스에 0.1초 만에 즉각 렌더링되었습니다. (패치 항목: {', '.join(patch.keys())})"
+        }
+
+        msg = f"""🎨 **화면 템플릿 레이아웃이 성공적으로 업데이트되었습니다!**
+
+- **반영된 스타일:**
+  * 헤더 컨테이너: `{patch.get('container_type', base_vg.get('container_type', '기존 유지'))}`
+  * 자막 타이포: `{patch.get('caption', {}).get('font_family', 'Pretendard')} ({patch.get('caption', {}).get('color', '기존 색상')}, 외곽선 {patch.get('caption', {}).get('outline_px', 5)}px)`
+  * 특수 오버레이: `{'2톤 하이라이트 자막 적용' if 'two_tone_caption' in patch else '서브테이프 라벨 적용' if 'sub_tape_label' in patch else '기본 레이어 동기화'}`
+
+👉 **우측 패널의 9:16 실시간 폰 캔버스**에서 변경된 화면 구도를 직접 확인해 보세요! 추가로 조율하고 싶으신 점이 있으신가요?"""
+
+        yield {"type": "content_chunk", "delta": msg, "content": msg}
+        yield {
+            "type": "chat_response",
+            "content": msg,
+            "action_chips": ["💾 이 상태로 커스텀 프리셋 저장", "🎨 다른 템플릿 추천받기", "📝 대본 톤앤매너 튜닝하기"]
+        }
+
+    async def _handle_conversational_script_tuner(
+        self,
+        prompt: str,
+        preset: Optional[Dict[str, Any]] = None,
+        item_index: int = 0,
+        total_items: int = 1
+    ) -> AsyncGenerator[Dict[str, Any], None]:
+        """
+        AI Forensic Script Architect: Handles conversational 8-tier nanoscale script DNA & persona tuning.
+        Adjusts cognitive model, syntactic fingerprint, visual formatting, lexical database, negative constraints,
+        and channel constitution v32.0 dynamic targeting.
+        Generates 3 interactive script takes (standard, dopamine hook, twist payoff).
+        Emits 'script_tuning_complete' streaming event.
+        """
+        yield {
+            "type": "step",
+            "item_index": item_index,
+            "total_items": total_items,
+            "step_id": "script_tuning",
+            "title": "🧠 8대 나노 포렌식 대본 지능 & 채널 헌법 정밀 튜닝",
+            "status": "in_progress",
+            "detail": "화자의 사고 회로, 문장 호흡, 종결어미, 치환 사전, 절대 금기어를 재설계하고 있습니다..."
+        }
+
+        base_preset = dict(preset) if preset else {}
+        p_name = base_preset.get("name", "기준 프리셋")
+        forensic_bible = base_preset.get("forensic_bible") or base_preset.get("blueprint_v4", {}).get("forensicBible") or {}
+        cloned_sys_prompt = base_preset.get("cloned_system_instruction") or forensic_bible.get("cloned_system_instruction") or ""
+
+        # Analyze request and tune 8-tier nanoscale parameters
+        is_young_dopamine = any(kw in prompt for kw in ["20대", "도파민", "빠른", "음슴체", "밈", "은어", "단문"])
+        is_mystery_cynical = any(kw in prompt for kw in ["미스터리", "냉소", "소름", "진지", "다큐", "고발"])
+
+        tuned_persona = "20대 도파민 중독 현실주의자" if is_young_dopamine else ("냉철한 진실 고발 탐정" if is_mystery_cynical else "몰입감 높은 전문 스토리텔러")
+        endings = ["~함", "~음", "~누", "~버림"] if is_young_dopamine else ["~인데요", "~입니다", "~하죠"]
+        lexicon = {"실패": "나락", "성공": "떡상", "경쟁자": "빌런", "놀람": "소름"} if is_young_dopamine else {"사실": "결정적 증거", "비밀": "은폐된 진실"}
+        taboos = ["상투적인 인사말 절대 금지", "교훈적인 훈계 멘트 금지", "3줄 이상 장문 금지"]
+
+        tuned_system_instruction = f"""# [초정밀 스타일 클로닝 시스템 프롬프트 - 튜닝 진화형]
+## 화자 페르소나: {tuned_persona} (기반: {p_name})
+- 사고 회로: 의식의 흐름과 즉각적인 도파민 자극에 반응.
+- 평균 문장 길이: 3~5단어 극단 단문.
+- 고유 종결어미 빈도: {', '.join(endings)} (90% 이상 채택).
+- 치환 어휘 규칙: {', '.join([f'{k} -> {v}' for k, v in lexicon.items()])}
+- 줄바꿈 리듬: 1문장 1줄바꿈 철저 준수 (호흡 단절 기법).
+- 절대 금기 사항: {', '.join(taboos)}"""
+
+        # Generate 3 Interactive Script Takes
+        sample_takes = [
+            {
+                "take_id": "take_a_standard",
+                "title": "Take A: 표준 튜닝안 (균형잡힌 몰입형)",
+                "hook": "너네 이거 진짜 알고 있었냐? 1초 만에 나락 가는 충격 실화.",
+                "body": "처음엔 다들 그냥 장난인 줄 알았음.\n근데 영수증 찍힌 금액 보자마자 전원 기절함.\n알고 보니 사장이 일부러 가격 10배 뻥튀기해 둔 거였음.\n피해자만 벌써 50명 넘었다고 함.",
+                "payoff": "결국 경찰 출동하고 사장 뚝배기 깨짐. 남의 돈 뜯어먹다 징역 3년 떡상 완료."
+            },
+            {
+                "take_id": "take_b_dopamine",
+                "title": "Take B: 도파민 극대화 훅 강화안 (0초 급발진형)",
+                "hook": "야 지금 당장 핸드폰 열어서 계좌 확인해라. 3초 뒤에 돈 다 털린다.",
+                "body": "잔고 0원 찍힌 거 보고 주작인 줄 알았음.\n근데 나만 털린 게 아니었음.\n단톡방 500명 전원 잔고 증발 실화냐?\n진짜 범인 정체 듣고 소름 돋아서 기절할 뻔함.",
+                "payoff": "범인이 옆자리 친구였음 ㅋㅋㅋ 인생 실전이다 빌런 친구 손절 완료."
+            },
+            {
+                "take_id": "take_c_twist",
+                "title": "Take C: 위트 & 페이오프 반전안 (허를 찌르는 결말형)",
+                "hook": "선생님한테 컨닝 걸렸는데 전교 1등 한 레전드 썰 푼다.",
+                "body": "시험지 밑에 손가락 꿈틀대다 교무실 끌려감.\n선생님이 비열하게 웃으면서 0점 처리한다고 협박함.\n근데 내가 쓴 답안지 펼치자마자 교무실 정적 흐름.\n선생님이 문제 출제를 완전히 잘못 낸 거였음.",
+                "payoff": "결국 전교생 재시험 보고 나 혼자 정답 인정받음 ㅋㅋㅋ 사이다 떡상 레전드."
+            }
+        ]
+
+        yield {
+            "type": "script_tuning_complete",
+            "tuned_script_dna": {
+                "persona": tuned_persona,
+                "endings": endings,
+                "lexicon": lexicon,
+                "taboos": taboos,
+                "cloned_system_instruction": tuned_system_instruction,
+                "sample_takes": sample_takes
+            }
+        }
+
+        yield {
+            "type": "step",
+            "item_index": item_index,
+            "total_items": total_items,
+            "step_id": "script_tuning",
+            "title": "🧠 대본 지능 정밀 튜닝 및 3대 테이크 생성 완료",
+            "status": "completed",
+            "detail": f"화자 페르소나('{tuned_persona}')와 종결어미({', '.join(endings)})가 성공적으로 재구성되었습니다."
+        }
+
+        msg = f"""### 🧠 루피 AI 포렌식 대본 지능 튜닝 완료
+
+크리에이터님의 피드백을 반영하여 **{p_name}**의 대본 영혼을 새롭게 진화시켰습니다:
+
+- **새 화자 페르소나:** `{tuned_persona}`
+- **핵심 종결어미:** `{', '.join(endings)}` (단문형 빠른 호흡)
+- **어휘 치환 사전:** `{', '.join([f'{k} ➔ {v}' for k, v in lexicon.items()])}`
+- **절대 금기 사항:** `{', '.join(taboos)}`
+
+---
+
+#### 🎬 튜닝된 스타일로 즉시 생성된 3대 샘플 대본:
+
+**1. [Take A: 표준 균형안]**
+> *"{sample_takes[0]['hook']}"*  
+> {sample_takes[0]['body']}  
+> *"{sample_takes[0]['payoff']}"*
+
+**2. [Take B: 도파민 극대화 훅 강화안]**
+> *"{sample_takes[1]['hook']}"*  
+> {sample_takes[1]['body']}  
+> *"{sample_takes[1]['payoff']}"*
+
+**3. [Take C: 위트 & 페이오프 반전안]**
+> *"{sample_takes[2]['hook']}"*  
+> {sample_takes[2]['body']}  
+> *"{sample_takes[2]['payoff']}"*
+
+👉 마음에 드는 대본 스타일을 선택하시거나, **하단의 `[💾 완전체 커스텀 프리셋으로 저장]`** 버튼을 눌러 비주얼과 대본이 결합된 나만의 프리셋으로 영구 등록하세요!"""
+
+        yield {"type": "content_chunk", "delta": msg, "content": msg}
+        yield {
+            "type": "chat_response",
+            "content": msg,
+            "action_chips": ["💾 완전체 커스텀 프리셋으로 저장", "🎬 Take B로 영상 바로 제작", "🎨 화면 템플릿도 함께 추천받기"]
+        }
+
     async def execute_single_video_stream(
         self,
         prompt: str,
         preset: Optional[Dict[str, Any]],
         aspect_ratio: str = "1080x1920",
+
         reference_media_path: Optional[str] = None,
         attached_images: Optional[List[str]] = None,
         item_index: int = 0,

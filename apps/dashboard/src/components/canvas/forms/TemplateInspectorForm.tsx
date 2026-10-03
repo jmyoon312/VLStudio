@@ -580,7 +580,7 @@ export const TemplateInspectorForm: React.FC<TemplateInspectorFormProps> = (prop
                             max={40}
                             step={0.5}
                             unit="%"
-                            onChange={(val) => setProfileTransform(prev => ({ ...prev, xPct: val }))}
+                            onChange={(val) => setProfileTransform((prev: any) => ({ ...(prev || profileTransform), xPct: val }))}
                           />
                           <UnitSliderControl
                             label="프로필 Y"
@@ -589,7 +589,7 @@ export const TemplateInspectorForm: React.FC<TemplateInspectorFormProps> = (prop
                             max={20}
                             step={0.5}
                             unit="%"
-                            onChange={(val) => setProfileTransform(prev => ({ ...prev, yPct: val }))}
+                            onChange={(val) => setProfileTransform((prev: any) => ({ ...(prev || profileTransform), yPct: val }))}
                           />
                           <UnitSliderControl
                             label="프로필 크기"
@@ -598,7 +598,7 @@ export const TemplateInspectorForm: React.FC<TemplateInspectorFormProps> = (prop
                             max={1.4}
                             step={0.05}
                             unit="x"
-                            onChange={(val) => setProfileTransform(prev => ({ ...prev, scale: val }))}
+                            onChange={(val) => setProfileTransform((prev: any) => ({ ...(prev || profileTransform), scale: val }))}
                           />
                         </div>
                       </div>
@@ -631,7 +631,7 @@ export const TemplateInspectorForm: React.FC<TemplateInspectorFormProps> = (prop
                             max={40}
                             step={0.5}
                             unit="%"
-                            onChange={(val) => setTitleTransform(prev => ({ ...prev, xPct: val }))}
+                            onChange={(val) => setTitleTransform((prev: any) => ({ ...(prev || titleTransform), xPct: val }))}
                           />
                           <UnitSliderControl
                             label="대제목 Y"
@@ -641,8 +641,8 @@ export const TemplateInspectorForm: React.FC<TemplateInspectorFormProps> = (prop
                             step={0.5}
                             unit="%"
                             onChange={(val) => {
-                              setTitleTransform(prev => ({ ...prev, yPct: val }));
-                              setTopTitleYPct(val);
+                              setTitleTransform((prev: any) => ({ ...(prev || titleTransform), yPct: val }));
+                              setTopTitleYPct?.(val);
                             }}
                           />
                           <UnitSliderControl
@@ -652,7 +652,7 @@ export const TemplateInspectorForm: React.FC<TemplateInspectorFormProps> = (prop
                             max={1.5}
                             step={0.05}
                             unit="x"
-                            onChange={(val) => setTitleTransform(prev => ({ ...prev, scale: val }))}
+                            onChange={(val) => setTitleTransform((prev: any) => ({ ...(prev || titleTransform), scale: val }))}
                           />
                         </div>
                         <div>
@@ -963,7 +963,7 @@ export const TemplateInspectorForm: React.FC<TemplateInspectorFormProps> = (prop
                             <div className="grid grid-cols-3 gap-1">
                               <button
                                 type="button"
-                                onClick={() => setCommentTransform(prev => ({ ...prev, xPct: 50 }))}
+                                onClick={() => setCommentTransform((prev: any) => ({ ...(prev || commentTransform), xPct: 50 }))}
                                 className={cn(
                                   "py-1 text-[9.5px] rounded border transition-colors flex items-center justify-center gap-1",
                                   Math.abs(commentTransform.xPct - 50) < 5
@@ -975,7 +975,7 @@ export const TemplateInspectorForm: React.FC<TemplateInspectorFormProps> = (prop
                               </button>
                               <button
                                 type="button"
-                                onClick={() => setCommentTransform(prev => ({ ...prev, xPct: 18 }))}
+                                onClick={() => setCommentTransform((prev: any) => ({ ...(prev || commentTransform), xPct: 18 }))}
                                 className={cn(
                                   "py-1 text-[9.5px] rounded border transition-colors flex items-center justify-center gap-1",
                                   Math.abs(commentTransform.xPct - 18) < 5
@@ -987,7 +987,7 @@ export const TemplateInspectorForm: React.FC<TemplateInspectorFormProps> = (prop
                               </button>
                               <button
                                 type="button"
-                                onClick={() => setCommentTransform(prev => ({ ...prev, xPct: 6 }))}
+                                onClick={() => setCommentTransform((prev: any) => ({ ...(prev || commentTransform), xPct: 6 }))}
                                 className={cn(
                                   "py-1 text-[9.5px] rounded border transition-colors flex items-center justify-center gap-1",
                                   commentTransform.xPct <= 10
@@ -1068,7 +1068,7 @@ export const TemplateInspectorForm: React.FC<TemplateInspectorFormProps> = (prop
                                 max={80}
                                 step={0.5}
                                 unit="%"
-                                onChange={(val) => setCommentTransform(prev => ({ ...prev, xPct: val }))}
+                                onChange={(val) => setCommentTransform((prev: any) => ({ ...(prev || commentTransform), xPct: val }))}
                               />
                               <UnitSliderControl
                                 label="댓글 Y 위치"
@@ -1077,7 +1077,7 @@ export const TemplateInspectorForm: React.FC<TemplateInspectorFormProps> = (prop
                                 max={95}
                                 step={0.5}
                                 unit="%"
-                                onChange={(val) => setCommentTransform(prev => ({ ...prev, yPct: val }))}
+                                onChange={(val) => setCommentTransform((prev: any) => ({ ...(prev || commentTransform), yPct: val }))}
                               />
                             </div>
                           </div>

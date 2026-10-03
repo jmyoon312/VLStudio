@@ -88,7 +88,7 @@ export const SovereignMasterInspector: React.FC<SovereignMasterInspectorProps> =
     updateVideoFilterConfig,
   } = sovereign;
 
-  const selectedLayer = blueprint.globalLayers.find((l) => l.id === selectedLayerId) || null;
+  const selectedLayer = (blueprint?.globalLayers || []).find((l) => l.id === selectedLayerId) || null;
 
   // 무한 레이어 확장 (새 텍스트, 쉐이프, 이모지 추가)
   const handleAddNewLayer = (kind: "text" | "shape" | "emoji") => {
@@ -121,7 +121,8 @@ export const SovereignMasterInspector: React.FC<SovereignMasterInspectorProps> =
         padding: [0, 0, 0, 0] as [number, number, number, number],
         accumulateMode: false,
       };
-      setBlueprint({ ...blueprint, globalLayers: [...blueprint.globalLayers, newTextLayer] });
+      const curLayers = blueprint?.globalLayers || [];
+      setBlueprint({ ...blueprint, globalLayers: [...curLayers, newTextLayer] });
       setSelectedLayerId(newId);
       toast.success("새 텍스트 레이어가 추가되었습니다.");
     } else if (kind === "shape") {
@@ -141,7 +142,8 @@ export const SovereignMasterInspector: React.FC<SovereignMasterInspectorProps> =
         borderWidth: 2,
         borderRadius: 16,
       };
-      setBlueprint({ ...blueprint, globalLayers: [...blueprint.globalLayers, newShapeLayer] });
+      const curLayers = blueprint?.globalLayers || [];
+      setBlueprint({ ...blueprint, globalLayers: [...curLayers, newShapeLayer] });
       setSelectedLayerId(newId);
       toast.success("새 쉐이프 박스가 추가되었습니다.");
     } else if (kind === "emoji") {
@@ -167,7 +169,8 @@ export const SovereignMasterInspector: React.FC<SovereignMasterInspectorProps> =
         padding: [0, 0, 0, 0] as [number, number, number, number],
         accumulateMode: false,
       };
-      setBlueprint({ ...blueprint, globalLayers: [...blueprint.globalLayers, newEmojiLayer] });
+      const curLayers = blueprint?.globalLayers || [];
+      setBlueprint({ ...blueprint, globalLayers: [...curLayers, newEmojiLayer] });
       setSelectedLayerId(newId);
       toast.success("새 이모지 스티커가 추가되었습니다.");
     }
@@ -554,7 +557,7 @@ export const SovereignMasterInspector: React.FC<SovereignMasterInspectorProps> =
               <span>새 레이어 추가 (무한 확장)</span>
             </span>
             <span className="text-[10px] text-muted-foreground font-mono">
-              총 {blueprint.globalLayers.length}개 레이어
+              총 {(blueprint?.globalLayers || []).length}개 레이어
             </span>
           </div>
           <p className="text-[11px] text-muted-foreground leading-relaxed">

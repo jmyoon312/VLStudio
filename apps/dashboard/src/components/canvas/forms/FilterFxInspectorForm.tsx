@@ -74,8 +74,8 @@ export const FilterFxInspectorForm: React.FC<FilterFxInspectorFormProps> = ({
                       <div
                         key={fp.id}
                         onClick={() => {
-                          setVideoFilter(prev => ({
-                            ...prev,
+                          setVideoFilter((prev: any) => ({
+                            ...(prev || videoFilter || DEFAULT_VIDEO_FILTER),
                             preset: fp.id,
                             filmGrain: fp.grain,
                             vignette: fp.vignette,
@@ -88,7 +88,7 @@ export const FilterFxInspectorForm: React.FC<FilterFxInspectorFormProps> = ({
                         }}
                         className={cn(
                           "p-2 border rounded-[2px] cursor-pointer transition flex flex-col gap-1 text-left relative overflow-hidden",
-                          videoFilter.preset === fp.id
+                          videoFilter?.preset === fp.id
                             ? "bg-primary/10 border-primary shadow-xs ring-1 ring-primary"
                             : "border-border bg-background hover:bg-muted/40"
                         )}
@@ -96,7 +96,7 @@ export const FilterFxInspectorForm: React.FC<FilterFxInspectorFormProps> = ({
                         <div className={cn("w-full h-4 rounded-xs bg-gradient-to-r opacity-90 mb-0.5", fp.color)} />
                         <div className="flex items-center justify-between">
                           <span className="text-[10px] font-bold text-foreground truncate">{fp.name}</span>
-                          {videoFilter.preset === fp.id && (
+                          {videoFilter?.preset === fp.id && (
                             <span className="text-[8px] bg-primary text-primary-foreground px-1 rounded-xs font-bold shrink-0">✓</span>
                           )}
                         </div>

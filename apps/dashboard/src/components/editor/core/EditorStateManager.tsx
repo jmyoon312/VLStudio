@@ -90,8 +90,8 @@ export const EditorStateManager: React.FC<EditorStateManagerProps> = ({
   useEffect(() => {
     if (!isPlaying) return;
 
-    const totalDurationMs = blueprint.scenes.reduce(
-      (acc, sc) => acc + (sc.actualDurationMs || sc.targetDurationMs),
+    const totalDurationMs = (blueprint.scenes || []).reduce(
+      (acc, sc) => acc + (sc.actualDurationMs || sc.targetDurationMs || 4000),
       0
     );
 
@@ -116,7 +116,7 @@ export const EditorStateManager: React.FC<EditorStateManagerProps> = ({
 
     animId = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(animId);
-  }, [isPlaying, blueprint.scenes]);
+  }, [isPlaying, blueprint?.scenes]);
 
   // Undo / Redo 스택
   const historyRef = useRef<VLStandardBlueprintV4[]>([]);
@@ -196,7 +196,7 @@ export const EditorStateManager: React.FC<EditorStateManagerProps> = ({
         futureRef.current = [];
         setDirty(true);
 
-        const nextLayers = prev.globalLayers.map((l) =>
+        const nextLayers = (prev.globalLayers || []).map((l) =>
           l.id === layerId ? ({ ...l, transform: { ...transform } } as LayerObject) : l
         );
         return { ...prev, globalLayers: nextLayers };
@@ -211,7 +211,7 @@ export const EditorStateManager: React.FC<EditorStateManagerProps> = ({
       futureRef.current = [];
       setDirty(true);
 
-      const nextLayers = prev.globalLayers.map((l) =>
+      const nextLayers = (prev.globalLayers || []).map((l) =>
         l.id === layerId && l.kind === "text" ? ({ ...l, content } as LayerObject) : l
       );
       return { ...prev, globalLayers: nextLayers };
@@ -224,7 +224,7 @@ export const EditorStateManager: React.FC<EditorStateManagerProps> = ({
       futureRef.current = [];
       setDirty(true);
 
-      const nextLayers = prev.globalLayers.map((l) =>
+      const nextLayers = (prev.globalLayers || []).map((l) =>
         l.id === layerId ? ({ ...l, ...patch } as LayerObject) : l
       );
       return { ...prev, globalLayers: nextLayers };
@@ -237,7 +237,7 @@ export const EditorStateManager: React.FC<EditorStateManagerProps> = ({
       futureRef.current = [];
       setDirty(true);
 
-      const nextScenes = prev.scenes.map((sc, idx) =>
+      const nextScenes = (prev.scenes || []).map((sc, idx) =>
         idx === sceneIndex ? ({ ...sc, ...patch } as SceneDefinition) : sc
       );
       return { ...prev, scenes: nextScenes };
@@ -251,9 +251,10 @@ export const EditorStateManager: React.FC<EditorStateManagerProps> = ({
         let accTime = 0;
         let targetIdx = -1;
         let splitOffsetMs = 0;
+        const currentScenes = prev.scenes || [];
 
-        for (let i = 0; i < prev.scenes.length; i++) {
-          const dur = prev.scenes[i].actualDurationMs || prev.scenes[i].targetDurationMs;
+        for (let i = 0; i < currentScenes.length; i++) {
+          const dur = currentScenes[i].actualDurationMs || currentScenes[i].targetDurationMs || 4000;
           if (timeMs >= accTime && timeMs < accTime + dur) {
             targetIdx = i;
             splitOffsetMs = timeMs - accTime;
@@ -267,8 +268,8 @@ export const EditorStateManager: React.FC<EditorStateManagerProps> = ({
           return prev;
         }
 
-        const targetScene = prev.scenes[targetIdx];
-        const originalDur = targetScene.actualDurationMs || targetScene.targetDurationMs;
+        const targetScene = currentScenes[targetIdx];
+        const originalDur = targetScene.actualDurationMs || targetScene.targetDurationMs || 4000;
         const dur1 = splitOffsetMs;
         const dur2 = originalDur - splitOffsetMs;
 
@@ -293,10 +294,10 @@ export const EditorStateManager: React.FC<EditorStateManagerProps> = ({
         };
 
         const nextScenes = [
-          ...prev.scenes.slice(0, targetIdx),
+          ...currentScenes.slice(0, targetIdx),
           scene1,
           scene2,
-          ...prev.scenes.slice(targetIdx + 1),
+          ...currentScenes.slice(targetIdx + 1),
         ].map((s, idx) => ({ ...s, order: idx }));
 
         return { ...prev, scenes: nextScenes };
@@ -311,23 +312,23 @@ export const EditorStateManager: React.FC<EditorStateManagerProps> = ({
         historyRef.current = [...historyRef.current.slice(-MAX_HISTORY_STEPS + 1), prev];
         futureRef.current = [];
         setDirty(true);
-        const nextLayers = prev.globalLayers.filter((l) => l.id !== selectedLayerId);
+        const nextLayers = (prev.globalLayers || []).filter((l) => l.id !== selectedLayerId);
         return { ...prev, globalLayers: nextLayers };
       });
       setSelectedLayerId(null);
-    } else if (selectedSceneIndex >= 0 && blueprint.scenes.length > 1) {
+    } else if (selectedSceneIndex >= 0 && (blueprint?.scenes?.length || 0) > 1) {
       setBlueprintState((prev) => {
         historyRef.current = [...historyRef.current.slice(-MAX_HISTORY_STEPS + 1), prev];
         futureRef.current = [];
         setDirty(true);
-        const nextScenes = prev.scenes
+        const nextScenes = (prev.scenes || [])
           .filter((_, idx) => idx !== selectedSceneIndex)
           .map((s, idx) => ({ ...s, order: idx }));
         return { ...prev, scenes: nextScenes };
       });
       setSelectedSceneIndex(Math.max(0, selectedSceneIndex - 1));
     }
-  }, [selectedLayerId, selectedSceneIndex, blueprint.scenes.length]);
+  }, [selectedLayerId, selectedSceneIndex, blueprint?.scenes?.length]);
 
   const saveBlueprint = useCallback(async () => {
     setIsSaving(true);

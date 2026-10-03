@@ -66,6 +66,19 @@ class PresetCloneRequest(BaseModel):
     layout: Optional[Dict[str, Any]] = None
 
 
+class CompileCustomPresetRequest(BaseModel):
+    base_preset_id: Optional[str] = None
+    custom_name: str
+    category: Optional[str] = "user"
+    script_dna: Optional[Dict[str, Any]] = None
+    cloned_system_instruction: Optional[str] = None
+    forensic_bible: Optional[Dict[str, Any]] = None
+    visual_geometry: Optional[Dict[str, Any]] = None
+    editing_pacing: Optional[Dict[str, Any]] = None
+    audio_dsp: Optional[Dict[str, Any]] = None
+    style: Optional[Dict[str, Any]] = None
+
+
 class BasicEditorPresetSaveRequest(BaseModel):
     id: Optional[str] = None
     name: str
@@ -318,7 +331,11 @@ def list_sovereign_presets(
                         "layout": data.get("layout", {}),
                         "visual_dna": data.get("visual_dna", {}),
                         "audio_dna": data.get("audio_dna", {}),
-                        "pacing_dna": data.get("pacing_dna", {})
+                        "pacing_dna": data.get("pacing_dna", {}),
+                        "script_dna": data.get("script_dna", {}),
+                        "cloned_system_instruction": data.get("cloned_system_instruction") or data.get("script_dna", {}).get("cloned_system_instruction") or data.get("forensic_bible", {}).get("cloned_system_instruction"),
+                        "forensic_bible": data.get("forensic_bible") or data.get("blueprint_v4", {}).get("forensicBible") or {},
+                        "source_origin_dna": data.get("source_origin_dna", {})
                     }
 
                     # Filter by high-level category_tab or detailed folder
@@ -1083,6 +1100,132 @@ def clone_sovereign_preset(preset_id: str, req: PresetCloneRequest) -> Dict[str,
     except Exception as e:
         logger.error(f"Failed to clone preset {preset_id}: {e}")
         raise HTTPException(status_code=500, detail=f"Error cloning preset: {e}")
+
+
+@router.post("/compile-custom")
+def compile_custom_preset(req: CompileCustomPresetRequest) -> Dict[str, Any]:
+    """
+    Compiles an all-in-one sovereign custom preset combining conversational script DNA
+    (nanoscale 8-tier persona, forensic bible) and visual template geometry (7-layer canvas, typography).
+    Saves atomically to disk and SQLite DB.
+    """
+    import time
+    base_data = {}
+    if req.base_preset_id:
+        src_path = PRESETS_DIR / f"{req.base_preset_id}.json"
+        if src_path.exists():
+            try:
+                with open(src_path, "r", encoding="utf-8") as f:
+                    base_data = json.load(f)
+            except Exception as e:
+                logger.warning(f"Failed to load base preset {req.base_preset_id}: {e}")
+
+    safe_name = req.custom_name.strip().replace(" ", "_").replace("/", "_").lower()
+    custom_id = f"channel_custom_{safe_name}_{int(time.time())}"
+    dest_path = PRESETS_DIR / f"{custom_id}.json"
+
+    # 1. Merge Visual Style
+    merged_style = dict(req.style or base_data.get("style", {}))
+    if req.visual_geometry:
+        if "visual_geometry" not in merged_style or not isinstance(merged_style["visual_geometry"], dict):
+            merged_style["visual_geometry"] = {}
+        merged_style["visual_geometry"].update(req.visual_geometry)
+    if req.editing_pacing:
+        if "editing_pacing" not in merged_style or not isinstance(merged_style["editing_pacing"], dict):
+            merged_style["editing_pacing"] = {}
+        merged_style["editing_pacing"].update(req.editing_pacing)
+    if req.audio_dsp:
+        if "audio_dsp" not in merged_style or not isinstance(merged_style["audio_dsp"], dict):
+            merged_style["audio_dsp"] = {}
+        merged_style["audio_dsp"].update(req.audio_dsp)
+
+    # 2. Merge Script DNA & Forensic Bible
+    merged_script_dna = dict(req.script_dna or base_data.get("script_dna", {}))
+    merged_cloned_sys = req.cloned_system_instruction or base_data.get("cloned_system_instruction") or merged_script_dna.get("cloned_system_instruction")
+    merged_forensic_bible = dict(req.forensic_bible or base_data.get("forensic_bible", {}))
+    if merged_cloned_sys and "cloned_system_instruction" not in merged_forensic_bible:
+        merged_forensic_bible["cloned_system_instruction"] = merged_cloned_sys
+
+    # 3. Build Standard Blueprint v4.0 with forensicBible
+    from app.services.channel_dna_service import ChannelDNAService
+    bp_v4 = ChannelDNAService.build_blueprint_v4_from_dna_and_preset(
+        preset_id=custom_id,
+        clean_name=req.custom_name,
+        blueprint={"visual_geometry": merged_style.get("visual_geometry", {})},
+        extracted_kfs=[],
+        category=req.category or base_data.get("category", "user"),
+        channel_title=req.custom_name
+    )
+    if bp_v4:
+        bp_v4["forensicBible"] = merged_forensic_bible
+        bp_v4["scriptDna"] = merged_script_dna
+
+    new_preset_data = {
+        "id": custom_id,
+        "name": req.custom_name,
+        "category": req.category or "user",
+        "category_tab": "personal",
+        "source": "viraloop_custom_ai_director",
+        "cloned_from": req.base_preset_id,
+        "style": merged_style,
+        "recipe": base_data.get("recipe", f"{req.custom_name} 대화형 튜닝 프리셋"),
+        "content_rules": base_data.get("content_rules", ["대화형 AI 디렉터로 튜닝된 대본 지능 및 비주얼 템플릿 준수"]),
+        "visual_geometry": merged_style.get("visual_geometry", {}),
+        "editing_pacing": merged_style.get("editing_pacing", {}),
+        "audio_dsp": merged_style.get("audio_dsp", {}),
+        "script_dna": merged_script_dna,
+        "cloned_system_instruction": merged_cloned_sys,
+        "forensic_bible": merged_forensic_bible,
+        "source_origin_dna": base_data.get("source_origin_dna", {}),
+        "production_bible_17": base_data.get("production_bible_17", {}),
+        "blueprint_v4": bp_v4,
+        "thumbnail_url": base_data.get("thumbnail_url"),
+        "keyframes": base_data.get("keyframes", [])
+    }
+
+    try:
+        with open(dest_path, "w", encoding="utf-8") as f:
+            json.dump(new_preset_data, f, indent=2, ensure_ascii=False)
+
+        # Sync to SQLite DB (ShortsTemplate)
+        try:
+            from app.database import SessionLocal
+            from app.models import ShortsTemplate
+            dbs = SessionLocal()
+            try:
+                existing = dbs.query(ShortsTemplate).filter(ShortsTemplate.id == custom_id).first()
+                if existing:
+                    existing.name = req.custom_name
+                    existing.archetype = req.category or "classic"
+                    existing.layout = merged_style
+                    existing.blueprint_v4 = bp_v4
+                else:
+                    new_tmpl = ShortsTemplate(
+                        id=custom_id,
+                        name=req.custom_name,
+                        archetype=req.category or "classic",
+                        description=f"AI 디렉터 대화형 튜닝 완전체 프리셋: {req.custom_name}",
+                        aspect_ratio="9:16",
+                        layout=merged_style,
+                        blueprint_v4=bp_v4
+                    )
+                    dbs.add(new_tmpl)
+                dbs.commit()
+            finally:
+                dbs.close()
+        except Exception as db_err:
+            logger.warning(f"Error persisting custom preset to SQLite DB: {db_err}")
+
+        logger.info(f"[Compiled Custom Preset] Successfully generated and persisted {custom_id}")
+        return {
+            "success": True,
+            "preset_id": custom_id,
+            "preset": new_preset_data,
+            "message": f"'{req.custom_name}' 완전체 커스텀 프리셋이 성공적으로 생성 및 보관함에 등록되었습니다."
+        }
+    except Exception as e:
+        logger.error(f"Failed to compile custom preset: {e}")
+        raise HTTPException(status_code=500, detail=f"Error compiling custom preset: {e}")
 
 
 @router.delete("/{preset_id}")

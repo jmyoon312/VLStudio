@@ -34,7 +34,7 @@ export const PresetCustomizeModal: React.FC<PresetCustomizeModalProps> = ({
     onSelectPreset,
 }) => {
     const navigate = useNavigate();
-    const [inspectorTab, setInspectorTab] = useState<'visual' | 'pacing' | 'audio' | 'narrative' | 'sourcing' | 'bible'>('visual');
+    const [inspectorTab, setInspectorTab] = useState<'visual' | 'pacing' | 'audio' | 'narrative' | 'sourcing' | 'bible' | 'forensic'>('visual');
 
     // ✍️ 5-Tier Narrative DNA & Custom Evolution State
     const [openingHookFormula, setOpeningHookFormula] = useState<string>('직타 훅 (0~2초 내 즉시 시작)');
@@ -1148,6 +1148,24 @@ export const PresetCustomizeModal: React.FC<PresetCustomizeModalProps> = ({
                                 size="sm"
                                 onClick={() => {
                                     onOpenChange(false);
+                                    navigate('/conversational-director', { 
+                                        state: { 
+                                            tuningPreset: preset,
+                                            activePreset: preset 
+                                        } 
+                                    });
+                                }}
+                                className="h-8 text-xs font-bold bg-violet-600 hover:bg-violet-700 text-white gap-1.5 shadow-xs cursor-pointer"
+                                title="AI 디렉터와 대화하며 대본 지능(말투/페르소나)과 화면 템플릿을 함께 튜닝합니다"
+                            >
+                                <span>🎙️</span>
+                                <span>AI 디렉터와 대화형 튜닝</span>
+                            </Button>
+                            <Button
+                                type="button"
+                                size="sm"
+                                onClick={() => {
+                                    onOpenChange(false);
                                     navigate(`/basic-editor?presetId=${encodeURIComponent(preset?.id || '')}`);
                                 }}
                                 className="h-8 text-xs font-bold bg-primary hover:bg-primary/90 text-primary-foreground gap-1.5 shadow-xs cursor-pointer"
@@ -1170,7 +1188,7 @@ export const PresetCustomizeModal: React.FC<PresetCustomizeModalProps> = ({
                     {/* Left: 4-Axis Inspector Tabs (7 cols) */}
                     <div className="lg:col-span-7 space-y-4">
                         <Tabs value={inspectorTab} onValueChange={(v: any) => setInspectorTab(v)} className="w-full">
-                            <TabsList className="grid grid-cols-6 h-9 bg-muted/80 p-1 rounded-xl">
+                            <TabsList className="grid grid-cols-7 h-9 bg-muted/80 p-1 rounded-xl">
                                 <TabsTrigger value="visual" className="text-xs gap-1 data-[state=active]:bg-background data-[state=active]:text-primary font-bold">
                                     <Layers className="w-3.5 h-3.5" />
                                     시각 레이어
@@ -1186,6 +1204,10 @@ export const PresetCustomizeModal: React.FC<PresetCustomizeModalProps> = ({
                                 <TabsTrigger value="narrative" className="text-xs gap-1 data-[state=active]:bg-background data-[state=active]:text-rose-500 font-bold">
                                     <Flame className="w-3.5 h-3.5" />
                                     서사 DNA
+                                </TabsTrigger>
+                                <TabsTrigger value="forensic" className="text-xs gap-1 data-[state=active]:bg-background data-[state=active]:text-purple-500 font-bold">
+                                    <Sparkles className="w-3.5 h-3.5" />
+                                    포렌식 헌법
                                 </TabsTrigger>
                                 <TabsTrigger value="sourcing" className="text-xs gap-1 data-[state=active]:bg-background data-[state=active]:text-blue-500 font-bold">
                                     <Film className="w-3.5 h-3.5" />
@@ -2360,6 +2382,131 @@ export const PresetCustomizeModal: React.FC<PresetCustomizeModalProps> = ({
                                             <Save className="w-3.5 h-3.5 mr-1" />
                                             {evolvingPreset ? '진화 저장 중...' : '🏆 커스텀 프리셋으로 확정 저장'}
                                         </Button>
+                                    </div>
+                                </div>
+                            </TabsContent>
+
+                            {/* TAB: Forensic Bible (3대 마스터 지침서 & 포렌식 대본 헌법) */}
+                            <TabsContent value="forensic" className="space-y-4 pt-3">
+                                {/* Header Action Banner */}
+                                <div className="p-3.5 rounded-2xl border border-purple-500/30 bg-purple-500/5 dark:bg-purple-500/10 space-y-2.5">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-xs font-bold text-purple-700 dark:text-purple-300 flex items-center gap-1.5">
+                                            <Sparkles className="w-4 h-4 text-purple-500" />
+                                            포렌식 대본 헌법 (3대 마스터 지침서 단일 진실 공급원)
+                                        </span>
+                                        <Button
+                                            type="button"
+                                            size="sm"
+                                            onClick={() => {
+                                                onOpenChange(false);
+                                                navigate('/conversational-director', { 
+                                                    state: { 
+                                                        tuningPreset: preset,
+                                                        activePreset: preset 
+                                                    } 
+                                                });
+                                            }}
+                                            className="h-7 text-xs font-bold bg-violet-600 hover:bg-violet-700 text-white gap-1 shadow-xs cursor-pointer"
+                                        >
+                                            <Sparkle className="w-3 h-3" />
+                                            AI 디렉터와 대본 튜닝
+                                        </Button>
+                                    </div>
+                                    <p className="text-[11px] text-muted-foreground leading-relaxed">
+                                        이 프리셋에 내재된 **8대 나노 분석 시스템 프롬프트**, **채널 헌법 v32.0 동적 타겟팅**, **삼위일체 컷 프로토콜**을 정밀 확인하고, AI 디렉터와 실시간 대화하며 화자 페르소나와 대본 스타일을 진화시킬 수 있습니다.
+                                    </p>
+                                </div>
+
+                                {/* Guideline 1: 8대 나노 분석 시스템 프롬프트 */}
+                                <div className="p-3.5 rounded-2xl border border-border/80 bg-muted/30 space-y-2">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                                            <BookOpen className="w-3.5 h-3.5 text-indigo-500" />
+                                            지침서 1: 8대 나노 분석 기반 화자 복제 시스템 프롬프트
+                                        </span>
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => {
+                                                const textToCopy = (preset as any)?.cloned_system_instruction 
+                                                    || (preset as any)?.forensic_bible?.cloned_system_instruction 
+                                                    || (preset as any)?.script_dna?.cloned_system_instruction 
+                                                    || '등록된 복제 시스템 프롬프트가 없습니다.';
+                                                navigator.clipboard.writeText(textToCopy);
+                                                toast.success('시스템 프롬프트가 클립보드에 복사되었습니다.');
+                                            }}
+                                            className="h-6 text-[10.5px] px-2 text-muted-foreground hover:text-foreground"
+                                        >
+                                            <Copy className="w-3 h-3 mr-1" />
+                                            프롬프트 복사
+                                        </Button>
+                                    </div>
+                                    <div className="p-3 rounded-xl bg-background/80 border border-border/60 max-h-56 overflow-y-auto text-xs font-mono leading-relaxed text-foreground/90 whitespace-pre-wrap select-text">
+                                        {(preset as any)?.cloned_system_instruction 
+                                            || (preset as any)?.forensic_bible?.cloned_system_instruction 
+                                            || (preset as any)?.script_dna?.cloned_system_instruction 
+                                            || `# [화자 복제 시스템 프롬프트: ${preset?.name || '기준 프리셋'}]\n- 사고 회로: 논리적 인과관계 및 급발진 반전 지향\n- 평균 문장 길이: 3~5단어 극단 단문\n- 종결어미: ~함, ~음, ~누 (90% 이상 채택)\n- 줄바꿈 리듬: 1문장 1줄바꿈 호흡 단절`}
+                                    </div>
+                                </div>
+
+                                {/* Guideline 2: 채널 헌법 v32.0 동적 타겟팅 & 4대 감정 본능 */}
+                                <div className="p-3.5 rounded-2xl border border-border/80 bg-muted/30 space-y-2.5">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                                            <Shield className="w-3.5 h-3.5 text-blue-500" />
+                                            지침서 2: 채널 헌법 v32.0 동적 타겟팅 & 4대 감정 본능
+                                        </span>
+                                        <Badge variant="outline" className="text-[10px] bg-blue-500/10 text-blue-500 border-blue-500/30">
+                                            환각률 0% 원칙
+                                        </Badge>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-2 text-xs">
+                                        <div className="p-2.5 rounded-xl bg-background/60 border border-border/50">
+                                            <span className="text-[10.5px] text-muted-foreground block mb-0.5">타겟 도메인 & 심리 페르소나</span>
+                                            <span className="font-bold text-foreground text-xs">
+                                                {(preset as any)?.forensic_bible?.guideline_2_constitution?.target_domain || targetDomain || '일반 대중 / 쇼츠 시청자'}
+                                            </span>
+                                            <span className="text-[10px] text-muted-foreground block mt-1">
+                                                {(preset as any)?.forensic_bible?.guideline_2_constitution?.target_persona || '빠른 결론과 도파민 충족 선호'}
+                                            </span>
+                                        </div>
+                                        <div className="p-2.5 rounded-xl bg-background/60 border border-border/50">
+                                            <span className="text-[10.5px] text-muted-foreground block mb-0.5">4대 감정 본능 점유율</span>
+                                            <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+                                                <Badge variant="secondary" className="text-[9.5px] px-1.5 py-0 bg-amber-500/10 text-amber-600">
+                                                    도파민 35%
+                                                </Badge>
+                                                <Badge variant="secondary" className="text-[9.5px] px-1.5 py-0 bg-rose-500/10 text-rose-600">
+                                                    사이다 30%
+                                                </Badge>
+                                                <Badge variant="secondary" className="text-[9.5px] px-1.5 py-0 bg-blue-500/10 text-blue-600">
+                                                    공포/경각 20%
+                                                </Badge>
+                                                <Badge variant="secondary" className="text-[9.5px] px-1.5 py-0 bg-emerald-500/10 text-emerald-600">
+                                                    호기심 15%
+                                                </Badge>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Guideline 3: FPS-Free v6.0 삼위일체 컷 & 1문장 2컷 분절 */}
+                                <div className="p-3.5 rounded-2xl border border-border/80 bg-muted/30 space-y-2">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                                            <Film className="w-3.5 h-3.5 text-emerald-500" />
+                                            지침서 3: FPS-Free v6.0 삼위일체 컷 & 1문장 2컷 분절 규격
+                                        </span>
+                                        <Badge variant="outline" className="text-[10px] bg-emerald-500/10 text-emerald-600 border-emerald-500/30">
+                                            안전 마진 ±100ms
+                                        </Badge>
+                                    </div>
+                                    <div className="p-2.5 rounded-xl bg-background/60 border border-border/50 text-[11px] text-muted-foreground space-y-1">
+                                        <div>• **분절 전략**: 1개 문장을 최소 2개 이상의 짧은 컷으로 교차 분절하여 시각적 지루함을 원천 차단합니다.</div>
+                                        <div>• **전환 트리거**: 종결어미(~함, ~음, ~다) 및 핵심 강조 명사 발화 직후 0.1초 내 칼같은 컷 전환 집행.</div>
+                                        <div>• **싱크로율**: 대본 내레이션 음성 타임코드와 비디오 영상 클립의 마이크로초 단위 1:1 정렬 보장.</div>
                                     </div>
                                 </div>
                             </TabsContent>

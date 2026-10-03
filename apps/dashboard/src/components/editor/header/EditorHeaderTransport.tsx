@@ -194,7 +194,7 @@ export const EditorHeaderTransport: React.FC<EditorHeaderTransportProps> = ({
               )}
             </div>
             <span className="text-[10px] text-muted-foreground font-mono">
-              {blueprint.archetype.toUpperCase()} • {blueprint.canvas.aspectRatio}
+              {(blueprint?.archetype || "classic").toUpperCase()} • {blueprint?.canvas?.aspectRatio || "9:16"}
             </span>
           </div>
 
@@ -202,14 +202,15 @@ export const EditorHeaderTransport: React.FC<EditorHeaderTransportProps> = ({
 
           {/* 아키타입 스타일 퀵 바 */}
           <QuickPresetBar
-            currentArchetype={blueprint.archetype}
+            currentArchetype={blueprint?.archetype || "classic"}
             onSelectArchetype={handleArchetypeSwitch}
           />
 
           <button
             onClick={() => {
-              resetToDefaultArchetype(blueprint.archetype);
-              toast.success(`${blueprint.archetype.toUpperCase()} 표준 레이어로 초기화되었습니다.`);
+              const arch = blueprint?.archetype || "classic";
+              resetToDefaultArchetype(arch);
+              toast.success(`${arch.toUpperCase()} 표준 레이어로 초기화되었습니다.`);
             }}
             className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted border border-border text-xs flex items-center space-x-1 cursor-pointer transition-colors"
             title="현재 아키타입의 표준 기본 레이어(헤드라인/자막/쉐이프)로 초기화"

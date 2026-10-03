@@ -58,6 +58,7 @@ export const CanvasKitStage: React.FC<CanvasKitStageProps> = ({
 
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const lastClickRef = useRef<{ id: string; time: number }>({ id: "", time: 0 });
 
   const [fitScale, setFitScale] = useState<number>(0.35);
   const [userZoom, setUserZoom] = useState<number | null>(null);
@@ -67,7 +68,7 @@ export const CanvasKitStage: React.FC<CanvasKitStageProps> = ({
   const [showSafeZone, setShowSafeZone] = useState<boolean>(true);
   const [previewViewMode, setPreviewViewMode] = useState<"video" | "list">("video");
 
-  const hasCommentCards = blueprint.globalLayers.some(
+  const hasCommentCards = (blueprint?.globalLayers || []).some(
     (l) => l.kind === "shape" && (l as any).shapeRole === "comment_card"
   );
 
@@ -449,7 +450,7 @@ export const CanvasKitStage: React.FC<CanvasKitStageProps> = ({
           />
 
           {/* 씬 배경 미디어 / 모션 프리뷰 */}
-          <div className="absolute inset-0 flex items-center justify-center overflow-hidden">
+          <div className="absolute inset-0 flex items-center justify-center overflow-hidden pointer-events-none">
             {currentScene?.mediaUrl ? (
               <img
                 src={currentScene.mediaUrl}
@@ -464,34 +465,40 @@ export const CanvasKitStage: React.FC<CanvasKitStageProps> = ({
               <div className="text-center p-4 select-none pointer-events-none">
                 <div className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-black/40 rounded-full border border-white/10 backdrop-blur-xs text-xs font-mono text-zinc-400 shadow-sm">
                   <span>🎬</span>
-                  <span>씬 {blueprint.scenes.indexOf(currentScene) + 1}: [{currentScene?.role || "0s_hook"}]</span>
+                  <span>씬 {(blueprint.scenes || []).indexOf(currentScene) + 1}: [{currentScene?.role || "0s_hook"}]</span>
                 </div>
               </div>
             )}
           </div>
 
           {/* 글로벌 레이어 렌더링 */}
-          {blueprint.globalLayers.map((layer) => {
+          {(blueprint?.globalLayers || []).map((layer) => {
             if (layer.hidden) return null;
 
+            const allLayers = blueprint?.globalLayers || [];
+
             // 합성 카드에 내장된 텍스트 서브레이어는 중복 렌더링 방지
-            const hasProfileHeader = blueprint.globalLayers.some((l) => l.id.includes("profile_header"));
+            const hasProfileHeader = allLayers.some((l) => l.id.includes("profile_header"));
             if (hasProfileHeader && layer.id.includes("profile_text")) return null;
 
-            const hasCommentCard = blueprint.globalLayers.some((l) => l.id.includes("comment_card"));
+            const hasCommentCard = allLayers.some((l) => l.id.includes("comment_card"));
             if (hasCommentCard && (layer.id.includes("comment_body") || layer.id.includes("comment_meta"))) return null;
 
-            const hasHookBand = blueprint.globalLayers.some((l) => l.id.includes("hook_band"));
+            const hasHookBand = allLayers.some((l) => l.id.includes("hook_band"));
             if (hasHookBand && layer.id.includes("hook_text")) return null;
 
-            const hasHeaderBar = blueprint.globalLayers.some((l) => l.id.includes("header_bar"));
+            const hasHeaderBar = allLayers.some((l) => l.id.includes("header_bar"));
             if (hasHeaderBar && layer.id.includes("header_title")) return null;
 
-            const hasArticleCard = blueprint.globalLayers.some((l) => l.id.includes("article_card"));
+            const hasArticleCard = allLayers.some((l) => l.id.includes("article_card"));
             if (hasArticleCard && (layer.id.includes("article_title") || layer.id.includes("article_meta"))) return null;
 
-            const hasMemeFrame = blueprint.globalLayers.some((l) => l.id.includes("meme_frame"));
+            const hasMemeFrame = allLayers.some((l) => l.id.includes("meme_frame"));
             if (hasMemeFrame && layer.id.includes("meme_caption")) return null;
+
+            // title_line1이나 breaking_title이 메인 타이틀을 렌더링하므로 title_line2의 독립 중복 렌더링 방지
+            const hasMainTitleLayer = allLayers.some((l) => l.id === "title_line1" || l.id === "breaking_title");
+            if (hasMainTitleLayer && layer.id === "title_line2") return null;
 
             const t = layer.transform;
             const isSelected = layer.id === selectedLayerId;
@@ -502,10 +509,20 @@ export const CanvasKitStage: React.FC<CanvasKitStageProps> = ({
                 key={layer.id}
                 onClick={(e) => {
                   e.stopPropagation();
-                  if (sovereign) {
-                    sovereign.handleLayerSingleClick(layer);
+                  const now = Date.now();
+                  const isDbl = lastClickRef.current.id === layer.id && (now - lastClickRef.current.time < 380);
+                  lastClickRef.current = { id: layer.id, time: now };
+
+                  if (isDbl) {
+                    if (sovereign) {
+                      sovereign.handleLayerDoubleClick(layer);
+                    }
                   } else {
-                    setSelectedLayerId(layer.id);
+                    if (sovereign) {
+                      sovereign.handleLayerSingleClick(layer);
+                    } else {
+                      setSelectedLayerId(layer.id);
+                    }
                   }
                 }}
                 onDoubleClick={(e) => {
@@ -528,67 +545,85 @@ export const CanvasKitStage: React.FC<CanvasKitStageProps> = ({
                   opacity: layer.opacity,
                 }}
               >
-                {/* 1. 📸 인스타 프로필 카드 렌더러 */}
+                {/* 1. 📸 인스타 프로필 카드 렌더러 (TemplateCanvasViewport 원조 규격 1:1 완벽 일치) */}
                 {layer.id.includes("profile_header") && (
                   <div
-                    className="w-full h-full flex items-center px-4 justify-between bg-white text-zinc-900 border border-zinc-200/80 shadow-md select-none"
+                    className="w-full h-full flex items-center px-4 justify-between bg-white text-zinc-900 border border-zinc-200/90 shadow-md select-none"
                     style={{ borderRadius: `${((layer as any).borderRadius || 20) * scale}px` }}
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
-                      <img
-                        src={sovereign?.instaConfig?.profileAvatarUrl || "https://api.dicebear.com/9.x/fun-emoji/svg?seed=humor"}
-                        alt="profile"
-                        className="rounded-full object-cover border border-zinc-200 shrink-0"
-                        style={{ width: `${44 * scale}px`, height: `${44 * scale}px` }}
-                      />
-                      <div className="flex items-center gap-1.5 font-bold truncate" style={{ fontSize: `${24 * scale}px` }}>
-                        <span className="truncate">{sovereign?.instaConfig?.profileHandle || "@viral_shorts"}</span>
-                        <span className="text-blue-500 font-extrabold" style={{ fontSize: `${20 * scale}px` }}>✓</span>
+                      <div
+                        className="rounded-full border-2 border-blue-500 overflow-hidden bg-white shadow-2xs shrink-0 flex items-center justify-center"
+                        style={{ width: `${48 * scale}px`, height: `${48 * scale}px` }}
+                      >
+                        <img
+                          src={sovereign?.instaConfig?.profileAvatarUrl || "https://api.dicebear.com/9.x/lorelei/svg?seed=user_avatar_blue"}
+                          alt="profile"
+                          className="w-full h-full object-cover pointer-events-none"
+                        />
+                      </div>
+                      <div className="flex flex-col text-left min-w-0">
+                        <div className="flex items-center gap-1 font-black text-zinc-900 leading-tight truncate" style={{ fontSize: `${22 * scale}px` }}>
+                          <span className="truncate">{sovereign?.instaConfig?.profileName || "축구 하이라이트 매거진"}</span>
+                          <span className="text-blue-500 font-extrabold" style={{ fontSize: `${18 * scale}px` }}>✓</span>
+                        </div>
+                        <span className="text-zinc-500 font-medium truncate" style={{ fontSize: `${17 * scale}px` }}>
+                          {sovereign?.instaConfig?.profileHandle || "@football_korea_tv"}
+                        </span>
                       </div>
                     </div>
-                    <div
-                      className="px-3 py-1 bg-blue-600 text-white font-bold rounded-lg shrink-0 shadow-xs"
-                      style={{ fontSize: `${18 * scale}px` }}
+                    <button
+                      type="button"
+                      className="px-3.5 py-1 text-blue-600 bg-blue-50 hover:bg-blue-100 font-bold rounded-full border border-blue-200/60 shadow-2xs shrink-0 transition"
+                      style={{ fontSize: `${17 * scale}px` }}
                     >
-                      + 팔로우
-                    </div>
+                      팔로우
+                    </button>
                   </div>
                 )}
 
-                {/* 2. 💬 인스타 / 커뮤니티 베댓 카드 렌더러 */}
+                {/* 2. 💬 인스타 / 커뮤니티 베댓 카드 렌더러 (TemplateCanvasViewport 원조 규격 1:1 완벽 일치) */}
                 {layer.id.includes("comment_card") && (
                   <div
-                    className="w-full h-full flex flex-col justify-between p-4 bg-white text-zinc-900 border border-zinc-200 shadow-lg select-none"
+                    className="w-full h-full flex flex-col justify-between p-4 bg-white/95 text-zinc-900 border border-zinc-200/90 rounded-2xl shadow-xl select-none"
                     style={{
                       borderRadius: `${((layer as any).borderRadius || 20) * scale}px`,
                       backgroundColor: (layer as any).fillColor || sovereign?.commentCardConfig?.bgColor || "#FFFFFF",
                     }}
                   >
                     <div className="flex items-start gap-3 min-w-0">
-                      <img
-                        src={sovereign?.commentCardConfig?.avatarUrl || "https://api.dicebear.com/9.x/fun-emoji/svg?seed=creator"}
-                        alt="commenter"
-                        className="rounded-full object-cover border border-zinc-200 shrink-0"
+                      <div
+                        className="rounded-full border border-zinc-200 bg-zinc-100 overflow-hidden shrink-0 flex items-center justify-center font-bold"
                         style={{ width: `${42 * scale}px`, height: `${42 * scale}px` }}
-                      />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 font-bold text-zinc-800" style={{ fontSize: `${20 * scale}px` }}>
-                          <span className="truncate">{sovereign?.commentCardConfig?.author || "스마트쇼츠_크리에이터"}</span>
-                          <span className="text-zinc-400 font-normal shrink-0" style={{ fontSize: `${16 * scale}px` }}>
-                            {sovereign?.commentCardConfig?.timeText || "방금 전"}
+                      >
+                        <img
+                          src={sovereign?.commentCardConfig?.avatarUrl || "https://api.dicebear.com/9.x/bottts/svg?seed=commenter"}
+                          alt="commenter"
+                          className="w-full h-full object-cover pointer-events-none"
+                        />
+                      </div>
+                      <div className="flex-1 min-w-0 text-left">
+                        <div className="flex items-center gap-1.5 font-bold text-zinc-900" style={{ fontSize: `${19 * scale}px` }}>
+                          <span className="truncate">{sovereign?.commentCardConfig?.author || "축구도사"}</span>
+                          <span className="text-zinc-400 font-mono font-normal truncate" style={{ fontSize: `${15 * scale}px` }}>
+                            {sovereign?.commentCardConfig?.handle || "@user_***"}
+                          </span>
+                          <span className="text-zinc-400 text-xs font-normal shrink-0 ml-auto" style={{ fontSize: `${15 * scale}px` }}>
+                            {sovereign?.commentCardConfig?.timeText || "3시간 전"}
                           </span>
                         </div>
-                        <div className="font-semibold text-zinc-900 mt-1 line-clamp-2 leading-snug" style={{ fontSize: `${24 * scale}px` }}>
-                          {sovereign?.commentCardConfig?.text || "이거 보고 제 인생이 바뀌었습니다 ㄷㄷ"}
+                        <div className="font-semibold text-zinc-900 mt-1 line-clamp-2 leading-snug break-keep" style={{ fontSize: `${22 * scale}px` }}>
+                          {sovereign?.commentCardConfig?.text || "진짜 이 골은 봐도 봐도 소름 돋네요 ㄷㄷ 월드클래스 인정"}
                         </div>
                       </div>
                     </div>
-                    <div className="flex items-center justify-between text-zinc-500 pt-2 border-t border-zinc-100" style={{ fontSize: `${18 * scale}px` }}>
-                      <span className="font-medium text-zinc-400">답글 1,420개 보기</span>
-                      <div className="flex items-center gap-1.5 font-bold text-red-500">
-                        <span>❤️</span>
-                        <span>{sovereign?.commentCardConfig?.likes || "1.4만"}</span>
-                      </div>
+                    <div className="flex items-center justify-between text-zinc-600 pt-2 border-t border-zinc-200/60 mt-1" style={{ fontSize: `${16 * scale}px` }}>
+                      <span className="flex items-center gap-1 font-semibold text-red-500">
+                        ❤️ {sovereign?.commentCardConfig?.likes || "1.4만"}
+                      </span>
+                      <span className="bg-primary/15 text-primary font-bold px-2 py-0.5 rounded-xs" style={{ fontSize: `${14 * scale}px` }}>
+                        📌 베댓
+                      </span>
                     </div>
                   </div>
                 )}
@@ -616,43 +651,63 @@ export const CanvasKitStage: React.FC<CanvasKitStageProps> = ({
                   </div>
                 )}
 
-                {/* 4. 📜 썰형 상단 커뮤니티 헤더바 렌더러 */}
+                {/* 4. 📜 썰형 상단 커뮤니티 헤더바 렌더러 (SsulCanvasLayout 원조 규격 1:1 완벽 일치) */}
                 {layer.id.includes("header_bar") && (
                   <div
-                    className="w-full h-full flex items-center justify-between px-6 font-bold shadow-md select-none"
+                    className="w-full h-full flex items-center justify-between px-5 font-bold shadow-md select-none border-b border-black/[0.08]"
                     style={{
                       backgroundColor: sovereign?.ssulConfig?.ssulHeader?.bgColor || (layer as any).fillColor || "#F7CF46",
                       color: sovereign?.ssulConfig?.ssulHeader?.textColor || "#18181B",
-                      fontSize: `${28 * scale}px`,
                     }}
                   >
-                    <span className="text-xl">←</span>
-                    <span className="font-extrabold tracking-tight">
+                    <div className="w-8 h-8 flex items-center justify-start text-zinc-900" style={{ fontSize: `${24 * scale}px` }}>
+                      ←
+                    </div>
+                    <span
+                      className="font-black tracking-tight truncate flex-1 text-center"
+                      style={{
+                        fontSize: `${24 * scale}px`,
+                        color: sovereign?.ssulConfig?.ssulHeader?.textColor || "#18181B",
+                        fontFamily: resolveFontFamily(sovereign?.ssulConfig?.ssulHeader?.font || "Pretendard"),
+                      }}
+                    >
                       🔥 {sovereign?.ssulConfig?.ssulHeader?.text || "실시간 베스트"}
                     </span>
-                    <span className="text-xl">⋮</span>
+                    <div className="w-8 h-8 flex items-center justify-end text-zinc-900" style={{ fontSize: `${24 * scale}px` }}>
+                      ⋮
+                    </div>
                   </div>
                 )}
 
-                {/* 5. 📜 썰형 게시글 메타 카드 렌더러 */}
+                {/* 5. 📜 썰형 게시글 메타 카드 렌더러 (SsulCanvasLayout 원조 규격 1:1 완벽 일치) */}
                 {layer.id.includes("article_card") && (
                   <div
-                    className="w-full h-full p-5 flex flex-col justify-between rounded-2xl border shadow-lg select-none"
+                    className="w-full h-full p-4 flex flex-col justify-between bg-white rounded-2xl border border-zinc-200/90 shadow-md select-none text-left"
                     style={{
-                      backgroundColor: (layer as any).fillColor || "#1E293B",
-                      borderColor: "#334155",
                       borderRadius: `${16 * scale}px`,
                     }}
                   >
-                    <div className="font-extrabold text-white truncate" style={{ fontSize: `${30 * scale}px` }}>
-                      {sovereign?.titleConfig?.titleLine1 || "오늘자 역대급 실화 사건 🔥"}
+                    <div
+                      className="font-black text-zinc-900 tracking-tight truncate whitespace-nowrap overflow-hidden text-ellipsis"
+                      style={{ fontSize: `${26 * scale}px` }}
+                    >
+                      {sovereign?.ssulConfig?.postTitle?.text || sovereign?.titleConfig?.titleLine1 || "오늘자 역대급 실화 사건 🔥"}
                     </div>
-                    <div className="flex items-center justify-between text-zinc-400 font-medium" style={{ fontSize: `${20 * scale}px` }}>
-                      <span>
-                        {sovereign?.ssulConfig?.metadata?.authorText || "익명"} • {sovereign?.ssulConfig?.metadata?.timeText || "10분 전"} • {sovereign?.ssulConfig?.metadata?.viewsText || "조회 3.8만"}
+                    <div className="flex items-center gap-1.5 text-zinc-500 font-medium shrink-0 pt-1" style={{ fontSize: `${18 * scale}px` }}>
+                      <span className="bg-emerald-600 text-white font-black px-1.5 py-0.2 rounded-2xs uppercase tracking-wider" style={{ fontSize: `${13 * scale}px` }}>
+                        BLIND
                       </span>
-                      <span className="p-1 hover:bg-zinc-700/50 rounded cursor-pointer" title="랜덤 메타 갱신">🎲</span>
+                      <span className="font-semibold text-zinc-800">
+                        {sovereign?.ssulConfig?.metadata?.authorText || sovereign?.ssulConfig?.author || "대기업 익명"}
+                      </span>
+                      <span className="opacity-40">·</span>
+                      <span>{sovereign?.ssulConfig?.metadata?.timeText || sovereign?.ssulConfig?.timeText || "10분 전"}</span>
+                      <span className="opacity-40">·</span>
+                      <span>{sovereign?.ssulConfig?.metadata?.viewsText || sovereign?.ssulConfig?.viewsText || "조회 2.4만"}</span>
+                      <span className="opacity-40">·</span>
+                      <span className="text-emerald-600 font-bold">추천 382</span>
                     </div>
+                    <div className="w-full border-t border-zinc-200 my-1" />
                   </div>
                 )}
 
@@ -674,8 +729,8 @@ export const CanvasKitStage: React.FC<CanvasKitStageProps> = ({
                   </div>
                 )}
 
-                {/* 7. 👑 군림보/일반 2줄 대제목 (속보 배지 포함) 렌더러 */}
-                {layer.kind === "text" && (layer.id.includes("breaking") || layer.id.includes("title")) && (
+                {/* 7. 👑 군림보/일반 2줄 대제목 (속보 배지 포함) 렌더러 (자막 레이어는 절대 진입 금지!) */}
+                {layer.kind === "text" && blueprint.archetype !== "ssul" && !layer.id.includes("subtitle") && (layer.id.includes("breaking") || (layer.id.includes("title") && !layer.id.includes("header")) || layer.id.includes("headline")) && (
                   <div className="w-full h-full flex flex-col items-center justify-center text-center select-none">
                     {sovereign?.titleConfig?.hasTitleBadge && (
                       <span
@@ -724,8 +779,8 @@ export const CanvasKitStage: React.FC<CanvasKitStageProps> = ({
                   </div>
                 )}
 
-                {/* 8. 🔤 표준 텍스트 레이어 렌더러 (자막, 출처, 일반 텍스트) */}
-                {layer.kind === "text" && !layer.id.includes("breaking") && !layer.id.includes("title") && (() => {
+                {/* 8. 🔤 표준 텍스트 레이어 렌더러 (자막, 출처, 일반 텍스트, 썰형 텍스트) */}
+                {layer.kind === "text" && (layer.id.includes("subtitle") || (!layer.id.includes("breaking") && !layer.id.includes("headline") && (!layer.id.includes("title") || layer.id.includes("header"))) || blueprint.archetype === "ssul") && (() => {
                   const content = isSubtitle && (isPlaying || studioMode === "nle") && activeWord
                     ? activeWord.word
                     : ((layer as any).content || "");
@@ -873,8 +928,9 @@ export const CanvasKitStage: React.FC<CanvasKitStageProps> = ({
             canvasScale={scale}
             onTransformChange={(newT) => selectedLayer && updateLayerTransform(selectedLayer.id, newT)}
             onTextContentChange={(newC) => selectedLayer && updateLayerContent(selectedLayer.id, newC)}
+            onSingleClick={() => selectedLayer && sovereign?.handleLayerSingleClick(selectedLayer)}
             onDoubleClick={() => selectedLayer && sovereign?.handleLayerDoubleClick(selectedLayer)}
-            otherLayers={blueprint.globalLayers}
+            otherLayers={blueprint?.globalLayers || []}
           />
 
           {/* 6. 세이프존 침범 가드 & 원클릭 크기 맞춤 (캔버스 컨테이너 직접 바인딩) */}

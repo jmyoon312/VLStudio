@@ -1260,7 +1260,14 @@ export function migrateToBlueprintV4(raw: any): VLStandardBlueprintV4 {
     // Validate or fix minor schema misses
     const parsed = VLStandardBlueprintV4Schema.safeParse(raw);
     if (parsed.success) {
-      return parsed.data;
+      const data = parsed.data;
+      if (!Array.isArray(data.scenes) || data.scenes.length === 0) {
+        data.scenes = createDefaultBlueprintV4(data.archetype).scenes;
+      }
+      if (!Array.isArray(data.globalLayers)) {
+        data.globalLayers = [];
+      }
+      return data;
     }
   }
 

@@ -55,11 +55,20 @@ import {
     FileText,
     Rocket,
     Mic,
-    MicOff
+    MicOff,
+    Save
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
+import { 
+    Dialog, 
+    DialogContent, 
+    DialogDescription, 
+    DialogFooter, 
+    DialogHeader, 
+    DialogTitle 
+} from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { SovereignPreset } from '@/components/presets/PresetLibraryModal';
 import { PresetLoadModal } from '@/components/director/PresetLoadModal';
@@ -337,6 +346,25 @@ export const ConversationalDirectorPage: React.FC = () => {
     // Selected Preset & Attachments (Chat-Centric Chips)
     const [activePreset, setActivePreset] = useState<SovereignPreset | null>(null);
     const [attachedFiles, setAttachedFiles] = useState<AttachedMedia[]>([]);
+
+    // 🎨 Conversational Visual Template & Forensic Script DNA Tuning State
+    const [tunedScriptDna, setTunedScriptDna] = useState<any>(null);
+    const [compileModalOpen, setCompileModalOpen] = useState(false);
+    const [compileCustomName, setCompileCustomName] = useState('');
+    const [isCompilingPreset, setIsCompilingPreset] = useState(false);
+
+    // Auto-bind tuning preset if redirected from Preset Customize Modal (대화형 튜닝 모드 진입)
+    useEffect(() => {
+        const state = location.state as { tuningPreset?: SovereignPreset; activePreset?: SovereignPreset } | undefined;
+        const targetPreset = state?.tuningPreset || state?.activePreset;
+        if (targetPreset) {
+            setActivePreset(targetPreset);
+            setRightPanelOpen(true);
+            setRightPanelTab('template');
+            setCompileCustomName(`${targetPreset.name} (커스텀 튜닝)`);
+            toast.success(`🎨 [${targetPreset.name}] 프리셋의 대본 지능 및 화면 템플릿 튜닝 모드가 시작되었습니다.`);
+        }
+    }, [location.state]);
 
     // Auto-attach videos if redirected from Sourcing Center (Route B)
     useEffect(() => {
@@ -1294,6 +1322,46 @@ export const ConversationalDirectorPage: React.FC = () => {
         }
     };
 
+    // 💾 완전체 커스텀 프리셋 합성 및 영구 저장 핸들러
+    const handleCompileCustomPreset = async () => {
+        if (!compileCustomName.trim()) {
+            toast.error('커스텀 프리셋 이름을 입력해 주세요.');
+            return;
+        }
+        setIsCompilingPreset(true);
+        try {
+            const res = await fetch('/api/sovereign-presets/compile-custom', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    base_preset_id: activePreset?.id,
+                    custom_name: compileCustomName.trim(),
+                    category: activePreset?.category || 'user',
+                    script_dna: tunedScriptDna || activePreset?.script_dna,
+                    cloned_system_instruction: tunedScriptDna?.cloned_system_instruction || (activePreset as any)?.cloned_system_instruction,
+                    forensic_bible: activePreset?.forensic_bible,
+                    visual_geometry: activePreset?.style?.visual_geometry || (activePreset as any)?.visual_geometry,
+                    editing_pacing: activePreset?.style?.editing_pacing,
+                    audio_dsp: activePreset?.style?.audio_dsp,
+                    style: activePreset?.style
+                })
+            });
+            if (res.ok) {
+                const data = await res.json();
+                toast.success(data.message || `'${compileCustomName}' 완전체 커스텀 프리셋이 저장되었습니다!`);
+                setActivePreset(data.preset);
+                setCompileModalOpen(false);
+            } else {
+                const err = await res.json().catch(() => ({}));
+                toast.error(err.detail || '커스텀 프리셋 저장에 실패했습니다.');
+            }
+        } catch (e) {
+            toast.error('프리셋 저장 중 통신 오류가 발생했습니다.');
+        } finally {
+            setIsCompilingPreset(false);
+        }
+    };
+
     // Handle send message
     const handleSendMessage = async (customPrompt?: string) => {
         let textToSend = customPrompt || prompt;
@@ -1567,6 +1635,39 @@ export const ConversationalDirectorPage: React.FC = () => {
                                     }
                                     return m;
                                 }));
+                            }
+
+                            // 🎨 Visual Template Patch event (실시간 화면 템플릿 패치 및 캔버스 자동 동기화)
+                            if (data.type === 'visual_template_patch') {
+                                if (data.visual_patch) {
+                                    setActivePreset((prev: any) => {
+                                        const base = prev || { id: 'temp_tuned', name: '튜닝 중인 프리셋', style: {} };
+                                        const curStyle = base.style || {};
+                                        const curVg = curStyle.visual_geometry || {};
+                                        const updatedVg = { ...curVg, ...data.visual_patch };
+                                        return {
+                                            ...base,
+                                            style: { ...curStyle, visual_geometry: updatedVg }
+                                        };
+                                    });
+                                    setRightPanelOpen(true);
+                                    setRightPanelTab('template');
+                                    toast.success('🎨 화면 템플릿이 우측 9:16 라이브 캔버스에 실시간 반영되었습니다.');
+                                }
+                            }
+
+                            // 🎨 Visual Template Recommendation event (AI 추천 템플릿 세트)
+                            if (data.type === 'visual_template_recommendation') {
+                                setRightPanelOpen(true);
+                                setRightPanelTab('template');
+                            }
+
+                            // 🧠 Script Tuning Complete event (8대 나노 포렌식 대본 지능 튜닝 완료)
+                            if (data.type === 'script_tuning_complete') {
+                                if (data.tuned_script_dna) {
+                                    setTunedScriptDna(data.tuned_script_dna);
+                                    toast.success('🧠 8대 나노 대본 지능 튜닝이 완료되었습니다. 하단에서 커스텀 프리셋으로 저장할 수 있습니다.');
+                                }
                             }
 
                             // Tool start event (1:1 Pixeling Real-time Interleaved Chip)
@@ -1998,6 +2099,7 @@ export const ConversationalDirectorPage: React.FC = () => {
                     onOpenCustomizeModal={() => setCustomizeModalOpen(true)}
                     onOpenCloudMediaModal={() => setCloudMediaModalOpen(true)}
                     onOpenAgentSoul={handleOpenAgentSoul}
+                    onOpenCompileCustom={() => setCompileModalOpen(true)}
                     securityScope={securityScope}
                     onChangeSecurityScope={setSecurityScope}
                     isLiveVoiceActive={isGeminiLiveActive}
@@ -2053,7 +2155,77 @@ export const ConversationalDirectorPage: React.FC = () => {
                 governanceMode={governanceMode}
                 onToggleGovernanceMode={() => setGovernanceMode(prev => prev === 'copilot' ? 'full_auto' : 'copilot')}
                 onExecuteManualCommand={handleExecuteManualCommand}
+                activePreset={activePreset}
+                onUpdatePresetVisual={(visualPatch) => {
+                    setActivePreset((prev: any) => {
+                        if (!prev) return prev;
+                        const curStyle = prev.style || {};
+                        const curVg = curStyle.visual_geometry || {};
+                        return {
+                            ...prev,
+                            style: { ...curStyle, visual_geometry: { ...curVg, ...visualPatch } }
+                        };
+                    });
+                }}
             />
+
+            {/* 💾 완전체 커스텀 프리셋 저장 모달 (대본 지능 + 화면 템플릿 통합 영구 저장) */}
+            <Dialog open={compileModalOpen} onOpenChange={setCompileModalOpen}>
+                <DialogContent className="sm:max-w-md border-border/80 bg-card">
+                    <DialogHeader>
+                        <DialogTitle className="text-sm font-bold flex items-center gap-2">
+                            <span>💾</span>
+                            <span>완전체 커스텀 프리셋으로 영구 저장</span>
+                        </DialogTitle>
+                        <DialogDescription className="text-xs text-muted-foreground">
+                            AI 디렉터와 대화하며 완성한 **[대본 지능 (화자 페르소나, 종결어미, 치환 사전)]**과 **[화면 템플릿 (9:16 레이아웃, 헤더바, 자막)]**을 결합하여 나만의 프리셋으로 영구 저장합니다.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-3 py-2">
+                        <div>
+                            <label className="text-xs font-semibold text-foreground block mb-1">커스텀 프리셋 이름</label>
+                            <Input
+                                value={compileCustomName}
+                                onChange={(e) => setCompileCustomName(e.target.value)}
+                                placeholder="예: 올뉴띵킹 (20대 도파민 캡슐 커스텀)"
+                                className="h-8 text-xs font-bold"
+                            />
+                        </div>
+                        <div className="p-3 rounded-xl bg-muted/40 border border-border/60 text-xs space-y-1.5">
+                            <div className="font-bold text-foreground flex items-center gap-1.5">
+                                <Sparkles className="w-3.5 h-3.5 text-purple-500" />
+                                결합 저장될 자산 명세
+                            </div>
+                            <div className="text-muted-foreground text-[11px]">
+                                • 기준 프리셋: <span className="font-medium text-foreground">{activePreset?.name || '기준 프리셋'}</span><br/>
+                                • 대본 지능: <span className="font-medium text-foreground">{tunedScriptDna?.persona || '튜닝된 화자 페르소나 및 종결어미'}</span><br/>
+                                • 화면 템플릿: <span className="font-medium text-foreground">{activePreset?.style?.visual_geometry?.container_type || '9:16 비주얼 레이아웃 7대 레이어'}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setCompileModalOpen(false)}
+                            className="h-8 text-xs"
+                        >
+                            취소
+                        </Button>
+                        <Button
+                            type="button"
+                            size="sm"
+                            disabled={isCompilingPreset}
+                            onClick={handleCompileCustomPreset}
+                            className="h-8 text-xs font-bold bg-primary text-primary-foreground gap-1.5 cursor-pointer shadow-xs"
+                        >
+                            {isCompilingPreset ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                            <span>{isCompilingPreset ? '영구 저장 중...' : '영구 저장 완료'}</span>
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
             {/* Modals */}
             <PresetLoadModal
