@@ -39,19 +39,50 @@ export interface SovereignStudioContextValue {
   updateLayerById: (id: string, patch: Partial<LayerObject>) => void;
   changeArchetypeMode: (mode: Archetype) => void;
 
-  // 폼팩터 전용 간편 업데이트 함수들
+  // 폼팩터 전용 반응형 설정 및 실시간 세터
   titleConfig: any;
   updateTitleConfig: (patch: any) => void;
+  titleTransform: { xPct: number; yPct: number; scale: number; rotationDeg: number; zIndex: number };
+  setTitleTransform: (patch: any) => void;
+
   instaConfig: any;
   updateInstaConfig: (patch: any) => void;
+  profileTransform: { xPct: number; yPct: number; scale: number; rotationDeg: number; zIndex: number };
+  setProfileTransform: (patch: any) => void;
+
+  hasCommentCard: boolean;
+  setHasCommentCard: (val: boolean) => void;
   commentCardConfig: any;
   updateCommentCardConfig: (patch: any) => void;
+  commentTransform: { xPct: number; yPct: number; scale: number; rotationDeg: number; zIndex: number };
+  setCommentTransform: (patch: any) => void;
+
+  hasJab: boolean;
+  setHasJab: (val: boolean) => void;
   gunlimboConfig: any;
   updateGunlimboConfig: (patch: any) => void;
+
   ssulConfig: any;
   updateSsulConfig: (patch: any) => void;
+
   subtitleConfig: any;
   updateSubtitleConfig: (patch: any) => void;
+  subTransform: { xPct: number; yPct: number; scale: number; rotationDeg: number; zIndex: number };
+  setSubTransform: (patch: any) => void;
+
+  topBottomBarConfig: any;
+  updateTopBottomBarConfig: (patch: any) => void;
+
+  hasBottomSource: boolean;
+  setHasBottomSource: (val: boolean) => void;
+  sourceCreditConfig: any;
+  updateSourceCreditConfig: (patch: any) => void;
+
+  videoCropConfig: any;
+  updateVideoCropConfig: (patch: any) => void;
+
+  videoFilterConfig: any;
+  updateVideoFilterConfig: (patch: any) => void;
 }
 
 const SovereignStudioContext = createContext<SovereignStudioContextValue | null>(null);
@@ -87,18 +118,18 @@ export const SovereignStudioProvider: React.FC<{ children: React.ReactNode }> = 
     else if (canvasZoom === "200") setCanvasScale(2.0);
   }, [canvasZoom]);
 
-  // 레이어 검색 헬퍼
+  // 레이어 검색 및 업데이트 헬퍼
   const findLayerById = (id: string): LayerObject | undefined => {
     return blueprint.globalLayers.find((l) => l.id === id);
   };
 
   const updateLayerById = (id: string, patch: Partial<LayerObject>) => {
-    setBlueprint({
-      ...blueprint,
-      globalLayers: blueprint.globalLayers.map((l) =>
+    setBlueprint((prev) => ({
+      ...prev,
+      globalLayers: prev.globalLayers.map((l) =>
         l.id === id ? ({ ...l, ...patch } as LayerObject) : l
       ),
-    });
+    }));
   };
 
   // 폼팩터 전환
@@ -110,295 +141,755 @@ export const SovereignStudioProvider: React.FC<{ children: React.ReactNode }> = 
     toast.success(`'${mode}' 폼팩터로 전환되었습니다.`);
   };
 
-  // 단일 클릭: 우측 인스펙터 해당 탭으로 자동 포커스
-  const handleLayerSingleClick = (layer: LayerObject) => {
-    setSelectedLayerId(layer.id);
-    const id = layer.id;
-
-    if (id.includes("profile")) {
-      setActiveMasterGroup("text");
-      setActiveInspectorTab("profile");
-    } else if (id.includes("comment")) {
-      setActiveMasterGroup("text");
-      setActiveInspectorTab("commentCard");
-    } else if (id.includes("title") || id.includes("headline")) {
-      setActiveMasterGroup("text");
-      setActiveInspectorTab(currentArchetype === "ssul" ? "postTitle" : "title");
-    } else if (id.includes("hook")) {
-      setActiveMasterGroup("text");
-      setActiveInspectorTab("jabHook");
-    } else if (id.includes("subtitle")) {
-      setActiveMasterGroup("text");
-      setActiveInspectorTab("style");
-    } else if (id.includes("header")) {
-      setActiveMasterGroup("text");
-      setActiveInspectorTab("ssulHeader");
-    } else if (id.includes("meta")) {
-      setActiveMasterGroup("text");
-      setActiveInspectorTab("metadata");
-    } else if (id.includes("source")) {
-      setActiveMasterGroup("text");
-      setActiveInspectorTab("sourceCredit");
-    } else if (id.includes("video") || id.includes("hole")) {
-      setActiveMasterGroup("text");
-      setActiveInspectorTab("videoCrop");
-    }
-  };
-
-  // 더블 클릭: 좌측 플로팅 인스펙터 즉시 팝업
-  const handleLayerDoubleClick = (layer: LayerObject) => {
-    setSelectedLayerId(layer.id);
-    const id = layer.id;
-
-    if (id.includes("title") || id.includes("headline")) {
-      setActiveFloatingInspector(currentArchetype === "ssul" ? "postTitle" : "title");
-    } else if (id.includes("comment")) {
-      setActiveFloatingInspector("commentCard");
-    } else if (id.includes("profile")) {
-      setActiveFloatingInspector("instaProfile");
-    } else if (id.includes("hook")) {
-      setActiveFloatingInspector(currentArchetype === "gunlimbo" ? "gunlimboHookBand" : "jabHook");
-    } else if (id.includes("subtitle")) {
-      setActiveFloatingInspector(currentArchetype === "ssul" ? "ssulSubtitle" : "subtitle");
-    } else if (id.includes("header")) {
-      setActiveFloatingInspector("ssulHeader");
-    } else if (id.includes("meta")) {
-      setActiveFloatingInspector("metadata");
-    } else if (id.includes("source")) {
-      setActiveFloatingInspector("sourceCredit");
-    } else if (id.includes("bar")) {
-      setActiveFloatingInspector("topBottomBar");
-    } else if (id.includes("video") || id.includes("hole")) {
-      setActiveFloatingInspector("videoCrop");
-    } else {
-      setActiveFloatingInspector("title");
-    }
-  };
-
   // -------------------------------------------------------------
-  // 폼팩터별 동적 속성 브릿지 (SSOT: blueprint.globalLayers)
+  // 1. 대제목 (titleConfig) 반응형 상태 및 동기화
   // -------------------------------------------------------------
   const titleLayer = blueprint.globalLayers.find(
-    (l) => l.kind === "text" && (l.id.includes("title") || l.id.includes("headline"))
+    (l) => l.kind === "text" && (l.id.includes("title") || l.id.includes("headline") || l.id.includes("breaking"))
   ) as TextLayer | undefined;
 
-  const titleConfig = useMemo(() => {
-    const multi = titleLayer?.multiLineStyles || [];
-    const lines = (titleLayer?.content || "").split("\n");
-    return {
-      hasTopTitle: !titleLayer?.hidden,
-      titleLinesMode: lines.length > 1 ? "double" : "single",
-      titleLine1: lines[0] || "",
-      titleLine2: lines[1] || "",
-      titleLine1Color: multi[0]?.fontColor || titleLayer?.fontColor || "#FFFFFF",
-      titleLine2Color: multi[1]?.fontColor || "#FFE500",
-      titleLine1SizePx: multi[0]?.fontSize || titleLayer?.fontSize || 38,
-      titleLine2SizePx: multi[1]?.fontSize || titleLayer?.fontSize || 48,
-      titleFontFamily: titleLayer?.fontFamily || "Pretendard",
-      titleStroke: !!titleLayer?.stroke && (titleLayer.stroke.width > 0),
-      titleStrokeWidth: titleLayer?.stroke?.width || 2,
-      titleStrokeColor: titleLayer?.stroke?.color || "#000000",
-      titleShadow: !!titleLayer?.shadow,
-      titleShadowBlur: titleLayer?.shadow?.blur || 8,
-      titleShadowColor: titleLayer?.shadow?.color || "rgba(0,0,0,0.9)",
-      titleLetterSpacing: titleLayer?.letterSpacing || 0,
-      titleLineHeight: titleLayer?.lineHeight || 1.2,
-      titleAlign: titleLayer?.textAlign || "center",
-      hasTitleBadge: true,
-      titleBadgeText: "속보",
-      titleBadgeBg: "#EF4444",
-      titleBadgeColor: "#FFFFFF",
-      titleBadgeSizePx: 11,
-      titleBadgeRadius: 4,
-    };
-  }, [titleLayer]);
+  const [titleTransform, setTitleTransformState] = useState({
+    xPct: 50,
+    yPct: 15.0,
+    scale: 1.0,
+    rotationDeg: 0,
+    zIndex: 40,
+  });
 
-  const updateTitleConfig = (patch: any) => {
-    if (!titleLayer) return;
-    const currentLines = (titleLayer.content || "").split("\n");
-    let line1 = patch.titleLine1 !== undefined ? patch.titleLine1 : currentLines[0] || "";
-    let line2 = patch.titleLine2 !== undefined ? patch.titleLine2 : currentLines[1] || "";
-    const isDouble = patch.titleLinesMode === "double" || (patch.titleLinesMode === undefined && line2.length > 0);
-    const newContent = isDouble && line2 ? `${line1}\n${line2}` : line1;
-
-    const newMulti = [
-      {
-        fontSize: patch.titleLine1SizePx || titleLayer.multiLineStyles?.[0]?.fontSize || 38,
-        fontColor: patch.titleLine1Color || titleLayer.multiLineStyles?.[0]?.fontColor || "#FFFFFF",
-      },
-      {
-        fontSize: patch.titleLine2SizePx || titleLayer.multiLineStyles?.[1]?.fontSize || 48,
-        fontColor: patch.titleLine2Color || titleLayer.multiLineStyles?.[1]?.fontColor || "#FFE500",
-      },
-    ];
-
-    updateLayerById(titleLayer.id, {
-      content: newContent,
-      fontFamily: patch.titleFontFamily || titleLayer.fontFamily,
-      textAlign: patch.titleAlign || titleLayer.textAlign,
-      letterSpacing: patch.titleLetterSpacing !== undefined ? patch.titleLetterSpacing : titleLayer.letterSpacing,
-      lineHeight: patch.titleLineHeight !== undefined ? patch.titleLineHeight : titleLayer.lineHeight,
-      multiLineStyles: newMulti,
-      stroke: patch.titleStroke !== undefined
-        ? patch.titleStroke
-          ? { width: patch.titleStrokeWidth || 2, color: patch.titleStrokeColor || "#000000" }
-          : undefined
-        : titleLayer.stroke,
-      shadow: patch.titleShadow !== undefined
-        ? patch.titleShadow
-          ? { blur: patch.titleShadowBlur || 8, color: patch.titleShadowColor || "rgba(0,0,0,0.9)", offsetX: 0, offsetY: 2 }
-          : undefined
-        : titleLayer.shadow,
-    });
-  };
-
-  // 인스타 설정 브릿지
-  const profileHeader = blueprint.globalLayers.find((l) => l.id.includes("profile")) as ShapeLayer | undefined;
-  const profileText = blueprint.globalLayers.find((l) => l.kind === "text" && l.id.includes("profile")) as TextLayer | undefined;
-
-  const instaConfig = useMemo(() => {
-    return {
-      profileName: "유머보따리",
-      profileHandle: profileText?.content ? profileText.content.split(" ")[1] || "@viral_shorts" : "@viral_shorts",
-      profileAvatarUrl: "https://api.dicebear.com/9.x/fun-emoji/svg?seed=humor",
-      isVerified: true,
-      titleText: titleLayer?.content || "",
-      holeRatio: "1:1",
-      holeWidthPct: 88,
-      holeHeightPct: 46,
-      holeYPct: 45,
-      holeRoundness: 24,
-      bgColor: "#FFFFFF",
-    };
-  }, [profileText, titleLayer]);
-
-  const updateInstaConfig = (updater: any) => {
-    const next = typeof updater === "function" ? updater(instaConfig) : updater;
-    if (profileText && next.profileHandle) {
-      updateLayerById(profileText.id, {
-        content: `📸 ${next.profileHandle}  ✓  •  추천 베스트 댓글`,
+  const setTitleTransform = (patch: any) => {
+    setTitleTransformState((prev) => ({ ...prev, ...patch }));
+    if (titleLayer) {
+      const nx = patch.xPct !== undefined ? (patch.xPct / 100) * blueprint.canvas.width : titleLayer.transform.x;
+      const ny = patch.yPct !== undefined ? (patch.yPct / 100) * blueprint.canvas.height : titleLayer.transform.y;
+      updateLayerById(titleLayer.id, {
+        transform: {
+          ...titleLayer.transform,
+          x: nx,
+          y: ny,
+          scale: patch.scale ?? titleLayer.transform.scale,
+          rotation: patch.rotationDeg ?? titleLayer.transform.rotation,
+        },
       });
     }
   };
 
-  // 댓글 카드 브릿지
+  const [rawTitleConfig, setRawTitleConfig] = useState<any>({
+    hasTopTitle: true,
+    titleLinesMode: "double",
+    titleLine1: "충격 실화 사건",
+    titleLine2: "상상도 못한 반전 결말",
+    titleLine1Color: "#FFFFFF",
+    titleLine2Color: "#FFE500",
+    titleLine1SizePx: 38,
+    titleLine2SizePx: 48,
+    titleFontFamily: "Pretendard",
+    titleStroke: true,
+    titleStrokeWidth: 2,
+    titleStrokeColor: "#000000",
+    titleShadow: true,
+    titleShadowBlur: 8,
+    titleShadowColor: "rgba(0,0,0,0.9)",
+    titleLetterSpacing: -1,
+    titleLineHeight: 1.2,
+    titleAlign: "center",
+    hasTitleBadge: true,
+    titleBadgeText: "속보",
+    titleBadgeBg: "#EF4444",
+    titleBadgeColor: "#FFFFFF",
+    titleBadgeSizePx: 12,
+    titleBadgeRadius: 4,
+  });
+
+  const titleConfig = useMemo(() => {
+    if (!titleLayer) return rawTitleConfig;
+    const multi = titleLayer.multiLineStyles || [];
+    const lines = (titleLayer.content || "").split("\n");
+    return {
+      ...rawTitleConfig,
+      hasTopTitle: !titleLayer.hidden,
+      titleLinesMode: lines.length > 1 ? "double" : "single",
+      titleLine1: lines[0] || rawTitleConfig.titleLine1 || "",
+      titleLine2: lines[1] || rawTitleConfig.titleLine2 || "",
+      titleLine1Color: multi[0]?.fontColor || titleLayer.fontColor || rawTitleConfig.titleLine1Color,
+      titleLine2Color: multi[1]?.fontColor || rawTitleConfig.titleLine2Color,
+      titleLine1SizePx: multi[0]?.fontSize || titleLayer.fontSize || rawTitleConfig.titleLine1SizePx,
+      titleLine2SizePx: multi[1]?.fontSize || rawTitleConfig.titleLine2SizePx,
+      titleFontFamily: titleLayer.fontFamily || rawTitleConfig.titleFontFamily,
+      titleStroke: !!titleLayer.stroke && (titleLayer.stroke.width > 0),
+      titleStrokeWidth: titleLayer.stroke?.width || rawTitleConfig.titleStrokeWidth,
+      titleStrokeColor: titleLayer.stroke?.color || rawTitleConfig.titleStrokeColor,
+      titleShadow: !!titleLayer.shadow,
+      titleShadowBlur: titleLayer.shadow?.blur || rawTitleConfig.titleShadowBlur,
+      titleShadowColor: titleLayer.shadow?.color || rawTitleConfig.titleShadowColor,
+      titleLetterSpacing: titleLayer.letterSpacing !== undefined ? titleLayer.letterSpacing : rawTitleConfig.titleLetterSpacing,
+      titleLineHeight: titleLayer.lineHeight || rawTitleConfig.titleLineHeight,
+      titleAlign: titleLayer.textAlign || rawTitleConfig.titleAlign,
+    };
+  }, [titleLayer, rawTitleConfig]);
+
+  const updateTitleConfig = (patchOrUpdater: any) => {
+    setRawTitleConfig((prev: any) => {
+      const patch = typeof patchOrUpdater === "function" ? patchOrUpdater(prev) : patchOrUpdater;
+      const next = { ...prev, ...patch };
+
+      if (titleLayer) {
+        const curLines = (titleLayer.content || "").split("\n");
+        const l1 = next.titleLine1 !== undefined ? next.titleLine1 : curLines[0] || "";
+        const l2 = next.titleLine2 !== undefined ? next.titleLine2 : curLines[1] || "";
+        const isDouble = next.titleLinesMode === "double" || (next.titleLinesMode === undefined && l2.length > 0);
+        const newContent = isDouble && l2 ? `${l1}\n${l2}` : l1;
+
+        const newMulti = [
+          {
+            fontSize: next.titleLine1SizePx || 38,
+            fontColor: next.titleLine1Color || "#FFFFFF",
+          },
+          {
+            fontSize: next.titleLine2SizePx || 48,
+            fontColor: next.titleLine2Color || "#FFE500",
+          },
+        ];
+
+        updateLayerById(titleLayer.id, {
+          hidden: next.hasTopTitle !== undefined ? !next.hasTopTitle : titleLayer.hidden,
+          content: newContent,
+          fontFamily: next.titleFontFamily || titleLayer.fontFamily,
+          textAlign: next.titleAlign || titleLayer.textAlign,
+          letterSpacing: next.titleLetterSpacing !== undefined ? next.titleLetterSpacing : titleLayer.letterSpacing,
+          lineHeight: next.titleLineHeight !== undefined ? next.titleLineHeight : titleLayer.lineHeight,
+          multiLineStyles: newMulti,
+          stroke: next.titleStroke !== undefined
+            ? next.titleStroke
+              ? { width: next.titleStrokeWidth || 2, color: next.titleStrokeColor || "#000000" }
+              : undefined
+            : titleLayer.stroke,
+          shadow: next.titleShadow !== undefined
+            ? next.titleShadow
+              ? { blur: next.titleShadowBlur || 8, color: next.titleShadowColor || "rgba(0,0,0,0.9)", offsetX: 0, offsetY: 2 }
+              : undefined
+            : titleLayer.shadow,
+        });
+      }
+      return next;
+    });
+  };
+
+  // -------------------------------------------------------------
+  // 2. 인스타 프로필 (instaConfig) 반응형 상태 및 동기화
+  // -------------------------------------------------------------
+  const profileHeader = blueprint.globalLayers.find((l) => l.id.includes("profile")) as ShapeLayer | undefined;
+  const profileText = blueprint.globalLayers.find((l) => l.kind === "text" && l.id.includes("profile")) as TextLayer | undefined;
+  const holeMaskLayer = blueprint.globalLayers.find((l) => l.id.includes("hole") || l.id.includes("guide")) as ShapeLayer | undefined;
+
+  const [profileTransform, setProfileTransformState] = useState({
+    xPct: 6.0,
+    yPct: 5.5,
+    scale: 1.0,
+    rotationDeg: 0,
+    zIndex: 45,
+  });
+
+  const setProfileTransform = (patch: any) => {
+    setProfileTransformState((prev) => ({ ...prev, ...patch }));
+    if (profileHeader) {
+      updateLayerById(profileHeader.id, {
+        transform: {
+          ...profileHeader.transform,
+          scale: patch.scale ?? profileHeader.transform.scale,
+          rotation: patch.rotationDeg ?? profileHeader.transform.rotation,
+        },
+      });
+    }
+  };
+
+  const [rawInstaConfig, setRawInstaConfig] = useState<any>({
+    profileName: "유머보따리",
+    profileHandle: "@viral_shorts",
+    profileAvatarUrl: "https://api.dicebear.com/9.x/fun-emoji/svg?seed=humor",
+    isVerified: true,
+    titleText: "인스타 감성 숏폼",
+    holeRatio: "1:1",
+    holeWidthPct: 88,
+    holeHeightPct: 46,
+    holeYPct: 45,
+    holeRoundness: 24,
+    holeBorderWidth: 1,
+    holeBorderColor: "#E2E8F0",
+    holeShadow: true,
+    bgColor: "#FFFFFF",
+    subFont: "Pretendard",
+    subColor: "#18181B",
+  });
+
+  const instaConfig = useMemo(() => {
+    return {
+      ...rawInstaConfig,
+      profileHandle: profileText?.content ? profileText.content.split(" ")[1] || rawInstaConfig.profileHandle : rawInstaConfig.profileHandle,
+      titleText: titleLayer?.content || rawInstaConfig.titleText,
+      bgColor: profileHeader?.fillColor || rawInstaConfig.bgColor,
+    };
+  }, [profileText, profileHeader, titleLayer, rawInstaConfig]);
+
+  const updateInstaConfig = (patchOrUpdater: any) => {
+    setRawInstaConfig((prev: any) => {
+      const patch = typeof patchOrUpdater === "function" ? patchOrUpdater(prev) : patchOrUpdater;
+      const next = { ...prev, ...patch };
+
+      if (profileText && next.profileHandle) {
+        updateLayerById(profileText.id, {
+          content: `📸 ${next.profileHandle}  ✓  •  추천 베스트 댓글`,
+        });
+      }
+      if (profileHeader && next.bgColor) {
+        updateLayerById(profileHeader.id, { fillColor: next.bgColor });
+      }
+      if (holeMaskLayer && next.holeRoundness !== undefined) {
+        updateLayerById(holeMaskLayer.id, { borderRadius: next.holeRoundness });
+      }
+      return next;
+    });
+  };
+
+  // -------------------------------------------------------------
+  // 3. 댓글 카드 (commentCardConfig) 반응형 상태 및 동기화
+  // -------------------------------------------------------------
   const commentCardLayer = blueprint.globalLayers.find((l) => l.id.includes("comment_card")) as ShapeLayer | undefined;
   const commentBodyLayer = blueprint.globalLayers.find((l) => l.id.includes("comment_body")) as TextLayer | undefined;
   const commentMetaLayer = blueprint.globalLayers.find((l) => l.id.includes("comment_meta")) as TextLayer | undefined;
 
-  const commentCardConfig = useMemo(() => {
-    return {
-      author: "스마트쇼츠_크리에이터",
-      handle: "@viral_shorts_pro",
-      text: commentBodyLayer?.content || "이거 보고 제 인생이 바뀌었습니다 ㄷㄷ",
-      likes: "1.4만",
-      timeText: "방금 전",
-      bgColor: commentCardLayer?.fillColor || "#FFFFFF",
-      textColor: commentBodyLayer?.fontColor || "#18181B",
-      borderRadius: commentCardLayer?.borderRadius || 16,
-      borderEnabled: true,
-      borderColor: commentCardLayer?.borderColor || "#E2E8F0",
-      borderWidth: commentCardLayer?.borderWidth || 1,
-    };
-  }, [commentCardLayer, commentBodyLayer, commentMetaLayer]);
+  const [hasCommentCard, setHasCommentCardState] = useState(true);
 
-  const updateCommentCardConfig = (updater: any) => {
-    const patch = typeof updater === "function" ? updater(commentCardConfig) : updater;
-    if (commentBodyLayer && patch.text !== undefined) {
-      updateLayerById(commentBodyLayer.id, { content: patch.text });
-    }
-    if (commentMetaLayer && patch.likes !== undefined) {
-      updateLayerById(commentMetaLayer.id, { content: `❤️ ${patch.likes}  •  답글 1,420개  •  공유` });
-    }
+  const setHasCommentCard = (val: boolean) => {
+    setHasCommentCardState(val);
+    [commentCardLayer, commentBodyLayer, commentMetaLayer].forEach((layer) => {
+      if (layer) updateLayerById(layer.id, { hidden: !val });
+    });
+  };
+
+  const [commentTransform, setCommentTransformState] = useState({
+    xPct: 50,
+    yPct: 82.0,
+    scale: 0.95,
+    rotationDeg: 0,
+    zIndex: 45,
+  });
+
+  const setCommentTransform = (patch: any) => {
+    setCommentTransformState((prev) => ({ ...prev, ...patch }));
     if (commentCardLayer) {
       updateLayerById(commentCardLayer.id, {
-        fillColor: patch.bgColor || commentCardLayer.fillColor,
-        borderRadius: patch.borderRadius || commentCardLayer.borderRadius,
-        borderColor: patch.borderColor || commentCardLayer.borderColor,
+        transform: {
+          ...commentCardLayer.transform,
+          scale: patch.scale ?? commentCardLayer.transform.scale,
+          rotation: patch.rotationDeg ?? commentCardLayer.transform.rotation,
+        },
       });
     }
   };
 
-  // 군림보 브릿지
+  const [rawCommentCardConfig, setRawCommentCardConfig] = useState<any>({
+    author: "스마트쇼츠_크리에이터",
+    handle: "@viral_shorts_pro",
+    text: "이거 보고 제 인생이 바뀌었습니다 ㄷㄷ",
+    likes: "1.4만",
+    timeText: "방금 전",
+    theme: "insta",
+    bgColor: "#FFFFFF",
+    textColor: "#18181B",
+    borderRadius: 16,
+    borderEnabled: true,
+    borderColor: "#E2E8F0",
+    borderWidth: 1,
+    avatarUrl: "https://api.dicebear.com/9.x/fun-emoji/svg?seed=creator",
+    align: "left",
+    shadowEnabled: true,
+    shadowBlur: 12,
+    shadowColor: "rgba(0,0,0,0.1)",
+  });
+
+  const commentCardConfig = useMemo(() => {
+    return {
+      ...rawCommentCardConfig,
+      text: commentBodyLayer?.content || rawCommentCardConfig.text,
+      bgColor: commentCardLayer?.fillColor || rawCommentCardConfig.bgColor,
+      textColor: commentBodyLayer?.fontColor || rawCommentCardConfig.textColor,
+      borderRadius: commentCardLayer?.borderRadius || rawCommentCardConfig.borderRadius,
+      borderColor: commentCardLayer?.borderColor || rawCommentCardConfig.borderColor,
+      borderWidth: commentCardLayer?.borderWidth || rawCommentCardConfig.borderWidth,
+    };
+  }, [commentCardLayer, commentBodyLayer, rawCommentCardConfig]);
+
+  const updateCommentCardConfig = (patchOrUpdater: any) => {
+    setRawCommentCardConfig((prev: any) => {
+      const patch = typeof patchOrUpdater === "function" ? patchOrUpdater(prev) : patchOrUpdater;
+      const next = { ...prev, ...patch };
+
+      if (commentBodyLayer && next.text !== undefined) {
+        updateLayerById(commentBodyLayer.id, {
+          content: next.text,
+          fontColor: next.textColor || commentBodyLayer.fontColor,
+        });
+      }
+      if (commentMetaLayer && next.likes !== undefined) {
+        updateLayerById(commentMetaLayer.id, {
+          content: `❤️ ${next.likes}  •  답글 1,420개  •  공유`,
+        });
+      }
+      if (commentCardLayer) {
+        updateLayerById(commentCardLayer.id, {
+          fillColor: next.bgColor || commentCardLayer.fillColor,
+          borderRadius: next.borderRadius || commentCardLayer.borderRadius,
+          borderColor: next.borderColor || commentCardLayer.borderColor,
+          borderWidth: next.borderWidth || commentCardLayer.borderWidth,
+        });
+      }
+      return next;
+    });
+  };
+
+  // -------------------------------------------------------------
+  // 4. 군림보 훅 밴드 (gunlimboConfig) 반응형 상태 및 동기화
+  // -------------------------------------------------------------
   const hookBandLayer = blueprint.globalLayers.find((l) => l.id.includes("hook_band")) as ShapeLayer | undefined;
   const hookTextLayer = blueprint.globalLayers.find((l) => l.id.includes("hook_text")) as TextLayer | undefined;
+
+  const [hasJab, setHasJabState] = useState(true);
+
+  const setHasJab = (val: boolean) => {
+    setHasJabState(val);
+    [hookBandLayer, hookTextLayer].forEach((layer) => {
+      if (layer) updateLayerById(layer.id, { hidden: !val });
+    });
+  };
+
+  const [rawGunlimboConfig, setRawGunlimboConfig] = useState<any>({
+    titleLine1: "충격 실화 사건",
+    titleLine2: "상상도 못한 반전 결말",
+    titleLine1Color: "#FFFFFF",
+    titleLine2Color: "#FFE500",
+    titleFontSize: 38,
+    keepTitleThroughout: true,
+    hookPhrase: "⚡ 0초 시선강탈 훅 카피가 여기에 들어갑니다",
+    hookBgColor: "#FFFFFF",
+    hookTextColor: "#000000",
+    hookFontSize: 44,
+    hookFont: "Pretendard",
+    hookBold: true,
+    hookItalic: false,
+    hookAlign: "center",
+    hookLetterSpacing: -1,
+    hookLineHeight: 1.25,
+    strokeEnabled: false,
+    strokeWidth: 2,
+    strokeColor: "#000000",
+    shadowEnabled: false,
+    shadowBlur: 4,
+    shadowColor: "#000000",
+    introDurationSec: 2.5,
+    showGuidelines: true,
+  });
 
   const gunlimboConfig = useMemo(() => {
     const lines = (titleLayer?.content || "").split("\n");
     return {
-      titleLine1: lines[0] || "제목을",
-      titleLine2: lines[1] || "입력해주세요",
-      titleLine1Color: titleLayer?.multiLineStyles?.[0]?.fontColor || "#FFFFFF",
-      titleLine2Color: titleLayer?.multiLineStyles?.[1]?.fontColor || "#FFE500",
-      titleFontSize: titleLayer?.fontSize || 38,
-      keepTitleThroughout: true,
-      hookPhrase: hookTextLayer?.content || "후킹문구를 입력하세요",
-      hookBgColor: hookBandLayer?.fillColor || "#FFFFFF",
-      hookTextColor: hookTextLayer?.fontColor || "#000000",
-      hookFontSize: hookTextLayer?.fontSize || 44,
-      introDurationSec: 2.5,
-      showGuidelines: true,
+      ...rawGunlimboConfig,
+      titleLine1: lines[0] || rawGunlimboConfig.titleLine1,
+      titleLine2: lines[1] || rawGunlimboConfig.titleLine2,
+      titleLine1Color: titleLayer?.multiLineStyles?.[0]?.fontColor || rawGunlimboConfig.titleLine1Color,
+      titleLine2Color: titleLayer?.multiLineStyles?.[1]?.fontColor || rawGunlimboConfig.titleLine2Color,
+      titleFontSize: titleLayer?.fontSize || rawGunlimboConfig.titleFontSize,
+      hookPhrase: hookTextLayer?.content || rawGunlimboConfig.hookPhrase,
+      hookBgColor: hookBandLayer?.fillColor || rawGunlimboConfig.hookBgColor,
+      hookTextColor: hookTextLayer?.fontColor || rawGunlimboConfig.hookTextColor,
+      hookFontSize: hookTextLayer?.fontSize || rawGunlimboConfig.hookFontSize,
     };
-  }, [titleLayer, hookBandLayer, hookTextLayer]);
+  }, [titleLayer, hookBandLayer, hookTextLayer, rawGunlimboConfig]);
 
-  const updateGunlimboConfig = (updater: any) => {
-    const patch = typeof updater === "function" ? updater(gunlimboConfig) : updater;
-    if (hookTextLayer && patch.hookPhrase !== undefined) {
-      updateLayerById(hookTextLayer.id, {
-        content: patch.hookPhrase,
-        fontColor: patch.hookTextColor || hookTextLayer.fontColor,
-        fontSize: patch.hookFontSize || hookTextLayer.fontSize,
-      });
-    }
-    if (hookBandLayer && patch.hookBgColor !== undefined) {
-      updateLayerById(hookBandLayer.id, { fillColor: patch.hookBgColor });
-    }
+  const updateGunlimboConfig = (patchOrUpdater: any) => {
+    setRawGunlimboConfig((prev: any) => {
+      const patch = typeof patchOrUpdater === "function" ? patchOrUpdater(prev) : patchOrUpdater;
+      const next = { ...prev, ...patch };
+
+      if (hookTextLayer && next.hookPhrase !== undefined) {
+        updateLayerById(hookTextLayer.id, {
+          content: next.hookPhrase,
+          fontColor: next.hookTextColor || hookTextLayer.fontColor,
+          fontSize: next.hookFontSize || hookTextLayer.fontSize,
+          fontFamily: next.hookFont || hookTextLayer.fontFamily,
+        });
+      }
+      if (hookBandLayer && next.hookBgColor !== undefined) {
+        updateLayerById(hookBandLayer.id, { fillColor: next.hookBgColor });
+      }
+      return next;
+    });
   };
 
-  // 썰형 브릿지
+  // -------------------------------------------------------------
+  // 5. 썰형 객체 (ssulConfig: 헤더, 메타, 구분선, 페페 밈)
+  // -------------------------------------------------------------
+  const ssulHeaderBar = blueprint.globalLayers.find((l) => l.id.includes("header_bar")) as ShapeLayer | undefined;
+  const ssulHeaderTitle = blueprint.globalLayers.find((l) => l.id.includes("header_title")) as TextLayer | undefined;
   const ssulMetaLayer = blueprint.globalLayers.find((l) => l.id.includes("meta")) as TextLayer | undefined;
-  const subtitleLayer = blueprint.globalLayers.find((l) => l.id.includes("subtitle")) as TextLayer | undefined;
+  const ssulMemeFrame = blueprint.globalLayers.find((l) => l.id.includes("meme")) as ShapeLayer | undefined;
+
+  const [rawSsulConfig, setRawSsulConfig] = useState<any>({
+    ssulHeader: {
+      enabled: true,
+      bgColor: "#F7CF46",
+      heightMultiplier: 1.0,
+      text: "실시간 베스트",
+      textColor: "#18181B",
+      font: "Pretendard",
+      fontSizeMultiplier: 1.0,
+      bold: true,
+      italic: false,
+      leftIcon: "arrow_back",
+      rightIcon: "menu",
+      borderRadius: 0,
+      letterSpacing: 0,
+      lineHeight: 1.2,
+    },
+    postTitle: {
+      text: "오늘자 역대급 실화 사건 🔥",
+      color: "#18181B",
+      font: "Pretendard",
+      fontSizeMultiplier: 1.1,
+      align: "left",
+      bold: true,
+      italic: false,
+      letterSpacing: -0.5,
+      lineHeight: 1.3,
+    },
+    metadata: {
+      showAuthor: true,
+      authorText: "익명",
+      showTime: true,
+      timeText: "방금 전",
+      showViews: true,
+      viewsText: "조회 4.2만",
+      separator: "dot",
+      color: "#6B7280",
+      font: "Pretendard",
+      fontSizeMultiplier: 1.0,
+      bold: false,
+    },
+    divider: {
+      enabled: true,
+      style: "solid",
+      thickness: 1,
+      widthPercent: 100,
+      color: "#E5E7EB",
+      opacity: 100,
+    },
+    author: "익명",
+    timeText: "방금 전",
+    viewsText: "조회 4.2만",
+    textMode: "accumulate",
+    memeType: "pepe",
+    memeEmotion: "happy",
+    memeAliveMotion: true,
+  });
 
   const ssulConfig = useMemo(() => {
     return {
-      author: "익명",
-      timeText: "방금 전",
-      viewsText: "조회 4.2만",
-      textMode: subtitleLayer?.accumulateMode ? "accumulate" : "single-stepped",
-      memeType: "pepe",
-      memeEmotion: "happy",
-      memeAliveMotion: true,
+      ...rawSsulConfig,
+      author: rawSsulConfig.metadata?.authorText || rawSsulConfig.author,
+      timeText: rawSsulConfig.metadata?.timeText || rawSsulConfig.timeText,
+      viewsText: rawSsulConfig.metadata?.viewsText || rawSsulConfig.viewsText,
+      ssulHeader: {
+        ...rawSsulConfig.ssulHeader,
+        text: ssulHeaderTitle?.content ? ssulHeaderTitle.content.replace(/[←⋮]/g, "").trim() : rawSsulConfig.ssulHeader.text,
+        bgColor: ssulHeaderBar?.fillColor || rawSsulConfig.ssulHeader.bgColor,
+      },
     };
-  }, [ssulMetaLayer, subtitleLayer]);
+  }, [ssulHeaderBar, ssulHeaderTitle, rawSsulConfig]);
 
-  const updateSsulConfig = (updater: any) => {
-    const patch = typeof updater === "function" ? updater(ssulConfig) : updater;
-    if (subtitleLayer && patch.textMode !== undefined) {
+  const updateSsulConfig = (patchOrUpdater: any) => {
+    setRawSsulConfig((prev: any) => {
+      const patch = typeof patchOrUpdater === "function" ? patchOrUpdater(prev) : patchOrUpdater;
+      const next = { ...prev, ...patch };
+
+      if (ssulHeaderTitle && next.ssulHeader?.text) {
+        updateLayerById(ssulHeaderTitle.id, {
+          content: `←   🔥 ${next.ssulHeader.text}   ⋮`,
+        });
+      }
+      if (ssulHeaderBar && next.ssulHeader?.bgColor) {
+        updateLayerById(ssulHeaderBar.id, { fillColor: next.ssulHeader.bgColor });
+      }
+      if (ssulMetaLayer && next.metadata) {
+        updateLayerById(ssulMetaLayer.id, {
+          content: `${next.metadata.authorText || "익명"}  •  ${next.metadata.timeText || "방금 전"}  •  ${next.metadata.viewsText || "조회 3.8만"}`,
+        });
+      }
+      return next;
+    });
+  };
+
+  // -------------------------------------------------------------
+  // 6. 자막 (subtitleConfig) 반응형 상태 및 동기화
+  // -------------------------------------------------------------
+  const subtitleLayer = blueprint.globalLayers.find((l) => l.id.includes("subtitle")) as TextLayer | undefined;
+
+  const [subTransform, setSubTransformState] = useState({
+    xPct: 50,
+    yPct: 75.0,
+    scale: 1.0,
+    rotationDeg: 0,
+    zIndex: 30,
+  });
+
+  const setSubTransform = (patch: any) => {
+    setSubTransformState((prev) => ({ ...prev, ...patch }));
+    if (subtitleLayer) {
       updateLayerById(subtitleLayer.id, {
-        accumulateMode: patch.textMode === "accumulate",
+        transform: {
+          ...subtitleLayer.transform,
+          scale: patch.scale ?? subtitleLayer.transform.scale,
+          rotation: patch.rotationDeg ?? subtitleLayer.transform.rotation,
+        },
       });
     }
   };
 
-  // 자막 설정 브릿지
+  const [rawSubtitleConfig, setRawSubtitleConfig] = useState<any>({
+    textColor: "#FFFFFF",
+    fontSize: 42,
+    fontFamily: "NotoSansKR-Bold",
+    strokeColor: "#000000",
+    strokeWidth: 4,
+    shadowColor: "rgba(0,0,0,0.8)",
+    shadowBlur: 8,
+    accumulateMode: true,
+  });
+
   const subtitleConfig = useMemo(() => {
     return {
-      textColor: subtitleLayer?.fontColor || "#FFFFFF",
-      fontSize: subtitleLayer?.fontSize || 42,
-      fontFamily: subtitleLayer?.fontFamily || "NotoSansKR-Bold",
-      strokeColor: subtitleLayer?.stroke?.color || "#000000",
-      strokeWidth: subtitleLayer?.stroke?.width || 4,
+      ...rawSubtitleConfig,
+      textColor: subtitleLayer?.fontColor || rawSubtitleConfig.textColor,
+      fontSize: subtitleLayer?.fontSize || rawSubtitleConfig.fontSize,
+      fontFamily: subtitleLayer?.fontFamily || rawSubtitleConfig.fontFamily,
+      strokeColor: subtitleLayer?.stroke?.color || rawSubtitleConfig.strokeColor,
+      strokeWidth: subtitleLayer?.stroke?.width || rawSubtitleConfig.strokeWidth,
+      shadowColor: subtitleLayer?.shadow?.color || rawSubtitleConfig.shadowColor,
+      shadowBlur: subtitleLayer?.shadow?.blur || rawSubtitleConfig.shadowBlur,
+      accumulateMode: subtitleLayer?.accumulateMode ?? rawSubtitleConfig.accumulateMode,
     };
-  }, [subtitleLayer]);
+  }, [subtitleLayer, rawSubtitleConfig]);
 
-  const updateSubtitleConfig = (updater: any) => {
-    const patch = typeof updater === "function" ? updater(subtitleConfig) : updater;
-    if (subtitleLayer) {
-      updateLayerById(subtitleLayer.id, {
-        fontColor: patch.textColor || subtitleLayer.fontColor,
-        fontSize: patch.fontSize || subtitleLayer.fontSize,
-        fontFamily: patch.fontFamily || subtitleLayer.fontFamily,
-      });
+  const updateSubtitleConfig = (patchOrUpdater: any) => {
+    setRawSubtitleConfig((prev: any) => {
+      const patch = typeof patchOrUpdater === "function" ? patchOrUpdater(prev) : patchOrUpdater;
+      const next = { ...prev, ...patch };
+
+      if (subtitleLayer) {
+        updateLayerById(subtitleLayer.id, {
+          fontColor: next.textColor || subtitleLayer.fontColor,
+          fontSize: next.fontSize || subtitleLayer.fontSize,
+          fontFamily: next.fontFamily || subtitleLayer.fontFamily,
+          accumulateMode: next.accumulateMode ?? subtitleLayer.accumulateMode,
+          stroke: next.strokeWidth
+            ? { width: next.strokeWidth, color: next.strokeColor || "#000000" }
+            : subtitleLayer.stroke,
+          shadow: next.shadowBlur
+            ? { blur: next.shadowBlur, color: next.shadowColor || "rgba(0,0,0,0.8)", offsetX: 0, offsetY: 2 }
+            : subtitleLayer.shadow,
+        });
+      }
+      return next;
+    });
+  };
+
+  // -------------------------------------------------------------
+  // 7. 상하단바 (topBottomBarConfig)
+  // -------------------------------------------------------------
+  const topBarLayer = blueprint.globalLayers.find((l) => l.id.includes("top_letterbox") || l.id.includes("top_bar")) as ShapeLayer | undefined;
+  const bottomBarLayer = blueprint.globalLayers.find((l) => l.id.includes("bottom_letterbox") || l.id.includes("bottom_bar")) as ShapeLayer | undefined;
+
+  const [topBottomBarConfig, setTopBottomBarConfig] = useState({
+    hasTopBarBg: true,
+    topBarHeightPct: 18,
+    topBarBg: "#000000",
+    topBarOpacity: 1,
+    topBarRadius: 0,
+    hasBottomBarBg: true,
+    bottomBarHeightPct: 15,
+    bottomBarBg: "#000000",
+    bottomBarOpacity: 1,
+    bottomBarRadius: 0,
+  });
+
+  const updateTopBottomBarConfig = (patchOrUpdater: any) => {
+    setTopBottomBarConfig((prev) => {
+      const patch = typeof patchOrUpdater === "function" ? patchOrUpdater(prev) : patchOrUpdater;
+      const next = { ...prev, ...patch };
+      if (topBarLayer && next.topBarBg) {
+        updateLayerById(topBarLayer.id, { fillColor: next.topBarBg });
+      }
+      if (bottomBarLayer && next.bottomBarBg) {
+        updateLayerById(bottomBarLayer.id, { fillColor: next.bottomBarBg });
+      }
+      return next;
+    });
+  };
+
+  // -------------------------------------------------------------
+  // 8. 하단 출처 (sourceCreditConfig)
+  // -------------------------------------------------------------
+  const sourceLayer = blueprint.globalLayers.find((l) => l.id.includes("source_credit")) as TextLayer | undefined;
+  const [hasBottomSource, setHasBottomSourceState] = useState(true);
+
+  const setHasBottomSource = (val: boolean) => {
+    setHasBottomSourceState(val);
+    if (sourceLayer) updateLayerById(sourceLayer.id, { hidden: !val });
+  };
+
+  const [sourceCreditConfig, setSourceCreditConfig] = useState({
+    hasBottomSource: true,
+    bottomSourceText: "출처: 온라인 커뮤니티",
+    bottomSourceColor: "#94A3B8",
+    bottomSourceSizePx: 12,
+    bottomSourceFontFamily: "Pretendard",
+    bottomSourceBold: false,
+    bottomSourceItalic: false,
+    bottomSourceAlign: "center" as const,
+    bottomSourceBottomPct: 3.5,
+    bottomSourceStroke: false,
+    bottomSourceShadow: true,
+  });
+
+  const updateSourceCreditConfig = (patchOrUpdater: any) => {
+    setSourceCreditConfig((prev) => {
+      const patch = typeof patchOrUpdater === "function" ? patchOrUpdater(prev) : patchOrUpdater;
+      const next = { ...prev, ...patch };
+      if (sourceLayer && next.bottomSourceText) {
+        updateLayerById(sourceLayer.id, {
+          content: next.bottomSourceText,
+          fontColor: next.bottomSourceColor || sourceLayer.fontColor,
+        });
+      }
+      return next;
+    });
+  };
+
+  // -------------------------------------------------------------
+  // 9. 비디오 크롭 및 영상 연출 필터
+  // -------------------------------------------------------------
+  const [videoCropConfig, setVideoCropConfig] = useState({
+    fitMode: "sandwich",
+    blurBg: false,
+    focusXPct: 50,
+    focusYPct: 50,
+    zoomScale: 100,
+    rotationDeg: 0,
+    horizontalFlip: false,
+    verticalFlip: false,
+    videoCropTopPct: 0,
+    videoCropBottomPct: 0,
+    videoBorderRadius: 0,
+    videoBorderEnabled: false,
+    videoBorderWidth: 1,
+    videoBorderColor: "#FFFFFF",
+    videoShadowEnabled: false,
+    videoShadowBlur: 20,
+    videoShadowColor: "rgba(0,0,0,0.5)",
+    videoPaddingPct: 0,
+  });
+
+  const updateVideoCropConfig = (patchOrUpdater: any) => {
+    setVideoCropConfig((prev) => ({
+      ...prev,
+      ...(typeof patchOrUpdater === "function" ? patchOrUpdater(prev) : patchOrUpdater),
+    }));
+  };
+
+  const [videoFilterConfig, setVideoFilterConfig] = useState({
+    preset: "none",
+    brightness: 100,
+    contrast: 100,
+    saturation: 100,
+    warmth: 0,
+    temperature: 0,
+    filmGrain: 0,
+    vignette: 0,
+  });
+
+  const updateVideoFilterConfig = (patchOrUpdater: any) => {
+    setVideoFilterConfig((prev) => ({
+      ...prev,
+      ...(typeof patchOrUpdater === "function" ? patchOrUpdater(prev) : patchOrUpdater),
+    }));
+  };
+
+  // -------------------------------------------------------------
+  // 10. 단일 클릭: 우측 인스펙터 해당 탭으로 자동 포커스
+  // -------------------------------------------------------------
+  const handleLayerSingleClick = (layer: LayerObject) => {
+    setSelectedLayerId(layer.id);
+    const id = layer.id.toLowerCase();
+    setActiveMasterGroup("text");
+
+    if (id.includes("profile")) {
+      setActiveInspectorTab("profile");
+    } else if (id.includes("comment")) {
+      setActiveInspectorTab("commentCard");
+    } else if (id.includes("header")) {
+      setActiveInspectorTab("ssulHeader");
+    } else if (id.includes("meta")) {
+      setActiveInspectorTab("metadata");
+    } else if (id.includes("divider")) {
+      setActiveInspectorTab("divider");
+    } else if (id.includes("hook")) {
+      setActiveInspectorTab("jabHook");
+    } else if (id.includes("subtitle")) {
+      setActiveInspectorTab("style");
+    } else if (id.includes("source")) {
+      setActiveInspectorTab("sourceCredit");
+    } else if (id.includes("bar") || id.includes("letterbox")) {
+      setActiveInspectorTab("topBottomBar");
+    } else if (id.includes("video") || id.includes("hole") || id.includes("guide")) {
+      setActiveInspectorTab("videoCrop");
+    } else if (id.includes("meme")) {
+      setActiveInspectorTab(currentArchetype === "ssul" ? "metadata" : "template");
+    } else if (id.includes("title") || id.includes("headline") || id.includes("breaking") || id.includes("article")) {
+      setActiveInspectorTab(currentArchetype === "ssul" ? "postTitle" : "title");
+    } else {
+      setActiveInspectorTab("title");
+    }
+  };
+
+  // -------------------------------------------------------------
+  // 11. 더블 클릭: 좌측 플로팅 인스펙터 즉시 팝업
+  // -------------------------------------------------------------
+  const handleLayerDoubleClick = (layer: LayerObject) => {
+    setSelectedLayerId(layer.id);
+    const id = layer.id.toLowerCase();
+
+    if (id.includes("profile")) {
+      setActiveFloatingInspector("instaProfile");
+    } else if (id.includes("comment")) {
+      setActiveFloatingInspector("commentCard");
+    } else if (id.includes("header")) {
+      setActiveFloatingInspector("ssulHeader");
+    } else if (id.includes("meta")) {
+      setActiveFloatingInspector("metadata");
+    } else if (id.includes("divider")) {
+      setActiveFloatingInspector("divider");
+    } else if (id.includes("hook")) {
+      setActiveFloatingInspector(currentArchetype === "gunlimbo" ? "gunlimboHookBand" : "jabHook");
+    } else if (id.includes("subtitle")) {
+      setActiveFloatingInspector(currentArchetype === "ssul" ? "ssulSubtitle" : "subtitle");
+    } else if (id.includes("source")) {
+      setActiveFloatingInspector("sourceCredit");
+    } else if (id.includes("bar") || id.includes("letterbox")) {
+      setActiveFloatingInspector("topBottomBar");
+    } else if (id.includes("video") || id.includes("hole") || id.includes("guide")) {
+      setActiveFloatingInspector("videoCrop");
+    } else if (id.includes("title") || id.includes("headline") || id.includes("breaking") || id.includes("article")) {
+      setActiveFloatingInspector(currentArchetype === "ssul" ? "postTitle" : "title");
+    } else {
+      setActiveFloatingInspector("title");
     }
   };
 
@@ -425,16 +916,38 @@ export const SovereignStudioProvider: React.FC<{ children: React.ReactNode }> = 
         changeArchetypeMode,
         titleConfig,
         updateTitleConfig,
+        titleTransform,
+        setTitleTransform,
         instaConfig,
         updateInstaConfig,
+        profileTransform,
+        setProfileTransform,
+        hasCommentCard,
+        setHasCommentCard,
         commentCardConfig,
         updateCommentCardConfig,
+        commentTransform,
+        setCommentTransform,
+        hasJab,
+        setHasJab,
         gunlimboConfig,
         updateGunlimboConfig,
         ssulConfig,
         updateSsulConfig,
         subtitleConfig,
         updateSubtitleConfig,
+        subTransform,
+        setSubTransform,
+        topBottomBarConfig,
+        updateTopBottomBarConfig,
+        hasBottomSource,
+        setHasBottomSource,
+        sourceCreditConfig,
+        updateSourceCreditConfig,
+        videoCropConfig,
+        updateVideoCropConfig,
+        videoFilterConfig,
+        updateVideoFilterConfig,
       }}
     >
       {children}

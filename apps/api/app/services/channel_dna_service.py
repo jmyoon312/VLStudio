@@ -1642,8 +1642,17 @@ class ChannelDNAService:
                 "trust_badges": ["팩트 검증 완료", "공식 인터뷰 육성 보존", "실시간 타임코드 동기화"]
             },
             "14_recommended_narration_script": {
-                "title": "추천 내레이션 톤 및 예시 대본",
+                "title": "추천 내레이션 톤 및 텍스트 포렌식 복제 지침서",
                 "tone": script.get("tone_manner", "위트 있고 몰입감 높은 해설체"),
+                "cloned_system_instruction": (
+                    (script.get("text_forensic_dna") or {}).get("cloned_system_instruction")
+                    or script.get("cloned_system_instruction", "")
+                ),
+                "text_forensic_dna": script.get("text_forensic_dna") or {},
+                "channel_constitution_v32": (
+                    (script.get("text_forensic_dna") or {}).get("channel_constitution_v32")
+                    or script.get("channel_constitution_v32", {})
+                ),
                 "sample_script": (
                     f"[0~3초 오프닝] \"솔직히 {ch_title} 보면서 이 장면 눈치챈 사람 있습니까?\"\n"
                     "[3~12초 전개] \"당시 현장에서는 아무도 몰랐는데, 실제 방송 원본을 슬로우로 돌려보니 충격적인 사실이 포착됐습니다.\"\n"
@@ -2039,6 +2048,21 @@ class ChannelDNAService:
             "bible17": b17
         }
 
+        # 6. Forensic Bible (지침서 1, 2, 3 포렌식 확장 스펙)
+        bible_14 = b17.get("14_recommended_narration_script", {})
+        forensic_bible_spec = {
+            "textForensic": {
+                "clonedSystemInstruction": bible_14.get("cloned_system_instruction", ""),
+                "textForensicProfile": bible_14.get("text_forensic_dna", {})
+            },
+            "channelConstitution": bible_14.get("channel_constitution_v32", {}),
+            "dynamicCutProtocol": {
+                "safetyMarginMs": 100,
+                "visualDensityRule": "1_SENTENCE_2_CUTS_MANDATORY",
+                "avgCutSec": float(blueprint.get("editing_pacing", {}).get("avg_cut_sec", 2.5))
+            }
+        }
+
         return {
             "schemaVersion": "viraloop-blueprint/v4.0",
             "blueprintId": preset_id,
@@ -2050,6 +2074,7 @@ class ChannelDNAService:
             "scenes": scenes,
             "audioDSP": audio_dsp_spec,
             "productionBible": production_bible_spec,
+            "forensicBible": forensic_bible_spec,
             "generativeSlots": [],
             "samplePreview": {
                 "thumbnailUrl": extracted_kfs[0].get("url") if extracted_kfs else "",
@@ -2183,6 +2208,16 @@ class ChannelDNAService:
                     f"WPM 발화 속도: {blueprint['audio_dsp']['wpm']}",
                     f"자막 세이프존: {blueprint['visual_geometry']['caption']['safe_zone']}"
                 ],
+                "visual_dna": bench.visual_dna or {},
+                "script_dna": bench.script_dna or {},
+                "audio_dna": bench.audio_dna or {},
+                "source_origin_dna": bench.source_origin_dna or {},
+                "cloned_system_instruction": (
+                    (bench.script_dna or {}).get("text_forensic_dna", {}).get("cloned_system_instruction")
+                    or (bench.script_dna or {}).get("cloned_system_instruction", "")
+                    or blueprint.get("production_bible_17", {}).get("14_recommended_narration_script", {}).get("cloned_system_instruction", "")
+                ),
+                "forensic_bible": blueprint_v4.get("forensicBible", {}),
                 "production_bible_17": blueprint.get("production_bible_17", {}),
                 "style": blueprint,
                 "blueprint_v4": blueprint_v4,

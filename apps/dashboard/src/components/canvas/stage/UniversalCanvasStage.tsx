@@ -337,6 +337,8 @@ export interface UniversalCanvasStageProps {
 
   // General Layers
   layers?: NleLayerObject[];
+  customLayers?: any[];
+  setCustomLayers?: any;
   currentProjectDisplayName?: string;
   videoRef?: any;
   bgmAudioRef?: any;
@@ -669,6 +671,8 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
     commentTransform = { xPct: 50, yPct: 82, scale: 1.0, rotationDeg: 0, zIndex: 35 },
     setCommentTransform = () => {},
     layers = [],
+    customLayers = [],
+    setCustomLayers = () => {},
     titleLetterSpacing = -0.5,
     setTitleLetterSpacing,
     titleLineHeight = 1.2,
@@ -2141,6 +2145,77 @@ export const UniversalCanvasStage: React.FC<UniversalCanvasStageProps> = (props)
                   </TransformGizmo>
                 );
               })()}
+
+              {/* 🎨 4. 무한 확장 사용자 커스텀 레이어 (텍스트, 쉐이프 박스, 이모지) */}
+              {(customLayers || []).map((layer: any) => {
+                const isSelected = selectedLayerId === layer.id;
+                const t = layer.transform || { xPct: 50, yPct: 50, scale: 1, rotationDeg: 0, zIndex: 40 };
+
+                return (
+                  <TransformGizmo
+                    key={layer.id}
+                    transform={{
+                      xPct: t.xPct ?? 50,
+                      yPct: t.yPct ?? 50,
+                      scale: t.scale ?? 1,
+                      rotationDeg: t.rotationDeg ?? 0,
+                      zIndex: t.zIndex ?? 40,
+                    }}
+                    selected={isSelected}
+                    name={layer.name || '커스텀 레이어'}
+                    canvasScale={canvasScale}
+                    anchor="center"
+                    onSelect={() => {
+                      setSelectedLayerId(layer.id);
+                      setActiveInspectorTab('customLayer');
+                    }}
+                    onChange={(newT) => {
+                      setCustomLayers?.((prev: any[]) =>
+                        prev.map((l: any) => (l.id === layer.id ? { ...l, transform: { ...l.transform, ...newT } } : l))
+                      );
+                    }}
+                  >
+                    {layer.kind === 'text' && (
+                      <div
+                        className="cursor-pointer select-none whitespace-pre-wrap leading-tight text-center px-2 py-1 font-bold"
+                        style={{
+                          fontSize: `${(layer.fontSize || 22)}px`,
+                          color: layer.color || '#FFE500',
+                          fontFamily: resolveFontFamily(layer.fontFamily || 'Pretendard'),
+                          fontWeight: layer.bold ? 800 : 500,
+                          WebkitTextStroke: layer.stroke ? `${layer.strokeWidth || 2}px ${layer.strokeColor || '#000000'}` : 'none',
+                          textShadow: layer.shadow ? `0 2px ${layer.shadowBlur || 4}px ${layer.shadowColor || 'rgba(0,0,0,0.8)'}` : 'none',
+                        }}
+                      >
+                        {layer.text || '새 텍스트'}
+                      </div>
+                    )}
+                    {layer.kind === 'shape' && (
+                      <div
+                        className="cursor-pointer select-none"
+                        style={{
+                          width: `${layer.widthPx || 200}px`,
+                          height: `${layer.heightPx || 80}px`,
+                          backgroundColor: layer.fillColor || '#000000',
+                          opacity: layer.opacity ?? 0.8,
+                          borderRadius: `${layer.borderRadius ?? 8}px`,
+                          border: layer.borderWidth ? `${layer.borderWidth}px solid ${layer.borderColor || '#3B82F6'}` : 'none',
+                        }}
+                      />
+                    )}
+                    {layer.kind === 'emoji' && (
+                      <div
+                        className="cursor-pointer select-none leading-none flex items-center justify-center"
+                        style={{
+                          fontSize: `${layer.fontSize || 48}px`,
+                        }}
+                      >
+                        {layer.emoji || '🔥'}
+                      </div>
+                    )}
+                  </TransformGizmo>
+                );
+              })}
 
               {/* 📐 프로 3분할선 및 센터 십자선 가이드 */}
               {showGrid && (

@@ -8,11 +8,13 @@ import { toast } from 'sonner';
 
 /**
  * [BasicEditorStudio]
- * 1단계 디자인 기본 에디터 (프리셋 공방)
+ * 1단계 디자인 기본 에디터 (표준 4.0 스키마 Skia CanvasKit 통합 엔진)
  * - VLStandardBlueprint v4.0 단일 스키마 기반
- * - 60fps CanvasKit 뷰포트 & 피그마급 8방향 기즈모 & 자석 스냅 가이드
- * - 라벨 드래그 ScrubInput 미세 수치 제어
- * - 30초 오토세이브 심박계 & 컴포넌트 격리 에러 바운더리 완비
+ * - 60fps CanvasKit 뷰포트 & 4대 폼팩터 1:1 완벽 시각화
+ * - 우측 9대 마스터 인스펙터 실시간 양방향 제어
+ * - 1클릭 우측 서브탭 연동 & 2클릭 좌측 15종 플로팅 인스펙터 팝업
+ * - 마우스 휠 줌(0.2x ~ 4.0x) & 인기 유튜브 폰트 셀렉터 완비
+ * - 무한 레이어 확장 ([➕ 새 레이어 추가] 텍스트, 도형, 이모지)
  */
 export const BasicEditorStudio: React.FC = () => {
   const { mode } = useParams<{ mode?: string }>();
@@ -29,80 +31,34 @@ export const BasicEditorStudio: React.FC = () => {
 
   const [loadedBlueprint, setLoadedBlueprint] = useState<VLStandardBlueprintV4 | null>(null);
 
-  React.useEffect(() => {
-    if (presetId) {
-      // 1. 프리셋 ID 지정 시 sovereign-presets 우선 조회
-      api.get(`/sovereign-presets/${encodeURIComponent(presetId)}`)
-        .then((res) => {
-          if (res.data) {
-            const bp = migrateToBlueprintV4(res.data);
-            setLoadedBlueprint(bp);
-            toast.success(`'${bp.name || "프리셋"}'을(를) 성공적으로 불러왔습니다.`);
-          }
-        })
-        .catch(() => {
-          api.get(`/shorts-templates/${encodeURIComponent(presetId)}`)
-            .then((res) => {
-              if (res.data) {
-                const bp = migrateToBlueprintV4(res.data.blueprint_v4 || res.data);
-                setLoadedBlueprint(bp);
-                toast.success(`'${bp.name || "템플릿"}'을(를) 성공적으로 불러왔습니다.`);
-              }
-            })
-            .catch((err) => {
-              console.warn('[BasicEditorStudio] Failed to load preset:', err);
-              toast.error('프리셋 데이터를 불러오지 못했습니다.');
-            });
-        });
-    } else if (templateId) {
-      // 2. 템플릿 ID 지정 시 shorts-templates 우선 조회
-      api.get(`/shorts-templates/${encodeURIComponent(templateId)}`)
-        .then((res) => {
-          if (res.data) {
-            const bp = migrateToBlueprintV4(res.data.blueprint_v4 || res.data);
-            setLoadedBlueprint(bp);
-            toast.success(`'${bp.name || "템플릿"}'을(를) 성공적으로 불러왔습니다.`);
-          }
-        })
-        .catch(() => {
-          api.get(`/sovereign-presets/${encodeURIComponent(templateId)}`)
-            .then((res) => {
-              if (res.data) {
-                const bp = migrateToBlueprintV4(res.data);
-                setLoadedBlueprint(bp);
-                toast.success(`'${bp.name || "프리셋"}'을(를) 성공적으로 불러왔습니다.`);
-              }
-            })
-            .catch((err) => {
-              console.warn('[BasicEditorStudio] Failed to load template:', err);
-              toast.error('템플릿 데이터를 불러오지 못했습니다.');
-            });
-        });
-    } else if (genericId) {
-      // 3. 일반 ID 지정 시 폴백 순회
-      api.get(`/sovereign-presets/${encodeURIComponent(genericId)}`)
-        .then((res) => {
-          if (res.data) {
-            const bp = migrateToBlueprintV4(res.data);
-            setLoadedBlueprint(bp);
-            toast.success(`'${bp.name || "프리셋"}'을(를) 성공적으로 불러왔습니다.`);
-          }
-        })
-        .catch(() => {
-          api.get(`/shorts-templates/${encodeURIComponent(genericId)}`)
-            .then((res) => {
-              if (res.data) {
-                const bp = migrateToBlueprintV4(res.data.blueprint_v4 || res.data);
-                setLoadedBlueprint(bp);
-                toast.success(`'${bp.name || "템플릿"}'을(를) 성공적으로 불러왔습니다.`);
-              }
-            })
-            .catch((err) => {
-              console.warn('[BasicEditorStudio] Failed to load generic ID:', err);
-              toast.error('데이터를 불러오지 못했습니다.');
-            });
-        });
-    }
+  useEffect(() => {
+    const queryId = presetId || templateId || genericId;
+    if (!queryId) return;
+
+    // 1. sovereign-presets 조회
+    api.get(`/sovereign-presets/${encodeURIComponent(queryId)}`)
+      .then((res) => {
+        if (res.data) {
+          const bp = migrateToBlueprintV4(res.data);
+          setLoadedBlueprint(bp);
+          toast.success(`'${bp.name || "프리셋"}'을(를) 성공적으로 불러왔습니다.`);
+        }
+      })
+      .catch(() => {
+        // 2. shorts-templates 조회
+        api.get(`/shorts-templates/${encodeURIComponent(queryId)}`)
+          .then((res) => {
+            if (res.data) {
+              const bp = migrateToBlueprintV4(res.data.blueprint_v4 || res.data);
+              setLoadedBlueprint(bp);
+              toast.success(`'${bp.name || "템플릿"}'을(를) 성공적으로 불러왔습니다.`);
+            }
+          })
+          .catch((err) => {
+            console.warn('[BasicEditorStudio] Failed to load preset:', err);
+            toast.error('프리셋 데이터를 불러오지 못했습니다.');
+          });
+      });
   }, [presetId, templateId, genericId]);
 
   const initialBlueprint = useMemo(() => {
@@ -122,7 +78,7 @@ export const BasicEditorStudio: React.FC = () => {
         layout: bp.globalLayers,
       });
 
-      // 2. Also save to sovereign presets disk storage so Preset Vault discovers it immediately
+      // 2. Also save to sovereign presets disk storage
       try {
         await api.post('/sovereign-presets/basic-editor/save', {
           id: bp.blueprintId,

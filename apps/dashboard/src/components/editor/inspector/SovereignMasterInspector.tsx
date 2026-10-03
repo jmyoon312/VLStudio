@@ -13,17 +13,11 @@ import { VideoCropInspectorForm } from "../../canvas/forms/VideoCropInspectorFor
 import { FilterFxInspectorForm } from "../../canvas/forms/FilterFxInspectorForm";
 import { LayerQuickSwitcher } from "./LayerQuickSwitcher";
 import { TransformInspectorPanel } from "./TransformInspectorPanel";
-import { TextInspectorPanel } from "./TextInspectorPanel";
-import { ShapeInspectorPanel } from "./ShapeInspectorPanel";
-import { CommentCardInspector } from "./CommentCardInspector";
-import { CanvasGlobalInspector } from "./CanvasGlobalInspector";
 import {
   Layers,
   Plus,
   Type,
   Square,
-  Image as ImageIcon,
-  Sparkles,
   Smile,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -45,8 +39,11 @@ export const SovereignMasterInspector: React.FC<SovereignMasterInspectorProps> =
     selectedLayerId,
     setSelectedLayerId,
     updateLayerTransform,
-    updateLayerStyle,
   } = useBlueprint();
+
+  const sovereign = useSovereignStudio();
+
+  if (!sovereign) return null;
 
   const {
     activeMasterGroup,
@@ -57,21 +54,43 @@ export const SovereignMasterInspector: React.FC<SovereignMasterInspectorProps> =
     changeArchetypeMode,
     titleConfig,
     updateTitleConfig,
+    titleTransform,
+    setTitleTransform,
     instaConfig,
     updateInstaConfig,
+    profileTransform,
+    setProfileTransform,
+    hasCommentCard,
+    setHasCommentCard,
     commentCardConfig,
     updateCommentCardConfig,
+    commentTransform,
+    setCommentTransform,
+    hasJab,
+    setHasJab,
     gunlimboConfig,
     updateGunlimboConfig,
     ssulConfig,
     updateSsulConfig,
     subtitleConfig,
     updateSubtitleConfig,
-  } = useSovereignStudio();
+    subTransform,
+    setSubTransform,
+    topBottomBarConfig,
+    updateTopBottomBarConfig,
+    hasBottomSource,
+    setHasBottomSource,
+    sourceCreditConfig,
+    updateSourceCreditConfig,
+    videoCropConfig,
+    updateVideoCropConfig,
+    videoFilterConfig,
+    updateVideoFilterConfig,
+  } = sovereign;
 
   const selectedLayer = blueprint.globalLayers.find((l) => l.id === selectedLayerId) || null;
 
-  // 무한 레이어 확장 (새 텍스트, 쉐이프, 이모지, 이미지 추가)
+  // 무한 레이어 확장 (새 텍스트, 쉐이프, 이모지 추가)
   const handleAddNewLayer = (kind: "text" | "shape" | "emoji") => {
     const newId = `layer_custom_${Date.now()}`;
     const cx = blueprint.canvas.width / 2;
@@ -182,7 +201,7 @@ export const SovereignMasterInspector: React.FC<SovereignMasterInspectorProps> =
         </div>
       )}
 
-      {/* 2. 🏛️ 1층 4대 마스터 그룹 탭 (올려주신 사진 1~4와 100% 동일한 상단 탭) */}
+      {/* 2. 🏛️ 1층 4대 마스터 그룹 탭 */}
       <div className="grid grid-flow-col auto-cols-fr gap-0.5 border-b border-border bg-muted/40 p-1 rounded-xl mb-1.5 shrink-0">
         {inspectorGroups.map((group) => {
           const isActive = activeMasterGroup === group.id;
@@ -213,14 +232,16 @@ export const SovereignMasterInspector: React.FC<SovereignMasterInspectorProps> =
         })}
       </div>
 
-      {/* 3. ✍️ 2층 폼팩터 맞춤 서브탭 바 (사진 속 [프로필], [대제목], [훅 밴드], [자막], [댓글], [출처] 등) */}
+      {/* 3. ✍️ 2층 폼팩터 맞춤 서브탭 바 */}
       {(() => {
         const curGroup = inspectorGroups.find((g) => g.id === activeMasterGroup) || inspectorGroups[0];
         if (!curGroup || curGroup.subTabs.length <= 1) return null;
         return (
           <div className="flex items-center gap-1 border-b border-border bg-muted/20 px-1.5 py-1 mb-2 overflow-x-auto custom-scrollbar shrink-0 rounded-lg">
             {curGroup.subTabs.map((sub) => {
-              const isSubActive = activeInspectorTab === sub.id;
+              const isSubActive =
+                activeInspectorTab === sub.id ||
+                (sub.id === "title" && activeInspectorTab === "postTitle");
               return (
                 <button
                   key={sub.id}
@@ -281,20 +302,22 @@ export const SovereignMasterInspector: React.FC<SovereignMasterInspectorProps> =
             setSsulConfig={updateSsulConfig}
             topTitleText={titleConfig.titleLine1}
             setTopTitleText={(t: string) => updateTitleConfig({ titleLine1: t })}
-            titleTransform={{ xPct: 50, yPct: 15.0, scale: 1.0, rotationDeg: 0, zIndex: 40 }}
-            setTitleTransform={updateTitleConfig}
-            profileTransform={{ xPct: 6.0, yPct: 5.5, scale: 1.0, rotationDeg: 0, zIndex: 45 }}
-            setProfileTransform={() => {}}
+            titleTransform={titleTransform}
+            setTitleTransform={setTitleTransform}
+            profileTransform={profileTransform}
+            setProfileTransform={setProfileTransform}
             commentCard={commentCardConfig}
             setCommentCard={updateCommentCardConfig}
-            commentTransform={{ xPct: 50, yPct: 82.0, scale: 0.95, rotationDeg: 0, zIndex: 45 }}
-            setCommentTransform={() => {}}
-            hasCommentCard={true}
-            setHasCommentCard={() => {}}
-            subTransform={{ xPct: 50, yPct: 75.0, scale: 1.0, rotationDeg: 0, zIndex: 30 }}
-            setSubTransform={updateSubtitleConfig}
+            commentTransform={commentTransform}
+            setCommentTransform={setCommentTransform}
+            hasCommentCard={hasCommentCard}
+            setHasCommentCard={setHasCommentCard}
+            subTransform={subTransform}
+            setSubTransform={setSubTransform}
             subtitleConfig={subtitleConfig}
             setSubtitleConfig={updateSubtitleConfig}
+            topBottomBarConfig={topBottomBarConfig}
+            setTopBottomBarConfig={updateTopBottomBarConfig}
             selectedLayerId={selectedLayerId}
             setSelectedLayerId={setSelectedLayerId}
             activeInspectorTab={activeInspectorTab}
@@ -307,52 +330,84 @@ export const SovereignMasterInspector: React.FC<SovereignMasterInspectorProps> =
           <InstaProfileInspectorForm
             instaConfig={instaConfig}
             setInstaConfig={updateInstaConfig}
+            profileTransform={profileTransform}
+            setProfileTransform={setProfileTransform}
           />
         )}
 
-        {/* ── 3. 👑 대제목 탭 (TitleSourceInspectorForm) ── */}
-        {activeInspectorTab === "title" && (
-          <TitleSourceInspectorForm
-            mode="title"
-            hasTopTitle={titleConfig.hasTopTitle}
-            setHasTopTitle={(v: boolean) => updateTitleConfig({ hasTopTitle: v })}
-            titleLinesMode={titleConfig.titleLinesMode}
-            setTitleLinesMode={(m: any) => updateTitleConfig({ titleLinesMode: m })}
-            titleLine1={titleConfig.titleLine1}
-            setTitleLine1={(t: string) => updateTitleConfig({ titleLine1: t })}
-            titleLine2={titleConfig.titleLine2}
-            setTitleLine2={(t: string) => updateTitleConfig({ titleLine2: t })}
-            titleLine1Color={titleConfig.titleLine1Color}
-            setTitleLine1Color={(c: string) => updateTitleConfig({ titleLine1Color: c })}
-            titleLine2Color={titleConfig.titleLine2Color}
-            setTitleLine2Color={(c: string) => updateTitleConfig({ titleLine2Color: c })}
-            titleLine1SizePx={titleConfig.titleLine1SizePx}
-            setTitleLine1SizePx={(s: number) => updateTitleConfig({ titleLine1SizePx: s })}
-            titleLine2SizePx={titleConfig.titleLine2SizePx}
-            setTitleLine2SizePx={(s: number) => updateTitleConfig({ titleLine2SizePx: s })}
-            titleFontFamily={titleConfig.titleFontFamily}
-            setTitleFontFamily={(f: string) => updateTitleConfig({ titleFontFamily: f })}
-            titleStroke={titleConfig.titleStroke}
-            setTitleStroke={(s: boolean) => updateTitleConfig({ titleStroke: s })}
-            titleStrokeWidth={titleConfig.titleStrokeWidth}
-            setTitleStrokeWidth={(w: number) => updateTitleConfig({ titleStrokeWidth: w })}
-            titleStrokeColor={titleConfig.titleStrokeColor}
-            setTitleStrokeColor={(c: string) => updateTitleConfig({ titleStrokeColor: c })}
-            titleShadow={titleConfig.titleShadow}
-            setTitleShadow={(s: boolean) => updateTitleConfig({ titleShadow: s })}
-            titleShadowBlur={titleConfig.titleShadowBlur}
-            setTitleShadowBlur={(b: number) => updateTitleConfig({ titleShadowBlur: b })}
-            titleShadowColor={titleConfig.titleShadowColor}
-            setTitleShadowColor={(c: string) => updateTitleConfig({ titleShadowColor: c })}
-            layoutTemplateMode={blueprint.archetype}
-          />
+        {/* ── 3. 👑 대제목 탭 (TitleSourceInspectorForm 또는 썰형 제목) ── */}
+        {(activeInspectorTab === "title" || activeInspectorTab === "postTitle") && (
+          blueprint.archetype === "ssul" ? (
+            <SsulObjectInspectorForm
+              mode="postTitle"
+              ssulConfig={ssulConfig}
+              setSsulConfig={updateSsulConfig}
+            />
+          ) : (
+            <TitleSourceInspectorForm
+              mode="title"
+              hasTopTitle={titleConfig.hasTopTitle}
+              setHasTopTitle={(v: boolean) => updateTitleConfig({ hasTopTitle: v })}
+              titleLinesMode={titleConfig.titleLinesMode}
+              setTitleLinesMode={(m: any) => updateTitleConfig({ titleLinesMode: m })}
+              hasTitleBadge={titleConfig.hasTitleBadge}
+              setHasTitleBadge={(v: boolean) => updateTitleConfig({ hasTitleBadge: v })}
+              titleBadgeText={titleConfig.titleBadgeText}
+              setTitleBadgeText={(t: string) => updateTitleConfig({ titleBadgeText: t })}
+              titleBadgeBg={titleConfig.titleBadgeBg}
+              setTitleBadgeBg={(c: string) => updateTitleConfig({ titleBadgeBg: c })}
+              titleBadgeColor={titleConfig.titleBadgeColor}
+              setTitleBadgeColor={(c: string) => updateTitleConfig({ titleBadgeColor: c })}
+              titleBadgeSizePx={titleConfig.titleBadgeSizePx}
+              setTitleBadgeSizePx={(s: number) => updateTitleConfig({ titleBadgeSizePx: s })}
+              titleBadgeRadius={titleConfig.titleBadgeRadius}
+              setTitleBadgeRadius={(r: number) => updateTitleConfig({ titleBadgeRadius: r })}
+              titleLine1={titleConfig.titleLine1}
+              setTitleLine1={(t: string) => updateTitleConfig({ titleLine1: t })}
+              titleLine2={titleConfig.titleLine2}
+              setTitleLine2={(t: string) => updateTitleConfig({ titleLine2: t })}
+              titleLine1Color={titleConfig.titleLine1Color}
+              setTitleLine1Color={(c: string) => updateTitleConfig({ titleLine1Color: c })}
+              titleLine2Color={titleConfig.titleLine2Color}
+              setTitleLine2Color={(c: string) => updateTitleConfig({ titleLine2Color: c })}
+              titleLine1SizePx={titleConfig.titleLine1SizePx}
+              setTitleLine1SizePx={(s: number) => updateTitleConfig({ titleLine1SizePx: s })}
+              titleLine2SizePx={titleConfig.titleLine2SizePx}
+              setTitleLine2SizePx={(s: number) => updateTitleConfig({ titleLine2SizePx: s })}
+              titleFontFamily={titleConfig.titleFontFamily}
+              setTitleFontFamily={(f: string) => updateTitleConfig({ titleFontFamily: f })}
+              titleStroke={titleConfig.titleStroke}
+              setTitleStroke={(s: boolean) => updateTitleConfig({ titleStroke: s })}
+              titleStrokeWidth={titleConfig.titleStrokeWidth}
+              setTitleStrokeWidth={(w: number) => updateTitleConfig({ titleStrokeWidth: w })}
+              titleStrokeColor={titleConfig.titleStrokeColor}
+              setTitleStrokeColor={(c: string) => updateTitleConfig({ titleStrokeColor: c })}
+              titleShadow={titleConfig.titleShadow}
+              setTitleShadow={(s: boolean) => updateTitleConfig({ titleShadow: s })}
+              titleShadowBlur={titleConfig.titleShadowBlur}
+              setTitleShadowBlur={(b: number) => updateTitleConfig({ titleShadowBlur: b })}
+              titleShadowColor={titleConfig.titleShadowColor}
+              setTitleShadowColor={(c: string) => updateTitleConfig({ titleShadowColor: c })}
+              titleLetterSpacing={titleConfig.titleLetterSpacing}
+              setTitleLetterSpacing={(ls: number) => updateTitleConfig({ titleLetterSpacing: ls })}
+              titleLineHeight={titleConfig.titleLineHeight}
+              setTitleLineHeight={(lh: number) => updateTitleConfig({ titleLineHeight: lh })}
+              titleAlign={titleConfig.titleAlign}
+              setTitleAlign={(a: any) => updateTitleConfig({ titleAlign: a })}
+              layoutTemplateMode={blueprint.archetype}
+              instaConfig={instaConfig}
+              setInstaConfig={updateInstaConfig}
+              gunlimboConfig={gunlimboConfig}
+              setGunlimboConfig={updateGunlimboConfig}
+            />
+          )
         )}
 
         {/* ── 4. 🎯 훅 밴드 / 쨉쨉이 탭 (JabHookInspectorForm) ── */}
         {activeInspectorTab === "jabHook" && (
           <JabHookInspectorForm
-            hasJab={true}
-            setHasJab={() => {}}
+            hasJab={hasJab}
+            setHasJab={setHasJab}
             jabText={gunlimboConfig.hookPhrase}
             setJabText={(t: any) => updateGunlimboConfig({ hookPhrase: typeof t === "function" ? t(gunlimboConfig.hookPhrase) : t })}
             jabTiltDeg={0}
@@ -365,17 +420,22 @@ export const SovereignMasterInspector: React.FC<SovereignMasterInspectorProps> =
             setJabBgEnabled={() => {}}
             jabBgColor={gunlimboConfig.hookBgColor}
             setJabBgColor={(c: any) => updateGunlimboConfig({ hookBgColor: typeof c === "function" ? c(gunlimboConfig.hookBgColor) : c })}
+            jabFont={gunlimboConfig.hookFont}
+            setJabFont={(f: string) => updateGunlimboConfig({ hookFont: f })}
+            jabBold={gunlimboConfig.hookBold}
+            setJabBold={(b: boolean) => updateGunlimboConfig({ hookBold: b })}
             jabBorderRadius={0}
             setJabBorderRadius={() => {}}
-            jabStroke={false}
-            setJabStroke={() => {}}
-            jabStrokeWidth={1}
-            setJabStrokeWidth={() => {}}
-            jabStrokeColor="#000000"
-            jabShadow={false}
-            setJabShadow={() => {}}
-            jabShadowBlur={4}
-            setJabShadowBlur={() => {}}
+            jabStroke={gunlimboConfig.strokeEnabled}
+            setJabStroke={(s: any) => updateGunlimboConfig({ strokeEnabled: typeof s === "function" ? s(gunlimboConfig.strokeEnabled) : s })}
+            jabStrokeWidth={gunlimboConfig.strokeWidth}
+            setJabStrokeWidth={(w: any) => updateGunlimboConfig({ strokeWidth: typeof w === "function" ? w(gunlimboConfig.strokeWidth) : w })}
+            jabStrokeColor={gunlimboConfig.strokeColor}
+            setJabStrokeColor={(sc: any) => updateGunlimboConfig({ strokeColor: typeof sc === "function" ? sc(gunlimboConfig.strokeColor) : sc })}
+            jabShadow={gunlimboConfig.shadowEnabled}
+            setJabShadow={(sh: any) => updateGunlimboConfig({ shadowEnabled: typeof sh === "function" ? sh(gunlimboConfig.shadowEnabled) : sh })}
+            jabShadowBlur={gunlimboConfig.shadowBlur}
+            setJabShadowBlur={(sb: any) => updateGunlimboConfig({ shadowBlur: typeof sb === "function" ? sb(gunlimboConfig.shadowBlur) : sb })}
             layoutTemplateMode={blueprint.archetype}
             gunlimboConfig={gunlimboConfig}
             setGunlimboConfig={updateGunlimboConfig}
@@ -385,15 +445,15 @@ export const SovereignMasterInspector: React.FC<SovereignMasterInspectorProps> =
         {/* ── 5. 💬 댓글 카드 탭 (CommentCardInspectorForm) ── */}
         {activeInspectorTab === "commentCard" && (
           <CommentCardInspectorForm
-            hasCommentCard={true}
-            setHasCommentCard={() => {}}
+            hasCommentCard={hasCommentCard}
+            setHasCommentCard={setHasCommentCard}
             commentCard={commentCardConfig}
             setCommentCard={updateCommentCardConfig}
           />
         )}
 
-        {/* ── 6. 📜 썰형 헤더 / 메타 / 구분선 / 제목 탭 (SsulObjectInspectorForm) ── */}
-        {["ssulHeader", "metadata", "divider", "postTitle"].includes(activeInspectorTab) && (
+        {/* ── 6. 📜 썰형 헤더 / 메타 / 구분선 탭 (SsulObjectInspectorForm) ── */}
+        {["ssulHeader", "metadata", "divider"].includes(activeInspectorTab) && (
           <SsulObjectInspectorForm
             mode={activeInspectorTab as any}
             ssulConfig={ssulConfig}
@@ -413,22 +473,49 @@ export const SovereignMasterInspector: React.FC<SovereignMasterInspectorProps> =
         {activeInspectorTab === "sourceCredit" && (
           <TitleSourceInspectorForm
             mode="sourceCredit"
-            hasBottomSource={true}
-            setHasBottomSource={() => {}}
-            bottomSourceText="출처: 온라인 커뮤니티"
-            setBottomSourceText={() => {}}
-            bottomSourceColor="#CBD5E1"
-            setBottomSourceColor={() => {}}
-            bottomSourceSizePx={12}
-            setBottomSourceSizePx={() => {}}
-            bottomSourceFontFamily="Pretendard"
-            setBottomSourceFontFamily={() => {}}
-            bottomSourceBold={false}
-            setBottomSourceBold={() => {}}
-            bottomSourceItalic={false}
-            setBottomSourceItalic={() => {}}
-            bottomSourceAlign="center"
-            setBottomSourceAlign={() => {}}
+            hasBottomSource={hasBottomSource}
+            setHasBottomSource={setHasBottomSource}
+            bottomSourceText={sourceCreditConfig.bottomSourceText}
+            setBottomSourceText={(t: string) => updateSourceCreditConfig({ bottomSourceText: t })}
+            bottomSourceColor={sourceCreditConfig.bottomSourceColor}
+            setBottomSourceColor={(c: string) => updateSourceCreditConfig({ bottomSourceColor: c })}
+            bottomSourceSizePx={sourceCreditConfig.bottomSourceSizePx}
+            setBottomSourceSizePx={(s: number) => updateSourceCreditConfig({ bottomSourceSizePx: s })}
+            bottomSourceFontFamily={sourceCreditConfig.bottomSourceFontFamily}
+            setBottomSourceFontFamily={(f: string) => updateSourceCreditConfig({ bottomSourceFontFamily: f })}
+            bottomSourceBold={sourceCreditConfig.bottomSourceBold}
+            setBottomSourceBold={(b: boolean) => updateSourceCreditConfig({ bottomSourceBold: b })}
+            bottomSourceItalic={sourceCreditConfig.bottomSourceItalic}
+            setBottomSourceItalic={(it: boolean) => updateSourceCreditConfig({ bottomSourceItalic: it })}
+            bottomSourceAlign={sourceCreditConfig.bottomSourceAlign}
+            setBottomSourceAlign={(a: any) => updateSourceCreditConfig({ bottomSourceAlign: a })}
+          />
+        )}
+
+        {/* ── 8-1. 🏛️ 상하단바 탭 (TitleSourceInspectorForm mode="topBottomBar") ── */}
+        {activeInspectorTab === "topBottomBar" && (
+          <TitleSourceInspectorForm
+            mode="topBottomBar"
+            hasTopBarBg={topBottomBarConfig.hasTopBarBg}
+            setHasTopBarBg={(v: boolean) => updateTopBottomBarConfig({ hasTopBarBg: v })}
+            topBarHeightPct={topBottomBarConfig.topBarHeightPct}
+            setTopBarHeightPct={(h: number) => updateTopBottomBarConfig({ topBarHeightPct: h })}
+            topBarBg={topBottomBarConfig.topBarBg}
+            setTopBarBg={(c: string) => updateTopBottomBarConfig({ topBarBg: c })}
+            topBarOpacity={topBottomBarConfig.topBarOpacity}
+            setTopBarOpacity={(o: number) => updateTopBottomBarConfig({ topBarOpacity: o })}
+            topBarRadius={topBottomBarConfig.topBarRadius}
+            setTopBarRadius={(r: number) => updateTopBottomBarConfig({ topBarRadius: r })}
+            hasBottomBarBg={topBottomBarConfig.hasBottomBarBg}
+            setHasBottomBarBg={(v: boolean) => updateTopBottomBarConfig({ hasBottomBarBg: v })}
+            bottomBarHeightPct={topBottomBarConfig.bottomBarHeightPct}
+            setBottomBarHeightPct={(h: number) => updateTopBottomBarConfig({ bottomBarHeightPct: h })}
+            bottomBarBg={topBottomBarConfig.bottomBarBg}
+            setBottomBarBg={(c: string) => updateTopBottomBarConfig({ bottomBarBg: c })}
+            bottomBarOpacity={topBottomBarConfig.bottomBarOpacity}
+            setBottomBarOpacity={(o: number) => updateTopBottomBarConfig({ bottomBarOpacity: o })}
+            bottomBarRadius={topBottomBarConfig.bottomBarRadius}
+            setBottomBarRadius={(r: number) => updateTopBottomBarConfig({ bottomBarRadius: r })}
           />
         )}
 
@@ -438,12 +525,25 @@ export const SovereignMasterInspector: React.FC<SovereignMasterInspectorProps> =
             layoutTemplateMode={blueprint.archetype}
             instaConfig={instaConfig}
             setInstaConfig={updateInstaConfig}
+            videoFitMode={videoCropConfig.fitMode as any}
+            setVideoFitMode={(m: any) => updateVideoCropConfig({ fitMode: m })}
+            videoBlurBg={videoCropConfig.blurBg}
+            setVideoBlurBg={(b: boolean) => updateVideoCropConfig({ blurBg: b })}
+            videoFocusXPct={videoCropConfig.focusXPct}
+            setVideoFocusXPct={(x: number) => updateVideoCropConfig({ focusXPct: x })}
+            videoFocusYPct={videoCropConfig.focusYPct}
+            setVideoFocusYPct={(y: number) => updateVideoCropConfig({ focusYPct: y })}
+            videoZoomScale={videoCropConfig.zoomScale}
+            setVideoZoomScale={(z: number) => updateVideoCropConfig({ zoomScale: z })}
           />
         )}
 
         {/* ── 10. 🎬 영상 연출 필터 탭 (FilterFxInspectorForm) ── */}
         {activeInspectorTab === "filterFx" && (
-          <FilterFxInspectorForm />
+          <FilterFxInspectorForm
+            videoFilter={videoFilterConfig}
+            setVideoFilter={updateVideoFilterConfig}
+          />
         )}
 
         {/* ── 11. ➕ 무한 레이어 확장 도구 바 (항상 하단에 배치) ── */}

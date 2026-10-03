@@ -6,6 +6,7 @@ export interface DomTransformGizmoOverlayProps {
   canvasScale: number; // 뷰포트 확대 축소 비율 (화면 픽셀 / 1080)
   onTransformChange: (newTransform: TransformSpec) => void;
   onTextContentChange?: (newContent: string) => void;
+  onDoubleClick?: () => void;
   otherLayers?: LayerObject[];
   disabled?: boolean;
 }
@@ -30,6 +31,7 @@ export const DomTransformGizmoOverlay: React.FC<DomTransformGizmoOverlayProps> =
   canvasScale,
   onTransformChange,
   onTextContentChange,
+  onDoubleClick,
   otherLayers = [],
   disabled = false,
 }) => {
@@ -216,8 +218,11 @@ export const DomTransformGizmoOverlay: React.FC<DomTransformGizmoOverlayProps> =
     window.addEventListener("mouseup", handleMouseUp);
   };
 
-  const handleDoubleClick = () => {
-    if (selectedLayer.kind === "text") {
+  const handleDoubleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onDoubleClick) {
+      onDoubleClick();
+    } else if (selectedLayer.kind === "text") {
       setIsInlineEditing(true);
     }
   };

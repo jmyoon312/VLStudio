@@ -402,4 +402,161 @@ class MontageAgentBridge:
         }
 
 
+    @classmethod
+    def generate_fps_free_cut_table(
+        cls,
+        sentences: List[Dict[str, Any]],
+        source_media_path: Optional[str] = None,
+        safety_margin_ms: int = 100,
+        source_id_prefix: str = "S"
+    ) -> Dict[str, Any]:
+        """
+        [지침서 V6.0: FPS-Free 다이내믹 멀티-컷 편집 프로토콜 (ULTIMATE INTEGRITY VER.)]
+        - 제0-0원칙: 데이터 무결성 삼위일체 ([소스 ID] + [타임코드 MM:SS.ms] + [장면 내용])
+        - 제0-1원칙: 절대 시간(Time-Absolute) 및 ±100ms 안전 마진
+        - 제0-2원칙: 1문장 2컷 시각적 밀도 의무화 (2.5초 이상 문장 (a) 앵커 컷 + (b) 충격/자료 컷)
+        """
+        def _ms_to_mmss_ms(ms: int) -> str:
+            total_sec = ms / 1000.0
+            m = int(total_sec // 60)
+            s = total_sec % 60
+            return f"{m:02d}:{s:06.3f}"
+
+        current_timeline_ms = 0
+        scenes = []
+        cut_table_rows = []
+
+        for idx, sent in enumerate(sentences):
+            sent_text = sent.get("text", "").strip()
+            dur_s = float(sent.get("target_duration_s") or 3.0)
+            dur_ms = int(dur_s * 1000)
+            role = sent.get("role", "narrative" if idx > 0 else "0s_hook")
+
+            # 1문장 2컷 분절 판단 (2.5초 이상이면 (a)/(b) 분절)
+            if dur_ms >= 2500:
+                cut_a_ms = int(dur_ms * 0.6)
+                cut_b_ms = dur_ms - cut_a_ms
+
+                # (a) 앵커 컷
+                source_id_a = f"[{source_id_prefix}-{len(scenes)+1:02d}a]"
+                start_a = current_timeline_ms
+                end_a = start_a + cut_a_ms
+                safe_in_a = max(0, start_a - safety_margin_ms)
+                safe_out_a = end_a + safety_margin_ms
+
+                scene_a = {
+                    "sceneId": f"scene_{len(scenes)+1:02d}",
+                    "order": len(scenes),
+                    "sourceId": source_id_a,
+                    "nanoPart": "a",
+                    "role": role if idx == 0 else "anchor",
+                    "startMs": start_a,
+                    "endMs": end_a,
+                    "targetDurationMs": cut_a_ms,
+                    "actualDurationMs": cut_a_ms,
+                    "safeInTimeMs": safe_in_a,
+                    "safeOutTimeMs": safe_out_a,
+                    "timeRangeStr": f"{_ms_to_mmss_ms(start_a)} ~ {_ms_to_mmss_ms(end_a)}",
+                    "scriptText": sent_text,
+                    "sceneActionDesc": f"{sent_text[:18]}... (앵커 피사체 직타 컷)",
+                    "mediaAssetId": f"src_{len(scenes)+1:02d}a",
+                    "mediaUrl": f"/api/files/stream?path={source_media_path}" if source_media_path else None,
+                    "motion": {"type": "zoom_in", "strength": 0.12},
+                    "words": []
+                }
+                scenes.append(scene_a)
+                cut_table_rows.append({
+                    "cutId": scene_a["sceneId"],
+                    "sourceId": source_id_a,
+                    "timeRange": scene_a["timeRangeStr"],
+                    "nanoPart": "a",
+                    "narration": sent_text
+                })
+
+                # (b) 충격/자료 컷
+                source_id_b = f"[{source_id_prefix}-{len(scenes)+1:02d}b]"
+                start_b = end_a
+                end_b = start_b + cut_b_ms
+                safe_in_b = max(0, start_b - safety_margin_ms)
+                safe_out_b = end_b + safety_margin_ms
+
+                scene_b = {
+                    "sceneId": f"scene_{len(scenes)+1:02d}",
+                    "order": len(scenes),
+                    "sourceId": source_id_b,
+                    "nanoPart": "b",
+                    "role": "shock_broll",
+                    "startMs": start_b,
+                    "endMs": end_b,
+                    "targetDurationMs": cut_b_ms,
+                    "actualDurationMs": cut_b_ms,
+                    "safeInTimeMs": safe_in_b,
+                    "safeOutTimeMs": safe_out_b,
+                    "timeRangeStr": f"{_ms_to_mmss_ms(start_b)} ~ {_ms_to_mmss_ms(end_b)}",
+                    "scriptText": sent_text,
+                    "sceneActionDesc": f"{sent_text[:18]}... (충격 리액션/증거 자료 컷)",
+                    "mediaAssetId": f"src_{len(scenes)+1:02d}b",
+                    "mediaUrl": f"/api/files/stream?path={source_media_path}" if source_media_path else None,
+                    "motion": {"type": "pan_left", "strength": 0.08},
+                    "words": []
+                }
+                scenes.append(scene_b)
+                cut_table_rows.append({
+                    "cutId": scene_b["sceneId"],
+                    "sourceId": source_id_b,
+                    "timeRange": scene_b["timeRangeStr"],
+                    "nanoPart": "b",
+                    "narration": sent_text
+                })
+
+                current_timeline_ms = end_b
+            else:
+                # 단일 컷
+                source_id = f"[{source_id_prefix}-{len(scenes)+1:02d}]"
+                start = current_timeline_ms
+                end = start + dur_ms
+                safe_in = max(0, start - safety_margin_ms)
+                safe_out = end + safety_margin_ms
+
+                scene = {
+                    "sceneId": f"scene_{len(scenes)+1:02d}",
+                    "order": len(scenes),
+                    "sourceId": source_id,
+                    "nanoPart": "a",
+                    "role": role,
+                    "startMs": start,
+                    "endMs": end,
+                    "targetDurationMs": dur_ms,
+                    "actualDurationMs": dur_ms,
+                    "safeInTimeMs": safe_in,
+                    "safeOutTimeMs": safe_out,
+                    "timeRangeStr": f"{_ms_to_mmss_ms(start)} ~ {_ms_to_mmss_ms(end)}",
+                    "scriptText": sent_text,
+                    "sceneActionDesc": f"{sent_text[:18]}... (스피드 직타 컷)",
+                    "mediaAssetId": f"src_{len(scenes)+1:02d}",
+                    "mediaUrl": f"/api/files/stream?path={source_media_path}" if source_media_path else None,
+                    "motion": {"type": "zoom_in", "strength": 0.10},
+                    "words": []
+                }
+                scenes.append(scene)
+                cut_table_rows.append({
+                    "cutId": scene["sceneId"],
+                    "sourceId": source_id,
+                    "timeRange": scene["timeRangeStr"],
+                    "nanoPart": "a",
+                    "narration": sent_text
+                })
+                current_timeline_ms = end
+
+        return {
+            "protocol": "FPS-Free v6.0 Dynamic Multi-Cut Protocol",
+            "safetyMarginMs": safety_margin_ms,
+            "visualDensityRule": "1_SENTENCE_2_CUTS_MANDATORY",
+            "totalScenesCount": len(scenes),
+            "totalDurationMs": current_timeline_ms,
+            "scenes": scenes,
+            "cutTable": cut_table_rows
+        }
+
+
 montage_agent_bridge = MontageAgentBridge()

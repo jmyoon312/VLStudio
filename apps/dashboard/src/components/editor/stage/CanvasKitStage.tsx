@@ -22,6 +22,7 @@ import {
   DividerFloatingInspector,
   SsulSubtitleFloatingInspector,
 } from "../../canvas/floating";
+import { MemeAvatar } from "@/components/memeAssets";
 import { Maximize2, ZoomIn, ZoomOut, Check, ChevronDown } from "lucide-react";
 
 export interface CanvasKitStageProps {
@@ -472,6 +473,26 @@ export const CanvasKitStage: React.FC<CanvasKitStageProps> = ({
           {/* 글로벌 레이어 렌더링 */}
           {blueprint.globalLayers.map((layer) => {
             if (layer.hidden) return null;
+
+            // 합성 카드에 내장된 텍스트 서브레이어는 중복 렌더링 방지
+            const hasProfileHeader = blueprint.globalLayers.some((l) => l.id.includes("profile_header"));
+            if (hasProfileHeader && layer.id.includes("profile_text")) return null;
+
+            const hasCommentCard = blueprint.globalLayers.some((l) => l.id.includes("comment_card"));
+            if (hasCommentCard && (layer.id.includes("comment_body") || layer.id.includes("comment_meta"))) return null;
+
+            const hasHookBand = blueprint.globalLayers.some((l) => l.id.includes("hook_band"));
+            if (hasHookBand && layer.id.includes("hook_text")) return null;
+
+            const hasHeaderBar = blueprint.globalLayers.some((l) => l.id.includes("header_bar"));
+            if (hasHeaderBar && layer.id.includes("header_title")) return null;
+
+            const hasArticleCard = blueprint.globalLayers.some((l) => l.id.includes("article_card"));
+            if (hasArticleCard && (layer.id.includes("article_title") || layer.id.includes("article_meta"))) return null;
+
+            const hasMemeFrame = blueprint.globalLayers.some((l) => l.id.includes("meme_frame"));
+            if (hasMemeFrame && layer.id.includes("meme_caption")) return null;
+
             const t = layer.transform;
             const isSelected = layer.id === selectedLayerId;
             const isSubtitle = (layer as any).textRole === "subtitle_narrative" || layer.id.includes("subtitle");
@@ -507,7 +528,204 @@ export const CanvasKitStage: React.FC<CanvasKitStageProps> = ({
                   opacity: layer.opacity,
                 }}
               >
-                {layer.kind === "text" && (() => {
+                {/* 1. 📸 인스타 프로필 카드 렌더러 */}
+                {layer.id.includes("profile_header") && (
+                  <div
+                    className="w-full h-full flex items-center px-4 justify-between bg-white text-zinc-900 border border-zinc-200/80 shadow-md select-none"
+                    style={{ borderRadius: `${((layer as any).borderRadius || 20) * scale}px` }}
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <img
+                        src={sovereign?.instaConfig?.profileAvatarUrl || "https://api.dicebear.com/9.x/fun-emoji/svg?seed=humor"}
+                        alt="profile"
+                        className="rounded-full object-cover border border-zinc-200 shrink-0"
+                        style={{ width: `${44 * scale}px`, height: `${44 * scale}px` }}
+                      />
+                      <div className="flex items-center gap-1.5 font-bold truncate" style={{ fontSize: `${24 * scale}px` }}>
+                        <span className="truncate">{sovereign?.instaConfig?.profileHandle || "@viral_shorts"}</span>
+                        <span className="text-blue-500 font-extrabold" style={{ fontSize: `${20 * scale}px` }}>✓</span>
+                      </div>
+                    </div>
+                    <div
+                      className="px-3 py-1 bg-blue-600 text-white font-bold rounded-lg shrink-0 shadow-xs"
+                      style={{ fontSize: `${18 * scale}px` }}
+                    >
+                      + 팔로우
+                    </div>
+                  </div>
+                )}
+
+                {/* 2. 💬 인스타 / 커뮤니티 베댓 카드 렌더러 */}
+                {layer.id.includes("comment_card") && (
+                  <div
+                    className="w-full h-full flex flex-col justify-between p-4 bg-white text-zinc-900 border border-zinc-200 shadow-lg select-none"
+                    style={{
+                      borderRadius: `${((layer as any).borderRadius || 20) * scale}px`,
+                      backgroundColor: (layer as any).fillColor || sovereign?.commentCardConfig?.bgColor || "#FFFFFF",
+                    }}
+                  >
+                    <div className="flex items-start gap-3 min-w-0">
+                      <img
+                        src={sovereign?.commentCardConfig?.avatarUrl || "https://api.dicebear.com/9.x/fun-emoji/svg?seed=creator"}
+                        alt="commenter"
+                        className="rounded-full object-cover border border-zinc-200 shrink-0"
+                        style={{ width: `${42 * scale}px`, height: `${42 * scale}px` }}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 font-bold text-zinc-800" style={{ fontSize: `${20 * scale}px` }}>
+                          <span className="truncate">{sovereign?.commentCardConfig?.author || "스마트쇼츠_크리에이터"}</span>
+                          <span className="text-zinc-400 font-normal shrink-0" style={{ fontSize: `${16 * scale}px` }}>
+                            {sovereign?.commentCardConfig?.timeText || "방금 전"}
+                          </span>
+                        </div>
+                        <div className="font-semibold text-zinc-900 mt-1 line-clamp-2 leading-snug" style={{ fontSize: `${24 * scale}px` }}>
+                          {sovereign?.commentCardConfig?.text || "이거 보고 제 인생이 바뀌었습니다 ㄷㄷ"}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between text-zinc-500 pt-2 border-t border-zinc-100" style={{ fontSize: `${18 * scale}px` }}>
+                      <span className="font-medium text-zinc-400">답글 1,420개 보기</span>
+                      <div className="flex items-center gap-1.5 font-bold text-red-500">
+                        <span>❤️</span>
+                        <span>{sovereign?.commentCardConfig?.likes || "1.4만"}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* 3. 🎯 군림보 100% 와이드 훅 밴드 렌더러 */}
+                {layer.id.includes("hook_band") && (
+                  <div
+                    className="w-full h-full flex items-center justify-center shadow-xl border-y border-white/30 select-none px-4"
+                    style={{
+                      backgroundColor: sovereign?.gunlimboConfig?.hookBgColor || (layer as any).fillColor || "#FFFFFF",
+                      borderRadius: `${((layer as any).borderRadius || 0) * scale}px`,
+                    }}
+                  >
+                    <span
+                      className="font-black tracking-tight select-none uppercase truncate text-center"
+                      style={{
+                        color: sovereign?.gunlimboConfig?.hookTextColor || "#000000",
+                        fontSize: `${(sovereign?.gunlimboConfig?.hookFontSize || 42) * scale}px`,
+                        fontFamily: resolveFontFamily(sovereign?.gunlimboConfig?.hookFont || "Pretendard"),
+                        lineHeight: 1.15,
+                      }}
+                    >
+                      {sovereign?.gunlimboConfig?.hookPhrase || "⚡ 0초 시선강탈 훅 카피가 여기에 들어갑니다"}
+                    </span>
+                  </div>
+                )}
+
+                {/* 4. 📜 썰형 상단 커뮤니티 헤더바 렌더러 */}
+                {layer.id.includes("header_bar") && (
+                  <div
+                    className="w-full h-full flex items-center justify-between px-6 font-bold shadow-md select-none"
+                    style={{
+                      backgroundColor: sovereign?.ssulConfig?.ssulHeader?.bgColor || (layer as any).fillColor || "#F7CF46",
+                      color: sovereign?.ssulConfig?.ssulHeader?.textColor || "#18181B",
+                      fontSize: `${28 * scale}px`,
+                    }}
+                  >
+                    <span className="text-xl">←</span>
+                    <span className="font-extrabold tracking-tight">
+                      🔥 {sovereign?.ssulConfig?.ssulHeader?.text || "실시간 베스트"}
+                    </span>
+                    <span className="text-xl">⋮</span>
+                  </div>
+                )}
+
+                {/* 5. 📜 썰형 게시글 메타 카드 렌더러 */}
+                {layer.id.includes("article_card") && (
+                  <div
+                    className="w-full h-full p-5 flex flex-col justify-between rounded-2xl border shadow-lg select-none"
+                    style={{
+                      backgroundColor: (layer as any).fillColor || "#1E293B",
+                      borderColor: "#334155",
+                      borderRadius: `${16 * scale}px`,
+                    }}
+                  >
+                    <div className="font-extrabold text-white truncate" style={{ fontSize: `${30 * scale}px` }}>
+                      {sovereign?.titleConfig?.titleLine1 || "오늘자 역대급 실화 사건 🔥"}
+                    </div>
+                    <div className="flex items-center justify-between text-zinc-400 font-medium" style={{ fontSize: `${20 * scale}px` }}>
+                      <span>
+                        {sovereign?.ssulConfig?.metadata?.authorText || "익명"} • {sovereign?.ssulConfig?.metadata?.timeText || "10분 전"} • {sovereign?.ssulConfig?.metadata?.viewsText || "조회 3.8만"}
+                      </span>
+                      <span className="p-1 hover:bg-zinc-700/50 rounded cursor-pointer" title="랜덤 메타 갱신">🎲</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* 6. 🐸 썰형 페페/이라스토야 밈 리액션 짤 렌더러 */}
+                {layer.id.includes("meme_frame") && (
+                  <div
+                    className="w-full h-full flex flex-col items-center justify-center p-3 rounded-2xl border border-zinc-700 bg-zinc-900/90 shadow-xl overflow-hidden select-none"
+                    style={{ borderRadius: `${20 * scale}px` }}
+                  >
+                    <MemeAvatar
+                      type={sovereign?.ssulConfig?.memeType || "pepe"}
+                      emotion={sovereign?.ssulConfig?.memeEmotion || "happy"}
+                      aliveMotion={sovereign?.ssulConfig?.memeAliveMotion ?? true}
+                      size={Math.min(t.width, t.height) * scale * 0.72}
+                    />
+                    <span className="text-zinc-400 font-bold mt-1" style={{ fontSize: `${18 * scale}px` }}>
+                      {sovereign?.ssulConfig?.memeType === "pepe" ? "🐸 개구리 페페" : "✨ 이라스토야"}
+                    </span>
+                  </div>
+                )}
+
+                {/* 7. 👑 군림보/일반 2줄 대제목 (속보 배지 포함) 렌더러 */}
+                {layer.kind === "text" && (layer.id.includes("breaking") || layer.id.includes("title")) && (
+                  <div className="w-full h-full flex flex-col items-center justify-center text-center select-none">
+                    {sovereign?.titleConfig?.hasTitleBadge && (
+                      <span
+                        className="font-black px-3 py-1 uppercase tracking-wider mb-2 shadow-xs inline-block leading-tight select-none border border-white/20"
+                        style={{
+                          backgroundColor: sovereign?.titleConfig?.titleBadgeBg || "#EF4444",
+                          color: sovereign?.titleConfig?.titleBadgeColor || "#FFFFFF",
+                          fontSize: `${(sovereign?.titleConfig?.titleBadgeSizePx || 14) * scale}px`,
+                          borderRadius: `${(sovereign?.titleConfig?.titleBadgeRadius ?? 4) * scale}px`,
+                        }}
+                      >
+                        {sovereign?.titleConfig?.titleBadgeText || "속보"}
+                      </span>
+                    )}
+                    <span
+                      style={{
+                        fontSize: `${(sovereign?.titleConfig?.titleLine1SizePx || 38) * scale}px`,
+                        color: sovereign?.titleConfig?.titleLine1Color || "#FFFFFF",
+                        fontFamily: resolveFontFamily(sovereign?.titleConfig?.titleFontFamily || "Pretendard"),
+                        fontWeight: 900,
+                        WebkitTextStroke: sovereign?.titleConfig?.titleStroke ? `${(sovereign?.titleConfig?.titleStrokeWidth || 2) * scale}px ${sovereign?.titleConfig?.titleStrokeColor || "#000"}` : "none",
+                        textShadow: sovereign?.titleConfig?.titleShadow ? `0 2px ${(sovereign?.titleConfig?.titleShadowBlur || 8) * scale}px ${sovereign?.titleConfig?.titleShadowColor || "#000"}` : "none",
+                        lineHeight: sovereign?.titleConfig?.titleLineHeight || 1.15,
+                        display: "block",
+                      }}
+                    >
+                      {sovereign?.titleConfig?.titleLine1 || "충격 실화 사건"}
+                    </span>
+                    {sovereign?.titleConfig?.titleLinesMode === "double" && sovereign?.titleConfig?.titleLine2 && (
+                      <span
+                        style={{
+                          fontSize: `${(sovereign?.titleConfig?.titleLine2SizePx || 48) * scale}px`,
+                          color: sovereign?.titleConfig?.titleLine2Color || "#FFE500",
+                          fontFamily: resolveFontFamily(sovereign?.titleConfig?.titleFontFamily || "Pretendard"),
+                          fontWeight: 900,
+                          WebkitTextStroke: sovereign?.titleConfig?.titleStroke ? `${(sovereign?.titleConfig?.titleStrokeWidth || 2) * scale}px ${sovereign?.titleConfig?.titleStrokeColor || "#000"}` : "none",
+                          textShadow: sovereign?.titleConfig?.titleShadow ? `0 2px ${(sovereign?.titleConfig?.titleShadowBlur || 8) * scale}px ${sovereign?.titleConfig?.titleShadowColor || "#000"}` : "none",
+                          lineHeight: sovereign?.titleConfig?.titleLineHeight || 1.15,
+                          display: "block",
+                          marginTop: `${4 * scale}px`,
+                        }}
+                      >
+                        {sovereign?.titleConfig?.titleLine2}
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                {/* 8. 🔤 표준 텍스트 레이어 렌더러 (자막, 출처, 일반 텍스트) */}
+                {layer.kind === "text" && !layer.id.includes("breaking") && !layer.id.includes("title") && (() => {
                   const content = isSubtitle && (isPlaying || studioMode === "nle") && activeWord
                     ? activeWord.word
                     : ((layer as any).content || "");
@@ -516,17 +734,6 @@ export const CanvasKitStage: React.FC<CanvasKitStageProps> = ({
                   const hasMultiStyles = multiStyles.length > 0 && lines.length > 1;
 
                   const rawFont = (layer as any).fontFamily || "";
-                  const isDoHyeon =
-                    rawFont.toLowerCase().includes("dohyeon") ||
-                    rawFont.toLowerCase().includes("do hyeon") ||
-                    rawFont.includes("도현");
-                  const resolvedLetterSpacing = isDoHyeon
-                    ? Math.max(0, (layer as any).letterSpacing || 0)
-                    : ((layer as any).letterSpacing || 0);
-                  const resolvedLineHeight = isDoHyeon
-                    ? Math.max(1.3, (layer as any).lineHeight || 1.3)
-                    : ((layer as any).lineHeight || 1.2);
-
                   const strokeWidth = (layer as any).stroke?.width || 0;
                   const strokeColor = (layer as any).stroke?.color || "#000000";
                   const shadow = (layer as any).shadow;
@@ -553,8 +760,8 @@ export const CanvasKitStage: React.FC<CanvasKitStageProps> = ({
                       }`}
                       style={{
                         fontFamily: resolveFontFamily(rawFont),
-                        letterSpacing: `${resolvedLetterSpacing * scale}px`,
-                        lineHeight: resolvedLineHeight,
+                        letterSpacing: `${((layer as any).letterSpacing || 0) * scale}px`,
+                        lineHeight: (layer as any).lineHeight || 1.2,
                         paintOrder: "stroke fill",
                         backgroundColor: (layer as any).backgroundColor || "transparent",
                         borderRadius: `${((layer as any).borderRadius || 0) * scale}px`,
@@ -602,7 +809,15 @@ export const CanvasKitStage: React.FC<CanvasKitStageProps> = ({
                     </div>
                   );
                 })()}
-                {layer.kind === "shape" && (
+
+                {/* 9. 🎨 표준 쉐이프 레이어 (특수 카드가 아닌 일반 쉐이프 / 홀 마스크) */}
+                {layer.kind === "shape" &&
+                  !layer.id.includes("profile_header") &&
+                  !layer.id.includes("comment_card") &&
+                  !layer.id.includes("hook_band") &&
+                  !layer.id.includes("header_bar") &&
+                  !layer.id.includes("article_card") &&
+                  !layer.id.includes("meme_frame") && (
                   <div
                     className="w-full h-full flex items-center justify-center text-center overflow-hidden"
                     style={{
@@ -635,7 +850,7 @@ export const CanvasKitStage: React.FC<CanvasKitStageProps> = ({
             />
           )}
 
-          {/* 키네틱 자막 실시간 하이라이트 (자막 레이어가 없는 특수 케이스에만 독립 렌더링) */}
+          {/* 키네틱 자막 실시간 하이라이트 */}
           {activeWord && (isPlaying || studioMode === "nle") && !blueprint.globalLayers.some(l => (l as any).textRole === "subtitle_narrative" || l.id.includes("subtitle")) && (
             <div
               className="absolute left-1/2 -translate-x-1/2 text-center pointer-events-none z-30"
@@ -658,6 +873,7 @@ export const CanvasKitStage: React.FC<CanvasKitStageProps> = ({
             canvasScale={scale}
             onTransformChange={(newT) => selectedLayer && updateLayerTransform(selectedLayer.id, newT)}
             onTextContentChange={(newC) => selectedLayer && updateLayerContent(selectedLayer.id, newC)}
+            onDoubleClick={() => selectedLayer && sovereign?.handleLayerDoubleClick(selectedLayer)}
             otherLayers={blueprint.globalLayers}
           />
 
@@ -779,19 +995,20 @@ export const CanvasKitStage: React.FC<CanvasKitStageProps> = ({
               isOpen={true}
               onClose={() => sovereign.setActiveFloatingInspector("none")}
               config={{
-                enabled: true,
-                text: "출처: 유튜브 @채널명",
-                color: "#CCCCCC",
-                fontSize: 14,
-                font: "Pretendard",
+                enabled: sovereign.hasBottomSource,
+                text: sovereign.sourceCreditConfig?.bottomSourceText || "출처: 유튜브 @채널명",
+                color: sovereign.sourceCreditConfig?.bottomSourceColor || "#CCCCCC",
+                fontSize: sovereign.sourceCreditConfig?.bottomSourceSizePx || 14,
+                font: sovereign.sourceCreditConfig?.bottomSourceFontFamily || "Pretendard",
                 bgEnabled: true,
                 bgColor: "rgba(0,0,0,0.6)",
                 borderRadius: 4,
                 strokeEnabled: false,
                 strokeColor: "#000000",
                 strokeWidth: 1,
+                ...sovereign.sourceCreditConfig,
               }}
-              onChange={() => {}}
+              onChange={sovereign.updateSourceCreditConfig}
               onReset={() => {}}
             />
           )}
@@ -799,19 +1016,8 @@ export const CanvasKitStage: React.FC<CanvasKitStageProps> = ({
             <TopBottomBarFloatingInspector
               isOpen={true}
               onClose={() => sovereign.setActiveFloatingInspector("none")}
-              config={{
-                hasTopBarBg: true,
-                topBarHeightPct: 18,
-                topBarBg: "#000000",
-                topBarOpacity: 1,
-                topBarRadius: 0,
-                hasBottomBarBg: true,
-                bottomBarHeightPct: 15,
-                bottomBarBg: "#000000",
-                bottomBarOpacity: 1,
-                bottomBarRadius: 0,
-              }}
-              onChange={() => {}}
+              config={sovereign.topBottomBarConfig}
+              onChange={sovereign.updateTopBottomBarConfig}
               onReset={() => {}}
             />
           )}
@@ -819,17 +1025,8 @@ export const CanvasKitStage: React.FC<CanvasKitStageProps> = ({
             <VideoCropFloatingInspector
               isOpen={true}
               onClose={() => sovereign.setActiveFloatingInspector("none")}
-              config={{
-                fitMode: "cover",
-                blurBg: false,
-                zoomScale: 1,
-                focusXPct: 50,
-                focusYPct: 50,
-                rotationDeg: 0,
-                horizontalFlip: false,
-                verticalFlip: false,
-              }}
-              onChange={() => {}}
+              config={sovereign.videoCropConfig}
+              onChange={sovereign.updateVideoCropConfig}
               onReset={() => {}}
               layoutTemplateMode={blueprint.archetype as any}
               instaConfig={sovereign.instaConfig}

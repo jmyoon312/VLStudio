@@ -33,6 +33,7 @@ class ForensicDiagnosis(BaseModel):
     audience_heat: float = Field(0.5, description="0.0 ~ 1.0 댓글 반응/논쟁 온도")
     duplication_risk: float = Field(0.6, description="0.0 ~ 1.0 유튜브 중복 위험도")
     diagnosis_summary: str = ""
+    constitution_v32: Optional[Dict[str, Any]] = Field(default=None, description="채널 헌법 v32.0 정밀 진단 결과")
 
 
 class StrategyPrescription(BaseModel):
@@ -60,10 +61,12 @@ class DeliberativeDirector:
         duration_s: float = 30.0,
         has_video: bool = True,
         comment_insights: Optional[List[Dict[str, Any]]] = None,
-        raw_script: Optional[str] = None
+        raw_script: Optional[str] = None,
+        source_title: str = "",
+        preset_constitution: Optional[Dict[str, Any]] = None
     ) -> ForensicDiagnosis:
         """
-        Executes pre-flight forensic diagnosis on the input source.
+        Executes pre-flight forensic diagnosis on the input source with Constitution v32.0.
         """
         comments = comment_insights or []
         high_like_comments = [c for c in comments if c.get("like_count", 0) > 1000]
@@ -89,13 +92,34 @@ class DeliberativeDirector:
         if not summary:
             summary.append("원본 영상의 서사와 감정선이 자체 완결적임")
 
+        # 5. [채널 헌법 v32.0] 초정밀 5대 마이크로 해부 및 동적 타겟팅 진단 연동
+        constitution_res = None
+        try:
+            from app.services.text_forensic_cloner import TextForensicCloner
+            source_input_dict = {
+                "title": source_title or "첨부 소스 영상",
+                "duration_s": duration_s,
+                "transcript": raw_script or ""
+            }
+            comment_dict = {"top_insights": [c.get("text", "") for c in comments[:5]]} if comments else None
+            constitution_res = TextForensicCloner.diagnose_source_constitution_v32(
+                source_input=source_input_dict,
+                comments_insight=comment_dict,
+                preset_constitution=preset_constitution
+            )
+            if constitution_res:
+                summary.append(f"[동적 타겟팅] {constitution_res.get('dynamic_targeting', {}).get('target_persona', '2030 호기심층')}")
+        except Exception as e:
+            logger.debug(f"[DeliberativeDirector] Constitution diagnosis fallback: {e}")
+
         return ForensicDiagnosis(
             narrative_completeness=completeness,
             hook_strength=hook,
             visual_fidelity=0.85 if has_video else 0.5,
             audience_heat=heat,
             duplication_risk=dup_risk,
-            diagnosis_summary=" / ".join(summary)
+            diagnosis_summary=" / ".join(summary),
+            constitution_v32=constitution_res
         )
 
     def formulate_prescription(
@@ -167,6 +191,32 @@ class DeliberativeDirector:
             ending_treatment="전후 맥락과 3년 뒤 충격 결말을 결합하여 완결",
             reused_content_defense_score=98,
             expected_completion_rate_pct=86
+        )
+
+    def generate_script_from_prescription(
+        self,
+        prescription: StrategyPrescription,
+        preset_data: Dict[str, Any],
+        target_duration_s: float = 35.0
+    ) -> Dict[str, Any]:
+        """
+        프리셋에 보존된 cloned_system_instruction 및 헌법을 주입하여 처방전 기반 대본 생성
+        """
+        from app.services.text_forensic_cloner import TextForensicCloner
+        cloned_sys_prompt = (
+            preset_data.get("cloned_system_instruction")
+            or preset_data.get("script_dna", {}).get("cloned_system_instruction")
+            or preset_data.get("production_bible_17", {}).get("14_recommended_narration_script", {}).get("cloned_system_instruction", "")
+        )
+        constitution = (
+            preset_data.get("script_dna", {}).get("channel_constitution_v32")
+            or preset_data.get("forensic_bible", {}).get("channelConstitution")
+        )
+        return TextForensicCloner.generate_forensic_script(
+            strategy=prescription.dict(),
+            cloned_system_instruction=cloned_sys_prompt,
+            channel_constitution=constitution,
+            target_duration_s=target_duration_s
         )
 
 

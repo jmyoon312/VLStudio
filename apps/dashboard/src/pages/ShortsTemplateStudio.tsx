@@ -20,7 +20,8 @@ import {
   Check, Layout, Type, Crop, Layers3, SlidersHorizontal, MessageCircle, Clock, Play, Pause,
   SkipBack, SkipForward, Repeat, Volume2, VolumeX, Camera, Grid, Shield, Layers, Sparkle,
   Copy, ThumbsUp, FileVideo, Download, Info, ChevronRight, CheckCircle2, AlignLeft, AlignCenter,
-  AlignRight, Bold, Italic, Wand2, FileJson, Upload, Palette, Smartphone, Trash2, FolderOpen
+  AlignRight, Bold, Italic, Wand2, FileJson, Upload, Palette, Smartphone, Trash2, FolderOpen,
+  Plus, Square, Smile
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -298,6 +299,72 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
   const [activeInspectorTab, setActiveInspectorTab] = useState<InspectorSubTabId>('template');
   const [activeMasterGroup, setActiveMasterGroup] = useState<'layout' | 'text' | 'media' | 'viral'>('layout');
   const [activeFloatingInspector, setActiveFloatingInspector] = useState<string>('none');
+
+  // ➕ 무한 확장 사용자 커스텀 레이어 상태
+  const [customLayers, setCustomLayers] = useState<any[]>([]);
+
+  const handleAddNewLayer = (kind: 'text' | 'shape' | 'emoji') => {
+    const newId = `layer_custom_${kind}_${Date.now()}`;
+    if (kind === 'text') {
+      const newLayer = {
+        id: newId,
+        name: `새 텍스트 ${customLayers.filter(l => l.kind === 'text').length + 1}`,
+        kind: 'text',
+        text: '새로운 텍스트 입력',
+        transform: { xPct: 50, yPct: 50, scale: 1, rotationDeg: 0, zIndex: 45 },
+        fontSize: 24,
+        fontFamily: 'Pretendard',
+        color: '#FFE500',
+        bold: true,
+        stroke: true,
+        strokeWidth: 3,
+        strokeColor: '#000000',
+        shadow: true,
+        shadowBlur: 6,
+        shadowColor: 'rgba(0,0,0,0.8)',
+      };
+      setCustomLayers(prev => [...prev, newLayer]);
+    } else if (kind === 'shape') {
+      const newLayer = {
+        id: newId,
+        name: `새 쉐이프 ${customLayers.filter(l => l.kind === 'shape').length + 1}`,
+        kind: 'shape',
+        transform: { xPct: 50, yPct: 50, scale: 1, rotationDeg: 0, zIndex: 40 },
+        widthPx: 260,
+        heightPx: 100,
+        fillColor: '#000000',
+        opacity: 0.85,
+        borderRadius: 8,
+        borderWidth: 2,
+        borderColor: '#3B82F6',
+      };
+      setCustomLayers(prev => [...prev, newLayer]);
+    } else {
+      const newLayer = {
+        id: newId,
+        name: `새 이모지 ${customLayers.filter(l => l.kind === 'emoji').length + 1}`,
+        kind: 'emoji',
+        emoji: '🔥',
+        transform: { xPct: 50, yPct: 50, scale: 1, rotationDeg: 0, zIndex: 45 },
+        fontSize: 48,
+      };
+      setCustomLayers(prev => [...prev, newLayer]);
+    }
+    setSelectedLayerId(newId);
+    setActiveInspectorTab('customLayer' as any);
+  };
+
+  const handleDeleteCustomLayer = (id: string) => {
+    setCustomLayers(prev => prev.filter(l => l.id !== id));
+    if (selectedLayerId === id) {
+      setSelectedLayerId(null);
+      setActiveInspectorTab('template');
+    }
+  };
+
+  const updateActiveCustomLayer = (patch: any) => {
+    setCustomLayers(prev => prev.map(l => l.id === selectedLayerId ? { ...l, ...patch } : l));
+  };
 
   const inspectorGroups = useMemo(() => getInspectorGroupsForMode(layoutTemplateMode), [layoutTemplateMode]);
 
@@ -903,6 +970,48 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
   // 🎯 활성 템플릿 매니페스트 하이드레이션 & 양방향 실시간 동기화 리스너 (SSOT 100% 보장)
   const isInitialModeAppliedRef = useRef(false);
   useEffect(() => {
+    const presetId = searchParams.get('presetId');
+    const templateId = searchParams.get('templateId');
+    const genericId = searchParams.get('id');
+    const queryId = presetId || templateId || genericId;
+
+    if (queryId) {
+      // 1. sovereign-presets 우선 조회
+      api.get(`/sovereign-presets/${encodeURIComponent(queryId)}`)
+        .then((res) => {
+          if (res.data) {
+            const manifest = res.data.manifest || res.data.blueprint || res.data;
+            handleApplyManifest(manifest);
+            toast({ title: '템플릿 로드 완료', description: `'${manifest.name || "프리셋"}'을(를) 성공적으로 불러왔습니다.` });
+          }
+        })
+        .catch(() => {
+          // 2. shorts-templates 차선 조회
+          api.get(`/shorts-templates/${encodeURIComponent(queryId)}`)
+            .then((res) => {
+              if (res.data) {
+                const manifest = res.data.manifest || res.data.blueprint_v4 || res.data;
+                handleApplyManifest(manifest);
+                toast({ title: '템플릿 로드 완료', description: `'${manifest.name || "템플릿"}'을(를) 성공적으로 불러왔습니다.` });
+              }
+            })
+            .catch(() => {
+              // 3. channel-dna/templates 순회
+              api.get(`/channel-dna/templates/${encodeURIComponent(queryId)}`)
+                .then((res) => {
+                  if (res.data?.template?.manifest) {
+                    handleApplyManifest(res.data.template.manifest);
+                  }
+                })
+                .catch((err) => {
+                  console.warn('[ShortsTemplateStudio] Failed to load preset by queryId:', err);
+                });
+            });
+        });
+      isInitialModeAppliedRef.current = true;
+      return;
+    }
+
     const targetMode = sovereignMode || (searchParams.get('mode') as LayoutTemplateMode | null) || 'classic';
 
     // 1. 해당 폼팩터의 공식 마스터 템플릿(사용자 커스텀 마스터 최우선) 즉시 복원
@@ -2959,6 +3068,8 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
               isPlaying={isPlaying}
               activeFloatingInspector={activeFloatingInspector}
               setActiveFloatingInspector={setActiveFloatingInspector}
+              customLayers={customLayers}
+              setCustomLayers={setCustomLayers}
             />
           </div>
 
@@ -3700,6 +3811,296 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
                 </div>
               </div>
             )}
+
+            {/* 🎨 10. 사용자 커스텀 레이어 인스펙터 탭 */}
+            {activeInspectorTab === ('customLayer' as any) && (() => {
+              const activeCustomLayer = customLayers.find(l => l.id === selectedLayerId);
+              if (!activeCustomLayer) {
+                return (
+                  <div className="p-4 text-center text-muted-foreground text-xs">
+                    선택된 커스텀 레이어가 없습니다. 아래에서 새 레이어를 추가하거나 캔버스에서 선택하세요.
+                  </div>
+                );
+              }
+
+              return (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between pb-2 border-b border-border">
+                    <span className="font-bold text-xs flex items-center gap-1.5 text-foreground">
+                      <span>{activeCustomLayer.kind === 'text' ? '🔤' : activeCustomLayer.kind === 'shape' ? '⬛' : '😀'}</span>
+                      <span>{activeCustomLayer.name}</span>
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleDeleteCustomLayer(activeCustomLayer.id)}
+                      className="h-6 text-[10px] text-red-500 hover:text-red-600 hover:bg-red-500/10 px-2 cursor-pointer"
+                    >
+                      <Trash2 className="w-3 h-3 mr-1" />
+                      삭제
+                    </Button>
+                  </div>
+
+                  {/* 레이어 이름 */}
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-semibold text-muted-foreground">레이어 이름</label>
+                    <Input
+                      value={activeCustomLayer.name}
+                      onChange={(e) => updateActiveCustomLayer({ name: e.target.value })}
+                      className="h-7 text-xs"
+                    />
+                  </div>
+
+                  {/* 텍스트 레이어 속성 */}
+                  {activeCustomLayer.kind === 'text' && (
+                    <div className="space-y-3">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-semibold text-muted-foreground">텍스트 내용</label>
+                        <Textarea
+                          value={activeCustomLayer.text || ''}
+                          onChange={(e) => updateActiveCustomLayer({ text: e.target.value })}
+                          className="text-xs min-h-[60px]"
+                          placeholder="텍스트 입력"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-[10px] font-semibold text-muted-foreground">글자 크기 ({activeCustomLayer.fontSize || 24}px)</label>
+                          <Slider
+                            value={[activeCustomLayer.fontSize || 24]}
+                            min={12}
+                            max={72}
+                            step={1}
+                            onValueChange={([val]) => updateActiveCustomLayer({ fontSize: val })}
+                            className="mt-1"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-semibold text-muted-foreground">글자 색상</label>
+                          <div className="flex items-center gap-1.5 mt-1">
+                            <input
+                              type="color"
+                              value={activeCustomLayer.color || '#FFE500'}
+                              onChange={(e) => updateActiveCustomLayer({ color: e.target.value })}
+                              className="w-7 h-7 rounded border border-border cursor-pointer bg-transparent"
+                            />
+                            <span className="text-[11px] font-mono">{activeCustomLayer.color || '#FFE500'}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-semibold text-muted-foreground">폰트</label>
+                        <select
+                          value={activeCustomLayer.fontFamily || 'Pretendard'}
+                          onChange={(e) => updateActiveCustomLayer({ fontFamily: e.target.value })}
+                          className="w-full h-7 text-xs bg-background border border-border rounded px-2 mt-1 cursor-pointer"
+                        >
+                          <option value="Pretendard">Pretendard (깔끔한 고딕)</option>
+                          <option value="Black Han Sans">Black Han Sans (임팩트 볼드)</option>
+                          <option value="Do Hyeon">Do Hyeon (도현체)</option>
+                          <option value="Nanum Gothic">Nanum Gothic (나눔고딕)</option>
+                          <option value="Jua">Jua (주아체 - 귀여운)</option>
+                          <option value="Gowun Dodum">Gowun Dodum (고운돋움)</option>
+                        </select>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 쉐이프 박스 속성 */}
+                  {activeCustomLayer.kind === 'shape' && (
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-[10px] font-semibold text-muted-foreground">너비 ({activeCustomLayer.widthPx || 260}px)</label>
+                          <Slider
+                            value={[activeCustomLayer.widthPx || 260]}
+                            min={40}
+                            max={600}
+                            step={5}
+                            onValueChange={([val]) => updateActiveCustomLayer({ widthPx: val })}
+                            className="mt-1"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-semibold text-muted-foreground">높이 ({activeCustomLayer.heightPx || 100}px)</label>
+                          <Slider
+                            value={[activeCustomLayer.heightPx || 100]}
+                            min={20}
+                            max={400}
+                            step={5}
+                            onValueChange={([val]) => updateActiveCustomLayer({ heightPx: val })}
+                            className="mt-1"
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-[10px] font-semibold text-muted-foreground">채우기 색상</label>
+                          <div className="flex items-center gap-1.5 mt-1">
+                            <input
+                              type="color"
+                              value={activeCustomLayer.fillColor || '#000000'}
+                              onChange={(e) => updateActiveCustomLayer({ fillColor: e.target.value })}
+                              className="w-7 h-7 rounded border border-border cursor-pointer bg-transparent"
+                            />
+                            <span className="text-[11px] font-mono">{activeCustomLayer.fillColor || '#000000'}</span>
+                          </div>
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-semibold text-muted-foreground">테두리 색상</label>
+                          <div className="flex items-center gap-1.5 mt-1">
+                            <input
+                              type="color"
+                              value={activeCustomLayer.borderColor || '#3B82F6'}
+                              onChange={(e) => updateActiveCustomLayer({ borderColor: e.target.value })}
+                              className="w-7 h-7 rounded border border-border cursor-pointer bg-transparent"
+                            />
+                            <span className="text-[11px] font-mono">{activeCustomLayer.borderColor || '#3B82F6'}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-[10px] font-semibold text-muted-foreground">모서리 곡률 ({activeCustomLayer.borderRadius ?? 8}px)</label>
+                          <Slider
+                            value={[activeCustomLayer.borderRadius ?? 8]}
+                            min={0}
+                            max={40}
+                            step={1}
+                            onValueChange={([val]) => updateActiveCustomLayer({ borderRadius: val })}
+                            className="mt-1"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-semibold text-muted-foreground">투명도 ({Math.round((activeCustomLayer.opacity ?? 0.85) * 100)}%)</label>
+                          <Slider
+                            value={[Math.round((activeCustomLayer.opacity ?? 0.85) * 100)]}
+                            min={10}
+                            max={100}
+                            step={5}
+                            onValueChange={([val]) => updateActiveCustomLayer({ opacity: val / 100 })}
+                            className="mt-1"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 이모지 속성 */}
+                  {activeCustomLayer.kind === 'emoji' && (
+                    <div className="space-y-3">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-semibold text-muted-foreground">이모지 선택</label>
+                        <div className="flex flex-wrap gap-1.5 p-2 bg-muted/40 rounded border border-border">
+                          {['🔥', '⚡', '📢', '⚠️', '👀', '👇', '🎯', '💯', '✨', '🎬', '🚀', '👑', '💡', '😱', '👍', '❤️'].map((em) => (
+                            <button
+                              key={em}
+                              type="button"
+                              onClick={() => updateActiveCustomLayer({ emoji: em })}
+                              className={cn(
+                                "w-7 h-7 rounded text-base flex items-center justify-center hover:bg-muted cursor-pointer transition",
+                                activeCustomLayer.emoji === em ? "bg-primary/20 ring-1 ring-primary" : ""
+                              )}
+                            >
+                              {em}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-semibold text-muted-foreground">이모지 크기 ({activeCustomLayer.fontSize || 48}px)</label>
+                        <Slider
+                          value={[activeCustomLayer.fontSize || 48]}
+                          min={24}
+                          max={120}
+                          step={2}
+                          onValueChange={([val]) => updateActiveCustomLayer({ fontSize: val })}
+                          className="mt-1"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
+            {/* ➕ 무한 레이어 확장 도구 바 (항상 인스펙터 하단에 상주) */}
+            <div className="p-3 bg-muted/40 rounded-xl border border-border space-y-2 mt-4 shrink-0">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-foreground flex items-center space-x-1.5">
+                  <Plus className="w-3.5 h-3.5 text-primary" />
+                  <span>새 레이어 추가 (무한 확장)</span>
+                </span>
+                <span className="text-[10px] text-muted-foreground font-mono">
+                  {customLayers.length}개 추가됨
+                </span>
+              </div>
+              <p className="text-[11px] text-muted-foreground leading-relaxed">
+                원하는 객체를 자유롭게 추가하여 나만의 커스텀 쇼츠 템플릿을 만듭니다.
+              </p>
+
+              <div className="grid grid-cols-3 gap-1.5 pt-1">
+                <button
+                  type="button"
+                  onClick={() => handleAddNewLayer("text")}
+                  className="py-1.5 px-2 bg-background hover:bg-muted text-foreground border border-border rounded-lg text-xs font-semibold flex items-center justify-center space-x-1 transition-all cursor-pointer shadow-2xs"
+                >
+                  <Type className="w-3.5 h-3.5 text-amber-500" />
+                  <span>텍스트</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleAddNewLayer("shape")}
+                  className="py-1.5 px-2 bg-background hover:bg-muted text-foreground border border-border rounded-lg text-xs font-semibold flex items-center justify-center space-x-1 transition-all cursor-pointer shadow-2xs"
+                >
+                  <Square className="w-3.5 h-3.5 text-blue-500" />
+                  <span>쉐이프 박스</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleAddNewLayer("emoji")}
+                  className="py-1.5 px-2 bg-background hover:bg-muted text-foreground border border-border rounded-lg text-xs font-semibold flex items-center justify-center space-x-1 transition-all cursor-pointer shadow-2xs"
+                >
+                  <Smile className="w-3.5 h-3.5 text-emerald-500" />
+                  <span>이모지</span>
+                </button>
+              </div>
+
+              {/* 추가된 레이어 목록 */}
+              {customLayers.length > 0 && (
+                <div className="space-y-1 pt-2 border-t border-border max-h-36 overflow-y-auto custom-scrollbar">
+                  {customLayers.map((l) => (
+                    <div
+                      key={l.id}
+                      onClick={() => {
+                        setSelectedLayerId(l.id);
+                        setActiveInspectorTab('customLayer' as any);
+                      }}
+                      className={cn(
+                        "p-1.5 rounded-lg border text-xs flex items-center justify-between cursor-pointer transition",
+                        selectedLayerId === l.id ? "bg-primary/10 border-primary text-primary font-bold" : "bg-card border-border hover:bg-muted text-foreground"
+                      )}
+                    >
+                      <span className="flex items-center gap-1.5 truncate">
+                        <span>{l.kind === 'text' ? '🔤' : l.kind === 'shape' ? '⬛' : '😀'}</span>
+                        <span className="truncate">{l.name || l.text || l.emoji}</span>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteCustomLayer(l.id);
+                        }}
+                        className="p-1 hover:text-red-500 text-muted-foreground cursor-pointer"
+                        title="레이어 삭제"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </aside>
       </div>
