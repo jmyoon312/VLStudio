@@ -85,8 +85,9 @@ export const DomTransformGizmoOverlay: React.FC<DomTransformGizmoOverlayProps> =
 
   // 1080x1920 캔버스 좌표계 ➔ 캔버스 컨테이너 내 픽셀 좌표 (세로 위치 오프셋 일치)
   const vOffset = (selectedLayer as any).verticalPosition || 0;
-  const posX = (t.x - t.width / 2) * canvasScale;
-  const posY = (t.y - t.height / 2 + vOffset) * canvasScale;
+  const isLeftOrigin = t.origin === "left";
+  const posX = isLeftOrigin ? t.x * canvasScale : (t.x - t.width / 2) * canvasScale;
+  const posY = isLeftOrigin ? t.y * canvasScale : (t.y - t.height / 2 + vOffset) * canvasScale;
   const posW = t.width * canvasScale;
   const posH = t.height * canvasScale;
 
@@ -170,10 +171,11 @@ export const DomTransformGizmoOverlay: React.FC<DomTransformGizmoOverlayProps> =
         // 8방향 리사이즈
         const initW = initialTransform.width;
         const initH = initialTransform.height;
-        let newLeft = initialTransform.x - initW / 2;
-        let newRight = initialTransform.x + initW / 2;
-        let newTop = initialTransform.y - initH / 2;
-        let newBottom = initialTransform.y + initH / 2;
+        const isLeft = initialTransform.origin === "left";
+        let newLeft = isLeft ? initialTransform.x : initialTransform.x - initW / 2;
+        let newRight = isLeft ? initialTransform.x + initW : initialTransform.x + initW / 2;
+        let newTop = isLeft ? initialTransform.y : initialTransform.y - initH / 2;
+        let newBottom = isLeft ? initialTransform.y + initH : initialTransform.y + initH / 2;
 
         if (handle.includes("e")) {
           newRight = Math.max(newLeft + 20, newRight + dx);
@@ -203,8 +205,8 @@ export const DomTransformGizmoOverlay: React.FC<DomTransformGizmoOverlayProps> =
 
         nextTransform.width = Math.round(finalW);
         nextTransform.height = Math.round(finalH);
-        nextTransform.x = Math.round((newLeft + newRight) / 2);
-        nextTransform.y = Math.round((newTop + newBottom) / 2);
+        nextTransform.x = Math.round(isLeft ? newLeft : (newLeft + newRight) / 2);
+        nextTransform.y = Math.round(isLeft ? newTop : (newTop + newBottom) / 2);
         setSnapGuides([]);
       }
 

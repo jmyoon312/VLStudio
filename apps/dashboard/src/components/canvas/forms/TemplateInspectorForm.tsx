@@ -83,8 +83,8 @@ export const TemplateInspectorForm: React.FC<TemplateInspectorFormProps> = (prop
   const ssulConfig = props.ssulConfig || {};
   const commentCard = props.commentCard || {};
   const profileTransform = {
-    xPct: props.profileTransform?.xPct ?? 6.0,
-    yPct: props.profileTransform?.yPct ?? 5.5,
+    xPct: props.profileTransform?.xPct ?? 50.0,
+    yPct: props.profileTransform?.yPct ?? 6.25,
     scale: props.profileTransform?.scale ?? 1.0,
     rotationDeg: props.profileTransform?.rotationDeg ?? 0,
     zIndex: props.profileTransform?.zIndex ?? 45,
@@ -577,7 +577,7 @@ export const TemplateInspectorForm: React.FC<TemplateInspectorFormProps> = (prop
                             label="프로필 X"
                             value={profileTransform.xPct}
                             min={5}
-                            max={40}
+                            max={95}
                             step={0.5}
                             unit="%"
                             onChange={(val) => setProfileTransform((prev: any) => ({ ...(prev || profileTransform), xPct: val }))}
@@ -950,12 +950,23 @@ export const TemplateInspectorForm: React.FC<TemplateInspectorFormProps> = (prop
                             <span className="text-[9px] text-muted-foreground block mb-0.5">댓글 본문 (줄바꿈 자동 가변)</span>
                             <textarea
                               rows={2}
-                              value={commentCard.text}
-                              onChange={(e) => setCommentCard(prev => ({ ...prev, text: e.target.value }))}
+                              value={commentCard?.text ?? commentCard?.content ?? ''}
+                              onChange={(e) => setCommentCard(prev => ({ ...prev, text: e.target.value, content: e.target.value }))}
                               placeholder="댓글 본문 내용"
                               className="w-full px-2 py-1 text-xs bg-background border border-border rounded-[2px] resize-none"
                             />
                           </div>
+
+                          {/* 댓글 본문 글자 크기 조절 */}
+                          <UnitSliderControl
+                            label="댓글 본문 글자 크기"
+                            value={commentCard?.fontSize ?? 28}
+                            min={18}
+                            max={52}
+                            step={2}
+                            unit="px"
+                            onChange={(val) => setCommentCard(prev => ({ ...prev, fontSize: val }))}
+                          />
 
                           {/* 카드 정렬 프리셋 */}
                           <div>

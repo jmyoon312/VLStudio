@@ -171,8 +171,10 @@ export const SovereignStudioProvider: React.FC<{ children: React.ReactNode }> = 
   const setTitleTransform = (patch: any) => {
     setTitleTransformState((prev) => ({ ...prev, ...patch }));
     if (titleLayer) {
-      const nx = patch.xPct !== undefined ? (patch.xPct / 100) * blueprint.canvas.width : titleLayer.transform.x;
-      const ny = patch.yPct !== undefined ? (patch.yPct / 100) * blueprint.canvas.height : titleLayer.transform.y;
+      const canvasW = blueprint?.canvas?.width || 1080;
+      const canvasH = blueprint?.canvas?.height || 1920;
+      const nx = patch.xPct !== undefined ? (patch.xPct / 100) * canvasW : titleLayer.transform.x;
+      const ny = patch.yPct !== undefined ? (patch.yPct / 100) * canvasH : titleLayer.transform.y;
       updateLayerById(titleLayer.id, {
         transform: {
           ...titleLayer.transform,
@@ -204,7 +206,7 @@ export const SovereignStudioProvider: React.FC<{ children: React.ReactNode }> = 
     titleLetterSpacing: -1,
     titleLineHeight: 1.2,
     titleAlign: "center",
-    hasTitleBadge: true,
+    hasTitleBadge: currentArchetype !== "instagram",
     titleBadgeText: "속보",
     titleBadgeBg: "#EF4444",
     titleBadgeColor: "#FFFFFF",
@@ -213,12 +215,18 @@ export const SovereignStudioProvider: React.FC<{ children: React.ReactNode }> = 
   });
 
   const titleConfig = useMemo(() => {
-    if (!titleLayer) return rawTitleConfig;
+    if (!titleLayer) {
+      return {
+        ...rawTitleConfig,
+        hasTitleBadge: currentArchetype === "instagram" ? false : (rawTitleConfig.hasTitleBadge ?? true),
+      };
+    }
     const multi = titleLayer.multiLineStyles || [];
     const lines = (titleLayer.content || "").split("\n");
     return {
       ...rawTitleConfig,
       hasTopTitle: !titleLayer.hidden,
+      hasTitleBadge: currentArchetype === "instagram" ? false : (rawTitleConfig.hasTitleBadge ?? true),
       titleLinesMode: lines.length > 1 ? "double" : "single",
       titleLine1: lines[0] || rawTitleConfig.titleLine1 || "",
       titleLine2: lines[1] || rawTitleConfig.titleLine2 || "",
@@ -237,7 +245,7 @@ export const SovereignStudioProvider: React.FC<{ children: React.ReactNode }> = 
       titleLineHeight: titleLayer.lineHeight || rawTitleConfig.titleLineHeight,
       titleAlign: titleLayer.textAlign || rawTitleConfig.titleAlign,
     };
-  }, [titleLayer, rawTitleConfig]);
+  }, [titleLayer, rawTitleConfig, currentArchetype]);
 
   const updateTitleConfig = (patchOrUpdater: any) => {
     setRawTitleConfig((prev: any) => {
@@ -295,21 +303,32 @@ export const SovereignStudioProvider: React.FC<{ children: React.ReactNode }> = 
   const holeMaskLayer = layers.find((l) => l.id.includes("hole") || l.id.includes("guide")) as ShapeLayer | undefined;
 
   const [profileTransform, setProfileTransformState] = useState({
-    xPct: 6.0,
-    yPct: 5.5,
+    xPct: 50.0,
+    yPct: 6.25,
     scale: 1.0,
     rotationDeg: 0,
     zIndex: 45,
   });
 
-  const setProfileTransform = (patch: any) => {
-    setProfileTransformState((prev) => ({ ...prev, ...patch }));
-    if (profileHeader) {
+  const setProfileTransform = (patchOrUpdater: any) => {
+    let next: any;
+    setProfileTransformState((prev) => {
+      const patch = typeof patchOrUpdater === "function" ? patchOrUpdater(prev) : patchOrUpdater;
+      next = { ...prev, ...patch };
+      return next;
+    });
+    if (profileHeader && next) {
+      const canvasW = blueprint?.canvas?.width || 1080;
+      const canvasH = blueprint?.canvas?.height || 1920;
+      const nx = next.xPct !== undefined ? (next.xPct / 100) * canvasW : profileHeader.transform.x;
+      const ny = next.yPct !== undefined ? (next.yPct / 100) * canvasH : profileHeader.transform.y;
       updateLayerById(profileHeader.id, {
         transform: {
           ...profileHeader.transform,
-          scale: patch.scale ?? profileHeader.transform.scale,
-          rotation: patch.rotationDeg ?? profileHeader.transform.rotation,
+          x: nx,
+          y: ny,
+          scale: next.scale ?? profileHeader.transform.scale,
+          rotation: next.rotationDeg ?? profileHeader.transform.rotation,
         },
       });
     }
@@ -318,9 +337,9 @@ export const SovereignStudioProvider: React.FC<{ children: React.ReactNode }> = 
   const [rawInstaConfig, setRawInstaConfig] = useState<any>({
     profileName: "유머보따리",
     profileHandle: "@viral_shorts",
-    profileAvatarUrl: "https://api.dicebear.com/9.x/fun-emoji/svg?seed=humor",
+    profileAvatarUrl: "https://api.dicebear.com/9.x/lorelei/svg?seed=user_avatar_blue",
     isVerified: true,
-    titleText: "인스타 감성 숏폼",
+    titleText: "제목을 입력하세요",
     holeRatio: "1:1",
     holeWidthPct: 88,
     holeHeightPct: 46,
@@ -335,34 +354,14 @@ export const SovereignStudioProvider: React.FC<{ children: React.ReactNode }> = 
   });
 
   const instaConfig = useMemo(() => {
-    return {
-      ...rawInstaConfig,
-      profileHandle: profileText?.content ? profileText.content.split(" ")[1] || rawInstaConfig.profileHandle : rawInstaConfig.profileHandle,
-      titleText: titleLayer?.content || rawInstaConfig.titleText,
-      bgColor: profileHeader?.fillColor || rawInstaConfig.bgColor,
-    };
-  }, [profileText, profileHeader, titleLayer, rawInstaConfig]);
+    return rawInstaConfig;
+  }, [rawInstaConfig]);
 
   const updateInstaConfig = (patchOrUpdater: any) => {
     setRawInstaConfig((prev: any) => {
       const patch = typeof patchOrUpdater === "function" ? patchOrUpdater(prev) : patchOrUpdater;
       return { ...prev, ...patch };
     });
-
-    const patch = typeof patchOrUpdater === "function" ? patchOrUpdater(rawInstaConfig) : patchOrUpdater;
-    const next = { ...rawInstaConfig, ...patch };
-
-    if (profileText && next.profileHandle) {
-      updateLayerById(profileText.id, {
-        content: `📸 ${next.profileHandle}  ✓  •  추천 베스트 댓글`,
-      });
-    }
-    if (profileHeader && next.bgColor) {
-      updateLayerById(profileHeader.id, { fillColor: next.bgColor });
-    }
-    if (holeMaskLayer && next.holeRoundness !== undefined) {
-      updateLayerById(holeMaskLayer.id, { borderRadius: next.holeRoundness });
-    }
   };
 
   // -------------------------------------------------------------
@@ -383,20 +382,31 @@ export const SovereignStudioProvider: React.FC<{ children: React.ReactNode }> = 
 
   const [commentTransform, setCommentTransformState] = useState({
     xPct: 50,
-    yPct: 82.0,
-    scale: 0.95,
+    yPct: 74.0,
+    scale: 1.0,
     rotationDeg: 0,
     zIndex: 45,
   });
 
-  const setCommentTransform = (patch: any) => {
-    setCommentTransformState((prev) => ({ ...prev, ...patch }));
-    if (commentCardLayer) {
+  const setCommentTransform = (patchOrUpdater: any) => {
+    let next: any;
+    setCommentTransformState((prev) => {
+      const patch = typeof patchOrUpdater === "function" ? patchOrUpdater(prev) : patchOrUpdater;
+      next = { ...prev, ...patch };
+      return next;
+    });
+    if (commentCardLayer && next) {
+      const canvasW = blueprint?.canvas?.width || 1080;
+      const canvasH = blueprint?.canvas?.height || 1920;
+      const nx = next.xPct !== undefined ? (next.xPct / 100) * canvasW : commentCardLayer.transform.x;
+      const ny = next.yPct !== undefined ? (next.yPct / 100) * canvasH : commentCardLayer.transform.y;
       updateLayerById(commentCardLayer.id, {
         transform: {
           ...commentCardLayer.transform,
-          scale: patch.scale ?? commentCardLayer.transform.scale,
-          rotation: patch.rotationDeg ?? commentCardLayer.transform.rotation,
+          x: nx,
+          y: ny,
+          scale: next.scale ?? commentCardLayer.transform.scale,
+          rotation: next.rotationDeg ?? commentCardLayer.transform.rotation,
         },
       });
     }
@@ -411,6 +421,7 @@ export const SovereignStudioProvider: React.FC<{ children: React.ReactNode }> = 
     theme: "insta",
     bgColor: "#FFFFFF",
     textColor: "#18181B",
+    fontSize: 28,
     borderRadius: 16,
     borderEnabled: true,
     borderColor: "#E2E8F0",
@@ -423,45 +434,14 @@ export const SovereignStudioProvider: React.FC<{ children: React.ReactNode }> = 
   });
 
   const commentCardConfig = useMemo(() => {
-    return {
-      ...rawCommentCardConfig,
-      text: commentBodyLayer?.content || rawCommentCardConfig.text,
-      bgColor: commentCardLayer?.fillColor || rawCommentCardConfig.bgColor,
-      textColor: commentBodyLayer?.fontColor || rawCommentCardConfig.textColor,
-      borderRadius: commentCardLayer?.borderRadius || rawCommentCardConfig.borderRadius,
-      borderColor: commentCardLayer?.borderColor || rawCommentCardConfig.borderColor,
-      borderWidth: commentCardLayer?.borderWidth || rawCommentCardConfig.borderWidth,
-    };
-  }, [commentCardLayer, commentBodyLayer, rawCommentCardConfig]);
+    return rawCommentCardConfig;
+  }, [rawCommentCardConfig]);
 
   const updateCommentCardConfig = (patchOrUpdater: any) => {
     setRawCommentCardConfig((prev: any) => {
       const patch = typeof patchOrUpdater === "function" ? patchOrUpdater(prev) : patchOrUpdater;
       return { ...prev, ...patch };
     });
-
-    const patch = typeof patchOrUpdater === "function" ? patchOrUpdater(rawCommentCardConfig) : patchOrUpdater;
-    const next = { ...rawCommentCardConfig, ...patch };
-
-    if (commentBodyLayer && next.text !== undefined) {
-      updateLayerById(commentBodyLayer.id, {
-        content: next.text,
-        fontColor: next.textColor || commentBodyLayer.fontColor,
-      });
-    }
-    if (commentMetaLayer && next.likes !== undefined) {
-      updateLayerById(commentMetaLayer.id, {
-        content: `❤️ ${next.likes}  •  답글 1,420개  •  공유`,
-      });
-    }
-    if (commentCardLayer) {
-      updateLayerById(commentCardLayer.id, {
-        fillColor: next.bgColor || commentCardLayer.fillColor,
-        borderRadius: next.borderRadius || commentCardLayer.borderRadius,
-        borderColor: next.borderColor || commentCardLayer.borderColor,
-        borderWidth: next.borderWidth || commentCardLayer.borderWidth,
-      });
-    }
   };
 
   // -------------------------------------------------------------
@@ -549,10 +529,11 @@ export const SovereignStudioProvider: React.FC<{ children: React.ReactNode }> = 
   // -------------------------------------------------------------
   const ssulHeaderBar = layers.find((l) => l.id.includes("header_bar")) as ShapeLayer | undefined;
   const ssulHeaderTitle = layers.find((l) => l.id.includes("header_title")) as TextLayer | undefined;
+  const ssulArticleTitle = layers.find((l) => l.id.includes("article_title") || (l.kind === "text" && l.id.includes("article"))) as TextLayer | undefined;
   const ssulMetaLayer = layers.find((l) => l.id.includes("meta")) as TextLayer | undefined;
   const ssulMemeFrame = layers.find((l) => l.id.includes("meme")) as ShapeLayer | undefined;
 
-  const [rawSsulConfig, setRawSsulConfig] = useState<any>({
+  const defaultSsulConfig = {
     ssulHeader: {
       enabled: true,
       bgColor: "#F7CF46",
@@ -608,42 +589,63 @@ export const SovereignStudioProvider: React.FC<{ children: React.ReactNode }> = 
     memeType: "pepe",
     memeEmotion: "happy",
     memeAliveMotion: true,
-  });
+  };
+
+  const initialSsul = blueprint.productionBible?.ssulConfig || (blueprint as any).ssulConfig;
+  const [rawSsulConfig, setRawSsulConfig] = useState<any>(() => ({
+    ...defaultSsulConfig,
+    ...(initialSsul || {}),
+    ssulHeader: { ...defaultSsulConfig.ssulHeader, ...(initialSsul?.ssulHeader || {}) },
+    postTitle: { ...defaultSsulConfig.postTitle, ...(initialSsul?.postTitle || {}) },
+    metadata: { ...defaultSsulConfig.metadata, ...(initialSsul?.metadata || {}) },
+    divider: { ...defaultSsulConfig.divider, ...(initialSsul?.divider || {}) },
+  }));
 
   const ssulConfig = useMemo(() => {
-    return {
-      ...rawSsulConfig,
-      author: rawSsulConfig.metadata?.authorText || rawSsulConfig.author,
-      timeText: rawSsulConfig.metadata?.timeText || rawSsulConfig.timeText,
-      viewsText: rawSsulConfig.metadata?.viewsText || rawSsulConfig.viewsText,
-      ssulHeader: {
-        ...rawSsulConfig.ssulHeader,
-        text: ssulHeaderTitle?.content ? ssulHeaderTitle.content.replace(/[←⋮]/g, "").trim() : rawSsulConfig.ssulHeader.text,
-        bgColor: ssulHeaderBar?.fillColor || rawSsulConfig.ssulHeader.bgColor,
-      },
-    };
-  }, [ssulHeaderBar, ssulHeaderTitle, rawSsulConfig]);
+    return rawSsulConfig;
+  }, [rawSsulConfig]);
 
   const updateSsulConfig = (patchOrUpdater: any) => {
+    let next: any;
     setRawSsulConfig((prev: any) => {
       const patch = typeof patchOrUpdater === "function" ? patchOrUpdater(prev) : patchOrUpdater;
-      return { ...prev, ...patch };
+      next = { ...prev, ...patch };
+      return next;
     });
 
     const patch = typeof patchOrUpdater === "function" ? patchOrUpdater(rawSsulConfig) : patchOrUpdater;
-    const next = { ...rawSsulConfig, ...patch };
+    const computedNext = { ...rawSsulConfig, ...patch };
 
-    if (ssulHeaderTitle && next.ssulHeader?.text) {
+    // Embed into blueprint.productionBible for lossless persistence across saves
+    setBlueprint((prev) => ({
+      ...prev,
+      productionBible: {
+        ...(prev.productionBible || {}),
+        ssulConfig: computedNext,
+      },
+    }));
+
+    if (ssulHeaderTitle && computedNext.ssulHeader?.text) {
       updateLayerById(ssulHeaderTitle.id, {
-        content: `←   🔥 ${next.ssulHeader.text}   ⋮`,
+        content: computedNext.ssulHeader.text,
+        fontColor: computedNext.ssulHeader.textColor || ssulHeaderTitle.fontColor,
+        fontFamily: computedNext.ssulHeader.font || ssulHeaderTitle.fontFamily,
       });
     }
-    if (ssulHeaderBar && next.ssulHeader?.bgColor) {
-      updateLayerById(ssulHeaderBar.id, { fillColor: next.ssulHeader.bgColor });
+    if (ssulHeaderBar && computedNext.ssulHeader?.bgColor) {
+      updateLayerById(ssulHeaderBar.id, { fillColor: computedNext.ssulHeader.bgColor });
     }
-    if (ssulMetaLayer && next.metadata) {
+    if (ssulArticleTitle && computedNext.postTitle?.text) {
+      updateLayerById(ssulArticleTitle.id, {
+        content: computedNext.postTitle.text,
+        fontColor: computedNext.postTitle.color || ssulArticleTitle.fontColor,
+        fontFamily: computedNext.postTitle.font || ssulArticleTitle.fontFamily,
+      });
+    }
+    if (ssulMetaLayer && computedNext.metadata) {
       updateLayerById(ssulMetaLayer.id, {
-        content: `${next.metadata.authorText || "익명"}  •  ${next.metadata.timeText || "방금 전"}  •  ${next.metadata.viewsText || "조회 3.8만"}`,
+        content: `${computedNext.metadata.authorText || "익명"}  •  ${computedNext.metadata.timeText || "방금 전"}  •  ${computedNext.metadata.viewsText || "조회 3.8만"}`,
+        fontColor: computedNext.metadata.color || ssulMetaLayer.fontColor,
       });
     }
   };
@@ -661,14 +663,25 @@ export const SovereignStudioProvider: React.FC<{ children: React.ReactNode }> = 
     zIndex: 30,
   });
 
-  const setSubTransform = (patch: any) => {
-    setSubTransformState((prev) => ({ ...prev, ...patch }));
-    if (subtitleLayer) {
+  const setSubTransform = (patchOrUpdater: any) => {
+    let next: any;
+    setSubTransformState((prev) => {
+      const patch = typeof patchOrUpdater === "function" ? patchOrUpdater(prev) : patchOrUpdater;
+      next = { ...prev, ...patch };
+      return next;
+    });
+    if (subtitleLayer && next) {
+      const canvasW = blueprint?.canvas?.width || 1080;
+      const canvasH = blueprint?.canvas?.height || 1920;
+      const nx = next.xPct !== undefined ? (next.xPct / 100) * canvasW : subtitleLayer.transform.x;
+      const ny = next.yPct !== undefined ? (next.yPct / 100) * canvasH : subtitleLayer.transform.y;
       updateLayerById(subtitleLayer.id, {
         transform: {
           ...subtitleLayer.transform,
-          scale: patch.scale ?? subtitleLayer.transform.scale,
-          rotation: patch.rotationDeg ?? subtitleLayer.transform.rotation,
+          x: nx,
+          y: ny,
+          scale: next.scale ?? subtitleLayer.transform.scale,
+          rotation: next.rotationDeg ?? subtitleLayer.transform.rotation,
         },
       });
     }
@@ -874,7 +887,7 @@ export const SovereignStudioProvider: React.FC<{ children: React.ReactNode }> = 
     } else if (id.includes("video") || id.includes("hole") || id.includes("guide")) {
       targetTab = "videoCrop";
     } else if (id.includes("meme")) {
-      targetTab = currentArchetype === "ssul" ? "metadata" : "template";
+      targetTab = currentArchetype === "ssul" ? "pepeMeme" : "template";
     } else if (id.includes("title") || id.includes("headline") || id.includes("breaking") || id.includes("article")) {
       targetTab = currentArchetype === "ssul" ? "postTitle" : "title";
     } else {
@@ -911,6 +924,8 @@ export const SovereignStudioProvider: React.FC<{ children: React.ReactNode }> = 
       setActiveFloatingInspector("metadata");
     } else if (id.includes("divider")) {
       setActiveFloatingInspector("divider");
+    } else if (id.includes("meme")) {
+      setActiveFloatingInspector("pepeMeme");
     } else if (id.includes("hook")) {
       setActiveFloatingInspector(currentArchetype === "gunlimbo" ? "gunlimboHookBand" : "jabHook");
     } else if (id.includes("subtitle")) {

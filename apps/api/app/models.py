@@ -1866,6 +1866,7 @@ class DirectorMessage(Base):
     created_preset = Column(JSON, nullable=True)
     attachments = Column(JSON, default=list)
     tasks = Column(JSON, default=list)
+    action_chips = Column(JSON, default=list)
     created_at = Column(DateTime, default=datetime.now)
 
     thread = relationship("DirectorThread", back_populates="messages")

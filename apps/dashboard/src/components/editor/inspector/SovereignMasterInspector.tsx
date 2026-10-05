@@ -93,8 +93,8 @@ export const SovereignMasterInspector: React.FC<SovereignMasterInspectorProps> =
   // 무한 레이어 확장 (새 텍스트, 쉐이프, 이모지 추가)
   const handleAddNewLayer = (kind: "text" | "shape" | "emoji") => {
     const newId = `layer_custom_${Date.now()}`;
-    const cx = blueprint.canvas.width / 2;
-    const cy = blueprint.canvas.height / 2;
+    const cx = (blueprint?.canvas?.width || 1080) / 2;
+    const cy = (blueprint?.canvas?.height || 1920) / 2;
 
     if (kind === "text") {
       const newTextLayer = {
@@ -285,8 +285,8 @@ export const SovereignMasterInspector: React.FC<SovereignMasterInspectorProps> =
             <TransformInspectorPanel
               transform={selectedLayer.transform}
               onChange={(newT) => updateLayerTransform(selectedLayer.id, newT)}
-              canvasWidth={blueprint.canvas.width}
-              canvasHeight={blueprint.canvas.height}
+              canvasWidth={blueprint?.canvas?.width || 1080}
+              canvasHeight={blueprint?.canvas?.height || 1920}
             />
           </div>
         )}
@@ -295,6 +295,7 @@ export const SovereignMasterInspector: React.FC<SovereignMasterInspectorProps> =
         {activeInspectorTab === "template" && (
           <TemplateInspectorForm
             layoutTemplateMode={blueprint.archetype}
+            hideArchetypeSelector={true}
             handleSelectTemplateMode={(mode: any) => changeArchetypeMode(mode)}
             handleOpenTemplateLibrary={() => toast.info("템플릿 보관함이 곧 열립니다.")}
             instaConfig={instaConfig}
@@ -452,11 +453,13 @@ export const SovereignMasterInspector: React.FC<SovereignMasterInspectorProps> =
             setHasCommentCard={setHasCommentCard}
             commentCard={commentCardConfig}
             setCommentCard={updateCommentCardConfig}
+            commentTransform={commentTransform}
+            setCommentTransform={setCommentTransform}
           />
         )}
 
-        {/* ── 6. 📜 썰형 헤더 / 메타 / 구분선 탭 (SsulObjectInspectorForm) ── */}
-        {["ssulHeader", "metadata", "divider"].includes(activeInspectorTab) && (
+        {/* ── 6. 📜 썰형 헤더 / 메타 / 구분선 / 페페 밈 탭 (SsulObjectInspectorForm) ── */}
+        {["ssulHeader", "metadata", "divider", "pepeMeme"].includes(activeInspectorTab) && (
           <SsulObjectInspectorForm
             mode={activeInspectorTab as any}
             ssulConfig={ssulConfig}

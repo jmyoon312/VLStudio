@@ -16,8 +16,14 @@ import { cn } from '@/lib/utils';
 export interface StepProgress {
     step_id: string;
     title: string;
+    label?: string; // e.g. "명령 실행", "도구 작업", "그림 봄", "웹 검색"
+    target?: string; // e.g. "contact_sheet.jpg", "detail_01.jpg"
     status: 'pending' | 'in_progress' | 'completed' | 'failed';
+    elapsed_seconds?: number;
     detail?: string;
+    summary?: string;
+    is_narrative?: boolean;
+    narrative_text?: string;
 }
 
 export interface VideoTask {
@@ -62,6 +68,8 @@ export interface DirectorChatMessage {
     preset_name?: string;
     tasks?: VideoTask[];
     steps?: StepProgress[];
+    total_elapsed_seconds?: number;
+    total_steps?: number;
     deliverable?: {
         title: string;
         video_path: string;
@@ -113,7 +121,7 @@ const CodeBlockCard: React.FC<{ language?: string; value: string }> = ({ languag
                     <span className={copied ? 'text-emerald-500' : ''}>{copied ? '복사됨' : '복사'}</span>
                 </button>
             </div>
-            <div className="p-3.5 overflow-x-auto text-xs font-mono leading-relaxed text-foreground select-text whitespace-pre-wrap">
+            <div className="p-3.5 overflow-x-auto text-[13px] font-mono leading-relaxed text-foreground select-text whitespace-pre-wrap">
                 {value}
             </div>
         </div>
@@ -142,8 +150,8 @@ export const directorMarkdownComponents = {
     },
     table({ children }: any) {
         return (
-            <div className="my-3 overflow-x-auto rounded-xl border border-border/80 bg-card/60 shadow-2xs">
-                <table className="w-full text-[13px] border-collapse">
+            <div className="my-3.5 overflow-x-auto rounded-xl border border-border/80 bg-card/60 shadow-2xs">
+                <table className="w-full text-sm border-collapse">
                     {children}
                 </table>
             </div>
@@ -151,7 +159,7 @@ export const directorMarkdownComponents = {
     },
     thead({ children }: any) {
         return (
-            <thead className="bg-muted/50 text-foreground font-semibold border-b border-border/70 text-xs">
+            <thead className="bg-muted/60 text-foreground font-semibold border-b border-border/70 text-[13.5px]">
                 {children}
             </thead>
         );
@@ -172,14 +180,14 @@ export const directorMarkdownComponents = {
     },
     th({ children }: any) {
         return (
-            <th className="px-4 py-2.5 text-left font-semibold text-foreground/90 border-r border-border/30 last:border-r-0 whitespace-nowrap">
+            <th className="px-4 py-2.5 text-left font-semibold text-foreground/90 border-r border-border/30 last:border-r-0 whitespace-nowrap text-[13.5px]">
                 {children}
             </th>
         );
     },
     td({ children }: any) {
         return (
-            <td className="px-4 py-2.5 text-foreground/85 border-r border-border/30 last:border-r-0 leading-relaxed text-[12.5px]">
+            <td className="px-4 py-2.5 text-foreground/85 border-r border-border/30 last:border-r-0 leading-relaxed text-[14px]">
                 {children}
             </td>
         );
@@ -189,7 +197,7 @@ export const directorMarkdownComponents = {
         // Category tags in brackets: e.g. [심리·호기심], [비교·검증], [공감·도파민], [충격·반전]
         if (/^\[[^\]]+\]$/.test(text)) {
             return (
-                <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-bold bg-primary/10 text-primary border border-primary/25 mr-1 select-text shadow-2xs">
+                <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[13px] font-bold bg-primary/10 text-primary border border-primary/25 mr-1 select-text shadow-2xs">
                     {children}
                 </span>
             );
@@ -197,7 +205,7 @@ export const directorMarkdownComponents = {
         // Timecodes: e.g. 00.00~03.30, 0.6~1.5초, 01.22초
         if (/(\d{1,2}[\.:]\d{2}|\d+\.?\d*초)/.test(text)) {
             return (
-                <strong className="font-bold text-foreground bg-muted/60 dark:bg-muted/40 px-1 py-0.5 rounded text-[12.5px] font-mono border border-border/40">
+                <strong className="font-bold text-foreground bg-muted/60 dark:bg-muted/40 px-1 py-0.5 rounded text-[13.5px] font-mono border border-border/40">
                     {children}
                 </strong>
             );
@@ -206,30 +214,53 @@ export const directorMarkdownComponents = {
     },
     p({ children }: any) {
         return (
-            <div className="my-1.5 leading-[1.75] text-foreground/90">
+            <div className="my-2 leading-[1.8] text-foreground/90 text-[15px]">
                 {children}
             </div>
         );
     },
     ul({ children }: any) {
         return (
-            <ul className="list-disc list-inside space-y-1.5 my-2 pl-1 text-foreground/90">
+            <ul className="list-disc list-inside space-y-2 my-2 pl-1 text-foreground/90 text-[15px]">
                 {children}
             </ul>
         );
     },
     ol({ children }: any) {
         return (
-            <ol className="list-decimal list-inside space-y-1.5 my-2 pl-1 text-foreground/90">
+            <ol className="list-decimal list-inside space-y-2 my-2 pl-1 text-foreground/90 text-[15px]">
                 {children}
             </ol>
         );
     },
     li({ children }: any) {
         return (
-            <li className="leading-[1.75] text-foreground/90">
+            <li className="leading-[1.8] text-foreground/90 text-[15px]">
                 {children}
             </li>
+        );
+    },
+    a({ href, children }: any) {
+        return (
+            <a
+                href={href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary hover:underline font-medium inline-flex items-center gap-0.5 cursor-pointer break-all"
+                onClick={(e) => {
+                    if (href) {
+                        e.preventDefault();
+                        if ((window as any).electronAPI?.openExternal) {
+                            (window as any).electronAPI.openExternal(href);
+                        } else {
+                            window.open(href, '_blank', 'noopener,noreferrer');
+                        }
+                    }
+                }}
+            >
+                {children}
+                <span className="text-[10px] opacity-70 select-none ml-0.5">↗</span>
+            </a>
         );
     }
 };
@@ -401,7 +432,7 @@ export const DirectorMessageFeed: React.FC<DirectorMessageFeedProps> = ({
                                     })}
                                 </div>
                             )}
-                            <div className="max-w-[85%] sm:max-w-[75%] px-4 py-2.5 rounded-2xl bg-primary text-primary-foreground text-sm leading-relaxed whitespace-pre-wrap shadow-xs select-text">
+                            <div className="max-w-[85%] sm:max-w-[75%] px-4 py-2.5 rounded-2xl bg-primary text-primary-foreground text-[15px] leading-relaxed whitespace-pre-wrap shadow-xs select-text">
                                 {messageText}
                             </div>
                             {/* Hover Action Bar for User Message */}
@@ -441,64 +472,111 @@ export const DirectorMessageFeed: React.FC<DirectorMessageFeedProps> = ({
                     >
                         {/* Assistant Body (Zero avatar icon next to message bubble - clean text flow matching Pixeling) */}
                         <div className="w-full min-w-0 space-y-3 select-text">
-                                {/* 1:1 Pixeling Accordion Header: 작업 과정 명령 N번 실행 · 도구 M번 사용 (Zero Box, Zero Border) */}
+                                {/* 1:1 Pixeling Accordion Header: 4분 3초 동안 작업 · 21단계 ⌵ */}
                                 {(() => {
-                                    const toolItems = (msg.items?.filter(it => it.type === 'tool')) || [];
                                     const meaningfulSteps = (msg.steps || []).filter(st => st.step_id !== 'session_dispatch');
-                                    const hasWorkProcess = (meaningfulSteps.length > 0) || (toolItems.length > 0);
-                                    if (!hasWorkProcess) return null;
+                                    const toolItems = (msg.items?.filter(it => it.type === 'tool')) || [];
+                                    const totalStepCount = msg.total_steps || meaningfulSteps.length || toolItems.length;
+                                    if (totalStepCount === 0) return null;
 
                                     const isExpanded = expandedStepMsgIds[msg.id] ?? false;
-                                    const toolCount = toolItems.length || meaningfulSteps.length;
-                                    const commandCount = Math.max(1, Math.floor(toolCount / 2)) || 1;
+
+                                    // Format duration text: e.g. "4분 3초", "12초", "작업 중..."
+                                    const totalSec = msg.total_elapsed_seconds || 
+                                        meaningfulSteps.reduce((acc, s) => acc + (s.elapsed_seconds || 0), 0) ||
+                                        toolItems.reduce((acc, t) => acc + (t.elapsed_seconds || 0), 0);
+                                    
+                                    let durationText = "작업 완료";
+                                    if (totalSec > 0) {
+                                        const m = Math.floor(totalSec / 60);
+                                        const s = totalSec % 60;
+                                        durationText = m > 0 ? `${m}분 ${s}초 동안 작업` : `${s}초 동안 작업`;
+                                    } else {
+                                        durationText = "작업 중...";
+                                    }
 
                                     return (
-                                        <div className="space-y-1.5 select-none mb-1">
+                                        <div className="space-y-2 select-none mb-3">
+                                            {/* Pixeling Pill-Style Toggle Button: 4분 3초 동안 작업 · 21단계 ⌵ */}
                                             <button
                                                 type="button"
                                                 onClick={() => toggleStepExpand(msg.id)}
-                                                className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground font-normal transition-colors cursor-pointer py-1"
+                                                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold text-primary hover:text-primary/80 bg-primary/5 hover:bg-primary/10 border border-primary/30 transition-all cursor-pointer shadow-2xs group"
                                             >
-                                                <span className="font-semibold text-foreground/90">작업 과정</span>
-                                                <span className="text-muted-foreground/80 font-normal">명령 {commandCount}번 실행 · 도구 {toolCount}번 사용</span>
-                                                <ChevronDown className={`w-3.5 h-3.5 text-muted-foreground transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+                                                <span>{durationText} · {totalStepCount}단계</span>
+                                                <ChevronDown className={`w-3.5 h-3.5 text-primary transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
                                             </button>
 
-                                            {/* 1:1 Pixeling Expanded Steps (Zero card border, zero background box, direct plain text list) */}
+                                            {/* Pixeling Expanded Detail List */}
                                             {isExpanded && (
-                                                <div className="space-y-1.5 py-1 px-0.5 text-xs animate-in fade-in-50 duration-150">
-                                                    {(msg.steps || []).map((st, sIdx) => {
-                                                        const isTool = st.step_id?.startsWith('tool_') || st.title?.includes('도구') || st.title?.includes('작업');
-                                                        const isAuto = st.step_id?.startsWith('auto_') || st.title?.includes('자동');
-                                                        const isGrounding = st.step_id === 'realtime_grounding' || st.title?.includes('검색');
-                                                        const isImage = st.title?.includes('그림') || st.title?.includes('이미지') || st.title?.endsWith('.jpg') || st.title?.endsWith('.png');
+                                                <div className="space-y-2 pl-3 pr-2 py-2 border-l-2 border-border/60 text-xs animate-in fade-in-50 duration-150">
+                                                    {meaningfulSteps.length > 0 ? (
+                                                        meaningfulSteps.map((st, sIdx) => {
+                                                            const isDone = st.status === 'completed';
+                                                            const sec = st.elapsed_seconds;
 
-                                                        return (
-                                                            <div 
-                                                                key={sIdx} 
-                                                                className="flex items-center gap-2 text-xs py-0.5 text-foreground/80 hover:text-foreground transition-colors"
-                                                            >
-                                                                <span className="text-xs shrink-0 select-none">
-                                                                    {isImage ? '🖼️' : isTool ? '🔑' : isAuto ? '🔄' : isGrounding ? '🌐' : '⚡'}
-                                                                </span>
-                                                                <span className="font-medium truncate max-w-[380px]">
-                                                                    {st.title}
-                                                                </span>
-                                                                {st.status === 'in_progress' ? (
-                                                                    <Loader2 className="w-3 h-3 text-primary animate-spin shrink-0" />
-                                                                ) : (
-                                                                    <span className="text-[11px] text-muted-foreground shrink-0">
-                                                                        {st.step_id === 'realtime_grounding' ? '실시간 검색' : '완료'}
-                                                                    </span>
-                                                                )}
-                                                                {st.detail && (
-                                                                    <span className="text-[11px] text-muted-foreground/70 truncate max-w-[280px]">
-                                                                        {st.detail}
-                                                                    </span>
-                                                                )}
-                                                            </div>
-                                                        );
-                                                    })}
+                                                            if (st.is_narrative && st.narrative_text) {
+                                                                return (
+                                                                    <div key={sIdx} className="text-muted-foreground/90 text-xs py-1 leading-relaxed">
+                                                                        {st.narrative_text}
+                                                                    </div>
+                                                                );
+                                                            }
+
+                                                            return (
+                                                                <div 
+                                                                    key={sIdx} 
+                                                                    className="flex items-center justify-between text-xs py-0.5 text-muted-foreground hover:text-foreground transition-colors group"
+                                                                >
+                                                                    <div className="flex items-center gap-2.5 min-w-0 pr-3">
+                                                                        <span className="font-semibold text-foreground/85 shrink-0 text-xs">
+                                                                            {st.label || st.title || '도구 작업'}
+                                                                        </span>
+                                                                        {(st.target || st.detail || st.summary) && (
+                                                                            <span className="text-muted-foreground/70 truncate font-mono text-[11.5px] max-w-[460px]">
+                                                                                {st.target || st.detail || st.summary}
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
+                                                                    <div className="shrink-0 text-[11px] font-mono text-muted-foreground/60 group-hover:text-muted-foreground">
+                                                                        {st.status === 'in_progress' ? (
+                                                                            <span className="text-primary flex items-center gap-1 font-sans">
+                                                                                <Loader2 className="w-3 h-3 animate-spin" />
+                                                                                <span>실행 중</span>
+                                                                            </span>
+                                                                        ) : sec ? (
+                                                                            <span>{sec}초</span>
+                                                                        ) : null}
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        })
+                                                    ) : (
+                                                        toolItems.map((tool, tIdx) => {
+                                                            const isDone = tool.status === 'completed';
+                                                            const sec = tool.elapsed_seconds;
+                                                            return (
+                                                                <div 
+                                                                    key={tIdx} 
+                                                                    className="flex items-center justify-between text-xs py-0.5 text-muted-foreground hover:text-foreground transition-colors group"
+                                                                >
+                                                                    <div className="flex items-center gap-2.5 min-w-0 pr-3">
+                                                                        <span className="font-semibold text-foreground/85 shrink-0 text-xs">
+                                                                            {tool.title || '도구 작업'}
+                                                                        </span>
+                                                                        {tool.summary && (
+                                                                            <span className="text-muted-foreground/70 truncate font-mono text-[11.5px] max-w-[460px]">
+                                                                                {tool.summary}
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
+                                                                    <div className="shrink-0 text-[11px] font-mono text-muted-foreground/60 group-hover:text-muted-foreground">
+                                                                        {isDone && sec ? `${sec}초` : ''}
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        })
+                                                    )}
                                                 </div>
                                             )}
                                         </div>
@@ -507,7 +585,7 @@ export const DirectorMessageFeed: React.FC<DirectorMessageFeedProps> = ({
 
                                 {/* Text Content with Open Editorial Typography */}
                                 {messageText && (
-                                    <div className="prose prose-sm dark:prose-invert max-w-none break-words text-foreground/90 text-[13.5px] leading-[1.7]">
+                                    <div className="prose prose-sm dark:prose-invert max-w-none break-words text-foreground/90 text-[15px] leading-[1.8]">
                                         <ReactMarkdown remarkPlugins={[remarkGfm]} components={directorMarkdownComponents}>
                                             {messageText}
                                         </ReactMarkdown>
@@ -556,11 +634,15 @@ export const DirectorMessageFeed: React.FC<DirectorMessageFeedProps> = ({
                                     <div className="space-y-2 pt-2">
                                         <EmbeddedVideoPlayer
                                             filename={osBasename(msg.deliverable.video_path)}
-                                            videoUrl={msg.deliverable.video_path.startsWith('http') ? msg.deliverable.video_path : `/files/${msg.deliverable.video_path.replace(/\\/g, '/')}`}
-                                            fileSizeMb={msg.deliverable.file_size_mb || 10.3}
-                                            duration={msg.deliverable.duration_sec ? `${Math.floor(msg.deliverable.duration_sec / 60)}:${Math.floor(msg.deliverable.duration_sec % 60).toString().padStart(2, '0')}` : "0:21"}
+                                            videoUrl={msg.deliverable.video_url || (msg.deliverable.video_path.startsWith('http') ? msg.deliverable.video_path : `/api/files/stream?path=${encodeURIComponent(msg.deliverable.video_path)}`)}
+                                            fileSizeMb={msg.deliverable.file_size_mb || 0.5}
+                                            duration={msg.deliverable.duration_sec ? `${Math.floor(msg.deliverable.duration_sec / 60)}:${Math.floor(msg.deliverable.duration_sec % 60).toString().padStart(2, '0')}` : "0:03"}
+                                            resolution={(msg.deliverable as any).resolution || '1080×1920'}
+                                            fps={(msg.deliverable as any).fps || 30}
+                                            frameCount={(msg.deliverable as any).frame_count || Math.round((msg.deliverable.duration_sec || 3.0) * 30)}
+                                            sourceName={(msg.deliverable as any).source_name || 'OpenMontage'}
                                             timeElapsedText={msg.deliverable.elapsed_seconds ? `${Math.floor(msg.deliverable.elapsed_seconds / 60)}분 ${Math.round(msg.deliverable.elapsed_seconds % 60)}초 동안 작업했어요` : "완료되었습니다"}
-                                            description={msg.deliverable.title ? `[${msg.deliverable.title}] 장면을 완성했습니다.` : "완결된 쇼츠 영상"}
+                                            description={msg.deliverable.title ? `[${msg.deliverable.title}] 장면을 완성했습니다.` : undefined}
                                             filePath={msg.deliverable.video_path}
                                             audioPath={msg.deliverable.audio_path}
                                             cues={msg.deliverable.cues}
@@ -622,7 +704,8 @@ export const DirectorMessageFeed: React.FC<DirectorMessageFeedProps> = ({
                                                         presetName={activePreset?.name}
                                                         onProduceNow={(selectedCand) => {
                                                             const videoUrl = selectedCand.url || selectedCand.source_url || '';
-                                                            const startSec = selectedCand.start_seconds ?? 15;
+                                                            const startSec = selectedCand.start_seconds ?? 0;
+                                                            const durSec = selectedCand.duration_seconds ?? selectedCand.duration_sec ?? 15;
                                                             const pName = selectedCand.linked_preset_name || activePreset?.name || '';
                                                             const styleClause = pName ? `[${pName}] 스타일로` : '모던 클린 숏폼 스타일로';
                                                             onSendMessage(`발굴된 영상 "${selectedCand.title}" (URL: ${videoUrl}, 구간: ${startSec}초~${startSec + durSec}초) 소스로 지금 숏폼 영상 제작해줘. 풀영상 다운로드 없이 온라인 스트림에서 해당 하이라이트 구간만 즉시 슬라이싱해서 ${styleClause} 완성해줘.`);

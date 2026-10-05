@@ -8,7 +8,7 @@ import {
 
 export interface BlueprintContextValue {
   blueprint: VLStandardBlueprintV4;
-  setBlueprint: (bp: VLStandardBlueprintV4, recordHistory?: boolean) => void;
+  setBlueprint: (bp: VLStandardBlueprintV4 | ((prev: VLStandardBlueprintV4) => VLStandardBlueprintV4), recordHistory?: boolean) => void;
   selectedLayerId: string | null;
   setSelectedLayerId: (id: string | null) => void;
   selectedSceneIndex: number;

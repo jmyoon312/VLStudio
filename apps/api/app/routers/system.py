@@ -12,6 +12,7 @@ from typing import Dict, Any, List, Optional
 from fastapi import APIRouter, HTTPException, Request, Depends, Body
 from sqlalchemy.orm import Session
 from .. import database, models, schemas, crud
+from ..utils.python_env import get_venv_python
 from pydantic import BaseModel
 
 logger = logging.getLogger("system")
@@ -512,8 +513,8 @@ async def update_ytdlp():
 # CloakBrowser Maintenance Endpoints
 # ============================================
 
-def get_cloakbrowser_version():
-    """Get current cloakbrowser version using importlib.metadata"""
+def get_cloakbrowser_version() -> str:
+    """Get current cloakbrowser python package version using importlib.metadata or venv pip"""
     try:
         if sys.version_info >= (3, 8):
             from importlib.metadata import version, PackageNotFoundError
@@ -522,9 +523,9 @@ def get_cloakbrowser_version():
             except PackageNotFoundError:
                 pass
         
-        # Fallback to pip show
+        py_exe = get_venv_python()
         result = subprocess.run(
-            [sys.executable, '-m', 'pip', 'show', 'cloakbrowser'],
+            [py_exe, '-m', 'pip', 'show', 'cloakbrowser'],
             capture_output=True, text=True, timeout=10
         )
         if result.returncode == 0:
@@ -532,35 +533,99 @@ def get_cloakbrowser_version():
                 if line.startswith("Version:"):
                     return line.split(":", 1)[1].strip()
     except Exception as e:
-        print(f"Error checking cloakbrowser version: {e}")
+        logger.warning(f"Error checking cloakbrowser version: {e}")
     return "Unknown or not installed"
+
+def get_cloakbrowser_details() -> Dict[str, Any]:
+    """Get comprehensive CloakBrowser info including python package, chromium binary, tier, and cache"""
+    pkg_ver = get_cloakbrowser_version()
+    details = {
+        "version": pkg_ver,
+        "installed": "Unknown" not in pkg_ver and "not installed" not in pkg_ver,
+        "chromium_version": "Unknown",
+        "tier": "free",
+        "binary_installed": False,
+        "binary_path": None,
+        "github_repo": "https://github.com/CloakHQ/cloakbrowser"
+    }
+    try:
+        from cloakbrowser.download import binary_info
+        b_info = binary_info()
+        details["chromium_version"] = b_info.get("version", "Unknown")
+        details["tier"] = b_info.get("tier", "free")
+        details["binary_path"] = b_info.get("binary_path")
+        details["binary_installed"] = bool(b_info.get("installed", False))
+    except Exception:
+        user_home = os.path.expanduser("~")
+        cloak_cache = os.path.join(user_home, ".cloakbrowser")
+        if os.path.exists(cloak_cache):
+            for item in os.listdir(cloak_cache):
+                if item.startswith("chromium-") and os.path.isdir(os.path.join(cloak_cache, item)):
+                    exe_path = os.path.join(cloak_cache, item, "chrome.exe")
+                    if os.path.exists(exe_path):
+                        details["chromium_version"] = item.replace("chromium-", "")
+                        details["binary_installed"] = True
+                        details["binary_path"] = exe_path
+                        break
+    return details
 
 @router.get("/cloakbrowser/version")
 async def get_cloak_version():
-    """Get current cloakbrowser version"""
-    return {"version": get_cloakbrowser_version()}
+    """Get current cloakbrowser version and detailed status"""
+    return get_cloakbrowser_details()
+
+class CloakUpdateRequest(BaseModel):
+    mode: str = "auto"  # "auto", "pypi", "github_hotfix"
 
 @router.post("/cloakbrowser/update")
-async def update_cloakbrowser():
-    """Update cloakbrowser to the latest version"""
+async def update_cloakbrowser(req: Optional[CloakUpdateRequest] = None):
+    """Update cloakbrowser via PyPI or direct GitHub commit hotfix"""
+    py_exe = get_venv_python()
+    mode = req.mode if req else "auto"
+    creationflags = 0x08000000 if platform.system() == "Windows" else 0
+
+    if mode in ("github_hotfix", "git"):
+        cmd = [py_exe, '-m', 'pip', 'install', '--no-deps', '--force-reinstall', '--no-cache-dir', 'git+https://github.com/CloakHQ/cloakbrowser.git']
+        mode_desc = "GitHub 최신 커밋 핫패치"
+    elif mode == "pypi":
+        cmd = [py_exe, '-m', 'pip', 'install', '--upgrade', 'cloakbrowser']
+        mode_desc = "PyPI 공식 배포본"
+    else:  # auto
+        cmd = [py_exe, '-m', 'pip', 'install', '--no-deps', '--force-reinstall', '--no-cache-dir', 'git+https://github.com/CloakHQ/cloakbrowser.git']
+        mode_desc = "GitHub 최신 패치/커밋 동기화"
+
     try:
         result = subprocess.run(
-            [sys.executable, '-m', 'pip', 'install', '--upgrade', 'cloakbrowser[patchright]'],
-            capture_output=True, text=True, timeout=120
+            cmd,
+            capture_output=True, text=True, timeout=180,
+            creationflags=creationflags
         )
         if result.returncode == 0:
-            new_version = get_cloakbrowser_version()
+            details = get_cloakbrowser_details()
             return {
                 "success": True, 
-                "message": "CloakBrowser 업데이트가 성공적으로 완료되었습니다.", 
-                "version": new_version,
+                "message": f"CloakBrowser {mode_desc} 동기화가 성공적으로 완료되었습니다.", 
+                "version": details["version"],
+                "details": details,
                 "logs": result.stdout
             }
         else:
+            if mode == "auto":
+                fallback_cmd = [py_exe, '-m', 'pip', 'install', '--upgrade', 'cloakbrowser']
+                res_fb = subprocess.run(fallback_cmd, capture_output=True, text=True, timeout=120, creationflags=creationflags)
+                if res_fb.returncode == 0:
+                    details = get_cloakbrowser_details()
+                    return {
+                        "success": True,
+                        "message": "CloakBrowser PyPI 최신 버전 업데이트 완료 (GitHub fallback)",
+                        "version": details["version"],
+                        "details": details,
+                        "logs": res_fb.stdout
+                    }
             return {
                 "success": False, 
-                "message": "업데이트 중 오류가 발생했습니다.",
-                "logs": result.stderr
+                "message": "CloakBrowser 업데이트 중 오류가 발생했습니다.",
+                "logs": result.stderr or result.stdout
             }
     except Exception as e:
         return {"success": False, "message": f"Error: {str(e)}"}
@@ -669,8 +734,8 @@ def get_unified_engines_status():
         except Exception:
             pass
 
-        # 2. CloakBrowser 상태
-        cloak_ver = get_cloakbrowser_version()
+        # 2. CloakBrowser 상태 (상세 바이너리/버전/티어 정보)
+        cloak_details = get_cloakbrowser_details()
 
         # 3. FFmpeg & FFprobe 상태 및 하드웨어 가속 여부
         ffmpeg_path = dependency_manager.DependencyManager.get_ffmpeg_path()
@@ -774,10 +839,7 @@ def get_unified_engines_status():
                 "version": ytdlp_ver,
                 "installed": ytdlp_ver != "Unknown"
             },
-            "cloakbrowser": {
-                "version": cloak_ver,
-                "installed": "Unknown" not in cloak_ver and "not installed" not in cloak_ver
-            },
+            "cloakbrowser": cloak_details,
             "ffmpeg": {
                 "installed": ffmpeg_installed,
                 "version": ffmpeg_version_str,
@@ -827,12 +889,15 @@ async def update_all_engines():
     """
     results = {}
     
+    py_exe = get_venv_python()
+    creationflags = 0x08000000 if platform.system() == "Windows" else 0
+    
     # 1. Update yt-dlp
     try:
         res_yt = subprocess.run(
-            [sys.executable, '-m', 'pip', 'install', '--upgrade', 'yt-dlp'],
+            [py_exe, '-m', 'pip', 'install', '--upgrade', 'yt-dlp'],
             capture_output=True, text=True, timeout=120,
-            creationflags=0x08000000 if platform.system() == "Windows" else 0
+            creationflags=creationflags
         )
         results["ytdlp"] = {
             "success": res_yt.returncode == 0,
@@ -842,16 +907,23 @@ async def update_all_engines():
     except Exception as e:
         results["ytdlp"] = {"success": False, "message": str(e)}
 
-    # 2. Update CloakBrowser
+    # 2. Update CloakBrowser (GitHub 최신 패치/커밋 동기화 + PyPI fallback)
     try:
         res_cloak = subprocess.run(
-            [sys.executable, '-m', 'pip', 'install', '--upgrade', 'cloakbrowser[patchright]'],
-            capture_output=True, text=True, timeout=120,
-            creationflags=0x08000000 if platform.system() == "Windows" else 0
+            [py_exe, '-m', 'pip', 'install', '--no-deps', '--force-reinstall', '--no-cache-dir', 'git+https://github.com/CloakHQ/cloakbrowser.git'],
+            capture_output=True, text=True, timeout=180,
+            creationflags=creationflags
         )
+        if res_cloak.returncode != 0:
+            # Fallback to PyPI
+            res_cloak = subprocess.run(
+                [py_exe, '-m', 'pip', 'install', '--upgrade', 'cloakbrowser'],
+                capture_output=True, text=True, timeout=120,
+                creationflags=creationflags
+            )
         results["cloakbrowser"] = {
             "success": res_cloak.returncode == 0,
-            "message": "CloakBrowser 최신 버전 업데이트 완료" if res_cloak.returncode == 0 else "CloakBrowser 업데이트 실패",
+            "message": "CloakBrowser 최신 패치 및 엔진 동기화 완료" if res_cloak.returncode == 0 else "CloakBrowser 업데이트 실패",
             "logs": res_cloak.stdout or res_cloak.stderr
         }
     except Exception as e:

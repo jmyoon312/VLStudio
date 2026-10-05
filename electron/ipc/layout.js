@@ -172,10 +172,18 @@ export function registerLayoutIPC(ipcMain, getMainWindow, getFlowView) {
     return { enabled: powerSaveBlockerId !== null && powerSaveBlocker.isStarted(powerSaveBlockerId) }
   })
 
-  // Open external URL
-  ipcMain.handle('app:open-external', (event, { url }) => {
-    shell.openExternal(url)
-    return { success: true }
+  // Open external URL safely in default system browser
+  ipcMain.handle('app:open-external', async (event, { url }) => {
+    try {
+      if (url && typeof url === 'string' && (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('mailto:'))) {
+        await shell.openExternal(url)
+        return { success: true }
+      }
+      return { success: false, error: 'Invalid or unsupported URL' }
+    } catch (err) {
+      console.warn('[app:open-external] Failed to open URL:', url, err)
+      return { success: false, error: err?.message || 'Failed to open URL' }
+    }
   })
 
   // Reveal file in Finder / Explorer

@@ -96,6 +96,9 @@ export const BasicEditorStudio: React.FC = () => {
 
       window.dispatchEvent(new CustomEvent('presets-folders-updated'));
       toast.success(`'${bp.name}' 템플릿이 보관함에 성공적으로 저장되었습니다.`);
+      if (!presetId && bp.blueprintId) {
+        navigate({ search: `?presetId=${encodeURIComponent(bp.blueprintId)}` }, { replace: true });
+      }
     } catch (e) {
       console.warn('[BasicEditorStudio] Network save fallback:', e);
       toast.error('템플릿 저장 중 문제가 발생하여 로컬에 캐시되었습니다.');

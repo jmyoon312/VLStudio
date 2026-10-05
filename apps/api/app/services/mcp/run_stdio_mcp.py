@@ -330,6 +330,9 @@ async def interactive_overlay_composite(
         overlay_type=overlay_type,
         config=config,
         video_path=video_path
+    )
+
+
 @sovereign_mcp.tool()
 def enhance_image_prompt(
     prompt: str,
@@ -384,6 +387,9 @@ def generate_scene_image(
         style_preset=style_preset,
         auto_enhance=auto_enhance,
         account_email=account_email
+    )
+
+
 @sovereign_mcp.tool()
 def gemini_tts_optimize_guide(genre: str = "shorts_viral_hook", script_text: Optional[str] = None) -> dict:
     """

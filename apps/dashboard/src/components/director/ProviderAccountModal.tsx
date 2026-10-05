@@ -26,6 +26,7 @@ import {
     Loader2
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { api } from '@/lib/api';
 
 export interface ProviderQuotaInfo {
     id: string;
@@ -146,35 +147,28 @@ export const ProviderAccountModal: React.FC<ProviderAccountModalProps> = ({
 
     useEffect(() => {
         setActiveProviderKey(providerKey);
-        if (providerKey === 'deepseek') {
-            setProviderData({
-                name: 'DeepSeek',
-                type: 'cloud_provider',
-                connected: false,
-                active_plan: 'DeepSeek Web',
-                description: 'DeepSeek Web 계정 (V3 및 R1 추론)',
-                accounts: []
-            });
-        }
     }, [providerKey]);
 
     const fetchProviderInfo = async (targetKey = activeProviderKey) => {
         setLoading(true);
         try {
+            // 1. Try standardized axios api client first
+            const res = await api.get('/ai-accounts');
+            if (res.data && typeof res.data === 'object' && res.data[targetKey]) {
+                setProviderData(res.data[targetKey]);
+                return;
+            }
+        } catch (e) {
+            console.warn('api.get(/ai-accounts) notice, trying fallback fetch:', e);
+        }
+
+        // 2. Fallback direct fetch
+        try {
             const res = await fetch('/api/ai-accounts');
             if (res.ok) {
                 const allProviders = await res.json();
-                if (allProviders[targetKey]) {
+                if (allProviders && allProviders[targetKey]) {
                     setProviderData(allProviders[targetKey]);
-                } else if (targetKey === 'deepseek') {
-                    setProviderData(prev => prev || {
-                        name: 'DeepSeek',
-                        type: 'cloud_provider',
-                        connected: false,
-                        active_plan: 'DeepSeek Web',
-                        description: 'DeepSeek Web 계정 (V3 및 R1 추론)',
-                        accounts: []
-                    });
                 }
             }
         } catch (e) {

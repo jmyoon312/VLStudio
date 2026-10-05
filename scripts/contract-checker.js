@@ -255,6 +255,7 @@ if (fs.existsSync(tsConfigPath)) {
             path.join(rootDir, 'apps', 'dashboard', 'src', 'components', 'batch', 'onetake', 'BatchWorkQueueSection.tsx'),
             path.join(rootDir, 'apps', 'dashboard', 'src', 'components', 'batch', 'onetake', 'WorkItemDetailModal.tsx'),
             path.join(rootDir, 'apps', 'dashboard', 'src', 'components', 'batch', 'onetake', 'SourceDetailModal.tsx'),
+            path.join(rootDir, 'apps', 'dashboard', 'src', 'config', 'menu.ts'),
         ].filter(p => fs.existsSync(p));
 
         const program = ts.createProgram(coreComponents, parsedCommandLine.options);

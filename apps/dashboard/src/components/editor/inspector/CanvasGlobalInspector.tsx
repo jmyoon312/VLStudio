@@ -226,7 +226,7 @@ export const CanvasGlobalInspector: React.FC<CanvasGlobalInspectorProps> = ({ cl
         <div className="text-xs font-bold text-foreground flex items-center justify-between">
           <span>🖼️ 캔버스 마스터 설정</span>
           <span className="text-[10px] font-mono text-muted-foreground">
-            {blueprint.canvas.width} × {blueprint.canvas.height} ({blueprint.canvas.aspectRatio})
+            {blueprint?.canvas?.width || 1080} × {blueprint?.canvas?.height || 1920} ({blueprint?.canvas?.aspectRatio || "9:16"})
           </span>
         </div>
 

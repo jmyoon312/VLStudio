@@ -119,6 +119,19 @@ const EFFORT_STEPS: { key: ReasoningEffort; label: string; desc: string }[] = [
     { key: 'ultra', label: '초정밀', desc: '프레임 단위' },
 ];
 
+const resolveProviderFromModel = (modelId: string, currentProv: string): string => {
+    const m = (modelId || '').toLowerCase();
+    if (m.includes('hermes')) return 'hermes';
+    if (m.includes('web') && (m.includes('gpt') || m.includes('astra') || m.includes('codex'))) return 'chatgpt_web';
+    if (m.includes('gpt') || m.includes('codex') || m.includes('astra') || m.includes('sol') || m.includes('terra') || m.includes('o3')) return 'codex';
+    if (m.includes('gemini') || m.includes('antigravity')) return 'gemini';
+    if (m.includes('claude') || m.includes('sonnet') || m.includes('haiku') || m.includes('opus')) return 'claude';
+    if (m.includes('grok')) return 'grok';
+    if (m.includes('deepseek')) return 'deepseek';
+    if (m.includes('viraloop') || m.includes('omni')) return 'omniroute';
+    return currentProv || 'codex';
+};
+
 export const ModelSelectorPopover: React.FC<ModelSelectorPopoverProps> = (props) => {
     const parentProvider = props.currentProvider || props.selectedProvider || 'codex';
     const currentModel = props.currentModel || props.selectedModel || 'Codex Astra 6.1';
@@ -352,7 +365,8 @@ export const ModelSelectorPopover: React.FC<ModelSelectorPopoverProps> = (props)
                                         key={m.id}
                                         type="button"
                                         onClick={() => {
-                                            onProviderChange(effectiveProvider);
+                                            const targetProv = resolveProviderFromModel(m.id, effectiveProvider);
+                                            onProviderChange(targetProv);
                                             onModelChange(m.id);
                                             setIsOpen(false);
                                         }}

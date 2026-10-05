@@ -1,7 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { 
     Send, Square, Sliders, Paperclip, X, Plus, Link as LinkIcon, 
-    Mic, MicOff, Sparkles, Shield, Bot
+    Mic, MicOff, Sparkles, Shield, Bot, ArrowUp, Calendar, RotateCcw, FileText
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -267,6 +267,8 @@ export const DirectorInputBar: React.FC<DirectorInputBarProps> = ({
                     </div>
                 )}
 
+
+
                 {/* Textarea Input with CJK IME guard and @mention popup */}
                 <div className="relative">
                     {showMentionDropdown && (
@@ -293,8 +295,8 @@ export const DirectorInputBar: React.FC<DirectorInputBarProps> = ({
                                 onSendMessage();
                             }
                         }}
-                        placeholder={placeholder || (isLiveVoiceActive ? "🎙️ 루피와 실시간 음성 대화 중... (화면이나 캔버스를 보며 편하게 말씀하세요)" : hasMessages ? "이어서 요청하거나 궁금한 것을 물어보세요 (@멘션으로 하수인 직접 호출, Shift+Enter 줄바꿈)" : "만들고 싶은 영상이나 맡기고 싶은 작업, 비즈니스 전략을 설명해 주세요... (@ 입력 시 8대 하수인 호출)")}
-                        className="min-h-[48px] sm:min-h-[64px] max-h-40 resize-none border-0 shadow-none focus-visible:ring-0 p-1.5 sm:p-2 pr-7 sm:pr-8 text-xs sm:text-sm leading-relaxed bg-transparent"
+                        placeholder={placeholder || (isLiveVoiceActive ? "🎙️ 루피와 실시간 음성 대화 중... (편하게 말씀하세요)" : hasMessages ? "이어서 요청하거나 궁금한 것을 물어보세요" : "만들고 싶은 영상이나 맡기고 싶은 작업, 비즈니스 전략을 설명해 주세요...")}
+                        className="min-h-[48px] sm:min-h-[60px] max-h-40 resize-none border-0 shadow-none focus-visible:ring-0 p-1.5 sm:p-2 pr-7 sm:pr-8 text-xs sm:text-[14px] leading-relaxed bg-transparent"
                     />
                     {prompt && (
                         <button
@@ -308,63 +310,27 @@ export const DirectorInputBar: React.FC<DirectorInputBarProps> = ({
                     )}
                 </div>
 
-                {/* Bottom Toolbar Row - Optimized for Mobile & Desktop */}
+                {/* Bottom Toolbar Row - 1:1 Pixeling Standard */}
                 <div className="flex items-center justify-between pt-1 sm:pt-1.5 border-t border-border/40 text-xs gap-1 sm:gap-2">
-                    {/* Left Tools: Scrollable or Compact on mobile */}
+                    {/* Left Tools: Scrollable or Compact */}
                     <div className="flex items-center gap-1 sm:gap-1.5 py-0.5 min-w-0 overflow-x-auto no-scrollbar">
                         {/* Attach File from PC */}
-                        {onAttachFiles && (
-                            <>
-                                <input
-                                    ref={fileInputRef}
-                                    type="file"
-                                    multiple
-                                    accept="video/*,audio/*,image/*"
-                                    onChange={onAttachFiles}
-                                    className="hidden"
-                                />
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => fileInputRef.current?.click()}
-                                    className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground rounded-xl hover:bg-muted cursor-pointer shrink-0"
-                                    title="내 PC에서 미디어 파일 첨부 (+)"
-                                >
-                                    <Plus className="w-4 h-4" />
-                                </Button>
-                            </>
-                        )}
-
-                        {/* Cloud Media / YouTube URL Source Hub Button */}
-                        {onOpenCloudMediaModal && (
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                onClick={onOpenCloudMediaModal}
-                                className="h-8 px-2 text-xs font-semibold text-muted-foreground hover:text-foreground rounded-xl hover:bg-muted gap-1 border border-border/60 shadow-2xs cursor-pointer shrink-0"
-                                title="유튜브 URL 및 미디어 소싱 허브 열기"
-                            >
-                                <LinkIcon className="w-3.5 h-3.5 text-primary shrink-0" />
-                                <span className="hidden sm:inline">소스 추가</span>
-                            </Button>
-                        )}
-
-                        {/* Bot Mode SOUL.md Inspector Modal Button */}
-                        {onOpenAgentSoul && (
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => onOpenAgentSoul()}
-                                className="h-8 px-2 text-xs font-semibold text-muted-foreground hover:text-foreground rounded-xl hover:bg-muted gap-1 border border-border/60 shadow-2xs cursor-pointer shrink-0"
-                                title="8대 전문 하수인 SOUL.md 페르소나 및 독립 메모리 관리"
-                            >
-                                <Bot className="w-3.5 h-3.5 text-purple-500 shrink-0" />
-                                <span className="hidden sm:inline">SOUL</span>
-                            </Button>
-                        )}
+                        <input
+                            ref={fileInputRef}
+                            type="file"
+                            multiple
+                            accept="video/*,audio/*,image/*"
+                            onChange={onAttachFiles}
+                            className="hidden"
+                        />
+                        <button
+                            type="button"
+                            onClick={() => fileInputRef.current?.click()}
+                            className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground rounded-xl hover:bg-muted cursor-pointer shrink-0 flex items-center justify-center transition-colors"
+                            title="파일 첨부 (클립)"
+                        >
+                            <Paperclip className="w-4 h-4" />
+                        </button>
 
                         {/* AI Engine & Model Selector Popover */}
                         {selectedProvider && onSelectProvider && selectedModel && onSelectModel && (
@@ -379,27 +345,47 @@ export const DirectorInputBar: React.FC<DirectorInputBarProps> = ({
                             />
                         )}
 
-                        {/* Security Scope Selector (Desktop / Tablet only to save mobile space) */}
-                        {onChangeSecurityScope && (
-                            <div className="hidden md:block relative shrink-0">
-                                <select
-                                    value={securityScope}
-                                    onChange={(e) => onChangeSecurityScope(e.target.value)}
-                                    className="h-8 px-2 text-xs bg-muted/40 hover:bg-muted text-foreground font-medium rounded-xl border border-border/70 focus:outline-hidden cursor-pointer"
-                                >
-                                    <option value="모두 허용">🛡️ 자동 승인</option>
-                                    <option value="작업 폴더 허용">🛡️ 작업 폴더만</option>
-                                    <option value="읽기 전용">🛡️ 확인 후 실행</option>
-                                </select>
-                            </div>
-                        )}
+                        {/* Security Scope Selector (모두 허용) */}
+                        <div className="relative shrink-0">
+                            <select
+                                value={securityScope || "모두 허용"}
+                                onChange={(e) => onChangeSecurityScope && onChangeSecurityScope(e.target.value)}
+                                className="h-8 px-2.5 text-xs bg-muted/40 hover:bg-muted text-foreground font-medium rounded-xl border border-border/70 focus:outline-hidden cursor-pointer"
+                            >
+                                <option value="모두 허용">🛡️ 모두 허용</option>
+                                <option value="작업 폴더 허용">🛡️ 작업 폴더만</option>
+                                <option value="읽기 전용">🛡️ 확인 후 실행</option>
+                            </select>
+                        </div>
+
+                        {/* Reservation / Schedule shortcut */}
+                        <button
+                            type="button"
+                            onClick={() => toast.info('작업 예약 대기열 설정')}
+                            className="h-8 px-2.5 rounded-xl border border-border/70 hover:bg-muted text-xs font-medium hidden sm:flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors cursor-pointer shrink-0"
+                            title="작업 예약 설정"
+                        >
+                            <Calendar className="w-3.5 h-3.5" />
+                            <span>예약</span>
+                        </button>
+
+                        {/* Auto Continuous Continuation */}
+                        <button
+                            type="button"
+                            onClick={() => toast.info('자동 이어가기 활성화')}
+                            className="h-8 px-2.5 rounded-xl border border-border/70 hover:bg-muted text-xs font-medium hidden md:flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors cursor-pointer shrink-0"
+                            title="대화 및 작업 자동 이어가기"
+                        >
+                            <RotateCcw className="w-3.5 h-3.5" />
+                            <span>자동 이어가기</span>
+                        </button>
 
                         {/* Preset Selector */}
                         {activePreset ? (
                             <div className="flex items-center gap-1 shrink-0">
                                 <button
                                     type="button"
-                                    onClick={onOpenCustomizeModal}
+                                    onClick={onOpenCustomizeModal || onOpenPresetModal}
                                     className="h-8 px-2 sm:px-2.5 rounded-xl text-xs gap-1 sm:gap-1.5 font-semibold bg-primary/10 text-primary border border-primary/30 hover:bg-primary/20 transition-all flex items-center shadow-2xs cursor-pointer shrink-0"
                                     title="클릭하여 프리셋 스타일 상세 설정 열기"
                                 >
@@ -432,9 +418,8 @@ export const DirectorInputBar: React.FC<DirectorInputBarProps> = ({
                         )}
                     </div>
 
-                    {/* Right Controls: Live Voice Toggle & Send/Stop Button */}
+                    {/* Right Controls: Live Voice Toggle & Circular Send/Stop Button */}
                     <div className="flex items-center gap-1 sm:gap-1.5 shrink-0 ml-auto pl-1">
-
                         {onToggleLiveVoice && (
                             <Button
                                 type="button"
@@ -455,28 +440,24 @@ export const DirectorInputBar: React.FC<DirectorInputBarProps> = ({
                         )}
 
                         {isStreaming ? (
-                            <Button
+                            <button
                                 type="button"
-                                size="sm"
                                 onClick={onCancelStream}
-                                className="h-8 px-2.5 sm:px-3 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold gap-1 cursor-pointer shadow-xs shrink-0"
+                                className="h-8 w-8 rounded-full bg-rose-600 hover:bg-rose-700 text-white flex items-center justify-center cursor-pointer shadow-xs shrink-0 transition-transform active:scale-95"
                                 title="생성 중단"
                             >
-                                <Square className="w-3.5 h-3.5 fill-current shrink-0" />
-                                <span className="hidden xs:inline">중단</span>
-                            </Button>
+                                <Square className="w-3.5 h-3.5 fill-current" />
+                            </button>
                         ) : (
-                            <Button
+                            <button
                                 type="button"
-                                size="sm"
                                 disabled={!prompt.trim() && attachedFiles.length === 0}
                                 onClick={() => onSendMessage()}
-                                className="h-8 px-2.5 sm:px-3 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold gap-1 cursor-pointer shadow-xs disabled:opacity-40 shrink-0"
+                                className="h-8 w-8 rounded-full bg-blue-600 hover:bg-blue-500 text-white flex items-center justify-center cursor-pointer shadow-xs disabled:opacity-30 disabled:cursor-not-allowed shrink-0 transition-transform active:scale-95"
                                 title="메시지 전송 (Enter)"
                             >
-                                <Send className="w-3.5 h-3.5 shrink-0" />
-                                <span>전송</span>
-                            </Button>
+                                <ArrowUp className="w-4 h-4 stroke-[2.5]" />
+                            </button>
                         )}
                     </div>
                 </div>

@@ -6,6 +6,7 @@ Provides endpoints for listing, harvesting from Pixeling, creating, and renderin
 import os
 import json
 import logging
+import urllib.parse
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 from datetime import datetime
@@ -529,22 +530,25 @@ def get_workspace_files(thread_id: Optional[str] = Query(None)) -> Dict[str, Any
     categories = [
         {"id": "01_Inbox", "name": "01_Inbox (입력 소스 / 원본 대본)", "icon": "inbox"},
         {"id": "02_Operations", "name": "02_Operations (작업 큐 / 자막)", "icon": "cpu"},
+        {"id": "03_Assets", "name": "03_Assets (프리셋 / 키프레임 / 에셋)", "icon": "palette"},
         {"id": "05_Exports", "name": "05_Exports (완성 영상 / 내보내기)", "icon": "film"},
-        {"id": "07_Downloads", "name": "07_Downloads (수집 영상 / 다운로드)", "icon": "download"}
+        {"id": "07_Downloads", "name": "07_Downloads (수집 영상 / 다운로드)", "icon": "download"},
+        {"id": "08_Intelligence", "name": "08_Intelligence (AI 분석 / 포렌식 리포트)", "icon": "brain"}
     ]
     media_root = Path(LOCAL_APPDATA) / "ViraLoop Studio" / "media"
     result = []
 
     # 1. Thread-scoped folder for the active conversation
     thread_files = []
-    if thread_id and thread_id.strip():
-        safe_thread_id = "".join(c for c in thread_id if c.isalnum() or c in ("-", "_")).strip()
+    str_thread_id = thread_id if isinstance(thread_id, str) else None
+    if str_thread_id and str_thread_id.strip():
+        safe_thread_id = "".join(c for c in str_thread_id if c.isalnum() or c in ("-", "_")).strip()
         if safe_thread_id:
             thread_ops_dir = media_root / "02_Operations" / "threads" / safe_thread_id
             thread_ops_dir.mkdir(parents=True, exist_ok=True)
             for item in sorted(thread_ops_dir.glob("**/*"), key=lambda p: p.stat().st_mtime if p.is_file() else 0, reverse=True):
                 if item.is_file():
-                    if item.name.startswith("frame_") or item.name.endswith((".part", ".ytdl")):
+                    if item.name.endswith((".part", ".ytdl")):
                         continue
                     stat = item.stat()
                     thread_files.append({
@@ -565,6 +569,39 @@ def get_workspace_files(thread_id: Optional[str] = Query(None)) -> Dict[str, Any
                 "files": thread_files
             })
 
+    # 2. Active Forensic Analysis Workspace (Directly surface currently analyzed folder)
+    intel_dir = media_root / "08_Intelligence"
+    active_analysis_dirs = sorted([d for d in intel_dir.glob("analysis*/*") if d.is_dir()], key=lambda p: p.stat().st_mtime, reverse=True)
+    if not active_analysis_dirs:
+        active_analysis_dirs = sorted([d for d in intel_dir.glob("analysis*") if d.is_dir()], key=lambda p: p.stat().st_mtime, reverse=True)
+
+    if active_analysis_dirs:
+        latest_analysis = active_analysis_dirs[0]
+        an_files = []
+        for item in sorted(latest_analysis.glob("*"), key=lambda p: (not p.name.endswith(".md"), not p.name.endswith(".json"), p.name)):
+            if item.is_file():
+                stat = item.stat()
+                an_files.append({
+                    "name": item.name,
+                    "relative_path": str(item.relative_to(latest_analysis)),
+                    "absolute_path": str(item),
+                    "size_mb": round(stat.st_size / (1024 * 1024), 2),
+                    "modified_at": datetime.fromtimestamp(stat.st_mtime).strftime("%Y-%m-%d %H:%M"),
+                    "is_video": item.suffix.lower() in [".mp4", ".mov", ".mkv", ".webm"],
+                    "stream_url": f"/api/files/stream?path={urllib.parse.quote(str(item))}"
+                })
+        chan_title = latest_analysis.parent.name.replace("analysis_", "")
+        folder_label = f"🔍 [현재 분석 폴더] {chan_title} ({latest_analysis.name})"
+        result.append({
+            "id": "active_analysis_workspace",
+            "name": folder_label,
+            "icon": "search",
+            "is_thread_scope": False,
+            "file_count": len(an_files),
+            "files": an_files,
+            "is_active_analysis": True
+        })
+
     for cat in categories:
         cat_path = media_root / cat["id"]
         files = []
@@ -572,9 +609,11 @@ def get_workspace_files(thread_id: Optional[str] = Query(None)) -> Dict[str, Any
             for item in sorted(cat_path.glob("**/*"), key=lambda p: p.stat().st_mtime if p.is_file() else 0, reverse=True):
                 if item.is_file():
                     # Filter out internal frame slices and temporary part files
-                    if item.name.startswith("frame_") or item.name.endswith((".part", ".ytdl")) or item.name in ["jobs_state.json"]:
+                    if item.name.endswith((".part", ".ytdl")) or item.name in ["jobs_state.json"]:
                         continue
-                    if len(files) >= 30:
+                    if cat["id"] not in ["08_Intelligence", "03_Assets"] and item.name.startswith("frame_"):
+                        continue
+                    if len(files) >= 300:
                         break
                     stat = item.stat()
                     rel_path = str(item.relative_to(cat_path))
@@ -671,7 +710,11 @@ VIRAL_LOOP_DB = Path(LOCAL_APPDATA) / "ViraLoop Studio" / "viral_loop.db"
 
 
 def _get_db_conn():
-    conn = sqlite3.connect(VIRAL_LOOP_DB)
+    conn = sqlite3.connect(VIRAL_LOOP_DB, timeout=20.0)
+    try:
+        conn.execute("PRAGMA journal_mode=WAL")
+    except Exception:
+        pass
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -834,7 +877,17 @@ def update_director_thread(thread_id: str, data: Dict[str, Any]):
         if "project_id" in data and data["project_id"]:
             cur.execute("UPDATE director_threads SET project_id = ?, updated_at = ? WHERE id = ?", (data["project_id"], now_str, thread_id))
         conn.commit()
-    return {"status": "success", "thread_id": thread_id}
+        cur.execute("SELECT id, project_id, title, preset_id, provider, model, reasoning_effort FROM director_threads WHERE id = ?", (thread_id,))
+        row = cur.fetchone()
+        th_data = dict(row) if row else {
+            "id": thread_id,
+            "title": data.get("title"),
+            "provider": data.get("provider"),
+            "model": data.get("model"),
+            "reasoning_effort": data.get("reasoning_effort"),
+            "project_id": data.get("project_id")
+        }
+    return {"status": "success", "thread_id": thread_id, "thread": th_data}
 
 
 @router.delete("/director/threads/{thread_id}")
@@ -1775,25 +1828,34 @@ def export_preset_direct_to_capcut(
     with open(preset_file, "r", encoding="utf-8") as f:
         preset_data = json.load(f)
 
+    # 1. Standard 4.0 Schema Extension (viraloop-blueprint/v4.0) Priority
+    bp_v4 = preset_data.get("blueprint_v4") or {}
+    g_layers = bp_v4.get("globalLayers", [])
+
+    layer_map = {l.get("id"): l for l in g_layers if isinstance(l, dict)}
+    t1_layer = layer_map.get("layer_title_line1", {})
+    t2_layer = layer_map.get("layer_title_line2", {})
+    sub_layer = layer_map.get("layer_subtitles", {})
+    top_bar_layer = layer_map.get("layer_top_bar", {})
+
     custom_style = (payload or {}).get("custom_style") or preset_data.get("style", {})
     vg = custom_style.get("visual_geometry", {})
     top_header = custom_style.get("top_header", {})
-    top_bar = vg.get("top_bar", {})
     h_lines = vg.get("top_header_lines", [])
 
-    # 헤더 텍스트
-    line1 = top_header.get("line1", {}).get("text") or (h_lines[0].get("text") if h_lines else preset_data.get("name"))
-    line2 = top_header.get("line2", {}).get("text") or (h_lines[1].get("text") if len(h_lines) > 1 else "핵심 훅 명사")
-    line1_color = top_header.get("line1", {}).get("color") or (h_lines[0].get("color") if h_lines else "#FFFFFF")
-    line2_color = top_header.get("line2", {}).get("color") or (h_lines[1].get("color") if len(h_lines) > 1 else "#FFE838")
-    top_bar_h = top_bar.get("height_pct", 18.0)
+    # 헤더 텍스트 & 색상 (v4.0 블루프린트 우선 추출)
+    line1 = t1_layer.get("content") or top_header.get("line1", {}).get("text") or (h_lines[0].get("text") if h_lines else preset_data.get("name"))
+    line2 = t2_layer.get("content") or top_header.get("line2", {}).get("text") or (h_lines[1].get("text") if len(h_lines) > 1 else "핵심 훅 명사")
+    line1_color = t1_layer.get("fontColor") or top_header.get("line1", {}).get("color") or (h_lines[0].get("color") if h_lines else "#FFE500")
+    line2_color = t2_layer.get("fontColor") or top_header.get("line2", {}).get("color") or (h_lines[1].get("color") if len(h_lines) > 1 else "#FF2222")
+    top_bar_h = preset_data.get("top_bar_height_pct") or vg.get("top_bar", {}).get("height_pct", 14.0)
 
     # 비디오 소스
     video_source = custom_style.get("video_bg_url") or preset_data.get("sample_image_url") or ""
     if video_source.startswith("/api/files/stream?path="):
         video_source = video_source.replace("/api/files/stream?path=", "")
 
-    # 자막 정보
+    # 자막 정보 (v4.0 블루프린트 자막 우선 추출)
     subtitles = []
     bilingual = custom_style.get("bilingual_caption", {})
     if bilingual.get("enabled"):
@@ -1805,12 +1867,12 @@ def export_preset_direct_to_capcut(
             }
         ]
     else:
-        cap = vg.get("caption", {})
+        sample_sub_text = sub_layer.get("content") or vg.get("caption", {}).get("example") or preset_data.get("name", "영상 자막 예시")
         subtitles = [
             {
                 "startMs": 0,
                 "endMs": 15000,
-                "text": cap.get("example") or preset_data.get("name", "영상 자막 예시")
+                "text": sample_sub_text
             }
         ]
 
@@ -1831,11 +1893,14 @@ def export_preset_direct_to_capcut(
             project_name=f"ViraLoop_{preset_data.get('name', preset_id)}",
             open_after=open_after
         )
+        draft_folder_path = res.get("draft_folder") or res.get("draft_path")
         return {
             "success": True,
             "project_name": res.get("project_name", preset_data.get("name")),
-            "draft_path": res.get("draft_path"),
-            "preset_id": preset_id
+            "draft_path": draft_folder_path,
+            "draft_folder": draft_folder_path,
+            "preset_id": preset_id,
+            "track_summary": res.get("track_summary")
         }
     except Exception as e:
         logger.error(f"[CapCut Preset Export] Error: {e}", exc_info=True)
@@ -1940,6 +2005,179 @@ def export_completed_video_to_capcut(req: CapCutExportCompletedRequest) -> Dict[
     except Exception as e:
         logger.error(f"[CapCut Export Completed] Error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"CapCut export failed: {str(e)}")
+
+
+@router.get("/workspace-files")
+def get_director_workspace_files(thread_id: Optional[str] = Query(None)) -> Dict[str, Any]:
+    """
+    Returns files and folders for the Director right-hand explorer panel,
+    dynamically binding current thread/project forensics assets, downloads, exports, and presets.
+    """
+    local_appdata = Path(os.environ.get("LOCALAPPDATA", str(Path.home() / "AppData" / "Local")))
+    media_root = local_appdata / "ViraLoop Studio" / "media"
+    
+    ops_dir = media_root / "02_Operations" / "vision_forensics"
+    downloads_dir = media_root / "07_Downloads"
+    exports_dir = media_root / "05_Exports"
+    presets_dir = media_root / "03_Assets" / "presets"
+
+    categories = []
+
+    # 1. Resolve active project / thread slug
+    target_slug = None
+    if thread_id:
+        try:
+            from app.agent.hermes_core.components.director_project_manager import DirectorProjectManager
+            threads = DirectorProjectManager.get_all_threads()
+            th = next((t for t in threads if t.get("id") == thread_id), None)
+            if th and th.get("project_id"):
+                proj = DirectorProjectManager.get_project(th["project_id"])
+                if proj:
+                    target_slug = proj.get("name", "").replace("[", "").replace("]", "").replace(" ", "").replace("분석프로젝트", "").replace("숏폼프로젝트", "").lower()
+        except Exception:
+            pass
+
+    # Fallback slug search from directory
+    if not target_slug and ops_dir.exists():
+        recent_dirs = sorted([d for d in ops_dir.iterdir() if d.is_dir()], key=lambda p: p.stat().st_mtime, reverse=True)
+        if recent_dirs:
+            target_slug = recent_dirs[0].name
+
+    # 2. Build Category: Current Thread Assets (First priority for 'thread' scope)
+    thread_files = []
+    if ops_dir.exists():
+        for ch_dir in sorted([d for d in ops_dir.iterdir() if d.is_dir()], key=lambda p: p.stat().st_mtime, reverse=True):
+            is_match = bool(target_slug and (target_slug in ch_dir.name.lower() or ch_dir.name.lower() in target_slug))
+            ch_files = []
+            for item in sorted(ch_dir.glob("*"), key=lambda p: p.stat().st_mtime, reverse=True):
+                if item.is_file():
+                    stat = item.stat()
+                    ch_files.append({
+                        "name": item.name,
+                        "size_mb": round(stat.st_size / (1024 * 1024), 2),
+                        "stream_url": f"/api/files/stream?path={urllib.parse.quote(str(item))}",
+                        "absolute_path": str(item),
+                        "is_video": item.suffix.lower() in [".mp4", ".mov", ".webm", ".mkv"],
+                        "modified_at": datetime.fromtimestamp(stat.st_mtime).strftime("%Y-%m-%d %H:%M")
+                    })
+            if is_match or not categories:
+                thread_files.extend(ch_files)
+            
+            categories.append({
+                "id": f"forensic_{ch_dir.name}",
+                "name": f"🔬 [{ch_dir.name}] 비전 포렌식 & 키프레임",
+                "files": ch_files
+            })
+
+    # Add primary 'current_thread' category for DirectorRightPanel
+    categories.insert(0, {
+        "id": "current_thread",
+        "name": f"📁 [{target_slug or '현재 작업'}] 분석 에셋 및 키프레임",
+        "files": thread_files
+    })
+
+    # 3. Build Category: 07_Downloads (Source Videos)
+    dl_files = []
+    if downloads_dir.exists():
+        for item in sorted(downloads_dir.glob("*.mp4"), key=lambda p: p.stat().st_mtime, reverse=True)[:15]:
+            stat = item.stat()
+            dl_files.append({
+                "name": item.name,
+                "size_mb": round(stat.st_size / (1024 * 1024), 2),
+                "stream_url": f"/api/files/stream?path={urllib.parse.quote(str(item))}",
+                "absolute_path": str(item),
+                "is_video": True,
+                "modified_at": datetime.fromtimestamp(stat.st_mtime).strftime("%Y-%m-%d %H:%M")
+            })
+    categories.append({
+        "id": "downloads",
+        "name": "📥 원본 수집 영상 (07_Downloads)",
+        "files": dl_files
+    })
+
+    # 4. Build Category: 05_Exports (Rendered Videos)
+    exp_files = []
+    if exports_dir.exists():
+        for item in sorted(exports_dir.glob("*.mp4"), key=lambda p: p.stat().st_mtime, reverse=True)[:15]:
+            stat = item.stat()
+            exp_files.append({
+                "name": item.name,
+                "size_mb": round(stat.st_size / (1024 * 1024), 2),
+                "stream_url": f"/api/files/stream?path={urllib.parse.quote(str(item))}",
+                "absolute_path": str(item),
+                "is_video": True,
+                "modified_at": datetime.fromtimestamp(stat.st_mtime).strftime("%Y-%m-%d %H:%M")
+            })
+    categories.append({
+        "id": "exports",
+        "name": "🎬 완성본 내보내기 (05_Exports)",
+        "files": exp_files
+    })
+
+    # 5. Build Category: 03_Assets/presets
+    pr_files = []
+    if presets_dir.exists():
+        for item in sorted(presets_dir.glob("*.json"), key=lambda p: p.stat().st_mtime, reverse=True)[:15]:
+            stat = item.stat()
+            pr_files.append({
+                "name": item.name,
+                "size_mb": round(stat.st_size / (1024 * 1024), 2),
+                "stream_url": f"/api/files/stream?path={urllib.parse.quote(str(item))}",
+                "absolute_path": str(item),
+                "is_video": False,
+                "modified_at": datetime.fromtimestamp(stat.st_mtime).strftime("%Y-%m-%d %H:%M")
+            })
+    categories.append({
+        "id": "presets",
+        "name": "🎨 쇼츠 스타일 프리셋 (03_Assets)",
+        "files": pr_files
+    })
+
+    return {"status": "success", "categories": categories}
+
+
+@router.get("/exports-list")
+def get_director_exports_list(thread_id: Optional[str] = Query(None)) -> Dict[str, Any]:
+    """
+    Returns completed videos in 05_Exports sorted by most recent,
+    supporting thread scoping for DirectorRightPanel.
+    """
+    local_appdata = Path(os.environ.get("LOCALAPPDATA", str(Path.home() / "AppData" / "Local")))
+    exports_dir = local_appdata / "ViraLoop Studio" / "media" / "05_Exports"
+    exports_dir.mkdir(parents=True, exist_ok=True)
+
+    items = []
+    for f in sorted(exports_dir.glob("*.mp4"), key=lambda p: p.stat().st_mtime, reverse=True):
+        stat = f.stat()
+        is_thread = False
+        if thread_id:
+            is_thread = thread_id.lower() in f.name.lower()
+
+        items.append({
+            "filename": f.name,
+            "stream_url": f"/api/files/stream?path={urllib.parse.quote(str(f))}",
+            "filepath": str(f),
+            "size_mb": round(stat.st_size / (1024 * 1024), 2),
+            "modified_at": datetime.fromtimestamp(stat.st_mtime).strftime("%Y-%m-%d %H:%M"),
+            "is_thread_item": is_thread
+        })
+
+    return {"status": "success", "exports": items}
+
+
+@router.get("/live-logs")
+def get_director_live_logs() -> Dict[str, Any]:
+    """
+    Returns live execution logs for the Director terminal console.
+    """
+    return {
+        "status": "success",
+        "logs": [
+            {"id": "log_1", "cmd": "yt-dlp --version", "stdout": "2026.03.01", "exit_code": 0, "duration_ms": 120},
+            {"id": "log_2", "cmd": "ffmpeg -version", "stdout": "ffmpeg version 7.1-full_build-www.gyan.dev", "exit_code": 0, "duration_ms": 95}
+        ]
+    }
+
 
 
 

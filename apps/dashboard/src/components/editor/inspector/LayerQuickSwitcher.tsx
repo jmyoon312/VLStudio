@@ -23,14 +23,15 @@ export const LayerQuickSwitcher: React.FC<LayerQuickSwitcherProps> = ({ classNam
 
   const [isOpen, setIsOpen] = useState(false);
 
-  const selectedLayer = blueprint.globalLayers.find((l) => l.id === selectedLayerId) || null;
+  const globalLayers = blueprint?.globalLayers || [];
+  const selectedLayer = globalLayers.find((l) => l.id === selectedLayerId) || null;
 
   // 가시성 토글
   const toggleVisibility = (layerId: string, e: React.MouseEvent) => {
     e.stopPropagation();
     setBlueprint({
       ...blueprint,
-      globalLayers: blueprint.globalLayers.map((l) =>
+      globalLayers: globalLayers.map((l) =>
         l.id === layerId ? { ...l, hidden: !l.hidden } : l
       ),
     });
@@ -41,7 +42,7 @@ export const LayerQuickSwitcher: React.FC<LayerQuickSwitcherProps> = ({ classNam
     e.stopPropagation();
     setBlueprint({
       ...blueprint,
-      globalLayers: blueprint.globalLayers.map((l) =>
+      globalLayers: globalLayers.map((l) =>
         l.id === layerId ? { ...l, locked: !l.locked } : l
       ),
     });
@@ -53,7 +54,7 @@ export const LayerQuickSwitcher: React.FC<LayerQuickSwitcherProps> = ({ classNam
     const newId = `text_${Date.now()}`;
     const newText: TextLayer = {
       id: newId,
-      name: `텍스트 ${blueprint.globalLayers.length + 1}`,
+      name: `텍스트 ${globalLayers.length + 1}`,
       kind: "text",
       locked: false,
       hidden: false,
@@ -86,7 +87,7 @@ export const LayerQuickSwitcher: React.FC<LayerQuickSwitcherProps> = ({ classNam
     };
     setBlueprint({
       ...blueprint,
-      globalLayers: [...blueprint.globalLayers, newText],
+      globalLayers: [...globalLayers, newText],
     });
     setSelectedLayerId(newId);
     setIsOpen(false);
@@ -98,7 +99,7 @@ export const LayerQuickSwitcher: React.FC<LayerQuickSwitcherProps> = ({ classNam
     const newId = `shape_${Date.now()}`;
     const newShape: ShapeLayer = {
       id: newId,
-      name: `박스 ${blueprint.globalLayers.length + 1}`,
+      name: `박스 ${globalLayers.length + 1}`,
       kind: "shape",
       locked: false,
       hidden: false,
@@ -110,7 +111,7 @@ export const LayerQuickSwitcher: React.FC<LayerQuickSwitcherProps> = ({ classNam
         rotation: 0,
         scale: 1,
         origin: "center",
-        zIndex: blueprint.globalLayers.length + 5,
+        zIndex: globalLayers.length + 5,
       },
       inMs: 0,
       outMs: null,
@@ -122,7 +123,7 @@ export const LayerQuickSwitcher: React.FC<LayerQuickSwitcherProps> = ({ classNam
     };
     setBlueprint({
       ...blueprint,
-      globalLayers: [...blueprint.globalLayers, newShape],
+      globalLayers: [...globalLayers, newShape],
     });
     setSelectedLayerId(newId);
     setIsOpen(false);
@@ -206,7 +207,7 @@ export const LayerQuickSwitcher: React.FC<LayerQuickSwitcherProps> = ({ classNam
       {isOpen && (
         <div className="absolute top-full left-0 right-0 mt-1.5 bg-card border border-border rounded-xl shadow-xl z-50 p-1.5 space-y-1 max-h-64 overflow-y-auto custom-scrollbar animate-in fade-in-50 zoom-in-95 duration-100">
           <div className="flex items-center justify-between px-2 py-1 text-[11px] font-semibold text-muted-foreground border-b border-border/50">
-            <span>레이어 목록 ({blueprint.globalLayers.length})</span>
+            <span>레이어 목록 ({globalLayers.length})</span>
             <button
               type="button"
               onClick={() => {
@@ -219,12 +220,12 @@ export const LayerQuickSwitcher: React.FC<LayerQuickSwitcherProps> = ({ classNam
             </button>
           </div>
 
-          {blueprint.globalLayers.length === 0 ? (
+          {globalLayers.length === 0 ? (
             <div className="text-center py-4 text-xs text-muted-foreground">
               레이어가 없습니다. 상단 + 버튼으로 추가하세요.
             </div>
           ) : (
-            blueprint.globalLayers.map((layer, idx) => {
+            globalLayers.map((layer, idx) => {
               const isSelected = layer.id === selectedLayerId;
               return (
                 <div

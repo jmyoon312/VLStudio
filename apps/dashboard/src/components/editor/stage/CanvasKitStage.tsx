@@ -24,6 +24,7 @@ import {
 } from "../../canvas/floating";
 import { MemeAvatar } from "@/components/memeAssets";
 import { Maximize2, ZoomIn, ZoomOut, Check, ChevronDown } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export interface CanvasKitStageProps {
   className?: string;
@@ -72,8 +73,8 @@ export const CanvasKitStage: React.FC<CanvasKitStageProps> = ({
     (l) => l.kind === "shape" && (l as any).shapeRole === "comment_card"
   );
 
-  const canvasWidth = blueprint.canvas.width || 1080;
-  const canvasHeight = blueprint.canvas.height || 1920;
+  const canvasWidth = blueprint?.canvas?.width || 1080;
+  const canvasHeight = blueprint?.canvas?.height || 1920;
 
   // 1. 컨테이너 리사이즈에 맞춘 캔버스 자동 맞춤 스케일 계산
   const updateLayout = useCallback(() => {
@@ -191,10 +192,10 @@ export const CanvasKitStage: React.FC<CanvasKitStageProps> = ({
   }, [updateLayout]);
 
   // 3. 현재 재생 시점에 해당하는 씬 찾기
-  let currentScene = blueprint.scenes[0];
+  let currentScene = blueprint?.scenes?.[0];
   let accumulatedMs = 0;
-  for (const sc of blueprint.scenes) {
-    const dur = sc.actualDurationMs || sc.targetDurationMs;
+  for (const sc of (blueprint?.scenes || [])) {
+    const dur = sc.actualDurationMs || sc.targetDurationMs || 0;
     if (currentTimeMs >= accumulatedMs && currentTimeMs < accumulatedMs + dur) {
       currentScene = sc;
       break;
@@ -202,16 +203,18 @@ export const CanvasKitStage: React.FC<CanvasKitStageProps> = ({
     accumulatedMs += dur;
   }
 
-  // 4. 현재 활성 텍스트 자막 계산
-  const activeWord = currentScene?.words?.find((w) => {
-    const sceneStart = accumulatedMs;
-    return (
-      currentTimeMs >= sceneStart + w.startMs &&
-      currentTimeMs <= sceneStart + w.endMs
-    );
-  });
+  // 4. 현재 활성 텍스트 자막 계산 (안전 방어)
+  const activeWord = Array.isArray(currentScene?.words)
+    ? currentScene.words.find((w) => {
+        if (!w) return false;
+        const sceneStart = accumulatedMs;
+        const sMs = w.startMs ?? 0;
+        const eMs = w.endMs ?? 0;
+        return currentTimeMs >= sceneStart + sMs && currentTimeMs <= sceneStart + eMs;
+      })
+    : null;
 
-  const selectedLayer = blueprint.globalLayers.find((l) => l.id === selectedLayerId) || null;
+  const selectedLayer = (blueprint?.globalLayers || []).find((l) => l?.id === selectedLayerId) || null;
 
   return (
     <div className={`relative w-full h-full flex flex-col bg-muted/30 dark:bg-zinc-950 overflow-hidden select-none ${className}`}>
@@ -237,7 +240,7 @@ export const CanvasKitStage: React.FC<CanvasKitStageProps> = ({
           </button>
 
           {/* 픽셀링 1:1 댓글/카드 폼팩터 전용 뷰 모드 토글 */}
-          {(hasCommentCards || blueprint.archetype === "instagram" || blueprint.archetype === "ssul") && (
+          {(hasCommentCards || blueprint?.archetype === "instagram" || blueprint?.archetype === "ssul") && (
             <div className="flex items-center p-0.5 bg-card border border-border rounded text-xs ml-2">
               <button
                 onClick={() => setPreviewViewMode("video")}
@@ -358,7 +361,7 @@ export const CanvasKitStage: React.FC<CanvasKitStageProps> = ({
             <div className="text-center pb-1 text-xs text-muted-foreground font-medium">
               💬 댓글 및 카드 레이아웃 목록 (카드를 클릭하여 우측 인스펙터에서 즉시 편집)
             </div>
-            {blueprint.globalLayers
+            {(blueprint?.globalLayers || [])
               .filter((l) => l.kind === "shape" || l.kind === "text")
               .map((layer) => {
                 const isSelected = selectedLayerId === layer.id;
@@ -431,7 +434,7 @@ export const CanvasKitStage: React.FC<CanvasKitStageProps> = ({
             style={{
               width: `${canvasWidth * scale}px`,
               height: `${canvasHeight * scale}px`,
-              backgroundColor: blueprint.canvas.backgroundColor || "#000000",
+              backgroundColor: blueprint?.canvas?.backgroundColor || "#000000",
               ...(backdrop === "transparent"
                 ? BACKDROP_CONFIGS.transparent.style
                 : backdrop !== "studio"
@@ -500,101 +503,147 @@ export const CanvasKitStage: React.FC<CanvasKitStageProps> = ({
             const hasMainTitleLayer = allLayers.some((l) => l.id === "title_line1" || l.id === "breaking_title");
             if (hasMainTitleLayer && layer.id === "title_line2") return null;
 
-            const t = layer.transform;
+            const t = layer.transform || { x: 540, y: 960, width: 400, height: 100, rotation: 0, scale: 1, origin: "center", zIndex: 10 };
             const isSelected = layer.id === selectedLayerId;
             const isSubtitle = (layer as any).textRole === "subtitle_narrative" || layer.id.includes("subtitle");
 
-            return (
-              <div
-                key={layer.id}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  const now = Date.now();
-                  const isDbl = lastClickRef.current.id === layer.id && (now - lastClickRef.current.time < 380);
-                  lastClickRef.current = { id: layer.id, time: now };
+                const isLeftOrigin = t.origin === "left";
+                const posX = isLeftOrigin ? t.x * scale : (t.x - t.width / 2) * scale;
+                const posY = isLeftOrigin ? t.y * scale : (t.y - t.height / 2 + ((layer as any).verticalPosition || 0)) * scale;
 
-                  if (isDbl) {
-                    if (sovereign) {
-                      sovereign.handleLayerDoubleClick(layer);
-                    }
-                  } else {
-                    if (sovereign) {
-                      sovereign.handleLayerSingleClick(layer);
-                    } else {
-                      setSelectedLayerId(layer.id);
-                    }
-                  }
-                }}
-                onDoubleClick={(e) => {
-                  e.stopPropagation();
-                  if (sovereign) {
-                    sovereign.handleLayerDoubleClick(layer);
-                  }
-                }}
-                className={`absolute cursor-pointer transition-shadow ${
-                  isSelected ? "" : "hover:ring-1 hover:ring-cyan-500/50"
-                }`}
-                style={{
-                  left: `${(t.x - t.width / 2) * scale}px`,
-                  top: `${(t.y - t.height / 2 + ((layer as any).verticalPosition || 0)) * scale}px`,
-                  width: `${t.width * scale}px`,
-                  height: `${t.height * scale}px`,
-                  transform: `rotate(${t.rotation || 0}deg) scale(${t.scale || 1})`,
-                  transformOrigin: "center center",
-                  zIndex: t.zIndex,
-                  opacity: layer.opacity,
-                }}
-              >
-                {/* 1. 📸 인스타 프로필 카드 렌더러 (TemplateCanvasViewport 원조 규격 1:1 완벽 일치) */}
-                {layer.id.includes("profile_header") && (
+                return (
                   <div
-                    className="w-full h-full flex items-center px-4 justify-between bg-white text-zinc-900 border border-zinc-200/90 shadow-md select-none"
-                    style={{ borderRadius: `${((layer as any).borderRadius || 20) * scale}px` }}
+                    key={layer.id}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const now = Date.now();
+                      const isDbl = lastClickRef.current.id === layer.id && (now - lastClickRef.current.time < 380);
+                      lastClickRef.current = { id: layer.id, time: now };
+
+                      if (isDbl) {
+                        if (sovereign) {
+                          sovereign.handleLayerDoubleClick(layer);
+                        }
+                      } else {
+                        if (sovereign) {
+                          sovereign.handleLayerSingleClick(layer);
+                        } else {
+                          setSelectedLayerId(layer.id);
+                        }
+                      }
+                    }}
+                    onDoubleClick={(e) => {
+                      e.stopPropagation();
+                      if (sovereign) {
+                        sovereign.handleLayerDoubleClick(layer);
+                      }
+                    }}
+                    className={`absolute cursor-pointer transition-shadow ${
+                      isSelected ? "" : "hover:ring-1 hover:ring-cyan-500/50"
+                    }`}
+                    style={{
+                      left: `${posX}px`,
+                      top: `${posY}px`,
+                      width: `${t.width * scale}px`,
+                      height: `${t.height * scale}px`,
+                      transform: `rotate(${t.rotation || 0}deg) scale(${t.scale || 1})`,
+                      transformOrigin: isLeftOrigin ? "left center" : "center center",
+                      zIndex: t.zIndex,
+                      opacity: layer.opacity,
+                    }}
                   >
-                    <div className="flex items-center gap-2.5 min-w-0">
+                    {/* 1. 📸 인스타 프로필 카드 렌더러 (TemplateCanvasViewport 원조 규격 1:1 완벽 일치) */}
+                    {layer.id.includes("profile_header") && (
                       <div
-                        className="rounded-full border-2 border-blue-500 overflow-hidden bg-white shadow-2xs shrink-0 flex items-center justify-center"
-                        style={{ width: `${48 * scale}px`, height: `${48 * scale}px` }}
+                        className="w-full h-full flex items-center justify-between px-3.5 rounded-2xl select-none transition-colors"
+                        style={{
+                          backgroundColor: sovereign?.instaConfig?.profileBoxEnabled
+                            ? (sovereign?.instaConfig?.profileBoxColor || "rgba(255,255,255,0.92)")
+                            : "rgba(255,255,255,0.85)",
+                          borderRadius: `${(sovereign?.instaConfig?.profileBorderRadius ?? 24) * scale}px`,
+                          boxShadow: sovereign?.instaConfig?.profileBoxEnabled
+                            ? `0 4px ${(sovereign?.instaConfig?.profileShadowBlur || 12) * scale}px rgba(0,0,0,0.12)`
+                            : "0 2px 8px rgba(0,0,0,0.08)",
+                          border: sovereign?.instaConfig?.profileBoxEnabled
+                            ? `${(sovereign?.instaConfig?.profileBorderWidth || 1) * scale}px solid ${sovereign?.instaConfig?.profileBorderColor || "#E2E8F0"}`
+                            : "1px solid rgba(226, 232, 240, 0.8)",
+                          padding: `${8 * scale}px ${16 * scale}px`,
+                        }}
                       >
-                        <img
-                          src={sovereign?.instaConfig?.profileAvatarUrl || "https://api.dicebear.com/9.x/lorelei/svg?seed=user_avatar_blue"}
-                          alt="profile"
-                          className="w-full h-full object-cover pointer-events-none"
-                        />
-                      </div>
-                      <div className="flex flex-col text-left min-w-0">
-                        <div className="flex items-center gap-1 font-black text-zinc-900 leading-tight truncate" style={{ fontSize: `${22 * scale}px` }}>
-                          <span className="truncate">{sovereign?.instaConfig?.profileName || "축구 하이라이트 매거진"}</span>
-                          <span className="text-blue-500 font-extrabold" style={{ fontSize: `${18 * scale}px` }}>✓</span>
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div
+                            className="rounded-full overflow-hidden bg-neutral-100 ring-2 ring-blue-500/40 shadow-xs shrink-0 flex items-center justify-center"
+                            style={{ width: `${56 * scale}px`, height: `${56 * scale}px` }}
+                          >
+                            <img
+                              src={sovereign?.instaConfig?.profileAvatarUrl || "https://api.dicebear.com/9.x/lorelei/svg?seed=user_avatar_blue"}
+                              alt="profile"
+                              className="w-full h-full object-cover pointer-events-none"
+                            />
+                          </div>
+                          <div className="flex flex-col text-left leading-tight min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <span
+                                className="tracking-tight truncate font-black text-zinc-900"
+                                style={{
+                                  color: sovereign?.instaConfig?.profileNameColor || "#18181B",
+                                  fontSize: `${(sovereign?.instaConfig?.profileNameSize || 30) * scale}px`,
+                                  fontFamily: resolveFontFamily(sovereign?.instaConfig?.profileFont || "Pretendard"),
+                                }}
+                              >
+                                {sovereign?.instaConfig?.profileName || "유머보따리"}
+                              </span>
+                              {sovereign?.instaConfig?.isVerified !== false && (
+                                <svg className="text-blue-500 fill-current shrink-0" style={{ width: `${20 * scale}px`, height: `${20 * scale}px` }} viewBox="0 0 24 24">
+                                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                                </svg>
+                              )}
+                            </div>
+                            <span
+                              className="text-zinc-500 font-medium truncate mt-0.5"
+                              style={{ fontSize: `${20 * scale}px` }}
+                            >
+                              {sovereign?.instaConfig?.profileHandle || "@viral_shorts"}
+                            </span>
+                          </div>
                         </div>
-                        <span className="text-zinc-500 font-medium truncate" style={{ fontSize: `${17 * scale}px` }}>
-                          {sovereign?.instaConfig?.profileHandle || "@football_korea_tv"}
-                        </span>
+                        <button
+                          type="button"
+                          className="font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-full transition pointer-events-none shrink-0"
+                          style={{
+                            fontSize: `${20 * scale}px`,
+                            padding: `${6 * scale}px ${14 * scale}px`,
+                          }}
+                        >
+                          팔로우
+                        </button>
                       </div>
-                    </div>
-                    <button
-                      type="button"
-                      className="px-3.5 py-1 text-blue-600 bg-blue-50 hover:bg-blue-100 font-bold rounded-full border border-blue-200/60 shadow-2xs shrink-0 transition"
-                      style={{ fontSize: `${17 * scale}px` }}
-                    >
-                      팔로우
-                    </button>
-                  </div>
-                )}
+                    )}
 
                 {/* 2. 💬 인스타 / 커뮤니티 베댓 카드 렌더러 (TemplateCanvasViewport 원조 규격 1:1 완벽 일치) */}
                 {layer.id.includes("comment_card") && (
                   <div
-                    className="w-full h-full flex flex-col justify-between p-4 bg-white/95 text-zinc-900 border border-zinc-200/90 rounded-2xl shadow-xl select-none"
+                    className="w-full h-full flex flex-col justify-between bg-white/95 text-zinc-900 border border-zinc-200/90 rounded-2xl shadow-xl select-none"
                     style={{
-                      borderRadius: `${((layer as any).borderRadius || 20) * scale}px`,
-                      backgroundColor: (layer as any).fillColor || sovereign?.commentCardConfig?.bgColor || "#FFFFFF",
+                      borderRadius: `${((layer as any).borderRadius || sovereign?.commentCardConfig?.borderRadius || 18) * scale}px`,
+                      backgroundColor: sovereign?.commentCardConfig?.bgColor || (layer as any).fillColor || "#FFFFFF",
+                      color: sovereign?.commentCardConfig?.textColor || "#18181B",
+                      border: sovereign?.commentCardConfig?.borderEnabled
+                        ? `${(sovereign?.commentCardConfig?.borderWidth || 1) * scale}px solid ${sovereign?.commentCardConfig?.borderColor || '#E2E8F0'}`
+                        : "1px solid rgba(226, 232, 240, 0.9)",
+                      boxShadow: sovereign?.commentCardConfig?.cardShadowEnabled
+                        ? `0 8px ${(sovereign?.commentCardConfig?.cardShadowBlur || 16) * scale}px ${sovereign?.commentCardConfig?.cardShadowColor || 'rgba(0,0,0,0.15)'}`
+                        : "0 4px 14px rgba(0,0,0,0.06)",
+                      padding: `${16 * scale}px`,
                     }}
                   >
                     <div className="flex items-start gap-3 min-w-0">
                       <div
-                        className="rounded-full border border-zinc-200 bg-zinc-100 overflow-hidden shrink-0 flex items-center justify-center font-bold"
-                        style={{ width: `${42 * scale}px`, height: `${42 * scale}px` }}
+                        className={cn(
+                          "rounded-full border border-zinc-200 bg-zinc-100 overflow-hidden shrink-0 flex items-center justify-center font-bold",
+                          (sovereign?.commentCardConfig?.blurId || sovereign?.commentCardConfig?.isBlurred) && "blur-[2px]"
+                        )}
+                        style={{ width: `${52 * scale}px`, height: `${52 * scale}px` }}
                       >
                         <img
                           src={sovereign?.commentCardConfig?.avatarUrl || "https://api.dicebear.com/9.x/bottts/svg?seed=commenter"}
@@ -603,25 +652,36 @@ export const CanvasKitStage: React.FC<CanvasKitStageProps> = ({
                         />
                       </div>
                       <div className="flex-1 min-w-0 text-left">
-                        <div className="flex items-center gap-1.5 font-bold text-zinc-900" style={{ fontSize: `${19 * scale}px` }}>
-                          <span className="truncate">{sovereign?.commentCardConfig?.author || "축구도사"}</span>
-                          <span className="text-zinc-400 font-mono font-normal truncate" style={{ fontSize: `${15 * scale}px` }}>
-                            {sovereign?.commentCardConfig?.handle || "@user_***"}
+                        <div className="flex items-center gap-2 font-bold text-zinc-900">
+                          <span className={cn("truncate", (sovereign?.commentCardConfig?.blurId || sovereign?.commentCardConfig?.isBlurred) && "blur-[3px]")} style={{ fontSize: `${24 * scale}px` }}>
+                            {(sovereign?.commentCardConfig?.anonymous || sovereign?.commentCardConfig?.isAnonymous) ? "익명_유저" : (sovereign?.commentCardConfig?.author || "축구도사")}
                           </span>
-                          <span className="text-zinc-400 text-xs font-normal shrink-0 ml-auto" style={{ fontSize: `${15 * scale}px` }}>
-                            {sovereign?.commentCardConfig?.timeText || "3시간 전"}
+                          <span className={cn("text-zinc-400 font-mono font-normal truncate", (sovereign?.commentCardConfig?.blurId || sovereign?.commentCardConfig?.isBlurred) && "blur-[3px]")} style={{ fontSize: `${18 * scale}px` }}>
+                            {(sovereign?.commentCardConfig?.anonymous || sovereign?.commentCardConfig?.isAnonymous) ? "@user_***" : (sovereign?.commentCardConfig?.handle || "@viral_shorts_pro")}
+                          </span>
+                          <span className="text-zinc-400 font-normal shrink-0 ml-auto" style={{ fontSize: `${18 * scale}px` }}>
+                            {sovereign?.commentCardConfig?.timeText || sovereign?.commentCardConfig?.timeAgo || "방금 전"}
                           </span>
                         </div>
-                        <div className="font-semibold text-zinc-900 mt-1 line-clamp-2 leading-snug break-keep" style={{ fontSize: `${22 * scale}px` }}>
-                          {sovereign?.commentCardConfig?.text || "진짜 이 골은 봐도 봐도 소름 돋네요 ㄷㄷ 월드클래스 인정"}
+                        <div
+                          className="font-medium text-zinc-900 mt-1 line-clamp-2 leading-snug break-keep"
+                          style={{
+                            fontSize: `${(sovereign?.commentCardConfig?.fontSize || 28) * scale}px`,
+                            color: sovereign?.commentCardConfig?.textColor || undefined,
+                            fontFamily: resolveFontFamily(sovereign?.commentCardConfig?.font || "Pretendard"),
+                            fontWeight: sovereign?.commentCardConfig?.bold ? 800 : (sovereign?.commentCardConfig?.bold === false ? 400 : 500),
+                            textAlign: sovereign?.commentCardConfig?.align || "left",
+                          }}
+                        >
+                          {sovereign?.commentCardConfig?.text || sovereign?.commentCardConfig?.content || "진짜 이 골은 봐도 봐도 소름 돋네요 ㄷㄷ 월드클래스 인정"}
                         </div>
                       </div>
                     </div>
-                    <div className="flex items-center justify-between text-zinc-600 pt-2 border-t border-zinc-200/60 mt-1" style={{ fontSize: `${16 * scale}px` }}>
-                      <span className="flex items-center gap-1 font-semibold text-red-500">
+                    <div className="flex items-center justify-between text-zinc-600 pt-2 border-t border-zinc-200/60 mt-1" style={{ fontSize: `${20 * scale}px` }}>
+                      <span className="flex items-center gap-1 font-semibold text-rose-500">
                         ❤️ {sovereign?.commentCardConfig?.likes || "1.4만"}
                       </span>
-                      <span className="bg-primary/15 text-primary font-bold px-2 py-0.5 rounded-xs" style={{ fontSize: `${14 * scale}px` }}>
+                      <span className="bg-primary/15 text-primary font-bold px-2 py-0.5 rounded-xs" style={{ fontSize: `${16 * scale}px` }}>
                         📌 베댓
                       </span>
                     </div>
@@ -658,23 +718,49 @@ export const CanvasKitStage: React.FC<CanvasKitStageProps> = ({
                     style={{
                       backgroundColor: sovereign?.ssulConfig?.ssulHeader?.bgColor || (layer as any).fillColor || "#F7CF46",
                       color: sovereign?.ssulConfig?.ssulHeader?.textColor || "#18181B",
+                      borderRadius: `${(sovereign?.ssulConfig?.ssulHeader?.borderRadius || 0) * scale}px`,
                     }}
                   >
-                    <div className="w-8 h-8 flex items-center justify-start text-zinc-900" style={{ fontSize: `${24 * scale}px` }}>
-                      ←
-                    </div>
-                    <span
-                      className="font-black tracking-tight truncate flex-1 text-center"
+                    <div
+                      className="w-8 h-8 flex items-center justify-start select-none"
                       style={{
                         fontSize: `${24 * scale}px`,
                         color: sovereign?.ssulConfig?.ssulHeader?.textColor || "#18181B",
-                        fontFamily: resolveFontFamily(sovereign?.ssulConfig?.ssulHeader?.font || "Pretendard"),
                       }}
                     >
-                      🔥 {sovereign?.ssulConfig?.ssulHeader?.text || "실시간 베스트"}
+                      {sovereign?.ssulConfig?.ssulHeader?.leftIcon === 'home'
+                        ? '🏠'
+                        : sovereign?.ssulConfig?.ssulHeader?.leftIcon === 'close'
+                        ? '✕'
+                        : sovereign?.ssulConfig?.ssulHeader?.leftIcon === 'none'
+                        ? ''
+                        : '←'}
+                    </div>
+                    <span
+                      className="font-black tracking-tight truncate flex-1 text-center select-none"
+                      style={{
+                        fontSize: `${(sovereign?.ssulConfig?.ssulHeader?.fontSizeMultiplier ? 24 * sovereign.ssulConfig.ssulHeader.fontSizeMultiplier : 24) * scale}px`,
+                        color: sovereign?.ssulConfig?.ssulHeader?.textColor || "#18181B",
+                        fontFamily: resolveFontFamily(sovereign?.ssulConfig?.ssulHeader?.font || "Pretendard"),
+                        fontWeight: sovereign?.ssulConfig?.ssulHeader?.bold !== false ? 900 : 500,
+                        fontStyle: sovereign?.ssulConfig?.ssulHeader?.italic ? "italic" : "normal",
+                        textAlign: sovereign?.ssulConfig?.ssulHeader?.align || "center",
+                        letterSpacing: `${sovereign?.ssulConfig?.ssulHeader?.letterSpacing ?? 0}px`,
+                        textShadow: sovereign?.ssulConfig?.ssulHeader?.shadowEnabled
+                          ? `0 2px ${sovereign.ssulConfig.ssulHeader.shadowBlur || 4}px ${sovereign.ssulConfig.ssulHeader.shadowColor || 'rgba(0,0,0,0.5)'}`
+                          : undefined,
+                      }}
+                    >
+                      {sovereign?.ssulConfig?.ssulHeader?.text || "실시간 베스트"}
                     </span>
-                    <div className="w-8 h-8 flex items-center justify-end text-zinc-900" style={{ fontSize: `${24 * scale}px` }}>
-                      ⋮
+                    <div
+                      className="w-8 h-8 flex items-center justify-end select-none"
+                      style={{
+                        fontSize: `${24 * scale}px`,
+                        color: sovereign?.ssulConfig?.ssulHeader?.textColor || "#18181B",
+                      }}
+                    >
+                      {sovereign?.ssulConfig?.ssulHeader?.rightIcon === 'none' ? '' : '⋮'}
                     </div>
                   </div>
                 )}
@@ -688,26 +774,65 @@ export const CanvasKitStage: React.FC<CanvasKitStageProps> = ({
                     }}
                   >
                     <div
-                      className="font-black text-zinc-900 tracking-tight truncate whitespace-nowrap overflow-hidden text-ellipsis"
-                      style={{ fontSize: `${26 * scale}px` }}
+                      className="font-black tracking-tight truncate whitespace-nowrap overflow-hidden text-ellipsis"
+                      style={{
+                        fontSize: `${(sovereign?.ssulConfig?.postTitle?.fontSizeMultiplier ? 26 * sovereign.ssulConfig.postTitle.fontSizeMultiplier : 26) * scale}px`,
+                        color: sovereign?.ssulConfig?.postTitle?.color || "#18181B",
+                        fontFamily: resolveFontFamily(sovereign?.ssulConfig?.postTitle?.font || "Pretendard"),
+                        fontWeight: sovereign?.ssulConfig?.postTitle?.bold !== false ? 900 : 500,
+                        fontStyle: sovereign?.ssulConfig?.postTitle?.italic ? "italic" : "normal",
+                        textAlign: sovereign?.ssulConfig?.postTitle?.align || "left",
+                        letterSpacing: `${sovereign?.ssulConfig?.postTitle?.letterSpacing ?? -0.5}px`,
+                        textShadow: sovereign?.ssulConfig?.postTitle?.shadowEnabled
+                          ? `0 2px ${sovereign.ssulConfig.postTitle.shadowBlur || 4}px ${sovereign.ssulConfig.postTitle.shadowColor || 'rgba(0,0,0,0.5)'}`
+                          : undefined,
+                      }}
                     >
                       {sovereign?.ssulConfig?.postTitle?.text || sovereign?.titleConfig?.titleLine1 || "오늘자 역대급 실화 사건 🔥"}
                     </div>
-                    <div className="flex items-center gap-1.5 text-zinc-500 font-medium shrink-0 pt-1" style={{ fontSize: `${18 * scale}px` }}>
+                    <div
+                      className="flex items-center gap-1.5 font-medium shrink-0 pt-1"
+                      style={{
+                        fontSize: `${18 * scale}px`,
+                        color: sovereign?.ssulConfig?.metadata?.color || "#71717A",
+                        fontFamily: resolveFontFamily(sovereign?.ssulConfig?.metadata?.font || "Pretendard"),
+                      }}
+                    >
                       <span className="bg-emerald-600 text-white font-black px-1.5 py-0.2 rounded-2xs uppercase tracking-wider" style={{ fontSize: `${13 * scale}px` }}>
                         BLIND
                       </span>
-                      <span className="font-semibold text-zinc-800">
-                        {sovereign?.ssulConfig?.metadata?.authorText || sovereign?.ssulConfig?.author || "대기업 익명"}
-                      </span>
-                      <span className="opacity-40">·</span>
-                      <span>{sovereign?.ssulConfig?.metadata?.timeText || sovereign?.ssulConfig?.timeText || "10분 전"}</span>
-                      <span className="opacity-40">·</span>
-                      <span>{sovereign?.ssulConfig?.metadata?.viewsText || sovereign?.ssulConfig?.viewsText || "조회 2.4만"}</span>
+                      {sovereign?.ssulConfig?.metadata?.showAuthor !== false && (
+                        <span className="font-semibold" style={{ color: sovereign?.ssulConfig?.metadata?.color || "#27272A" }}>
+                          {sovereign?.ssulConfig?.metadata?.authorText || sovereign?.ssulConfig?.author || "대기업 익명"}
+                        </span>
+                      )}
+                      {sovereign?.ssulConfig?.metadata?.showTime !== false && (
+                        <>
+                          <span className="opacity-40">·</span>
+                          <span>{sovereign?.ssulConfig?.metadata?.timeText || sovereign?.ssulConfig?.timeText || "10분 전"}</span>
+                        </>
+                      )}
+                      {sovereign?.ssulConfig?.metadata?.showViews !== false && (
+                        <>
+                          <span className="opacity-40">·</span>
+                          <span>{sovereign?.ssulConfig?.metadata?.viewsText || sovereign?.ssulConfig?.viewsText || "조회 2.4만"}</span>
+                        </>
+                      )}
                       <span className="opacity-40">·</span>
                       <span className="text-emerald-600 font-bold">추천 382</span>
                     </div>
-                    <div className="w-full border-t border-zinc-200 my-1" />
+                    {sovereign?.ssulConfig?.divider?.enabled !== false && (
+                      <div
+                        className="my-1 transition-all"
+                        style={{
+                          width: `${sovereign?.ssulConfig?.divider?.widthPercent ?? 100}%`,
+                          borderTopWidth: `${Math.max(1, (sovereign?.ssulConfig?.divider?.thickness || 1) * scale)}px`,
+                          borderTopColor: sovereign?.ssulConfig?.divider?.color || "#E4E4E7",
+                          borderTopStyle: (sovereign?.ssulConfig?.divider?.style || "solid") as any,
+                          opacity: (sovereign?.ssulConfig?.divider?.opacity ?? 100) / 100,
+                        }}
+                      />
+                    )}
                   </div>
                 )}
 
@@ -715,22 +840,62 @@ export const CanvasKitStage: React.FC<CanvasKitStageProps> = ({
                 {layer.id.includes("meme_frame") && (
                   <div
                     className="w-full h-full flex flex-col items-center justify-center p-3 rounded-2xl border border-zinc-700 bg-zinc-900/90 shadow-xl overflow-hidden select-none"
-                    style={{ borderRadius: `${20 * scale}px` }}
+                    style={{
+                      borderRadius: `${20 * scale}px`,
+                      display: sovereign?.ssulConfig?.memeType === "none" ? "none" : "flex",
+                    }}
                   >
                     <MemeAvatar
                       type={sovereign?.ssulConfig?.memeType || "pepe"}
                       emotion={sovereign?.ssulConfig?.memeEmotion || "happy"}
                       aliveMotion={sovereign?.ssulConfig?.memeAliveMotion ?? true}
-                      size={Math.min(t.width, t.height) * scale * 0.72}
+                      size={Math.min(t.width, t.height) * scale * 0.72 * ((sovereign?.ssulConfig?.memeSize ?? 110) / 110)}
                     />
                     <span className="text-zinc-400 font-bold mt-1" style={{ fontSize: `${18 * scale}px` }}>
-                      {sovereign?.ssulConfig?.memeType === "pepe" ? "🐸 개구리 페페" : "✨ 이라스토야"}
+                      {sovereign?.ssulConfig?.memeType === "pepe" ? "🐸 개구리 페페" : sovereign?.ssulConfig?.memeType === "custom" ? "🖼️ 커스텀 이미지" : "✨ 이라스토야"}
                     </span>
                   </div>
                 )}
 
-                {/* 7. 👑 군림보/일반 2줄 대제목 (속보 배지 포함) 렌더러 (자막 레이어는 절대 진입 금지!) */}
-                {layer.kind === "text" && blueprint.archetype !== "ssul" && !layer.id.includes("subtitle") && (layer.id.includes("breaking") || (layer.id.includes("title") && !layer.id.includes("header")) || layer.id.includes("headline")) && (
+                {/* 6.5. 📸 인스타 전용 상단 제목 렌더러 (속보 뱃지 원천 배제, 모던 타이포그래피) */}
+                {layer.kind === "text" && (layer.id === "insta_title" || (blueprint?.archetype === "instagram" && layer.id.includes("title") && !layer.id.includes("profile") && !layer.id.includes("subtitle"))) && (
+                  <div className="w-full h-full flex flex-col items-center justify-center text-center select-none px-2">
+                    <span
+                      style={{
+                        fontSize: `${(sovereign?.titleConfig?.titleLine1SizePx || (layer as any).fontSize || 38) * scale}px`,
+                        color: sovereign?.titleConfig?.titleLine1Color || (layer as any).fontColor || "#000000",
+                        fontFamily: resolveFontFamily(sovereign?.titleConfig?.titleFontFamily || (layer as any).fontFamily || "Pretendard"),
+                        fontWeight: 900,
+                        WebkitTextStroke: sovereign?.titleConfig?.titleStroke ? `${(sovereign?.titleConfig?.titleStrokeWidth || 2) * scale}px ${sovereign?.titleConfig?.titleStrokeColor || "#000"}` : "none",
+                        textShadow: sovereign?.titleConfig?.titleShadow ? `0 2px ${(sovereign?.titleConfig?.titleShadowBlur || 8) * scale}px ${sovereign?.titleConfig?.titleShadowColor || "#000"}` : "none",
+                        lineHeight: 1.2,
+                        letterSpacing: "-0.02em",
+                        wordBreak: "keep-all",
+                        display: "block",
+                      }}
+                    >
+                      {sovereign?.titleConfig?.titleLine1 || (layer as any).content || "제목을 입력하세요"}
+                    </span>
+                    {sovereign?.titleConfig?.titleLinesMode === "double" && sovereign?.titleConfig?.titleLine2 && (
+                      <span
+                        style={{
+                          fontSize: `${(sovereign?.titleConfig?.titleLine2SizePx || 44) * scale}px`,
+                          color: sovereign?.titleConfig?.titleLine2Color || "#2563EB",
+                          fontFamily: resolveFontFamily(sovereign?.titleConfig?.titleFontFamily || "Pretendard"),
+                          fontWeight: 900,
+                          lineHeight: 1.2,
+                          marginTop: `${4 * scale}px`,
+                          display: "block",
+                        }}
+                      >
+                        {sovereign?.titleConfig?.titleLine2}
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                {/* 7. 👑 군림보/일반 2줄 대제목 (속보 배지 포함) 렌더러 (자막 레이어 및 인스타/썰형 절대 진입 금지!) */}
+                {layer.kind === "text" && blueprint?.archetype !== "ssul" && blueprint?.archetype !== "instagram" && layer.id !== "insta_title" && !layer.id.includes("subtitle") && (layer.id.includes("breaking") || (layer.id.includes("title") && !layer.id.includes("header")) || layer.id.includes("headline")) && (
                   <div className="w-full h-full flex flex-col items-center justify-center text-center select-none">
                     {sovereign?.titleConfig?.hasTitleBadge && (
                       <span
@@ -780,7 +945,7 @@ export const CanvasKitStage: React.FC<CanvasKitStageProps> = ({
                 )}
 
                 {/* 8. 🔤 표준 텍스트 레이어 렌더러 (자막, 출처, 일반 텍스트, 썰형 텍스트) */}
-                {layer.kind === "text" && (layer.id.includes("subtitle") || (!layer.id.includes("breaking") && !layer.id.includes("headline") && (!layer.id.includes("title") || layer.id.includes("header"))) || blueprint.archetype === "ssul") && (() => {
+                {layer.kind === "text" && layer.id !== "insta_title" && (layer.id.includes("subtitle") || (!layer.id.includes("breaking") && !layer.id.includes("headline") && (!layer.id.includes("title") || layer.id.includes("header"))) || blueprint?.archetype === "ssul") && (() => {
                   const content = isSubtitle && (isPlaying || studioMode === "nle") && activeWord
                     ? activeWord.word
                     : ((layer as any).content || "");
@@ -820,7 +985,7 @@ export const CanvasKitStage: React.FC<CanvasKitStageProps> = ({
                         paintOrder: "stroke fill",
                         backgroundColor: (layer as any).backgroundColor || "transparent",
                         borderRadius: `${((layer as any).borderRadius || 0) * scale}px`,
-                        padding: (layer as any).padding
+                        padding: Array.isArray((layer as any).padding) && (layer as any).padding.length >= 4
                           ? `${(layer as any).padding[0] * scale}px ${(layer as any).padding[1] * scale}px ${(layer as any).padding[2] * scale}px ${(layer as any).padding[3] * scale}px`
                           : "0px",
                       }}
@@ -895,7 +1060,7 @@ export const CanvasKitStage: React.FC<CanvasKitStageProps> = ({
           })}
 
           {/* 군림보형 하단 40% 그라데이션 비네팅 (자막 시인성 극대화) */}
-          {blueprint.archetype === "gunlimbo" && (
+          {blueprint?.archetype === "gunlimbo" && (
             <div
               className="absolute left-0 right-0 bottom-0 pointer-events-none z-10"
               style={{
@@ -906,7 +1071,7 @@ export const CanvasKitStage: React.FC<CanvasKitStageProps> = ({
           )}
 
           {/* 키네틱 자막 실시간 하이라이트 */}
-          {activeWord && (isPlaying || studioMode === "nle") && !blueprint.globalLayers.some(l => (l as any).textRole === "subtitle_narrative" || l.id.includes("subtitle")) && (
+          {activeWord && (isPlaying || studioMode === "nle") && !(blueprint?.globalLayers || []).some(l => (l as any).textRole === "subtitle_narrative" || l.id.includes("subtitle")) && (
             <div
               className="absolute left-1/2 -translate-x-1/2 text-center pointer-events-none z-30"
               style={{
@@ -1084,7 +1249,7 @@ export const CanvasKitStage: React.FC<CanvasKitStageProps> = ({
               config={sovereign.videoCropConfig}
               onChange={sovereign.updateVideoCropConfig}
               onReset={() => {}}
-              layoutTemplateMode={blueprint.archetype as any}
+              layoutTemplateMode={blueprint?.archetype as any}
               instaConfig={sovereign.instaConfig}
               setInstaConfig={sovereign.updateInstaConfig}
             />

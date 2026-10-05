@@ -111,9 +111,9 @@ export const EditorHeaderTransport: React.FC<EditorHeaderTransportProps> = ({
         name: newBp.name,
         archetype: newBp.archetype,
         badge: saveAsCategory,
-        aspect_ratio: newBp.canvas.aspectRatio,
+        aspect_ratio: newBp?.canvas?.aspectRatio || "9:16",
         blueprint_v4: newBp,
-        layout: newBp.globalLayers,
+        layout: newBp?.globalLayers || [],
       });
 
       // 2. Sovereign Presets 디스크 저장 (PresetLoadModal에서 즉시 검색 및 로드 가능)
@@ -124,7 +124,7 @@ export const EditorHeaderTransport: React.FC<EditorHeaderTransportProps> = ({
           archetype: newBp.archetype,
           category: saveAsCategory,
           description: `${newBp.archetype} 기본 에디터 커스텀 프리셋`,
-          aspect_ratio: newBp.canvas.aspectRatio,
+          aspect_ratio: newBp?.canvas?.aspectRatio || "9:16",
           blueprint: newBp,
           style: newBp,
         });
@@ -237,7 +237,7 @@ export const EditorHeaderTransport: React.FC<EditorHeaderTransportProps> = ({
               key={aspect}
               onClick={() => handleAspectRatioChange(aspect)}
               className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                blueprint.canvas.aspectRatio === aspect
+                blueprint?.canvas?.aspectRatio === aspect
                   ? "bg-background text-primary border border-border shadow-xs"
                   : "text-muted-foreground hover:text-foreground"
               }`}
@@ -270,6 +270,7 @@ export const EditorHeaderTransport: React.FC<EditorHeaderTransportProps> = ({
 
           {/* ✨ 다른 이름으로 저장 (새 커스텀 프리셋 생성) */}
           <button
+            data-testid="save-as-blueprint-btn"
             onClick={() => {
               setSaveAsName(`${blueprint.name} (커스텀)`);
               setIsSaveAsOpen(true);
@@ -283,10 +284,10 @@ export const EditorHeaderTransport: React.FC<EditorHeaderTransportProps> = ({
 
           {/* 💾 기존 템플릿 저장하기 */}
           <button
+            data-testid="save-blueprint-btn"
             onClick={async () => {
               try {
                 await saveBlueprint();
-                toast.success(`'${blueprint.name}' 저장 완료!`);
               } catch (e) {
                 toast.error("저장 중 오류가 발생했습니다.");
               }

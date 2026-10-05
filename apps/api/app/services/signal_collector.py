@@ -107,7 +107,7 @@ class SignalCollector:
         """
         searches = [
             broad_category,
-            f"{broad_category} 2025",
+            f"{broad_category} {datetime.now().year}",
             f"{broad_category} 인기",
         ]
         all_videos = []

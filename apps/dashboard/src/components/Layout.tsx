@@ -881,6 +881,7 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
                   location.pathname.startsWith('/shorts-template') ||
                   location.pathname.startsWith('/basic-editor') ||
                   location.pathname.startsWith('/pro-editor') ||
+                  location.pathname.startsWith('/hermes-studio') ||
                   location.pathname.startsWith('/director')) ? (
                     <div className="flex-1 flex flex-col min-h-0 overflow-hidden w-full h-full pb-[calc(4rem+env(safe-area-inset-bottom,0px))] md:pb-0 box-border">
                         {children}

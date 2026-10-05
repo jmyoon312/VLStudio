@@ -21,6 +21,7 @@ import httpx
 from app.database import SessionLocal
 from app.crud import get_settings
 from app.services.media_intelligence.core import MediaIntelligenceCore
+from app.services.channel_forensic_cv import channel_forensic_cv
 
 logger = logging.getLogger("omniroute_vision_analyzer")
 
@@ -220,10 +221,26 @@ class OmniRouteVisionAnalyzer:
         if not payload_images:
             payload_images = [Path(f["path"]) for f in selected_frames if Path(f["path"]).exists()]
 
+        # 3.5. Computer Vision Physical Measurements (Zero Guess Law)
+        cv_letterbox = {"top_bar_height_px": 0, "top_bar_pct": 0.0, "bottom_bar_height_px": 0, "bottom_bar_pct": 0.0}
+        if selected_frames and os.path.exists(selected_frames[0].get("path", "")):
+            cv_letterbox = channel_forensic_cv.measure_letterbox_bounds(selected_frames[0]["path"])
+
+        cv_palette_res = channel_forensic_cv.cluster_speaker_colors(subtitle_strips)
+        cv_stroke_res = channel_forensic_cv.measure_stroke_width(subtitle_strips)
+        cv_motion_res = channel_forensic_cv.detect_motion_dynamics([f["path"] for f in frames[:15] if Path(f.get("path", "")).exists()])
+
         # 4. Construct Vision Multimodal System Instruction
         system_instruction = (
-            "당신은 최고 수준의 숏폼 UI/UX 및 영상 디자인 분석 전문가입니다.\n"
-            "제공된 타임라인 콘택트 시트(Contact Sheet)와 자막 ROI 스트립, 오디오 타임라인 정보를 정밀 분석하여, 영상의 비주얼 레이아웃과 텍스트 스타일 구조를 픽셀 단위로 역공학 분석해 주십시오.\n\n"
+            "당신은 최고 수준의 숏폼 UI/UX 및 영상 디자인 분석 전문가이자 수석 디렉터입니다.\n"
+            "컴퓨터 비전(CV) 엔진이 픽셀 단위로 직접 실측한 아래 [물리 실측 데이터(Zero Guess Law)]를 절대 진실로 준수하여,\n"
+            "영상 레이아웃과 텍스트 스타일 구조를 정밀 분석하고 의미론적(Semantic) 역할을 부여해 주십시오.\n\n"
+            f"[컴퓨터 비전(CV) 100% 물리 실측 진실 데이터]\n"
+            f"- 레터박스 상단 바: {cv_letterbox.get('top_bar_pct', 0.0)}% ({cv_letterbox.get('top_bar_height_px', 0)}px)\n"
+            f"- 레터박스 하단 바: {cv_letterbox.get('bottom_bar_pct', 0.0)}% ({cv_letterbox.get('bottom_bar_height_px', 0)}px)\n"
+            f"- 텍스트 외곽선(Stroke) 두께: {cv_stroke_res.get('stroke_width_px', 7.5)}px ({cv_stroke_res.get('stroke_color', '#000000')})\n"
+            f"- 실측 화자 색상 군집: {json.dumps(cv_palette_res.get('palette', []), ensure_ascii=False)}\n"
+            f"- 실측 모션 다이내믹스: {cv_motion_res.get('primary_motion', 'pop')} (신뢰도 {cv_motion_res.get('confidence', 0.85)})\n\n"
             "[분석 요구사항]\n"
             "1. [상단 및 하단 배경 바 (Letterbox)]: 상단/하단에 검은색이나 유색 바가 있는지, 화면 전체 높이 대비 각각 몇 %를 차지하는지 추정\n"
             "2. [상단 타이틀 텍스트]: 상단 바 내부 또는 영상 상단에 큰 제목 글자가 있는지, Y축 위치(상단 기준 몇 %), 폰트 굵기(Bold), 글자 색상(HEX), 외곽선 두께\n"
@@ -380,6 +397,50 @@ class OmniRouteVisionAnalyzer:
             }
         }
 
+        # 6-B. Construct Sovereign Blueprint v4 Specification
+        top_bar_pct = cv_letterbox.get("top_bar_pct") if cv_letterbox.get("top_bar_pct", 0) > 2.0 else float(parsed_data.get("top_bar_height_pct", 16.0))
+        bottom_bar_pct = cv_letterbox.get("bottom_bar_pct") if cv_letterbox.get("bottom_bar_pct", 0) > 2.0 else float(parsed_data.get("bottom_bar_height_pct", 5.0))
+        stroke_px = cv_stroke_res.get("stroke_width_px", float(parsed_data.get("subtitle_outline_px", 7.5)))
+
+        # Convert CV palette to speakerPalette dictionary
+        speaker_palette_dict = {
+            "narrator": { "color": "#FFFFFF", "strokeColor": "#000000", "strokeWidth": stroke_px, "defaultAnimation": "pop" },
+            "character_main": { "color": "#FFE500", "strokeColor": "#000000", "strokeWidth": stroke_px, "defaultAnimation": "bounce" },
+            "character_sub": { "color": "#38BDF8", "strokeColor": "#000000", "strokeWidth": stroke_px, "defaultAnimation": "pop" },
+            "reaction_shock": { "color": "#4ADE80", "strokeColor": "#000000", "strokeWidth": stroke_px + 0.5, "defaultAnimation": "shake" }
+        }
+        for item in cv_palette_res.get("palette", []):
+            role = item.get("role")
+            if role in speaker_palette_dict:
+                speaker_palette_dict[role]["color"] = item.get("hex", speaker_palette_dict[role]["color"])
+
+        blueprint_v4 = {
+            "schemaVersion": "viraloop-blueprint/v4.0",
+            "name": clean_name,
+            "archetype": "classic_ilbunilcho" if top_bar_pct > 10.0 else "classic",
+            "speakerPalette": speaker_palette_dict,
+            "animationGrammar": {
+                "springBounce": { "stiffness": 280, "damping": 9, "mass": 0.6 },
+                "shakeImpact": { "frequency": 14, "amplitudePx": 8, "durationFrames": 9 },
+                "defaultMotion": cv_motion_res.get("primary_motion", "bounce")
+            },
+            "canvas": { "width": 1080, "height": 1920, "fps": 30 },
+            "visual_geometry": {
+                "top_bar": { "enabled": top_bar_pct > 0, "height_pct": top_bar_pct, "bg_color": "#000000" },
+                "bottom_bar": { "enabled": bottom_bar_pct > 0, "height_pct": bottom_bar_pct, "bg_color": "#000000" },
+                "top_title_y_pct": float(parsed_data.get("top_title_y_pct", 7.0)),
+                "caption": {
+                    "font_family": "SCoreDream",
+                    "size_px": int(parsed_data.get("subtitle_font_size_px", 68)),
+                    "color": "#FFFFFF",
+                    "outline_color": "#000000",
+                    "outline_px": stroke_px,
+                    "safe_zone_bottom_px": round(1920 * (bottom_bar_pct / 100.0) + 80),
+                    "speaker_colors": {k: v["color"] for k, v in speaker_palette_dict.items()}
+                }
+            }
+        }
+
         preset_data = {
             "id": preset_id,
             "name": clean_name,
@@ -389,15 +450,19 @@ class OmniRouteVisionAnalyzer:
             "sample_thumbnail": primary_thumbnail,
             "keyframes": saved_keyframes,
             "style": preset_style,
+            "blueprint_v4": blueprint_v4,
             "recipe": parsed_data.get("recipe", "레퍼런스 영상 비전 인터리빙 추출 프리셋"),
             "content_rules": parsed_data.get("content_rules", ["자막 가독성 준수"]),
             "extracted_metrics": {
-                "top_bar_height_pct": parsed_data.get("top_bar_height_pct"),
-                "bottom_bar_height_pct": parsed_data.get("bottom_bar_height_pct"),
+                "top_bar_height_pct": top_bar_pct,
+                "bottom_bar_height_pct": bottom_bar_pct,
                 "cut_interval_s": parsed_data.get("cut_interval_s"),
                 "rhythm_wpm": parsed_data.get("rhythm_wpm"),
+                "stroke_width_px": stroke_px,
                 "duration_s": duration_s,
-                "keyframes_count": len(saved_keyframes)
+                "keyframes_count": len(saved_keyframes),
+                "cv_palette": cv_palette_res.get("palette", []),
+                "cv_motion": cv_motion_res
             }
         }
 
@@ -406,7 +471,11 @@ class OmniRouteVisionAnalyzer:
         with open(preset_file, "w", encoding="utf-8") as f:
             json.dump(preset_data, f, indent=2, ensure_ascii=False)
 
-        logger.info(f"Saved new harvested sovereign preset with {len(saved_keyframes)} preserved keyframes: {preset_file}")
+        blueprint_file = PRESETS_DIR / f"{clean_name}.blueprint_v4.json"
+        with open(blueprint_file, "w", encoding="utf-8") as bf:
+            json.dump(blueprint_v4, bf, indent=2, ensure_ascii=False)
+
+        logger.info(f"Saved new harvested sovereign preset & blueprint_v4: {preset_file}, {blueprint_file}")
         return preset_data
 
     async def analyze_video_interleaved(

@@ -34,6 +34,7 @@ class ProjectUpdate(BaseModel):
 
 
 class ThreadCreate(BaseModel):
+    id: Optional[str] = None
     project_id: Optional[str] = None
     title: Optional[str] = "새 대화"
     preset_id: Optional[str] = None
@@ -54,6 +55,7 @@ class ThreadUpdate(BaseModel):
 
 
 class MessageCreate(BaseModel):
+    id: Optional[str] = None
     role: str
     content: Optional[str] = ""
     steps: Optional[List[Dict[str, Any]]] = None
@@ -61,6 +63,8 @@ class MessageCreate(BaseModel):
     created_preset: Optional[Dict[str, Any]] = None
     attachments: Optional[List[Dict[str, Any]]] = None
     tasks: Optional[List[Dict[str, Any]]] = None
+    action_chips: Optional[List[str]] = None
+    created_at: Optional[datetime] = None
 
 
 def _ensure_default_project(db: Session) -> models.DirectorProject:
@@ -185,27 +189,41 @@ def list_threads(project_id: Optional[str] = None, db: Session = Depends(get_db)
 
 @router.post("/threads")
 def create_thread(data: ThreadCreate, db: Session = Depends(get_db)):
-    """Create a new independent conversation session."""
+    """Create or register an independent conversation session."""
     default_proj = _ensure_default_project(db)
     target_proj_id = data.project_id or default_proj.id
-    thread_id = f"th_{uuid.uuid4().hex[:10]}"
+    thread_id = data.id or f"th_{uuid.uuid4().hex[:10]}"
 
-    th = models.DirectorThread(
-        id=thread_id,
-        project_id=target_proj_id,
-        title=data.title or "새 대화",
-        preset_id=data.preset_id,
-        provider=data.provider or "openai",
-        model=data.model or "GPT-6 Astra",
-        reasoning_effort=data.reasoning_effort or "medium",
-        is_pinned=False,
-        is_archived=False,
-        created_at=datetime.now(),
-        updated_at=datetime.now()
-    )
-    db.add(th)
-    db.commit()
-    db.refresh(th)
+    existing_th = db.query(models.DirectorThread).filter_by(id=thread_id).first()
+    if existing_th:
+        if data.title and data.title != "새 대화":
+            existing_th.title = data.title
+        if data.model:
+            existing_th.model = data.model
+        if data.provider:
+            existing_th.provider = data.provider
+        existing_th.updated_at = datetime.now()
+        db.commit()
+        db.refresh(existing_th)
+        th = existing_th
+    else:
+        th = models.DirectorThread(
+            id=thread_id,
+            project_id=target_proj_id,
+            title=data.title or "새 대화",
+            preset_id=data.preset_id,
+            provider=data.provider or "openai",
+            model=data.model or "GPT-6 Astra",
+            reasoning_effort=data.reasoning_effort or "medium",
+            is_pinned=False,
+            is_archived=False,
+            created_at=datetime.now(),
+            updated_at=datetime.now()
+        )
+        db.add(th)
+        db.commit()
+        db.refresh(th)
+
     return {"status": "success", "thread": {
         "id": th.id,
         "project_id": th.project_id,
@@ -250,6 +268,9 @@ def update_thread(thread_id: str, data: ThreadUpdate, db: Session = Depends(get_
         "title": th.title,
         "preset_id": th.preset_id,
         "project_id": th.project_id,
+        "provider": th.provider,
+        "model": th.model,
+        "reasoning_effort": th.reasoning_effort,
         "is_pinned": th.is_pinned,
         "is_archived": th.is_archived
     }}
@@ -271,7 +292,7 @@ def get_thread_messages(thread_id: str, db: Session = Depends(get_db)):
     """Fetch complete message history for a conversation thread."""
     th = db.query(models.DirectorThread).filter_by(id=thread_id).first()
     if not th:
-        raise HTTPException(status_code=404, detail="Thread not found")
+        return {"thread": {"id": thread_id, "title": "새 대화"}, "messages": []}
     messages = db.query(models.DirectorMessage).filter_by(thread_id=thread_id).order_by(models.DirectorMessage.created_at.asc()).all()
     results = []
     for m in messages:
@@ -284,6 +305,7 @@ def get_thread_messages(thread_id: str, db: Session = Depends(get_db)):
             "created_preset": m.created_preset,
             "attachments": m.attachments or [],
             "tasks": m.tasks or [],
+            "action_chips": m.action_chips or [],
             "timestamp": int(m.created_at.timestamp() * 1000) if m.created_at else None
         })
     return {"thread": {
@@ -299,25 +321,55 @@ def get_thread_messages(thread_id: str, db: Session = Depends(get_db)):
 
 @router.post("/threads/{thread_id}/messages")
 def save_thread_message(thread_id: str, data: MessageCreate, db: Session = Depends(get_db)):
-    """Persist a message into the conversation thread."""
+    """Persist a message into the conversation thread (self-healing thread creation & upsert)."""
     th = db.query(models.DirectorThread).filter_by(id=thread_id).first()
     if not th:
-        raise HTTPException(status_code=404, detail="Thread not found")
+        default_proj = _ensure_default_project(db)
+        th = models.DirectorThread(
+            id=thread_id,
+            project_id=default_proj.id,
+            title="새 대화",
+            provider="openai",
+            model="GPT-6 Astra",
+            created_at=datetime.now(),
+            updated_at=datetime.now()
+        )
+        db.add(th)
+        db.commit()
+        db.refresh(th)
 
-    msg_id = f"msg_{uuid.uuid4().hex[:12]}"
-    msg = models.DirectorMessage(
-        id=msg_id,
-        thread_id=thread_id,
-        role=data.role,
-        content=data.content or "",
-        steps=data.steps,
-        deliverable=data.deliverable,
-        created_preset=data.created_preset,
-        attachments=data.attachments or [],
-        tasks=data.tasks or [],
-        created_at=datetime.now()
-    )
-    db.add(msg)
+    msg_id = data.id or f"msg_{uuid.uuid4().hex[:12]}"
+    existing_msg = db.query(models.DirectorMessage).filter_by(id=msg_id).first()
+    if existing_msg:
+        existing_msg.content = data.content or ""
+        if data.steps is not None:
+            existing_msg.steps = data.steps
+        if data.deliverable is not None:
+            existing_msg.deliverable = data.deliverable
+        if data.created_preset is not None:
+            existing_msg.created_preset = data.created_preset
+        if data.attachments is not None:
+            existing_msg.attachments = data.attachments
+        if data.tasks is not None:
+            existing_msg.tasks = data.tasks
+        if data.action_chips is not None:
+            existing_msg.action_chips = data.action_chips
+        msg = existing_msg
+    else:
+        msg = models.DirectorMessage(
+            id=msg_id,
+            thread_id=thread_id,
+            role=data.role,
+            content=data.content or "",
+            steps=data.steps,
+            deliverable=data.deliverable,
+            created_preset=data.created_preset,
+            attachments=data.attachments or [],
+            tasks=data.tasks or [],
+            action_chips=data.action_chips or [],
+            created_at=data.created_at or datetime.now()
+        )
+        db.add(msg)
     
     # Auto-update thread title from first user message if title is still default
     if data.role == "user" and th.title in ["새 대화", "새 채팅"] and data.content:

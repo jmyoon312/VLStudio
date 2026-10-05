@@ -13,9 +13,12 @@ import sys
 import json
 import asyncio
 import subprocess
+import logging
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 import numpy as np
+
+logger = logging.getLogger("media_intelligence")
 
 # Whisper 환각 블랙리스트 (침묵/배경음악 시 Whisper가 멋대로 생성하는 가짜 대사)
 WHISPER_HALLUCINATION_PATTERNS = [
@@ -202,8 +205,8 @@ class MediaIntelligenceCore:
 
         try:
             from faster_whisper import WhisperModel
-            # DB Settings의 whisper_model_path 확인 또는 기본 경량 모델 사용
-            model_path = "base"
+            # DB Settings의 whisper_model_path 확인 또는 기본 로컬 캐시 모델(tiny/small) 사용
+            model_path = "tiny"
             try:
                 from app.database import SessionLocal
                 from app import models
@@ -219,22 +222,19 @@ class MediaIntelligenceCore:
                 try:
                     # model_path 디렉토리에 model.bin이 직접 있는지 검사
                     if os.path.isdir(model_path) and os.path.exists(os.path.join(model_path, "model.bin")):
-                        model = WhisperModel(model_path, device="auto", compute_type="default")
+                        model = WhisperModel(model_path, device="cpu", compute_type="int8", local_files_only=True)
                     elif os.path.isdir(model_path):
-                        model = WhisperModel("base", download_root=model_path, device="auto", compute_type="default")
+                        model = WhisperModel("tiny", download_root=model_path, device="cpu", compute_type="int8")
                     else:
-                        model = WhisperModel("base", device="auto", compute_type="default")
-                    segs, inf = model.transcribe(str(wav_path), beam_size=2, vad_filter=True)
+                        model = WhisperModel("tiny", device="cpu", compute_type="int8")
+                    try:
+                        segs, inf = model.transcribe(str(wav_path), beam_size=1, vad_filter=False)
+                    except Exception:
+                        segs, inf = model.transcribe(str(wav_path), beam_size=1, vad_filter=False)
                     return list(segs), inf
                 except Exception as gpu_err:
-                    # CUDA cublas64 DLL 부재 시 CPU int8로 완벽 자가치유 폴백
-                    if os.path.isdir(model_path) and os.path.exists(os.path.join(model_path, "model.bin")):
-                        model = WhisperModel(model_path, device="cpu", compute_type="int8")
-                    elif os.path.isdir(model_path):
-                        model = WhisperModel("base", download_root=model_path, device="cpu", compute_type="int8")
-                    else:
-                        model = WhisperModel("base", device="cpu", compute_type="int8")
-                    segs, inf = model.transcribe(str(wav_path), beam_size=2, vad_filter=True)
+                    model = WhisperModel("tiny", device="cpu", compute_type="int8")
+                    segs, inf = model.transcribe(str(wav_path), beam_size=1, vad_filter=False)
                     return list(segs), inf
 
             segments_list, info = await asyncio.to_thread(_transcribe)
@@ -441,47 +441,40 @@ class MediaIntelligenceCore:
         if len(content_parts) <= 1:
             return ""
 
-        # Zero Hardcoding Policy: DB Settings에서 동적으로 인증 정보 및 모델명 추출
+        # Zero Hardcoding Policy: DB Settings에서 동적으로 인증 정보 및 모델명 추출 (Zero Legacy DDalkkak)
+        base_url = None
+        api_key = ""
+        model_name = None
+
         try:
-            from app.legacy_ddalkkak.workers.gemini_auth import (
-                get_youtube1_api_key,
-                get_youtube1_base_url,
-                get_db_settings_model
-            )
-            base_url = get_youtube1_base_url()
-            api_key = get_youtube1_api_key()
-            model_name = get_db_settings_model("analysis")
-        except Exception:
-            try:
-                from workers.gemini_auth import (
-                    get_youtube1_api_key,
-                    get_youtube1_base_url,
-                    get_db_settings_model
-                )
-                base_url = get_youtube1_base_url()
-                api_key = get_youtube1_api_key()
-                model_name = get_db_settings_model("analysis")
-            except Exception:
-                base_url = "http://localhost:20128/v1"
-                api_key = ""
-                model_name = None
+            from app.database import SessionLocal
+            from app import models
+            db = SessionLocal()
+            s = db.query(models.Settings).first()
+            if s:
+                model_name = getattr(s, "script_analysis_model", None) or getattr(s, "default_llm_model", None)
+                if getattr(s, "gemini_api_keys", None):
+                    keys = s.gemini_api_keys
+                    if isinstance(keys, list) and len(keys) > 0 and keys[0]:
+                        api_key = keys[0]
+                        base_url = "https://generativelanguage.googleapis.com/v1beta/openai"
+                elif getattr(s, "openai_api_keys", None):
+                    keys = s.openai_api_keys
+                    if isinstance(keys, list) and len(keys) > 0 and keys[0]:
+                        api_key = keys[0]
+                        base_url = "https://api.openai.com/v1"
+            db.close()
+        except Exception as db_err:
+            logger.debug(f"[MediaIntelligenceCore] DB settings read: {db_err}")
 
+        if not base_url:
+            base_url = os.environ.get("OPENAI_BASE_URL", "http://localhost:20128/v1")
+        if not api_key:
+            api_key = os.environ.get("GEMINI_API_KEY", os.environ.get("OPENAI_API_KEY", ""))
         if not model_name:
-            try:
-                from app.database import SessionLocal
-                from app import models
-                db = SessionLocal()
-                s = db.query(models.Settings).first()
-                db.close()
-                if s:
-                    model_name = getattr(s, "script_analysis_model", None) or getattr(s, "default_llm_model", None)
-            except Exception:
-                pass
+            model_name = os.environ.get("SCRIPT_ANALYSIS_MODEL") or os.environ.get("DEFAULT_LLM_MODEL")
 
-        if not model_name:
-            model_name = os.environ.get("SCRIPT_ANALYSIS_MODEL") or os.environ.get("DEFAULT_LLM_MODEL") or "viraloop1"
-
-        url = (base_url or "http://localhost:20128/v1").rstrip("/") + "/chat/completions"
+        url = base_url.rstrip("/") + "/chat/completions"
         headers = {
             "Content-Type": "application/json",
             "Authorization": f"Bearer {api_key}"
@@ -495,7 +488,7 @@ class MediaIntelligenceCore:
         }
 
         try:
-            async with httpx.AsyncClient(timeout=90.0) as client:
+            async with httpx.AsyncClient(timeout=10.0) as client:
                 r = await client.post(url, json=body, headers=headers)
                 if r.status_code == 200:
                     res_data = r.json()
@@ -503,9 +496,7 @@ class MediaIntelligenceCore:
                     if choices:
                         return choices[0].get("message", {}).get("content", "").strip()
         except Exception as err:
-            import traceback
-            traceback.print_exc()
-            print(f"⚠️ [MediaIntelligenceCore] 비전 내러티브 분석 실패 (skip): {type(err).__name__} - {err}", flush=True)
+            logger.debug(f"[MediaIntelligenceCore] Vision analysis notice (fallback to layout heuristics): {err}")
 
         return ""
 

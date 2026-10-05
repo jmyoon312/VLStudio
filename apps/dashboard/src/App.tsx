@@ -74,6 +74,7 @@ const SubtitleToolStudio = lazy(() => import('./pages/tools/SubtitleToolStudio')
 const TtsDubToolStudio = lazy(() => import('./pages/tools/TtsDubToolStudio'));
 const ClipEditToolStudio = lazy(() => import('./pages/tools/ClipEditToolStudio'));
 const ConversationalDirectorPage = lazy(() => import('./pages/ConversationalDirectorPage').then(m => ({ default: m.ConversationalDirectorPage })));
+const PixelingDirectorPage = lazy(() => import('./pages/PixelingDirectorPage'));
 const SourcingCenterPage = lazy(() => import('./pages/SourcingCenterPage'));
 
 const PlaceholderPage = ({ title }: { title: string }) => (
@@ -204,6 +205,7 @@ function MainAppContent() {
                     {/* 대화형 총괄 연출 스튜디오 (Conversational Director Studio) */}
                     <Route path="/director" element={<RouteErrorBoundary><ConversationalDirectorPage /></RouteErrorBoundary>} />
                     <Route path="/conversational-director" element={<Navigate to="/director" replace />} />
+                    <Route path="/pixeling-director" element={<Navigate to="/director" replace />} />
 
                     {/* 올인원 일괄 생성 */}
                     <Route path="/shorts-batch" element={<RouteErrorBoundary><ShortsBatchStudio /></RouteErrorBoundary>} />

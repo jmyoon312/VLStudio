@@ -220,12 +220,16 @@ class PatchrightStealth:
                 pass
         logger.info(msg_launch)
 
+        from cloakbrowser.license import resolve_license_key
+        pro_license_key = resolve_license_key()
+
         self.context = launch_persistent_context(
             user_data_dir=profile_dir,
             headless=headless,
             proxy=proxy_config,
             args=browser_args,
             no_viewport=True,
+            license_key=pro_license_key,
         )
         
         from cloakbrowser.human import patch_page, resolve_config, _CursorState

@@ -160,6 +160,7 @@ class Settings(BaseSettings):
     # [Media Tools Discovery]
     FFMPEG_PATH: str = discover_ffmpeg()
     FFPROBE_PATH: str = os.getenv("FFPROBE_PATH", "ffprobe")
+    CLOAKBROWSER_LICENSE_KEY: Optional[str] = os.getenv("CLOAKBROWSER_LICENSE_KEY", "cb_6ae5a6cdcdbd4e209d13be0976699256")
     
     # Advanced Features
     ENABLE_RATE_LIMITER: bool = True

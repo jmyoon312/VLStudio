@@ -599,10 +599,10 @@ export const PixelingMasterInspector: React.FC<PixelingMasterInspectorProps> = (
             locked: true,
             hidden: false,
             transform: {
-              x: blueprint.canvas.width / 2,
-              y: blueprint.canvas.height / 2,
-              width: blueprint.canvas.width,
-              height: blueprint.canvas.height,
+              x: (blueprint?.canvas?.width || 1080) / 2,
+              y: (blueprint?.canvas?.height || 1920) / 2,
+              width: blueprint?.canvas?.width || 1080,
+              height: blueprint?.canvas?.height || 1920,
               rotation: 0,
               scale: 1,
               origin: "center",
@@ -756,8 +756,8 @@ export const PixelingMasterInspector: React.FC<PixelingMasterInspectorProps> = (
                 <TransformInspectorPanel
                   transform={selectedLayer.transform}
                   onChange={(newT) => updateLayerTransform(selectedLayer.id, newT)}
-                  canvasWidth={blueprint.canvas.width}
-                  canvasHeight={blueprint.canvas.height}
+                  canvasWidth={blueprint?.canvas?.width || 1080}
+                  canvasHeight={blueprint?.canvas?.height || 1920}
                 />
 
                 {selectedLayer.kind === "text" && (

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Layout, Sparkles, Info, Minus, Bold, Italic, User, Clock, Eye, Dices } from 'lucide-react';
+import { Layout, Sparkles, Info, Minus, Bold, Italic, User, Clock, Eye, Dices, Type } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
@@ -10,7 +10,7 @@ import { BarGeometryControlGroup } from './shared';
 import { getRandomSatiricalMetadata } from '../constants/canvasConstants';
 
 export interface SsulObjectInspectorFormProps {
-  mode: 'ssulHeader' | 'metadata' | 'divider' | 'pepeMeme';
+  mode: 'ssulHeader' | 'metadata' | 'divider' | 'pepeMeme' | 'postTitle';
   ssulConfig: any;
   setSsulConfig: React.Dispatch<React.SetStateAction<any>>;
 }
@@ -660,6 +660,193 @@ export const SsulObjectInspectorForm: React.FC<SsulObjectInspectorFormProps> = (
               </div>
             </div>
           )}
+        </div>
+      </div>
+    );
+  }
+ 
+  // 5. 📰 썰형 게시글 제목 설정 (postTitle)
+  if (mode === 'postTitle') {
+    const postTitle = {
+      text: ssulConfig?.postTitle?.text || '오늘자 역대급 실화 사건 🔥',
+      color: ssulConfig?.postTitle?.color || '#18181B',
+      font: ssulConfig?.postTitle?.font || 'Pretendard',
+      fontSizeMultiplier: ssulConfig?.postTitle?.fontSizeMultiplier ?? 1.1,
+      align: ssulConfig?.postTitle?.align || 'left',
+      bold: ssulConfig?.postTitle?.bold ?? true,
+      italic: ssulConfig?.postTitle?.italic ?? false,
+      letterSpacing: ssulConfig?.postTitle?.letterSpacing ?? -0.5,
+      lineHeight: ssulConfig?.postTitle?.lineHeight ?? 1.3,
+      strokeEnabled: ssulConfig?.postTitle?.strokeEnabled ?? false,
+      strokeWidth: ssulConfig?.postTitle?.strokeWidth ?? 2,
+      strokeColor: ssulConfig?.postTitle?.strokeColor || '#000000',
+      shadowEnabled: ssulConfig?.postTitle?.shadowEnabled ?? false,
+      shadowBlur: ssulConfig?.postTitle?.shadowBlur ?? 4,
+      shadowColor: ssulConfig?.postTitle?.shadowColor || 'rgba(0,0,0,0.5)',
+      bgEnabled: ssulConfig?.postTitle?.bgEnabled ?? false,
+      bgColor: ssulConfig?.postTitle?.bgColor || '#F3F4F6',
+      borderRadius: ssulConfig?.postTitle?.borderRadius ?? 4,
+    };
+
+    const updatePostTitle = (patch: Partial<typeof postTitle>) => {
+      setSsulConfig((prev: any) => ({
+        ...prev,
+        postTitle: {
+          ...(prev?.postTitle || postTitle),
+          ...patch,
+        },
+      }));
+    };
+
+    const PRESET_TITLES = [
+      '오늘자 역대급 실화 사건 🔥',
+      '회사에서 진짜 충격받은 썰 푼다 ㄷㄷ',
+      '친구 청첩장 모임 갔다가 손절함',
+      '당근마켓에서 레전드 진상 만남',
+      '신입사원이 첫날 한 말 듣고 기절할 뻔',
+    ];
+
+    return (
+      <div className="space-y-3">
+        <div className="p-2.5 rounded-[4px] bg-muted/40 border border-border/80 space-y-2.5">
+          <div className="flex items-center justify-between border-b border-border/60 pb-1.5">
+            <span className="text-[11px] font-bold text-foreground flex items-center gap-1.5">
+              <Type className="w-3.5 h-3.5 text-primary" />
+              게시글 본문 제목 설정
+            </span>
+          </div>
+
+          <div className="space-y-2.5 pt-1">
+            {/* 제목 텍스트 입력 */}
+            <div>
+              <span className="text-[9.5px] font-semibold text-muted-foreground block mb-0.5">
+                게시글 본문 제목
+              </span>
+              <textarea
+                rows={2}
+                value={postTitle.text}
+                onChange={(e) => updatePostTitle({ text: e.target.value })}
+                placeholder="오늘자 역대급 실화 사건 🔥"
+                className="w-full px-2 py-1.5 text-xs bg-background border border-border rounded-[2px] resize-none font-bold focus:outline-hidden focus:ring-1 focus:ring-primary"
+              />
+            </div>
+
+            {/* 추천 제목 퀵 프리셋 버튼 */}
+            <div>
+              <span className="text-[9.5px] font-semibold text-muted-foreground block mb-1">
+                ⚡ 추천 제목 퀵 프리셋
+              </span>
+              <div className="flex flex-col gap-1">
+                {PRESET_TITLES.map((t, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => updatePostTitle({ text: t })}
+                    className={`px-2 py-1 text-[10px] rounded border text-left truncate transition-colors ${
+                      postTitle.text === t
+                        ? 'bg-primary/20 text-primary border-primary/50 font-bold'
+                        : 'bg-background border-border text-foreground hover:bg-muted'
+                    }`}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* 글자 크기 배율 */}
+            <UnitSliderControl
+              label="글자 크기 배율"
+              value={Math.round(postTitle.fontSizeMultiplier * 100)}
+              min={80}
+              max={180}
+              step={5}
+              unit="%"
+              onChange={(val) => updatePostTitle({ fontSizeMultiplier: val / 100 })}
+            />
+
+            {/* 글자 색상 */}
+            <ColorPicker8Preset
+              label="글자 색상"
+              value={postTitle.color}
+              onChange={(val) => updatePostTitle({ color: val })}
+            />
+
+            {/* 서체 스타일 및 정렬 */}
+            <FontStyleAlignControl
+              label="서체 스타일 & 정렬"
+              font={postTitle.font}
+              setFont={(f) => updatePostTitle({ font: f })}
+              bold={postTitle.bold}
+              setBold={(b) => updatePostTitle({ bold: b })}
+              italic={postTitle.italic}
+              setItalic={(i) => updatePostTitle({ italic: i })}
+              align={postTitle.align || 'left'}
+              setAlign={(a) => updatePostTitle({ align: a })}
+              letterSpacing={postTitle.letterSpacing}
+              setLetterSpacing={(ls) => updatePostTitle({ letterSpacing: ls })}
+              lineHeight={postTitle.lineHeight}
+              setLineHeight={(lh) => updatePostTitle({ lineHeight: lh })}
+            />
+
+            {/* 글자 테두리 (외곽선) */}
+            <div className="space-y-1.5 pt-1.5 border-t border-border/50">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-semibold text-muted-foreground">글자 테두리 (외곽선)</span>
+                <Switch
+                  checked={postTitle.strokeEnabled}
+                  onCheckedChange={(c) => updatePostTitle({ strokeEnabled: c })}
+                />
+              </div>
+              {postTitle.strokeEnabled && (
+                <div className="space-y-1.5 pl-1 border-l-2 border-primary/30">
+                  <UnitSliderControl
+                    label="외곽선 두께"
+                    value={postTitle.strokeWidth}
+                    min={1}
+                    max={6}
+                    step={1}
+                    unit="px"
+                    onChange={(v) => updatePostTitle({ strokeWidth: v })}
+                  />
+                  <ColorPicker8Preset
+                    label="외곽선 색상"
+                    value={postTitle.strokeColor}
+                    onChange={(c) => updatePostTitle({ strokeColor: c })}
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* 입체 그림자 */}
+            <div className="space-y-1.5 pt-1.5 border-t border-border/50">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-semibold text-muted-foreground">입체 그림자</span>
+                <Switch
+                  checked={postTitle.shadowEnabled}
+                  onCheckedChange={(c) => updatePostTitle({ shadowEnabled: c })}
+                />
+              </div>
+              {postTitle.shadowEnabled && (
+                <div className="space-y-1.5 pl-1 border-l-2 border-primary/30">
+                  <UnitSliderControl
+                    label="그림자 흐림"
+                    value={postTitle.shadowBlur}
+                    min={0}
+                    max={16}
+                    step={1}
+                    unit="px"
+                    onChange={(v) => updatePostTitle({ shadowBlur: v })}
+                  />
+                  <ColorPicker8Preset
+                    label="그림자 색상"
+                    value={postTitle.shadowColor}
+                    onChange={(c) => updatePostTitle({ shadowColor: c })}
+                  />
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     );

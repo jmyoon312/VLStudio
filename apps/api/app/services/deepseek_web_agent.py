@@ -145,9 +145,10 @@ def execute_deepseek_web_chat_sync(
             except Exception:
                 pass
 
-    if not user_token or not isinstance(user_token, str) or len(user_token) < 20 or "null" in user_token:
-        logger.warning(f"⚠️ [DeepSeekWebAgent] Account {target_email} has no valid userToken. Skipping.")
+    if not user_token and not playwright_cookies:
+        logger.warning(f"⚠️ [DeepSeekWebAgent] Account {target_email} has neither userToken nor valid cookies. Skipping.")
         return None
+
 
     from playwright.sync_api import sync_playwright
 
@@ -200,7 +201,13 @@ def execute_deepseek_web_chat_sync(
 
         page = context.pages[0] if context.pages else context.new_page()
         page.goto("https://chat.deepseek.com", wait_until="domcontentloaded", timeout=25000)
-        time.sleep(2.0)
+        time.sleep(1.0)
+
+        # Early check for CloudFront / Cloudflare WAF block
+        page_title = page.title()
+        if any(err_kw in page_title.lower() for err_kw in ["error: the request could not be satisfied", "just a moment", "attention required"]):
+            logger.warning(f"⚠️ [DeepSeekWebAgent] WAF / CloudFront block detected ({page_title}). Aborting immediately.")
+            return None
 
         # 1. Dismiss any welcome dialogs or consent modals
         try:
@@ -283,24 +290,119 @@ def execute_deepseek_web_chat_sync(
                     pass
                 break
 
-            # Extract response text in real-time
+            # Extract response text in real-time preserving Markdown tables and line breaks
             try:
-                # DeepSeek response containers: div.ds-markdown or div[class*='message-content']
-                resp_containers = page.locator("div.ds-markdown, div[class*='message-content'], div.markdown").all()
-                if resp_containers:
-                    latest = resp_containers[-1].inner_text().strip()
-                    if latest and latest != prompt and len(latest) > 0:
-                        final_answer = latest
+                extract_script = """
+                () => {
+                    const containers = document.querySelectorAll("div.ds-markdown, div[class*='message-content'], div.markdown");
+                    if (!containers || containers.length === 0) return "";
+                    const lastEl = containers[containers.length - 1];
 
-                        # Real-time streaming to UI as text appears on the web page
-                        if on_chunk and len(latest) > len(last_sent_text):
-                            delta = latest[len(last_sent_text):]
-                            last_sent_text = latest
-                            on_chunk(delta, latest)
+                    function nodeToMarkdown(node) {
+                        if (!node) return "";
+                        if (node.nodeType === Node.TEXT_NODE) {
+                            return node.textContent || "";
+                        }
+                        if (node.nodeType !== Node.ELEMENT_NODE) return "";
 
-                        # Check if generation stopped (stop button turned back to send button)
-                        stop_btn = page.locator("div[role='button']:has(svg.stop-icon), [class*='stop-button']")
-                        if stop_btn.count() == 0 and elapsed > 2.0:
+                        const tag = node.tagName.toLowerCase();
+
+                        // Headings
+                        if (tag === "h1") return "\\n\\n# " + Array.from(node.childNodes).map(nodeToMarkdown).join("").trim() + "\\n\\n";
+                        if (tag === "h2") return "\\n\\n## " + Array.from(node.childNodes).map(nodeToMarkdown).join("").trim() + "\\n\\n";
+                        if (tag === "h3") return "\\n\\n### " + Array.from(node.childNodes).map(nodeToMarkdown).join("").trim() + "\\n\\n";
+                        if (tag === "h4") return "\\n\\n#### " + Array.from(node.childNodes).map(nodeToMarkdown).join("").trim() + "\\n\\n";
+                        if (tag === "h5") return "\\n\\n##### " + Array.from(node.childNodes).map(nodeToMarkdown).join("").trim() + "\\n\\n";
+                        if (tag === "h6") return "\\n\\n###### " + Array.from(node.childNodes).map(nodeToMarkdown).join("").trim() + "\\n\\n";
+
+                        // Paragraphs & Blockquotes
+                        if (tag === "p") return "\\n\\n" + Array.from(node.childNodes).map(nodeToMarkdown).join("").trim() + "\\n\\n";
+                        if (tag === "blockquote") return "\\n\\n> " + Array.from(node.childNodes).map(nodeToMarkdown).join("").trim() + "\\n\\n";
+
+                        // Bold / Italic / Code
+                        if (tag === "strong" || tag === "b") return "**" + Array.from(node.childNodes).map(nodeToMarkdown).join("").trim() + "**";
+                        if (tag === "em" || tag === "i") return "*" + Array.from(node.childNodes).map(nodeToMarkdown).join("").trim() + "*";
+                        if (tag === "code" && node.parentNode && node.parentNode.tagName.toLowerCase() === "pre") {
+                            return "\\n```\\n" + (node.textContent || "") + "\\n```\\n";
+                        }
+                        if (tag === "code") return "`" + (node.textContent || "") + "`";
+                        if (tag === "pre") return "\\n```\\n" + (node.textContent || "") + "\\n```\\n";
+
+                        // Lists
+                        if (tag === "ul") {
+                            const items = Array.from(node.children).filter(c => c.tagName.toLowerCase() === "li");
+                            return "\\n\\n" + items.map(li => "- " + Array.from(li.childNodes).map(nodeToMarkdown).join("").trim()).join("\\n") + "\\n\\n";
+                        }
+                        if (tag === "ol") {
+                            const items = Array.from(node.children).filter(c => c.tagName.toLowerCase() === "li");
+                            return "\\n\\n" + items.map((li, idx) => (idx + 1) + ". " + Array.from(li.childNodes).map(nodeToMarkdown).join("").trim()).join("\\n") + "\\n\\n";
+                        }
+                        if (tag === "li") {
+                            return Array.from(node.childNodes).map(nodeToMarkdown).join("").trim();
+                        }
+
+                        // Tables
+                        if (tag === "table") {
+                            const rows = Array.from(node.querySelectorAll("tr"));
+                            if (rows.length === 0) return "";
+                            let md = "\\n\\n";
+                            let headerProcessed = false;
+                            rows.forEach((tr) => {
+                                const ths = Array.from(tr.querySelectorAll("th"));
+                                const tds = Array.from(tr.querySelectorAll("td"));
+                                const cells = (ths.length > 0 ? ths : tds).map(c => Array.from(c.childNodes).map(nodeToMarkdown).join("").trim().replace(/\\n+/g, " "));
+                                if (cells.length > 0) {
+                                    md += "| " + cells.join(" | ") + " |\\n";
+                                    if (!headerProcessed && ths.length > 0) {
+                                        md += "| " + cells.map(() => ":---").join(" | ") + " |\\n";
+                                        headerProcessed = true;
+                                    }
+                                }
+                            });
+                            return md + "\\n\\n";
+                        }
+
+                        // Links
+                        if (tag === "a") {
+                            const href = node.getAttribute("href") || "";
+                            const text = Array.from(node.childNodes).map(nodeToMarkdown).join("").trim();
+                            return href ? `[${text}](${href})` : text;
+                        }
+
+                        // Ignore citation badges / buttons from DeepSeek web search
+                        if (tag === "button" || (node.getAttribute && node.getAttribute("data-type") === "citation") || (node.className && typeof node.className === "string" && (node.className.includes("citation") || node.className.includes("cite")))) {
+                            return "";
+                        }
+
+                        // Default: iterate children
+                        return Array.from(node.childNodes).map(nodeToMarkdown).join("");
+                    }
+
+                    const rawMd = nodeToMarkdown(lastEl).trim();
+                    const cleanMd = rawMd.replace(/ +-(?:\d+)(?:-\d+)*(?=\s|$|[.,!?)\]])/g, "");
+                    return cleanMd.replace(/\n{3,}/g, "\n\n");
+                }
+                """
+                latest = page.evaluate(extract_script)
+                if latest and latest != prompt and len(latest) > 0:
+                    final_answer = latest
+
+                    # Real-time streaming to UI as text appears on the web page
+                    if on_chunk and len(latest) > len(last_sent_text):
+                        delta = latest[len(last_sent_text):]
+                        last_sent_text = latest
+                        on_chunk(delta, latest)
+                        stable_ticks = 0
+                    else:
+                        stable_ticks += 1
+
+                        # Robust completion detection: Text must have stabilized for at least 6 ticks (1.8s)
+                        # and generation must have been running for at least 4.0s
+                        if len(final_answer) >= 80 and stable_ticks >= 6 and elapsed >= 4.0:
+                            logger.info(f"⚡ [DeepSeekWebAgent] Text stabilized ({len(final_answer)} chars), generation concluded.")
+                            break
+                        elif stable_ticks >= 12 and elapsed >= 5.0:
+                            # Fallback if answer is naturally short but completely stopped
                             break
             except Exception:
                 pass

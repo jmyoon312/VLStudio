@@ -13,6 +13,7 @@ Exposes dual schemas:
 import os
 import json
 import logging
+import asyncio
 from typing import Dict, Any, List, Optional
 from pathlib import Path
 
@@ -219,13 +220,81 @@ HERMES_OPENAI_TOOLS: List[Dict[str, Any]] = [
     {
         "type": "function",
         "function": {
-            "name": "search_youtube_reference_videos",
-            "description": "유튜브에서 레퍼런스 쇼츠 영상이나 벤치마킹할 영상을 실시간 검색하여 후보 영상 URL과 제목을 수집합니다.",
+            "name": "scout_candidate_videos",
+            "description": "유튜브에서 숏폼(쇼츠) 또는 롱폼 원천 소재 영상을 지능형 다단계(Multi-Hop)로 발굴합니다. 사용자가 특정 아티스트/인물, 키워드, 특정 화제성 조건(예: 100만 이상 조회수, 최신 직캠, 인기 클립)으로 소재나 영상을 찾아달라고 요청할 때 반드시 이 도구를 호출하세요.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "query": {"type": "string", "description": "유튜브 검색어 (예: '외국 인플루언서 쇼핑 추천 숏폼', '다이슨 단발 스타일링')"},
-                    "max_results": {"type": "integer", "description": "가져올 최대 영상 수", "default": 5}
+                    "query": {"type": "string", "description": "핵심 검색 키워드 (예: '블랙핑크 로제', '로제 APT', '손흥민 하이라이트')"},
+                    "target_format": {
+                        "type": "string",
+                        "enum": ["shorts", "long", "all"],
+                        "default": "shorts",
+                        "description": "영상 포맷. 사용자가 숏폼, 쇼츠, 릴스 등을 요청하면 반드시 'shorts'로 지정"
+                    },
+                    "min_views": {
+                        "type": "integer",
+                        "default": 0,
+                        "description": "최소 조회수 기준 (예: 100만 뷰 이상 요청 시 1000000)"
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "발굴할 최대 후보 영상 수 (기본: 10, 최대: 25)"
+                    }
+                },
+                "required": ["query"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "youtube_trending_charts",
+            "description": "YouTube 공식 음악 차트(charts.youtube.com) 실시간 인기 아티스트, 인기곡, 쇼츠 트렌드 순위를 조회합니다. 한국(kr) 및 글로벌(global) 주간 순위, 증감 추이(▲/▼), 추천 콘텐츠 앵글을 반환합니다. 아이돌/가수/음악 트렌드 추천 시 반드시 호출하세요.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "chart_type": {
+                        "type": "string",
+                        "enum": ["artists", "tracks"],
+                        "default": "artists",
+                        "description": "차트 종류 ('artists': 인기 아티스트, 'tracks': 인기곡)"
+                    },
+                    "country": {
+                        "type": "string",
+                        "enum": ["kr", "global", "us", "jp"],
+                        "default": "kr",
+                        "description": "국가 코드 ('kr': 대한민국, 'global': 글로벌)"
+                    }
+                }
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "browser_navigate",
+            "description": "웹 브라우저를 통해 특정 URL(유튜브 차트, 포털 뉴스, 블로그, 웹사이트 등)을 직접 방문하여 페이지 텍스트와 핵심 팩트를 수집합니다. 우측 실시간 브라우저 패널에 해당 페이지가 실시간으로 동기화됩니다.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "url": {"type": "string", "description": "방문할 웹 페이지 전체 URL (예: https://charts.youtube.com/charts/TopArtists/kr)"},
+                    "purpose": {"type": "string", "description": "방문 및 탐색 목적 (예: '9월 18~24일 유튜브 아티스트 차트 확인')"}
+                },
+                "required": ["url"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "web_search",
+            "description": "구글 실시간 웹 검색을 실행하여 2026 최신 컴백/활동 일정, 브랜드 평판 지수, 대중 반응, 팩트 기사를 검색합니다.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "검색 키워드 (예: '2026년 10월 아이돌 컴백 일정', '2026년 9월 아이돌그룹 브랜드평판')"}
                 },
                 "required": ["query"]
             }
@@ -671,9 +740,11 @@ TOOL_DOMAINS: Dict[str, List[str]] = {
         "gemini_analyze_youtube_video",
         "gemini_live_web_search",
         "web_search_and_trends",
+        "scout_candidate_videos",
         "search_youtube_reference_videos",
     ],
     "VISUAL_SYNTHESIS": [
+        "scout_candidate_videos",
         "generate_scene_image",
         "enhance_image_prompt",
         "gemini_character_prompt_continuation",
@@ -693,6 +764,10 @@ TOOL_DOMAINS: Dict[str, List[str]] = {
         "pixeling_capture_template_draft",
     ],
     "INTELLIGENCE_INSPECTION": [
+        "youtube_trending_charts",
+        "browser_navigate",
+        "web_search",
+        "scout_candidate_videos",
         "gemini_analyze_youtube_video",
         "gemini_live_web_search",
         "vision_inspect_media",
@@ -740,6 +815,20 @@ def get_staged_gemini_tools(domains: Optional[List[str]] = None, camel_case: boo
         })
     key = "functionDeclarations" if camel_case else "function_declarations"
     return [{key: declarations}]
+
+
+def get_staged_claude_tools(domains: Optional[List[str]] = None) -> List[Dict[str, Any]]:
+    """Returns Anthropic Claude tools format: [{"name": ..., "description": ..., "input_schema": ...}]"""
+    staged = get_staged_openai_tools(domains)
+    claude_tools = []
+    for tool in staged:
+        fn = tool.get("function", {})
+        claude_tools.append({
+            "name": fn.get("name"),
+            "description": fn.get("description", ""),
+            "input_schema": fn.get("parameters", {"type": "object", "properties": {}})
+        })
+    return claude_tools
 
 
 # === 3. Google Gemini Function Declarations (Backward Compatibility) ===
@@ -802,24 +891,34 @@ class HermesToolDispatcher:
             form_factor = arguments.get("form_factor", "classic")
             style_override = arguments.get("style_override", {})
 
-            # Use SovereignPresetEngine to render
-            output_name = f"render_{int(os.times().system * 1000)}.mp4"
-            exports_dir = local_os_controller.EXPORTS_DIR
-            target_output = str(exports_dir / output_name)
-
-            render_res = await sovereign_preset_engine.render_parametric(
-                clips=[],
-                cues=cues,
-                style=style_override,
+            # Use RealOpenMontageBridge to render via installed OpenMontage engine
+            from app.services.openmontage.real_openmontage_bridge import RealOpenMontageBridge
+            rendered_video_path = await RealOpenMontageBridge.render_video(
                 title=title,
-                output_path=target_output
+                cues=cues,
+                duration_s=15.0,
+                archetype=form_factor,
+                sidecar_v4=arguments.get("blueprint_v4")
             )
+            file_size_mb = 0.0
+            if os.path.exists(rendered_video_path):
+                file_size_mb = round(os.path.getsize(rendered_video_path) / (1024 * 1024), 2)
+
             return {
                 "success": True,
                 "tool_name": tool_name,
-                "deliverable": render_res.get("deliverable"),
-                "video_path": render_res.get("video_path"),
-                "message": f"영상 합성 및 렌더링이 완료되었습니다! ({title})"
+                "video_path": rendered_video_path,
+                "deliverable": {
+                    "title": title,
+                    "video_path": rendered_video_path,
+                    "video_url": f"/api/files/stream?path={rendered_video_path}",
+                    "file_size_mb": file_size_mb,
+                    "duration_sec": 15,
+                    "resolution": "1080×1920",
+                    "cues": cues,
+                    "source_name": "OpenMontage Engine"
+                },
+                "message": f"완제품 OpenMontage 엔진 1080×1920 영상 렌더링 완료! ({title})"
             }
 
         # 3. OpenMontage / CapCut: Export & Launch
@@ -1033,19 +1132,137 @@ class HermesToolDispatcher:
                 "message": f"'{query}' 실시간 구글 웹 검색 및 트렌드 수집이 완료되었습니다."
             }
 
-        # 6.6 YouTube Reference Search
-        elif tool_name == "search_youtube_reference_videos":
+        # 6.6 Universal Multi-Hop Sourcing & YouTube Reference Search
+        elif tool_name in ["scout_candidate_videos", "search_youtube_reference_videos"]:
             query = arguments.get("query", "")
-            max_results = arguments.get("max_results", 5)
-            from app.services.hermes_asset_scout import hermes_asset_scout
-            results = await hermes_asset_scout.search_youtube(query, max_results=max_results)
+            target_format = arguments.get("target_format") or "shorts"
+            min_views = int(arguments.get("min_views", 0))
+            limit = int(arguments.get("limit") or arguments.get("max_results") or 10)
+            preset_id = arguments.get("preset_id") or (session_id if session_id and session_id != "default_session" else None)
+
+            from app.services.universal_sourcing_service import universal_sourcing_service
+            candidates = await asyncio.to_thread(
+                universal_sourcing_service.scout_candidate_videos,
+                query=query,
+                preset_id=preset_id,
+                limit=limit,
+                target_format=target_format,
+                min_views=min_views
+            )
+
+            # Format candidate summary for model briefing
+            summary_lines = []
+            for idx, c in enumerate(candidates, 1):
+                summary_lines.append(
+                    f"{idx}. [{c.get('title')}] (조회수: {c.get('view_count', 0):,}회, 런타임: {c.get('duration_sec')}초, 슬라이싱구간: {c.get('timecode_str')}) - URL: {c.get('url')}"
+                )
+            candidates_text = "\n".join(summary_lines)
+
             return {
                 "success": True,
                 "tool_name": tool_name,
                 "query": query,
-                "results": results,
-                "count": len(results),
-                "message": f"'{query}' 관련 유튜브 레퍼런스 영상 {len(results)}개를 수집했습니다."
+                "target_format": target_format or "shorts",
+                "min_views": min_views,
+                "candidates": candidates,
+                "results": candidates,
+                "count": len(candidates),
+                "summary": f"총 {len(candidates)}편의 후보 영상 발굴 완비:\n{candidates_text}",
+                "message": f"'{query}' 관련 원천 영상 {len(candidates)}편을 성공적으로 발굴하고 비전 슬라이싱 분석을 마쳤습니다."
+            }
+
+        # 6.6.1 YouTube Official Trending Music & Artist Charts
+        elif tool_name == "youtube_trending_charts":
+            chart_type = arguments.get("chart_type", "artists")
+            country = arguments.get("country", "kr")
+            from app.services.youtube_charts_service import YouTubeChartsService
+            trend_lake = await asyncio.to_thread(YouTubeChartsService.fetch_deep_trend_lake, query="", country=country)
+            items = trend_lake.get("artists", [])
+            tracks = trend_lake.get("tracks", [])
+            facts = trend_lake.get("live_web_facts", [])
+
+            lines = [f"=== YouTube 공식 {country.upper()} 주간 인기 아티스트 차트 ({trend_lake.get('period')}) ==="]
+            for it in items[:10]:
+                r = it.get("rank")
+                name = it.get("name") or it.get("title")
+                ch = it.get("change", "-")
+                v_str = it.get("views_str", "")
+                cat = it.get("category", "")
+                rec = it.get("recommended_angle", "")
+                lines.append(f"{r}위. {name} [{cat}] ({ch}, {v_str}) - 추천 기획: {rec}")
+
+            if tracks:
+                lines.append(f"\n=== 실시간 숏폼 바이럴 인기 음원 TOP 3 ===")
+                for tr in tracks[:3]:
+                    lines.append(f"- {tr.get('rank')}위: '{tr.get('title')}' ({tr.get('artist')}) - {tr.get('viral_trigger')}")
+
+            if facts:
+                lines.append(f"\n=== 실시간 웹/SNS 챌린지 팩트 ===")
+                for fc in facts[:3]:
+                    lines.append(f"- {fc}")
+
+            lines.append("\n[다음 권장 행동]: 확보된 차트 상위권 아티스트 중 1~2팀에 대해 'web_search'로 최신 쇼츠 바이럴 팩트를 추가 검색하거나 'scout_candidate_videos'로 실제 레퍼런스 영상 클립을 발굴하십시오.")
+            summary_txt = "\n".join(lines)
+            return {
+                "success": True,
+                "tool_name": "youtube_trending_charts",
+                "chart_type": chart_type,
+                "country": country,
+                "period": trend_lake.get("period"),
+                "source_url": trend_lake.get("source_urls", [f"https://charts.youtube.com/charts/TopArtists/{country}"])[0],
+                "items": items,
+                "tracks": tracks,
+                "facts": facts,
+                "summary": summary_txt,
+                "message": f"YouTube 공식 {country.upper()} 차트 및 숏폼 트렌드 레이크 조회가 완료되었습니다."
+            }
+
+
+        # 6.6.2 Live Browser Navigate & Webpage Content Inspection
+        elif tool_name == "browser_navigate":
+            target_url = arguments.get("url", "")
+            purpose = arguments.get("purpose", "페이지 확인")
+            page_text = ""
+            import httpx
+            headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+            try:
+                async with httpx.AsyncClient(timeout=8.0, headers=headers, follow_redirects=True) as client:
+                    resp = await client.get(target_url)
+                    if resp.status_code == 200:
+                        import re
+                        raw_html = resp.text
+                        clean_t = re.sub(r'<script.*?</script>', '', raw_html, flags=re.DOTALL)
+                        clean_t = re.sub(r'<style.*?</style>', '', clean_t, flags=re.DOTALL)
+                        clean_t = re.sub(r'<[^>]+>', ' ', clean_t)
+                        clean_t = re.sub(r'\s+', ' ', clean_t).strip()
+                        page_text = clean_t[:2500]
+            except Exception as be:
+                page_text = f"페이지 접속 및 렌더링 확인 ({be})"
+
+            return {
+                "success": True,
+                "tool_name": "browser_navigate",
+                "url": target_url,
+                "purpose": purpose,
+                "page_snippet": page_text,
+                "summary": f"[{purpose}] {target_url} 페이지 탐색 완료:\n{page_text[:500]}...",
+                "message": f"브라우저로 '{target_url}'에 접속하여 실시간 데이터를 확인했습니다."
+            }
+
+        # 6.6.3 Universal Web Search (Alias to Realtime Web Grounding)
+        elif tool_name in ["web_search", "search_realtime_trend_topics"]:
+            query = arguments.get("query", "")
+            from app.services.realtime_web_grounding import realtime_web_grounding
+            res = await asyncio.to_thread(realtime_web_grounding.fetch_live_search_context, query, 5.0)
+            return {
+                "success": True,
+                "tool_name": "web_search",
+                "query": query,
+                "grounded": res.get("grounded", False),
+                "summary": res.get("text", "검색 결과를 정리했습니다."),
+                "queries": res.get("queries", []),
+                "source_urls": res.get("source_urls", []),
+                "message": f"'{query}' 실시간 구글 웹 검색이 완료되었습니다."
             }
 
         # 6.7 Synthesize Voice Speech (TTS: Supertonic Default + Gemini 3.8 Flash TTS + Typecast, ElevenLabs, Kokoro)

@@ -301,12 +301,12 @@ def compile_ass_subtitles(
     vg = dict(style.get("visual_geometry", {}))
     if bp_v4:
         gl = bp_v4.get("globalLayers", [])
-        tb_layer = next((l for l in gl if l.get("id") == "top_bar_bg"), None)
-        bb_layer = next((l for l in gl if l.get("id") == "bottom_bar_bg"), None)
-        t1_layer = next((l for l in gl if l.get("id") == "title_line1"), None)
-        t2_layer = next((l for l in gl if l.get("id") == "title_line2"), None)
-        sub_layer = next((l for l in gl if l.get("id") == "subtitle_main"), None)
-        src_layer = next((l for l in gl if l.get("id") == "bottom_source"), None)
+        tb_layer = next((l for l in gl if l.get("id") in ("top_bar_bg", "layer_top_bar")), None)
+        bb_layer = next((l for l in gl if l.get("id") in ("bottom_bar_bg", "layer_bottom_bar")), None)
+        t1_layer = next((l for l in gl if l.get("id") in ("title_line1", "layer_title_line1")), None)
+        t2_layer = next((l for l in gl if l.get("id") in ("title_line2", "layer_title_line2")), None)
+        sub_layer = next((l for l in gl if l.get("id") in ("subtitle_main", "layer_subtitles")), None)
+        src_layer = next((l for l in gl if l.get("id") in ("bottom_source", "layer_source_credit")), None)
 
         if tb_layer and "top_bar" not in vg:
             vg["top_bar"] = {
@@ -368,16 +368,19 @@ def compile_ass_subtitles(
     if vg and isinstance(vg, dict):
         cap = vg.get("caption", DEFAULT_STYLE["caption"])
         header_lines_cfg = vg.get("top_header_lines", [])
-        raw_top_y = vg.get("top_title_y_pct", 8.0 if is_floating_capsule else 5.5)
-        # Dynamic safe-zone clamping: guarantees title never clips under notch/search bar
-        top_y_pct = max(10.5, min(14.5, float(raw_top_y)))
+        raw_top_y = vg.get("top_title_y_pct", 3.2 if vg.get("top_bar", {}).get("enabled") else (8.0 if is_floating_capsule else 5.5))
+        # When top_bar is active, title sits inside top bar (e.g. 2.5% ~ 6.0%)
+        has_top_bar = bool(vg.get("top_bar", {}).get("enabled"))
+        min_top_y = 2.5 if has_top_bar else 8.0
+        top_y_pct = max(min_top_y, min(14.5, float(raw_top_y)))
         title = {
             "enabled": True,
             "size_px": header_lines_cfg[0].get("size_px", 32) * 2 if header_lines_cfg else 72,
             "color": header_lines_cfg[0].get("color", "#FFFFFF") if header_lines_cfg else "#FFFFFF",
-            "box_color": vg.get("top_bar", {}).get("bg_color") if not is_floating_capsule else None,
+            "font_family": header_lines_cfg[0].get("font_family", "Hakgyoansim Kosyeom") if header_lines_cfg else "Malgun Gothic",
+            "box_color": None if has_top_bar else (vg.get("top_bar", {}).get("bg_color") if not is_floating_capsule else None),
             "margin_v_pct": top_y_pct,
-            "outline_px": 7
+            "outline_px": 5
         }
     else:
         cap = style.get("caption", DEFAULT_STYLE["caption"])
@@ -396,7 +399,9 @@ def compile_ass_subtitles(
     cap_align = align_map.get(cap.get("position", "bottom"), 2)
     # Dynamic safe-zone clamping for bottom subtitles: guarantees clear headroom above channel title & sound info
     raw_cap_margin = float(cap.get("margin_v_pct", 18))
-    safe_cap_margin_pct = max(22.0, min(32.0, raw_cap_margin))
+    has_bottom_bar = bool(vg.get("bottom_bar", {}).get("enabled"))
+    max_cap_margin = 36.0 if has_bottom_bar else 32.0
+    safe_cap_margin_pct = max(22.0, min(max_cap_margin, raw_cap_margin))
     cap_margin_v = round(h * safe_cap_margin_pct / 100)
 
     # 1단 & 2단 타이틀 스타일 추출
@@ -600,10 +605,12 @@ class SovereignPresetEngine:
         style: Dict[str, Any],
         title: Optional[str] = None,
         output_path: Optional[str] = None,
-        audio_path: Optional[str] = None
+        audio_path: Optional[str] = None,
+        engine: str = "remotion"
     ) -> Dict[str, Any]:
         """
-        Renders a video with parametric preset (ASS subtitles, clip zoom, audio track, FFmpeg).
+        Renders a video with parametric preset.
+        Supports both 'remotion' (Studio WebFonts, HyperFrames, Perfect Typography) and 'ffmpeg' (libass fallback).
         """
         out_size_key = style.get("output", {}).get("size", "1080x1920")
         dims = OUTPUT_SIZES.get(out_size_key, {"width": 1080, "height": 1920})
@@ -637,6 +644,95 @@ class SovereignPresetEngine:
                         "end_ms": round(float(sc.get("end", 0)) * 1000)
                     })
 
+        # 🚀 [Primary Engine: Remotion Headless with HyperFrames & WebFonts]
+        if engine == "remotion":
+            try:
+                from app.services.remotion_renderer import remotion_renderer
+                project_id = hashlib.md5(f"{datetime.now().isoformat()}".encode()).hexdigest()[:8]
+                
+                # Build Remotion Blueprint
+                rem_bp = dict(bp_v4) if bp_v4 else {
+                    "schemaVersion": "viraloop-blueprint/v4.0",
+                    "presetId": style.get("presetId", "custom_remotion_preset"),
+                    "archetype": "classic_ilbunilcho" if "일분일초" in style.get("presetId", "") else "classic",
+                    "globalLayers": [],
+                    "scenes": []
+                }
+
+                if title and "globalLayers" in rem_bp:
+                    t_parts = title.split("\n")
+                    rem_bp["globalLayers"].append({
+                        "id": "layer_title_line1",
+                        "content": t_parts[0] if len(t_parts) > 0 else "",
+                        "fontColor": "#FFE500",
+                        "fontSize": 82
+                    })
+                    if len(t_parts) > 1:
+                        rem_bp["globalLayers"].append({
+                            "id": "layer_title_line2",
+                            "content": t_parts[1],
+                            "fontColor": "#FF2222",
+                            "fontSize": 82
+                        })
+
+                if "scenes" not in rem_bp or not rem_bp["scenes"]:
+                    rem_bp["scenes"] = []
+
+                rem_bp["cues"] = cues
+                if not rem_bp["scenes"] and clips:
+                    for i, c in enumerate(clips):
+                        s_cue = cues[i].get("text", "") if i < len(cues) else ""
+                        rem_bp["scenes"].append({
+                            "id": f"scene_{i}",
+                            "source_path": c.get("source_path"),
+                            "start": c.get("start_ms", 0) / 1000.0,
+                            "end": c.get("end_ms", 10000) / 1000.0,
+                            "narration": s_cue
+                        })
+                elif cues and not rem_bp["scenes"]:
+                    for i, cu in enumerate(cues):
+                        rem_bp["scenes"].append({
+                            "id": f"scene_{i}",
+                            "source_path": clips[0].get("source_path") if clips else None,
+                            "start": cu.get("start_ms", 0) / 1000.0,
+                            "end": cu.get("end_ms", 3000) / 1000.0,
+                            "narration": cu.get("text", "")
+                        })
+
+                rem_res = await remotion_renderer.render_blueprint_v4(
+                    project_id=f"rem_{project_id}",
+                    blueprint_v4=rem_bp,
+                    output_mp4_path=output_path
+                )
+
+                if rem_res.get("success"):
+                    rendered_mp4 = rem_res.get("video_path")
+                    conformance = self.verify_media_conformance(rendered_mp4, expected_w=w, expected_h=h, expected_fps=int(fps))
+                    receipt_path = rendered_mp4.replace(".mp4", ".preset.json")
+                    receipt = {
+                        "schema_version": 1,
+                        "engine": "remotion",
+                        "created_at": datetime.now().isoformat(),
+                        "output_path": rendered_mp4,
+                        "output_sha256": self._sha256(rendered_mp4),
+                        "style": style,
+                        "checks": conformance
+                    }
+                    with open(receipt_path, "w", encoding="utf-8") as f:
+                        json.dump(receipt, f, indent=2, ensure_ascii=False)
+
+                    return {
+                        "success": True,
+                        "engine": "remotion",
+                        "output_path": rendered_mp4,
+                        "receipt_path": receipt_path,
+                        "conformance": conformance
+                    }
+                else:
+                    logger.warning(f"Remotion render failed, falling back to FFmpeg: {rem_res.get('error')}")
+            except Exception as e:
+                logger.warning(f"Remotion dispatch exception, falling back to FFmpeg: {e}")
+
         # 1. Calculate duration
         total_duration_ms = 0
         for clip in clips:
@@ -666,8 +762,8 @@ class SovereignPresetEngine:
         vg = dict(style.get("visual_geometry", {}))
         if bp_v4:
             gl = bp_v4.get("globalLayers", [])
-            tb_layer = next((l for l in gl if l.get("id") == "top_bar_bg"), None)
-            bb_layer = next((l for l in gl if l.get("id") == "bottom_bar_bg"), None)
+            tb_layer = next((l for l in gl if l.get("id") in ("top_bar_bg", "layer_top_bar")), None)
+            bb_layer = next((l for l in gl if l.get("id") in ("bottom_bar_bg", "layer_bottom_bar")), None)
             if tb_layer and "top_bar" not in vg:
                 vg["top_bar"] = {
                     "enabled": not tb_layer.get("hidden", False),

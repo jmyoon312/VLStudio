@@ -67,7 +67,7 @@ def _is_valid_deepseek_session(acc_dir: Path) -> bool:
             for c in cookies:
                 c_name = str(c.get("name", ""))
                 c_val = str(c.get("value", ""))
-                if c_name in ["userToken", "ds_token", "auth_token"] and len(c_val) > 20 and "null" not in c_val:
+                if c_name in ["userToken", "ds_token", "auth_token", "ds_session_id", "smidV2"] and len(c_val) > 15 and "null" not in c_val:
                     return True
         except Exception:
             pass

@@ -463,7 +463,11 @@ def _sync_deepseek_auth(vault: Dict[str, Any]):
         logger.warning(f"Error syncing deepseek auth: {e}")
 
 
-def _load_vault() -> Dict[str, Any]:
+_LAST_SYNC_TIME = 0
+
+
+def _load_vault(force_sync: bool = False) -> Dict[str, Any]:
+    global _LAST_SYNC_TIME
     vault = None
     if ACCOUNTS_STORE_FILE.exists():
         try:
@@ -471,6 +475,11 @@ def _load_vault() -> Dict[str, Any]:
                 vault = json.load(f)
         except Exception as e:
             logger.warning(f"Failed to read ai_accounts_vault: {e}")
+
+    now = time.time()
+    if vault and not force_sync and (now - _LAST_SYNC_TIME < 120):
+        return vault
+
     if not vault:
         # Default initial schema
         vault = {
@@ -541,6 +550,7 @@ def _load_vault() -> Dict[str, Any]:
     _sync_claude_auth(vault)
     _sync_deepseek_auth(vault)
     _save_vault(vault)
+    _LAST_SYNC_TIME = time.time()
     return vault
 
 

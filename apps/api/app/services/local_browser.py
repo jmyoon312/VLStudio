@@ -183,7 +183,9 @@ def main():
     except Exception as pref_e:
         logger.warning(f"Could not inject download preferences: {pref_e}")
 
-    logger.info(f"Launching CloakBrowser at '{profile_dir}' -> {url} (Proxy: {proxy}, Ext: {proxy_ext_dir}, Downloads: {user_downloads})")
+    # Resolve CloakBrowser Pro license key
+    from cloakbrowser.license import resolve_license_key
+    pro_license_key = resolve_license_key()
 
     ctx = launch_persistent_context(
         user_data_dir=profile_dir,
@@ -192,6 +194,7 @@ def main():
         args=browser_args,
         downloads_path=user_downloads,
         accept_downloads=True,
+        license_key=pro_license_key,
     )
 
     # Robust Download & Explorer auto-open handler

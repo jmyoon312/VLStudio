@@ -2756,28 +2756,9 @@ function startBackendHealthMonitor() {
 
 function killProcessOnPort(port) {
   try {
-    if (process.platform === 'win32') {
-      const output = execSyncRaw(`netstat -ano`, { encoding: 'utf8' })
-      const lines = output.split('\n')
-      for (const line of lines) {
-        if (line.includes(`:${port}`) && line.includes('LISTENING')) {
-          const parts = line.trim().split(/\s+/)
-          const pid = parts[parts.length - 1]
-          if (pid && pid !== '0') {
-            console.log(`[Orchestration] Found zombie process ${pid} listening on port ${port}. Terminating process tree...`)
-            try {
-              execSyncRaw(`taskkill /F /T /PID ${pid} 2>NUL`)
-            } catch (err) {
-              console.warn(`[Orchestration] Failed to kill process tree for ${pid}:`, err.message)
-            }
-          }
-        }
-      }
-    } else {
-      try {
-        execSyncRaw(`lsof -t -i:${port} | xargs kill -9 2>/dev/null`)
-      } catch {}
-    }
+    const pythonExe = 'C:\\ViraLoopMedia\\VLStudio\\venv\\Scripts\\python.exe';
+    const pyScript = "import psutil; [p.kill() for p in psutil.process_iter(['cmdline']) if p.info.get('cmdline') and 'app.main:app' in ' '.join(p.info['cmdline'])]; [psutil.Process(c.pid).kill() for c in psutil.net_connections(kind='inet') if c.laddr and c.laddr.port == " + port + " and c.pid]";
+    execSyncRaw(`"${pythonExe}" -c "${pyScript}" 2>NUL`);
   } catch (err) {
     // ignore
   }

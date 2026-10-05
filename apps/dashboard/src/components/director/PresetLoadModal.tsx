@@ -34,8 +34,10 @@ import { PresetCustomizeModal } from '../presets/PresetCustomizeModal';
 import { PresetFolderItem, DEFAULT_PRESET_FOLDERS } from '../presets/SavePresetToFolderModal';
 
 interface PresetLoadModalProps {
-    open: boolean;
-    onOpenChange: (open: boolean) => void;
+    open?: boolean;
+    isOpen?: boolean;
+    onOpenChange?: (open: boolean) => void;
+    onClose?: () => void;
     activePresetId?: string | null;
     onSelectPreset: (preset: SovereignPreset) => void;
 }
@@ -46,11 +48,18 @@ type TabType = 'all' | 'personal' | 'pixeling' | 'favorites';
 type ViewMode = 'big_card' | 'small_card' | 'list';
 
 export const PresetLoadModal: React.FC<PresetLoadModalProps> = ({
-    open,
-    onOpenChange,
+    open: propOpen,
+    isOpen: propIsOpen,
+    onOpenChange: propOnOpenChange,
+    onClose: propOnClose,
     activePresetId,
     onSelectPreset,
 }) => {
+    const isModalOpen = Boolean(propOpen ?? propIsOpen);
+    const handleOpenChange = (nextOpen: boolean) => {
+        if (propOnOpenChange) propOnOpenChange(nextOpen);
+        if (!nextOpen && propOnClose) propOnClose();
+    };
     const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState<TabType>('all');
     const [selectedFolder, setSelectedFolder] = useState<string>('all');
@@ -176,11 +185,11 @@ export const PresetLoadModal: React.FC<PresetLoadModalProps> = ({
     }, []);
 
     useEffect(() => {
-        if (open) {
+        if (isModalOpen) {
             fetchFolders();
             fetchPresets();
         }
-    }, [open, activeTab, selectedFolder, sortBy]);
+    }, [isModalOpen, activeTab, selectedFolder, sortBy]);
 
     const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
         if (e.key === 'Enter') {
@@ -190,7 +199,7 @@ export const PresetLoadModal: React.FC<PresetLoadModalProps> = ({
 
     const handleSelect = (preset: SovereignPreset) => {
         onSelectPreset(preset);
-        onOpenChange(false);
+        handleOpenChange(false);
         toast.success(`[${preset.name}] 프리셋이 적용 대화창에 연결되었습니다.`);
     };
 
@@ -203,7 +212,7 @@ export const PresetLoadModal: React.FC<PresetLoadModalProps> = ({
 
     return (
         <>
-            <Dialog open={open} onOpenChange={onOpenChange}>
+            <Dialog open={isModalOpen} onOpenChange={handleOpenChange}>
                 <DialogContent className="max-w-6xl w-[95vw] p-0 gap-0 overflow-hidden bg-card border-border/80 shadow-2xl rounded-2xl max-h-[90vh] flex flex-col">
                     {/* Header */}
                     <div className="px-6 pt-5 pb-3 border-b border-border/60">

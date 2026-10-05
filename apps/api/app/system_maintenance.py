@@ -13,6 +13,7 @@ from apscheduler.triggers.interval import IntervalTrigger
 
 from .database import SessionLocal
 from . import crud
+from .utils.python_env import get_venv_python
 
 
 class SystemMaintenance:
@@ -68,8 +69,9 @@ class SystemMaintenance:
 
             def _run_update():
                 creationflags = 0x08000000 if hasattr(subprocess, 'CREATE_NO_WINDOW') else 0
+                py_exe = get_venv_python()
                 return subprocess.run(
-                    [sys.executable, '-m', 'pip', 'install', '--upgrade', 'yt-dlp'],
+                    [py_exe, '-m', 'pip', 'install', '--upgrade', 'yt-dlp'],
                     capture_output=True,
                     text=True,
                     creationflags=creationflags,

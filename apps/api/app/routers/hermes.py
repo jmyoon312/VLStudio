@@ -224,8 +224,10 @@ async def stream_director_execution(request: dict):
     attached_images = request.get("attached_images", [])
 
     import importlib
+    import app.agent.hermes_core.components.director_stream_router as dsr_mod
     import app.agent.hermes_core.conversational_director as cd_mod
     try:
+        importlib.reload(dsr_mod)
         importlib.reload(cd_mod)
     except Exception as re_err:
         logger.debug(f"[Hermes] Hot-reload notice: {re_err}")

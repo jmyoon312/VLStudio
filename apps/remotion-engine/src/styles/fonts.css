@@ -1,0 +1,56 @@
+/* 0. 여기어때 잘난체 (Jalnan) - 일분일초 오리지널 시그니처 폰트 */
+@font-face {
+  font-family: 'YeogiOttaeJalnan';
+  src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_four@1.2/JalnanOTF00.woff') format('woff');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* 1. Sandoll 어그로체 (SB Aggro Bold) - 유튜브 숏폼 대제목 & 썸네일 표준 */
+@font-face {
+  font-family: 'SBAggroB';
+  src: url('https://fastly.jsdelivr.net/gh/projectnoonnu/noonfonts_2108@1.1/SBAggroB.woff') format('woff');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* 2. 지마켓 산스 볼드 (Gmarket Sans Bold) - 묵직한 고딕 대제목 */
+@font-face {
+  font-family: 'GmarketSansBold';
+  src: url('https://fastly.jsdelivr.net/gh/projectnoonnu/noonfonts_2001@1.1/GmarketSansBold.woff') format('woff');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* 3. 티웨이 항공체 (tway air) - 가독성 높은 헤드라인 */
+@font-face {
+  font-family: 'twayair';
+  src: url('https://fastly.jsdelivr.net/gh/projectnoonnu/noonfonts_tway@1.0/twayair.woff') format('woff');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* 4. 배달의민족 도현체 (BM DOHYEON) - 일분일초 시그니처 숏폼 자막 */
+@font-face {
+  font-family: 'BMDOHYEON';
+  src: url('https://fastly.jsdelivr.net/gh/projectnoonnu/noonfonts_one@1.0/BMDOHYEON.woff') format('woff');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* 5. 에스코어 드림 9 블랙 (S-Core Dream 9 Black) */
+@font-face {
+  font-family: 'SCoreDream';
+  src: url('https://fastly.jsdelivr.net/gh/projectnoonnu/noonfonts_six@1.2/S-CoreDream-9Black.woff') format('woff');
+  font-weight: 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* 6. 프리텐다드 (Pretendard) - 모던 기본 고딕 */
+@import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css");

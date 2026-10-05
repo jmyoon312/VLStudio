@@ -111,8 +111,8 @@ export const DirectorHeader: React.FC<DirectorHeaderProps> = ({
                 {/* Optional Target Channel Selector */}
                 {channelSelectorElement}
 
-                {/* Active Preset Chip */}
-                {activePreset && onOpenPresetModal && (
+                {/* Active Preset Chip or Preset Open Button */}
+                {activePreset ? (
                     <button
                         type="button"
                         onClick={onOpenPresetModal}
@@ -122,7 +122,17 @@ export const DirectorHeader: React.FC<DirectorHeaderProps> = ({
                         <Sliders className="w-3.5 h-3.5" />
                         <span className="truncate max-w-[100px]">{activePreset.name}</span>
                     </button>
-                )}
+                ) : onOpenPresetModal ? (
+                    <button
+                        type="button"
+                        onClick={onOpenPresetModal}
+                        className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted/60 border border-border/80 transition-all cursor-pointer shadow-2xs"
+                        title="프리셋 보관함 열기"
+                    >
+                        <Sliders className="w-3.5 h-3.5 text-primary" />
+                        <span>프리셋</span>
+                    </button>
+                ) : null}
 
                 {/* Text Speech Synthesis Mute / Unmute Toggle */}
                 {onToggleVoiceMute && (

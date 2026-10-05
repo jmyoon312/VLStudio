@@ -32,6 +32,7 @@ export interface CommentCardConfig {
   yPct?: number;
   bgColor?: string;
   textColor?: string;
+  fontSize?: number;
   borderRadius?: number;
   offsetX?: number;
   offsetY?: number;
@@ -192,6 +193,15 @@ export const CommentCardInspectorForm: React.FC<CommentCardInspectorFormProps> =
                           value={commentCard.text ?? ''}
                           onChange={(e) => setCommentCard(prev => ({ ...prev, text: e.target.value }))}
                           className="w-full h-16 text-xs p-2 bg-background border-border text-foreground rounded-[2px] resize-none focus:border-primary"
+                        />
+                        <UnitSliderControl
+                          label="댓글 본문 글자 크기"
+                          value={commentCard.fontSize ?? 28}
+                          min={18}
+                          max={52}
+                          step={2}
+                          unit="px"
+                          onChange={(v) => setCommentCard(prev => ({ ...prev, fontSize: v }))}
                         />
                       </div>
 

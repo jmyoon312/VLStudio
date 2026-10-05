@@ -82,20 +82,26 @@ class ChannelDNAService:
                 if not target_fetch_url.endswith("/shorts") and not target_fetch_url.endswith("/videos"):
                     target_fetch_url = f"{target_fetch_url}/shorts"
 
-                ytdlp_cmd = [
-                    "yt-dlp",
-                    "--flat-playlist",
-                    "-J",
-                    "--playlist-end", "50",
-                    target_fetch_url
-                ]
-                proc = subprocess.run(ytdlp_cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=35)
-                if proc.returncode != 0 or not proc.stdout.strip():
-                    ytdlp_cmd[-1] = channel_url
-                    proc = subprocess.run(ytdlp_cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=35)
+                import yt_dlp
+                from app.utils.ytdlp_utils import get_standard_ytdlp_opts
 
-                if proc.returncode == 0 and proc.stdout.strip():
-                    channel_data = json.loads(proc.stdout)
+                scan_opts = get_standard_ytdlp_opts({
+                    'extract_flat': True,
+                    'playlistend': 50,
+                })
+                channel_data = {}
+                try:
+                    with yt_dlp.YoutubeDL(scan_opts) as ydl:
+                        channel_data = ydl.extract_info(target_fetch_url, download=False) or {}
+                except Exception as scan_err:
+                    logger.warning(f"[ChannelDNA] Primary scan warning: {scan_err}")
+                    try:
+                        with yt_dlp.YoutubeDL(scan_opts) as ydl:
+                            channel_data = ydl.extract_info(channel_url, download=False) or {}
+                    except Exception as fallback_err:
+                        logger.error(f"[ChannelDNA] Fallback scan error: {fallback_err}")
+
+                if channel_data:
                     actual_channel_title = channel_data.get("channel") or channel_data.get("uploader") or channel_name
                     raw_entries = [e for e in channel_data.get("entries", []) if e and e.get("id")]
                     
@@ -143,18 +149,15 @@ class ChannelDNAService:
                         t_target_mp4 = download_channel_dir / f"{t_vid}.mp4"
                         if not t_target_mp4.exists() or t_target_mp4.stat().st_size < 50000:
                             try:
-                                dl_cmd = [
-                                    "yt-dlp",
-                                    "--extractor-args", "youtube:player_client=android,web",
-                                    "-f", "b[height<=1080]/bestvideo+bestaudio/best",
-                                    "--no-playlist",
-                                    "--no-check-certificates",
-                                    "-o", str(t_target_mp4),
-                                    f"https://www.youtube.com/shorts/{t_vid}"
-                                ]
-                                subprocess.run(dl_cmd, capture_output=True, timeout=90)
+                                dl_opts = get_standard_ytdlp_opts({
+                                    'format': 'bestvideo+bestaudio/best',
+                                    'outtmpl': str(t_target_mp4),
+                                    'noplaylist': True,
+                                })
+                                with yt_dlp.YoutubeDL(dl_opts) as ydl:
+                                    ydl.download([f"https://www.youtube.com/shorts/{t_vid}"])
                             except Exception as dl_err:
-                                logger.warning(f"[ChannelDNA] Download error for {t_vid}: {dl_err}")
+                                logger.warning(f"[ChannelDNA] In-process download error for {t_vid}: {dl_err}")
                         if t_target_mp4.exists() and t_target_mp4.stat().st_size > 50000:
                             return {"id": t_vid, "status": "completed", "local_path": str(t_target_mp4.resolve()), "entry": task_entry}
                         return {"id": t_vid, "status": "failed", "local_path": None, "entry": task_entry}
@@ -357,9 +360,9 @@ class ChannelDNAService:
             if downloaded_video_paths:
                 from app.services.media_intelligence.core import media_intelligence
                 import asyncio
-                for v_p in downloaded_video_paths[:4]:
+                for v_p in downloaded_video_paths[:2]:
                     try:
-                        tr_res = asyncio.run(media_intelligence.extract_speech_transcript(Path(v_p)))
+                        tr_res = asyncio.run(media_intelligence.extract_speech_transcript(Path(v_p), max_duration_sec=30.0))
                         if tr_res and tr_res.get("full_text"):
                             extracted_transcripts.append(tr_res["full_text"])
                     except Exception as stt_err:

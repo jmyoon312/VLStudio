@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Film, Play, CheckCircle2, Download, Sparkles, ExternalLink, ShieldCheck, ChevronDown, ChevronUp, Copy, Check } from 'lucide-react';
 import { toast } from 'sonner';
+import { handleImageErrorWithFallback } from '@/lib/utils';
 
 export interface SourceCandidate {
   title: string;
@@ -119,6 +120,7 @@ export const SourceCandidateCard: React.FC<SourceCandidateCardProps> = ({
               src={candidate.thumbnail_url}
               alt={candidate.title}
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+              onError={handleImageErrorWithFallback}
             />
           ) : (
             <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground">

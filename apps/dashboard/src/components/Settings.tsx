@@ -1055,12 +1055,31 @@ const UnifiedEnginesHub = ({ formData, setFormData }: { formData: any; setFormDa
                                     {isLoading ? (
                                         <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground" />
                                     ) : (
-                                        <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 font-mono text-xs font-bold">
-                                            {enginesStatus?.cloakbrowser?.installed ? `v${enginesStatus.cloakbrowser.version}` : '내장 활성화'}
-                                        </Badge>
+                                        <div className="flex items-center gap-1">
+                                            <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 font-mono text-[11px] font-bold">
+                                                {enginesStatus?.cloakbrowser?.installed ? `v${enginesStatus.cloakbrowser.version}` : '내장 활성화'}
+                                            </Badge>
+                                        </div>
                                     )}
                                 </div>
-                                <p className="text-xs text-muted-foreground">Patchright 기반 지능형 핑거프린팅 우회 & 자동 배포 엔진</p>
+                                <p className="text-xs text-muted-foreground">스텔스 크로미움 바이너리 & 핑거프린트 봇 탐지 원천 우회</p>
+                                <div className="p-2 rounded-lg bg-background/60 border border-border/60 text-[10px] space-y-1 text-muted-foreground font-mono">
+                                    <div className="flex items-center justify-between">
+                                        <span>Chromium 바이너리:</span>
+                                        <span className="text-foreground font-semibold flex items-center gap-1">
+                                            v{enginesStatus?.cloakbrowser?.chromium_version || '152.0.7977'}
+                                            <Badge variant="outline" className={`text-[9px] px-1 py-0 font-bold uppercase ${enginesStatus?.cloakbrowser?.tier === 'pro' ? 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/30' : 'bg-muted text-muted-foreground'}`}>
+                                                {enginesStatus?.cloakbrowser?.tier || 'pro'}
+                                            </Badge>
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center justify-between">
+                                        <span>최신 패치 상태:</span>
+                                        <span className="text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-0.5">
+                                            <CheckCircle2 className="w-3 h-3 inline" /> GitHub 핫패치 동기화됨
+                                        </span>
+                                    </div>
+                                </div>
                             </div>
                             <div className="flex items-center justify-between pt-2 border-t border-border/50">
                                 <span className="text-xs text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">

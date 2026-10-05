@@ -460,6 +460,7 @@ export function getInspectorGroupsForMode(mode: string = 'classic') {
             { id: 'title' as const, label: '제목' },
             { id: 'metadata' as const, label: '메타' },
             { id: 'divider' as const, label: '구분선' },
+            { id: 'pepeMeme' as const, label: '페페 밈' },
             { id: 'style' as const, label: '자막' },
             { id: 'commentCard' as const, label: '댓글' },
             { id: 'sourceCredit' as const, label: '출처' },

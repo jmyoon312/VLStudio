@@ -108,14 +108,15 @@ class CapCutGenerator:
         self.audio_track["segments"].append(segment)
         return mat_id
 
-    def add_text_segment(self, content, start_time_sec, duration_sec):
-        """자막/텍스트 세그먼트 추가"""
+    def add_text_segment(self, content=None, start_time_sec=0, duration_sec=3.0, text=None):
+        """자막/텍스트 세그먼트 추가 (content 또는 text 허용)"""
         mat_id = str(uuid.uuid4()).upper()
+        actual_text = str(content if content is not None else (text or ""))
         
         # CapCut Text Material은 JSON 내부 JSON 문자열을 사용함
         text_content = {
-            "text": content,
-            "styles": [{"range": [0, len(content)], "size": 15}]
+            "text": actual_text,
+            "styles": [{"range": [0, len(actual_text)], "size": 15}]
         }
         
         self.data["materials"]["texts"].append({
@@ -135,6 +136,11 @@ class CapCutGenerator:
         }
         self.text_track["segments"].append(segment)
         return mat_id
+
+    def generate_draft_json(self):
+        """CapCut 프로젝트 draft_content.json 딕셔너리 반환"""
+        self.data["duration"] = self.duration
+        return self.data
 
     def save_project(self, output_path):
         """최종 JSON 저장"""

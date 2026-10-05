@@ -93,18 +93,17 @@ export const TAB_DEFINITIONS: Record<DockTab, {
     color: string;
     description: string;
 }> = {
-    menu: { label: '홈', shortLabel: '홈', icon: Home, color: 'text-primary', description: '실시간 AI 작업 관찰 데스크 & 퀵 액션' },
-    board: { label: '자율 보드', shortLabel: '보드', icon: LayoutGrid, color: 'text-violet-500', description: '8대 하수인 실시간 파이프라인 관제 보드' },
-    template: { label: '템플릿 캔버스', shortLabel: '템플릿', icon: Layout, color: 'text-indigo-500', description: '9:16 라이브 화면 템플릿 실시간 렌더링' },
-    preview: { label: '영상 재생', shortLabel: '영상 재생', icon: Play, color: 'text-rose-500', description: '9:16 화면 꽉 찬 쇼츠 플레이어' },
-    browser: { label: '브라우저', shortLabel: '브라우저', icon: Globe, color: 'text-cyan-500', description: 'AI 실시간 웹 탐색 & 9:16 모바일 뷰' },
-    vision: { label: '비전 실측', shortLabel: '비전 실측', icon: Eye, color: 'text-amber-500', description: 'OmniRoute 키프레임 & 시각 요소 실측' },
-    files: { label: '작업 파일', shortLabel: '작업 파일', icon: FileText, color: 'text-blue-500', description: '02_Operations 작업 디렉토리 탐색기' },
-    backlot: { label: '완성 영상', shortLabel: '완성 영상', icon: Film, color: 'text-purple-500', description: '05_Exports 최종 완성본 영상 보관함' },
-    // Retained for backward-compatibility if programmatically triggered
-    terminal: { label: '인터랙션', shortLabel: '인터랙션', icon: Terminal, color: 'text-emerald-500', description: '로컬 OS 커맨드 & 인터랙티브 콘솔' },
-    cross_diff: { label: 'AI 크로스', shortLabel: '크로스', icon: Sparkles, color: 'text-purple-500', description: '아스트라 지능 + 제미나이 물리 교차 검증' },
-    local_pc: { label: '로컬 PC', shortLabel: '로컬PC', icon: Cpu, color: 'text-emerald-500', description: 'GPU/CPU 런타임 & 포트 통신 상태' },
+    browser: { label: '브라우저', shortLabel: '브라우저', icon: Globe, color: 'text-cyan-500', description: 'AI 실시간 웹 탐색 & 모바일 뷰' },
+    files: { label: '탐색기', shortLabel: '탐색기', icon: Folder, color: 'text-blue-500', description: '작업 자원 및 파일 탐색기' },
+    backlot: { label: '영상 보관함', shortLabel: '영상 보관함', icon: Film, color: 'text-purple-500', description: '최종 완성본 및 영상 보관함' },
+    preview: { label: '영상 재생', shortLabel: '재생', icon: Play, color: 'text-rose-500', description: '쇼츠 영상 플레이어' },
+    menu: { label: '홈', shortLabel: '홈', icon: Home, color: 'text-primary', description: '작업 관찰 데스크' },
+    board: { label: '자율 보드', shortLabel: '보드', icon: LayoutGrid, color: 'text-violet-500', description: '관제 보드' },
+    template: { label: '템플릿', shortLabel: '템플릿', icon: Layout, color: 'text-indigo-500', description: '템플릿 캔버스' },
+    vision: { label: '비전', shortLabel: '비전', icon: Eye, color: 'text-amber-500', description: '비전 실측' },
+    terminal: { label: '콘솔', shortLabel: '콘솔', icon: Terminal, color: 'text-emerald-500', description: '콘솔' },
+    cross_diff: { label: '크로스', shortLabel: '크로스', icon: Sparkles, color: 'text-purple-500', description: '교차 검증' },
+    local_pc: { label: '로컬 PC', shortLabel: '로컬PC', icon: Cpu, color: 'text-emerald-500', description: '런타임 상태' },
 };
 
 export const DirectorRightPanel: React.FC<DirectorRightPanelProps> = ({
@@ -114,6 +113,7 @@ export const DirectorRightPanel: React.FC<DirectorRightPanelProps> = ({
     onClearActiveVideo,
     onSelectVideo,
     onAttachFile,
+    onOpenAgentSoul,
     commandLogs = [],
     browserSnapshot,
     visionData,
@@ -121,7 +121,7 @@ export const DirectorRightPanel: React.FC<DirectorRightPanelProps> = ({
     governanceMode = 'full_auto',
     onToggleGovernanceMode,
     onExecuteManualCommand,
-    defaultTab = 'menu',
+    defaultTab = 'browser',
     activeTab,
     onTabChange,
     threadId,
@@ -183,9 +183,13 @@ export const DirectorRightPanel: React.FC<DirectorRightPanelProps> = ({
     const [filesTypeFilter, setFilesTypeFilter] = useState<'all' | 'video' | 'image' | 'audio' | 'data'>('all');
     const [filesSearch, setFilesSearch] = useState('');
     const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>({
-        '01_Inbox': true,
-        '02_Operations': true,
-        '05_Exports': false
+        'active_analysis_workspace': true,
+        '01_Inbox': false,
+        '02_Operations': false,
+        '03_Assets': false,
+        '05_Exports': false,
+        '07_Downloads': true,
+        '08_Intelligence': true
     });
     const toggleFolderExpand = (folderId: string) => {
         setExpandedFolders(prev => ({
@@ -488,10 +492,7 @@ export const DirectorRightPanel: React.FC<DirectorRightPanelProps> = ({
                 {/* 5 Core Production Tabs (Auto-Proportional, Zero Truncation, 100% Readable) */}
                 <div className="flex items-center gap-1 flex-1 min-w-0 py-0.5">
                     {([
-                        'menu', 
-                        'board',
                         'browser', 
-                        'vision', 
                         'files', 
                         'backlot',
                         ...(activeVideo ? ['preview' as DockTab] : [])
@@ -852,8 +853,9 @@ export const DirectorRightPanel: React.FC<DirectorRightPanelProps> = ({
                         {/* Folders & Categorized Visual Cards */}
                         <div className="space-y-2.5 flex-1 overflow-y-auto pr-0.5">
                             {(() => {
-                                const targetCats = fileScope === 'thread' && threadId
-                                    ? workspaceCategories.filter((c: any) => c.id === 'current_thread' || c.id.startsWith('thread_'))
+                                const threadCats = workspaceCategories.filter((c: any) => c.id === 'current_thread' || c.id.startsWith('thread_') || c.id.startsWith('forensic_'));
+                                const targetCats = fileScope === 'thread'
+                                    ? (threadCats.some((c: any) => (c.files?.length || 0) > 0) ? threadCats : workspaceCategories)
                                     : workspaceCategories;
 
                                 const totalFilesInScope = targetCats.reduce((acc: number, c: any) => acc + (c.files?.length || 0), 0);
@@ -976,6 +978,19 @@ export const DirectorRightPanel: React.FC<DirectorRightPanelProps> = ({
                                                                             </div>
                                                                             <div className="flex items-center gap-1.5 shrink-0">
                                                                                 <span className="text-[10px] text-muted-foreground font-mono tabular-nums">{file.size_mb}MB</span>
+                                                                                {file.name.endsWith('.html') && (
+                                                                                    <button
+                                                                                        type="button"
+                                                                                        onClick={() => {
+                                                                                            setBrowserUrl(file.stream_url);
+                                                                                            setBrowserMode('live');
+                                                                                            setActiveDockTab('browser');
+                                                                                        }}
+                                                                                        className="px-2 py-0.5 rounded-md bg-cyan-600 text-white text-[10px] font-bold shadow-2xs hover:bg-cyan-500 transition-colors cursor-pointer"
+                                                                                    >
+                                                                                        보고서 보기
+                                                                                    </button>
+                                                                                )}
                                                                                 {isVid && onSelectVideo && (
                                                                                     <button
                                                                                         type="button"
@@ -1299,16 +1314,34 @@ export const DirectorRightPanel: React.FC<DirectorRightPanelProps> = ({
                             </div>
                         )}
 
-                        {/* Live iframe View (Clean Google Universal Frame) */}
+                        {/* Live iframe View */}
                         {browserMode === 'live' && (
-                            <div className="flex-1 rounded-xl border border-border/80 overflow-hidden bg-background min-h-[360px]">
+                            <div className="flex-1 rounded-xl border border-border/80 overflow-hidden bg-background min-h-[360px] flex flex-col">
+                                <div className="flex items-center justify-between px-3 py-1.5 bg-muted/60 border-b border-border text-xs shrink-0">
+                                    <div className="flex items-center gap-1.5 min-w-0 flex-1 mr-2">
+                                        <Globe className="w-3.5 h-3.5 text-primary shrink-0" />
+                                        <span className="font-mono text-muted-foreground truncate text-[11px]">
+                                            {browserUrl}
+                                        </span>
+                                    </div>
+                                    <a
+                                        href={browserUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-primary/10 hover:bg-primary/20 text-primary transition-colors shrink-0 cursor-pointer"
+                                        title="새 브라우저 창으로 열기"
+                                    >
+                                        <span>새 창 열기</span>
+                                        <ExternalLink className="w-3 h-3" />
+                                    </a>
+                                </div>
                                 <iframe 
                                     key={iframeKey}
-                                    src={browserUrl.startsWith('http') ? browserUrl : `https://www.google.com/search?igu=1&q=${encodeURIComponent(browserUrl)}`}
-                                    className="w-full h-full border-none min-h-[360px]"
+                                    src={browserUrl.startsWith('http') ? browserUrl : `https://www.youtube.com/results?search_query=${encodeURIComponent(browserUrl)}`}
+                                    className="w-full h-full border-none min-h-[360px] flex-1"
                                     title="Embedded Browser Frame"
-                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
-                                    sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-modals"
+                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+                                    sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-modals allow-presentation"
                                     referrerPolicy="no-referrer"
                                 />
                             </div>

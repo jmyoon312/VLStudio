@@ -342,15 +342,18 @@ class OpenAIAccountPool:
                             new_acc = new_data.get("access_token")
                             new_ref = new_data.get("refresh_token") or ref_tok
                             if new_acc:
-                                toks["access_token"] = new_acc
-                                toks["refresh_token"] = new_ref
-                                d["tokens"] = toks
-                                d["last_refresh"] = time.time()
-                                auth_f.write_text(json.dumps(d, indent=2, ensure_ascii=False), encoding="utf-8")
                                 logger.info(f"🔄 [OpenAIAccountPool] {email} OAuth 토큰 자동 갱신 성공")
                                 return new_acc
                 except Exception as re:
                     logger.debug(f"OpenAI token refresh failed for {email}: {re}")
+
+            # Do NOT return an expired token! Return None if token is invalid or expired
+            if acc_tok:
+                claims = self._extract_claims_from_token(acc_tok)
+                exp = claims.get("exp", 0)
+                if exp and (exp < time.time()):
+                    logger.warning(f"⚠️ [OpenAIAccountPool] {email} access token expired and refresh failed. Skipping account.")
+                    return None
 
             return acc_tok
         except Exception as e:

@@ -44,8 +44,9 @@ import {
     MessageSquare,
     Dna,
     LayoutTemplate,
-    Film,
-    Palette
+    Palette,
+    Bot,
+    Film
 } from 'lucide-react';
 
 import { LoopieNavIcon } from '../components/director/LoopieAvatar';

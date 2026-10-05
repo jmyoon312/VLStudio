@@ -16,22 +16,49 @@ import {
     Key
 } from 'lucide-react';
 import { ProviderAccountModal } from './ProviderAccountModal';
+import api from '@/lib/api';
+
+const STORAGE_VAULT_KEY = 'vl_ai_accounts_vault_cache';
+
+const getInitialVaultData = (initialData?: any) => {
+    if (initialData && Object.keys(initialData).length > 0) return initialData;
+    try {
+        const cached = localStorage.getItem(STORAGE_VAULT_KEY);
+        if (cached) {
+            const parsed = JSON.parse(cached);
+            if (parsed && typeof parsed === 'object') return parsed;
+        }
+    } catch {
+        // ignore
+    }
+    return {};
+};
 
 interface IntegratedSettingsModalProps {
-    open: boolean;
-    onOpenChange: (open: boolean) => void;
+    open?: boolean;
+    isOpen?: boolean;
+    onOpenChange?: (open: boolean) => void;
+    onClose?: () => void;
     onOpenProviderModal?: (providerKey: string) => void;
     initialProvidersData?: any;
 }
 
 export const IntegratedSettingsModal: React.FC<IntegratedSettingsModalProps> = ({
     open,
+    isOpen,
     onOpenChange,
+    onClose,
     onOpenProviderModal,
     initialProvidersData,
 }) => {
+    const isModalOpen = open !== undefined ? open : (isOpen || false);
+    const handleOpenChange = (nextOpen: boolean) => {
+        if (onOpenChange) onOpenChange(nextOpen);
+        if (!nextOpen && onClose) onClose();
+    };
+
     const [activeTab, setActiveTab] = useState<'accounts' | 'general' | 'storage'>('accounts');
-    const [providersData, setProvidersData] = useState<any>(initialProvidersData || {});
+    const [providersData, setProvidersData] = useState<any>(() => getInitialVaultData(initialProvidersData));
     const [loading, setLoading] = useState(false);
 
     // Selected provider modal
@@ -41,28 +68,46 @@ export const IntegratedSettingsModal: React.FC<IntegratedSettingsModalProps> = (
     const fetchAccounts = async () => {
         setLoading(true);
         try {
+            // 1. Try standardized axios api client first
+            const res = await api.get('/ai-accounts');
+            if (res.data && typeof res.data === 'object' && Object.keys(res.data).length > 0) {
+                setProvidersData(res.data);
+                try {
+                    localStorage.setItem(STORAGE_VAULT_KEY, JSON.stringify(res.data));
+                } catch {}
+                return;
+            }
+        } catch (e) {
+            console.warn('api.get(/ai-accounts) notice, trying fallback fetch:', e);
+        }
+
+        // 2. Direct fetch fallback
+        try {
             const res = await fetch('/api/ai-accounts');
             if (res.ok) {
                 const data = await res.json();
-                if (data && typeof data === 'object') {
+                if (data && typeof data === 'object' && Object.keys(data).length > 0) {
                     setProvidersData(data);
+                    try {
+                        localStorage.setItem(STORAGE_VAULT_KEY, JSON.stringify(data));
+                    } catch {}
                 }
             }
-        } catch (e) {
-            console.error('Failed to load accounts in integrated settings:', e);
+        } catch (fe) {
+            console.error('Failed to load accounts in integrated settings:', fe);
         } finally {
             setLoading(false);
         }
     };
 
     useEffect(() => {
-        if (open) {
+        if (isModalOpen) {
             if (initialProvidersData && Object.keys(initialProvidersData).length > 0) {
                 setProvidersData(initialProvidersData);
             }
             fetchAccounts();
         }
-    }, [open, initialProvidersData]);
+    }, [isModalOpen, initialProvidersData]);
 
     const handleManageProvider = (key: string) => {
         // Direct reliable modal opening without unmounting collision
@@ -84,7 +129,7 @@ export const IntegratedSettingsModal: React.FC<IntegratedSettingsModalProps> = (
 
     return (
         <>
-            <Dialog open={open} onOpenChange={onOpenChange}>
+            <Dialog open={isModalOpen} onOpenChange={handleOpenChange}>
                 <DialogContent className="max-w-3xl p-0 gap-0 overflow-hidden bg-card border-border/80 shadow-2xl rounded-2xl flex flex-col md:flex-row max-h-[85vh]">
                     {/* Left Settings Sidebar */}
                     <div className="w-full md:w-56 p-4 border-b md:border-b-0 md:border-r border-border/60 bg-muted/20 flex flex-col justify-between">

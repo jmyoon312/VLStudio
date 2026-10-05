@@ -40,16 +40,16 @@ export interface DirectorMessageData {
 
 async function requestWithFallback<T>(path: string, method: 'get' | 'post' | 'put' | 'delete' = 'get', body?: any): Promise<T> {
     try {
-        const primaryUrl = `/sovereign-presets/director${path}`;
+        const primaryUrl = `/director${path}`;
         const res = method === 'get' ? await api.get(primaryUrl)
             : method === 'post' ? await api.post(primaryUrl, body)
             : method === 'put' ? await api.put(primaryUrl, body)
             : await api.delete(primaryUrl);
         return res.data;
     } catch (err: any) {
-        if (err.response?.status === 404) {
-            // Fallback to /director path
-            const fallbackUrl = `/director${path}`;
+        if (err.response?.status === 404 || err.response?.status === 500) {
+            // Fallback to /sovereign-presets/director path
+            const fallbackUrl = `/sovereign-presets/director${path}`;
             const res = method === 'get' ? await api.get(fallbackUrl)
                 : method === 'post' ? await api.post(fallbackUrl, body)
                 : method === 'put' ? await api.put(fallbackUrl, body)
@@ -85,6 +85,7 @@ export const directorSessionService = {
     },
 
     async createThread(data: {
+        id?: string;
         project_id?: string;
         title?: string;
         preset_id?: string;
@@ -105,7 +106,10 @@ export const directorSessionService = {
 
     // Messages
     async getThreadMessages(threadId: string): Promise<DirectorMessageData[]> {
-        return requestWithFallback<DirectorMessageData[]>(`/threads/${threadId}/messages`);
+        const res = await requestWithFallback<any>(`/threads/${threadId}/messages`);
+        if (Array.isArray(res)) return res;
+        if (res && Array.isArray(res.messages)) return res.messages;
+        return [];
     },
 
     async saveThreadMessage(threadId: string, message: DirectorMessageData): Promise<{ status: string; message: DirectorMessageData }> {

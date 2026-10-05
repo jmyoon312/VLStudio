@@ -123,16 +123,23 @@ export const EditorStateManager: React.FC<EditorStateManagerProps> = ({
   const futureRef = useRef<VLStandardBlueprintV4[]>([]);
 
   // 1. 상태 변경 및 히스토리 기록
-  const setBlueprint = useCallback((next: VLStandardBlueprintV4, recordHistory = true) => {
-    setBlueprintState((prev) => {
-      if (recordHistory) {
-        historyRef.current = [...historyRef.current.slice(-MAX_HISTORY_STEPS + 1), prev];
-        futureRef.current = [];
-      }
-      setDirty(true);
-      return next;
-    });
-  }, []);
+  const setBlueprint = useCallback(
+    (
+      nextOrUpdater: VLStandardBlueprintV4 | ((prev: VLStandardBlueprintV4) => VLStandardBlueprintV4),
+      recordHistory = true
+    ) => {
+      setBlueprintState((prev) => {
+        const next = typeof nextOrUpdater === "function" ? nextOrUpdater(prev) : nextOrUpdater;
+        if (recordHistory) {
+          historyRef.current = [...historyRef.current.slice(-MAX_HISTORY_STEPS + 1), prev];
+          futureRef.current = [];
+        }
+        setDirty(true);
+        return next;
+      });
+    },
+    []
+  );
 
   const undo = useCallback(() => {
     if (historyRef.current.length === 0) return;

@@ -40,29 +40,35 @@ class HermesAssetScout:
         return shutil.which("yt-dlp") or "yt-dlp"
 
     @classmethod
-    async def search_youtube(cls, query: str, max_results: int = 5) -> List[Dict[str, Any]]:
+    async def search_youtube(cls, query: str, max_results: int = 10) -> List[Dict[str, Any]]:
         """
-        Search YouTube in real-time and return structured video candidates.
+        Search YouTube in real-time and return rich, structured video candidates
+        ranked by relevance, view count, and recency.
         """
         ytdlp = cls._get_ytdlp_path()
-        search_target = f"ytsearch{max_results}:{query}"
+        # 불필요한 서술어 간단 정제
+        clean_q = re.sub(r'[\.,]?\s*(?:찾아줘|찾아봐|찾아|수집해줘|수집|검색해줘|검색|보여줘|소재).*$', '', query).strip()
+        search_q = clean_q if clean_q else query
+
+        fetch_count = max(max_results * 2, 15)
+        search_target = f"ytsearch{fetch_count}:{search_q}"
         cmd = [
             ytdlp,
             "--dump-json",
-            "--default-search", f"ytsearch{max_results}",
+            "--default-search", f"ytsearch{fetch_count}",
             search_target,
             "--skip-download",
             "--no-playlist"
         ]
 
-        logger.info(f"🔍 [HermesScout] Searching YouTube for: '{query}'")
+        logger.info(f"🔍 [HermesScout] Searching YouTube (fetch up to {fetch_count}): '{search_q}'")
         try:
             proc = await asyncio.create_subprocess_exec(
                 *cmd,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE
             )
-            stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=35)
+            stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=40)
             
             results = []
             for line in stdout.decode("utf-8", errors="ignore").splitlines():
@@ -71,20 +77,35 @@ class HermesAssetScout:
                     continue
                 try:
                     data = json.loads(line)
+                    v_id = data.get("id")
+                    if not v_id:
+                        continue
+                    view_count = int(data.get("view_count") or 0)
+                    upload_date = str(data.get("upload_date") or "")
+                    
                     results.append({
-                        "id": data.get("id"),
-                        "title": data.get("title"),
-                        "url": data.get("webpage_url") or f"https://www.youtube.com/watch?v={data.get('id')}",
+                        "id": v_id,
+                        "title": data.get("title", ""),
+                        "url": data.get("webpage_url") or f"https://www.youtube.com/watch?v={v_id}",
                         "duration": data.get("duration", 0),
                         "duration_string": data.get("duration_string", "0:00"),
                         "channel": data.get("uploader", "Unknown"),
                         "thumbnail": data.get("thumbnail"),
-                        "view_count": data.get("view_count", 0),
+                        "view_count": view_count,
+                        "upload_date": upload_date,
                     })
                 except Exception as parse_err:
                     logger.debug(f"JSON line parse skipped: {parse_err}")
 
-            return results
+            # 조회수와 최신성을 고려한 우선 정렬
+            def candidate_weight(c):
+                vc = c.get("view_count", 0)
+                ud = c.get("upload_date", "")
+                recency_boost = 500000 if ud.startswith("2025") or ud.startswith("2026") else 0
+                return vc + recency_boost
+
+            results.sort(key=candidate_weight, reverse=True)
+            return results[:max_results]
         except Exception as e:
             logger.error(f"YouTube search failed for query '{query}': {e}")
             return []
